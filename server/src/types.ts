@@ -1,4 +1,5 @@
-export type TaskStatus = 'queued' | 'running' | 'waiting' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
+export type TaskStatus = 'queued' | 'running' | 'waiting' | 'needs_project' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
+export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string };
 export type Idea = { id: string; text: string; createdAt: string; taskId: string | null };
 export type Project = { id: string; name: string; path: string; context: string };
 export type Memory = { id: string; text: string; updatedAt: string };
@@ -7,10 +8,11 @@ export type Approval = { id: string; method: string; title: string; detail: stri
 export type TaskEvent = { id: string; kind: string; text: string; at: string };
 export type WorkItem = {
   id: string; title: string; prompt: string; projectId: string | null; cwd: string;
-  agent: string; mode: 'research' | 'code'; status: TaskStatus; createdAt: string; updatedAt: string;
+  agent: string; mode: 'auto' | 'research' | 'code'; status: TaskStatus; createdAt: string; updatedAt: string;
   durableId: number | null; threadId: string | null; turnId: string | null;
   result: string; error: string | null; events: TaskEvent[]; approvals: Approval[];
   artifact: string | null; lastRequestId: string;
+  workspaceRequest?: string | null; messages?: ChatMessage[];
 };
 export type Workspace = {
   revision: number; ideas: Idea[]; projects: Project[]; memories: Memory[];
@@ -23,7 +25,9 @@ export type ExecutionUpdate =
   | { kind: 'output'; text: string }
   | { kind: 'event'; eventKind: string; text: string }
   | { kind: 'approval'; approval: Approval }
-  | { kind: 'approvalResolved'; id: string };
+  | { kind: 'approvalResolved'; id: string }
+  | { kind: 'workspace'; reason: string }
+  | { kind: 'idea'; id: string; text: string };
 export type ExecutionRequest = { task: WorkItem; prompt: string; signal: AbortSignal; update: (update: ExecutionUpdate) => Promise<void> };
 export interface Executor {
   run(request: ExecutionRequest): Promise<string>;

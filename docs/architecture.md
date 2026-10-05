@@ -21,13 +21,15 @@ Friday 保存长期产品状态，客户端负责交互，CLI 工具执行具体
 
 Pi Durable 不是 CLI 外部副作用的事务管理器。Friday 在启动外部 turn 前保存 external-started 标记与 thread ID；重启后不确定的 turn 需要用户继续。Pi Durable 的存储由单进程持有，另一个 SQLite writer transaction 用作会随进程退出而释放的占用锁。
 
-当前没有在 Pi 内额外运行一个自主规划模型。调研/代码任务直接委派 Codex；这保留了今后引入个人助理会话、模型规划、周期任务与其他 executor 的位置，也避免第一版重复支付两层模型的费用。
+当前没有在 Pi 内额外运行一个自主规划模型。用户直接与 Friday 对话，由同一 Codex 会话理解意图、回答或执行，不额外增加分类模型调用，也不使用关键词猜测任务类型。
+
+新对话采用内部 `auto` 模式：没有选定目录时只读运行，不能申请提权绕过选择。Codex 的动态工具 `friday_request_workspace` 把必要的目录问题交给界面，持久化为 `needs_project` 后释放执行队列；用户选择目录后在同一个 thread 中继续。`friday_save_idea` 只用于明确的记录请求，写入想法箱且不自动交办。旧的 research/code 任务和接口仍兼容。
 
 ## Codex 适配器
 
 通过 CLI 的 `app-server --listen stdio://` 使用 JSONL 双向 RPC。Friday 创建自己的原生 Codex thread，保存 ID 后启动 turn；继续任务使用 thread/resume，补充要求使用 turn/steer，停止使用 turn/interrupt 并结束连接。
 
-调研任务使用 read-only，代码任务使用 workspace-write；审批策略为 on-request、reviewer 为用户。工具请求只有在能显示具体范围时才接入；未知权限请求保守拒绝。CLI 原生的文件系统与网络隔离仍是实际执行边界，提示词只补充行为约定。
+未选择目录的新对话使用 read-only 和 never，防止通过授权请求绕过选目录；选择目录后使用 workspace-write 与 on-request、reviewer 为用户，只有用户提出修改要求时才应修改文件。旧调研任务仍只读。工具请求只有在能显示具体范围时才接入；未知权限请求保守拒绝。CLI 原生的文件系统与网络隔离仍是实际执行边界，提示词只补充行为约定。
 
 第一版管理的是 Friday 创建的任务。没有宣称能接管 Codex 桌面端、Claude Code 或其他工具已经打开的任意会话。
 
@@ -35,7 +37,7 @@ Pi Durable 不是 CLI 外部副作用的事务管理器。Friday 在启动外部
 
 | 层 | 内容 | 写入与读取 |
 | --- | --- | --- |
-| Session Memory | 当前任务的 thread、输出、执行记录 | 执行过程中写入，续聊复用原生会话 |
+| Session Memory | 当前任务的 thread、用户与助手消息、输出、执行记录 | 执行过程中写入，续聊复用原生会话；界面保留多轮问答 |
 | SQLite Long-term Memory | 用户明确保存的偏好、项目背景 | UI 中增改删；任务创建时注入当前快照 |
 | Skill Memory | `skills/*/SKILL.md` 中可复用工作流程 | 维护文件；按任务模式读取并固化到任务输入 |
 

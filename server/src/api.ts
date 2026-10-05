@@ -3,7 +3,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { streamSSE } from 'hono/streaming';
 import { randomUUID } from 'node:crypto';
 import { realpath, stat } from 'node:fs/promises';
-import { isAbsolute } from 'node:path';
+import { isAbsolute, basename } from 'node:path';
 import type { Engine } from './engine.js';
 import { Auth } from './auth.js';
 import { discoverAgents } from './agents.js';
@@ -84,9 +84,34 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     const body = await c.req.json();
     if (body.agent && body.agent !== 'codex') throw new Error('第一版目前仅支持 Codex 执行，其他工具只显示发现状态');
     if (!agents().find(a => a.id === 'codex')?.installed) throw new Error('主机上未找到 Codex');
-    if (!['research', 'code'].includes(body.mode)) throw new Error('任务类型无效');
-    const id = await engine.createTask({ prompt: text(body.prompt, '任务要求'), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode: body.mode, requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined });
+    const mode = body.mode ?? 'auto';
+    if (!['auto', 'research', 'code'].includes(mode)) throw new Error('任务类型无效');
+    const id = await engine.createTask({ prompt: text(body.prompt, '任务要求'), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode, requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined });
     return c.json({ id }, 201);
+  });
+  app.post('/api/tasks/:id/workspace', async c => {
+    const body = await c.req.json(); const requestId = text(body.requestId, '请求 ID', 100);
+    const state = await engine.snapshot(); const id = c.req.param('id');
+    if (Object.hasOwn(state.requests, requestId)) {
+      if (state.requests[requestId] !== id) throw new Error('请求 ID 已被其他任务使用');
+      return c.json({ id });
+    }
+    if (state.tasks.find(t => t.id === id)?.status !== 'needs_project') throw new Error('当前对话没有等待选择工作目录');
+    let projectId: string;
+    if (body.projectId) projectId = text(body.projectId, '项目 ID', 80);
+    else {
+      const path = text(body.path, '工作目录', 4096);
+      if (!isAbsolute(path) || !(await stat(path)).isDirectory()) throw new Error('请选择主机上存在的目录');
+      const resolved = await realpath(path); let selectedId = '';
+      await engine.mutate(s => {
+        let project = s.projects.find(p => p.path === resolved);
+        if (!project) { project = { id: randomUUID(), name: basename(resolved) || resolved, path: resolved, context: '' }; s.projects.push(project); }
+        selectedId = project.id;
+      });
+      projectId = selectedId;
+    }
+    await engine.createTask({ continueId: id, prompt: '就在我选择的这个工作目录里，继续刚才的请求。', projectId, mode: 'auto', requestId });
+    return c.json({ id });
   });
   app.post('/api/tasks/:id/cancel', async c => { await engine.cancel(c.req.param('id')); return c.json({ ok: true }); });
   app.post('/api/tasks/:id/message', async c => {

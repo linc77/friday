@@ -9,17 +9,25 @@ struct TaskEvent: Codable, Identifiable { let id: String; let kind: String; let 
 struct QuestionOption: Codable { let label: String; let description: String }
 struct Question: Codable, Identifiable { let id: String; let header: String; let question: String; let options: [QuestionOption] }
 struct Approval: Codable, Identifiable { let id: String; let method: String; let title: String; let detail: String; let questions: [Question]; let state: String }
+struct ChatMessage: Codable, Identifiable { let id: String; let role: String; let text: String }
 struct WorkItem: Codable, Identifiable {
     let id: String; let title: String; let prompt: String; let projectId: String?; let cwd: String
     let agent: String; let mode: String; let status: String; let createdAt: String; let updatedAt: String
     let durableId: Int?; let threadId: String?; let turnId: String?
     let result: String; let error: String?; let events: [TaskEvent]; let approvals: [Approval]; let artifact: String?
+    let workspaceRequest: String?; let messages: [ChatMessage]?
+    var conversation: [ChatMessage] {
+        var history = messages ?? [ChatMessage(id: "original-user", role: "user", text: prompt)]
+        if !result.isEmpty && (history.last?.role != "assistant" || history.last?.text != result) { history.append(ChatMessage(id: "current-answer", role: "assistant", text: result)) }
+        return history
+    }
     var active: Bool { ["queued", "running", "waiting"].contains(status) }
     var statusText: String {
         switch status {
         case "queued": "排队中"
         case "running": "进行中"
         case "waiting": "等你处理"
+        case "needs_project": "等你选择目录"
         case "completed": "已完成"
         case "failed": "执行失败"
         case "cancelled": "已取消"

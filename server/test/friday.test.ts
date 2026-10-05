@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Engine } from '../src/engine.js';
@@ -120,6 +120,53 @@ test('Only one process may own a Durable data directory', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-')); const engine = await new Engine(directory).open();
   try { await assert.rejects(new Engine(directory).open(), /已有 Friday/); }
   finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
+test('A plain conversation can wait for a project across restarts, release the queue, and resume the same history', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-chat-'));
+  const calls: ExecutionRequest[] = [];
+  const executor: Executor = {
+    async run(request) {
+      calls.push(request);
+      if (!request.task.threadId) await request.update({ kind: 'session', threadId: 'retained-thread' });
+      if (request.task.prompt === 'Create a file' && !request.task.projectId) {
+        await request.update({ kind: 'workspace', reason: '请选择工作目录' }); return '要处理哪个项目？';
+      }
+      if (request.task.prompt === 'Only save an idea') {
+        await request.update({ kind: 'idea', id: 'captured', text: '只记录不执行' }); return '记下了。';
+      }
+      return 'Done';
+    }, async answer() {}, async steer() {},
+  };
+  let engine = await new Engine(directory, executor).open(); const auth = new Auth(directory);
+  let app = createAPI(engine, auth, () => [{ id: 'codex', name: 'Codex', installed: true, executable: '/fake', executableSupported: true, description: '' }]);
+  const request = (path: string, body: unknown) => app.request(path, { method: 'POST', headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  try {
+    await request('/api/ideas', { id: 'idea', text: 'Create a file' });
+    const created = await request('/api/tasks', { prompt: 'Create a file', ideaId: 'idea', requestId: 'chat-create' });
+    assert.equal(created.status, 201); const { id } = await created.json();
+    assert.equal((await (await request('/api/tasks', { prompt: 'Create a file', ideaId: 'idea', requestId: 'second-click' })).json()).id, id);
+    await until(engine, s => s.tasks[0].status === 'needs_project');
+    const next = await request('/api/tasks', { prompt: 'Only save an idea', requestId: 'capture' }); const nextId = (await next.json()).id;
+    await until(engine, s => s.tasks.find(t => t.id === nextId)?.status === 'completed');
+    assert.equal((await engine.snapshot()).ideas.find(i => i.id === 'captured')?.taskId, null);
+    await engine.close(); engine = await new Engine(directory, executor).open();
+    app = createAPI(engine, auth);
+    assert.equal((await engine.snapshot()).tasks[0].status, 'needs_project');
+    assert.equal(calls.length, 2);
+    assert.equal((await request(`/api/tasks/${id}/workspace`, { path: 'relative', requestId: 'invalid' })).status, 400);
+    const selected = { path: directory, requestId: 'selected-directory' };
+    assert.equal((await request(`/api/tasks/${id}/workspace`, selected)).status, 200);
+    assert.equal((await request(`/api/tasks/${id}/workspace`, selected)).status, 200);
+    await until(engine, s => s.tasks[0].status === 'completed');
+    assert.equal(calls.length, 3); assert.equal(calls[2].task.threadId, 'retained-thread'); assert.equal(calls[2].task.cwd, await realpath(directory));
+    const state = await engine.snapshot();
+    assert.equal(state.tasks[0].workspaceRequest, null);
+    assert.deepEqual(state.tasks[0].messages?.map(m => m.role), ['user', 'assistant', 'user', 'assistant']);
+    assert.equal(state.tasks[0].messages?.[1].text, '要处理哪个项目？');
+    assert.equal(state.ideas.find(i => i.id === 'idea')?.taskId, id);
+    assert.equal((await request(`/api/tasks/${nextId}/workspace`, { path: directory, requestId: 'not-pending' })).status, 400);
+  } finally { await engine.close(); auth.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
 test('API authentication, pairing, revocation, validation and persistence', async () => {

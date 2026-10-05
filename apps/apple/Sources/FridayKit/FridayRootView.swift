@@ -5,21 +5,18 @@ import AppKit
 
 private let fridayAccent = Color(red: 0.12, green: 0.49, blue: 0.43)
 private enum Section: String, CaseIterable, Identifiable {
-    case inbox = "想法", tasks = "任务", projects = "项目", memory = "记忆", agents = "工具", connection = "连接"
+    case chat = "对话", inbox = "想法", tasks = "记录", projects = "项目", memory = "记忆", agents = "工具", connection = "连接"
     var id: String { rawValue }
     var icon: String {
-        switch self { case .inbox: "tray"; case .tasks: "checklist"; case .projects: "folder"; case .memory: "sparkles"; case .agents: "terminal"; case .connection: "network" }
+        switch self { case .chat: "bubble.left.and.bubble.right"; case .inbox: "tray"; case .tasks: "clock"; case .projects: "folder"; case .memory: "sparkles"; case .agents: "terminal"; case .connection: "network" }
     }
 }
 
 @MainActor
 public struct FridayRootView: View {
     @StateObject private var store = FridayStore()
-    @State private var section: Section? = .inbox
+    @State private var section: Section? = .chat
     @State private var selectedTask: String?
-    @State private var composing = false
-    @State private var seed = ""
-    @State private var ideaId: String?
     @State private var mobileTab = 0
     @Environment(\.scenePhase) private var scenePhase
     public init() {}
@@ -40,14 +37,18 @@ public struct FridayRootView: View {
                     if let error = store.error { errorBanner(error) }
                     content
                 }
-                .navigationTitle(section?.rawValue ?? "Friday")
-                .toolbar { Button { newTask() } label: { Label("新任务", systemImage: "plus") }.keyboardShortcut("n", modifiers: .command) }
+                .navigationTitle(section == .chat ? "Friday" : section?.rawValue ?? "Friday")
+                .toolbar { Button { newTask() } label: { Label("新对话", systemImage: "square.and.pencil") }.keyboardShortcut("n", modifiers: .command) }
             }
             .frame(minWidth: 920, minHeight: 620)
             #else
             TabView(selection: $mobileTab) {
-                NavigationStack { inbox.navigationTitle("想法").toolbar { Button { newTask() } label: { Image(systemName: "plus") } } }.tabItem { Label("想法", systemImage: "tray") }.tag(0)
-                NavigationStack { tasksList.navigationTitle("任务").navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id) } }.tabItem { Label("任务", systemImage: "checklist") }.tag(1)
+                NavigationStack {
+                    VStack(spacing: 0) { if let error = store.error { Text(error).font(.caption).foregroundStyle(.orange).padding(8) }; conversation }
+                        .navigationTitle("Friday").toolbar { Button { newTask() } label: { Label("新对话", systemImage: "square.and.pencil") } }
+                }.tabItem { Label("对话", systemImage: "bubble.left.and.bubble.right") }.tag(0)
+                NavigationStack { inbox.navigationTitle("想法") }.tabItem { Label("想法", systemImage: "tray") }.tag(1)
+                NavigationStack { tasksList.navigationTitle("记录").navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id) } }.tabItem { Label("记录", systemImage: "clock") }.tag(2)
                 NavigationStack {
                     List {
                         connectionStatus
@@ -57,14 +58,11 @@ public struct FridayRootView: View {
                         NavigationLink("本地工具") { AgentsView(store: store) }
                         NavigationLink("连接与设备") { ConnectionView(store: store) }
                     }.navigationTitle("我的 Friday")
-                }.tabItem { Label("设置", systemImage: "slider.horizontal.3") }.tag(2)
+                }.tabItem { Label("设置", systemImage: "slider.horizontal.3") }.tag(3)
             }
             #endif
         }
         .tint(fridayAccent)
-        .sheet(isPresented: $composing) {
-            TaskComposer(store: store, initialPrompt: seed, ideaId: ideaId) { id in selectedTask = id; section = .tasks; mobileTab = 1 }
-        }
         .task { await store.importSharedIdeas(); await store.connect() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await store.importSharedIdeas(); await store.connect() } }
@@ -86,7 +84,8 @@ public struct FridayRootView: View {
             .font(.caption).padding(10).background(Color.orange.opacity(0.1))
     }
     @ViewBuilder private var content: some View {
-        switch section ?? .inbox {
+        switch section ?? .chat {
+        case .chat: conversation
         case .inbox: inbox
         case .tasks:
             #if os(macOS)
@@ -105,8 +104,13 @@ public struct FridayRootView: View {
         }
     }
     private var inbox: some View {
-        InboxView(store: store) { idea in seed = idea.text; ideaId = idea.id; composing = true }
+        InboxView(store: store) { idea in Task { if let id = await store.delegate(idea) { openConversation(id) } } }
     }
+    @ViewBuilder private var conversation: some View {
+        if let selectedTask { TaskDetail(store: store, id: selectedTask).id(selectedTask) }
+        else { NewConversationView(store: store, onCreated: openConversation) }
+    }
+    private func openConversation(_ id: String) { selectedTask = id; section = .chat; mobileTab = 0 }
     private var tasksList: some View {
         Group {
             if store.tasks.isEmpty {
@@ -120,7 +124,7 @@ public struct FridayRootView: View {
             }
         }
     }
-    private func newTask() { seed = ""; ideaId = nil; composing = true }
+    private func newTask() { selectedTask = nil; section = .chat; mobileTab = 0 }
 }
 
 struct EmptyPanel: View {
@@ -135,7 +139,7 @@ struct EmptyPanel: View {
 }
 struct StatusBadge: View {
     let task: WorkItem
-    var color: Color { switch task.status { case "completed": fridayAccent; case "waiting", "interrupted": .orange; case "failed": .red; case "running": .blue; default: .secondary } }
+    var color: Color { switch task.status { case "completed": fridayAccent; case "waiting", "interrupted", "needs_project": .orange; case "failed": .red; case "running": .blue; default: .secondary } }
     var body: some View { Text(task.statusText).font(.caption.weight(.medium)).padding(.horizontal, 8).padding(.vertical, 4).background(color.opacity(0.1), in: Capsule()).foregroundStyle(color) }
 }
 struct TaskRow: View {
@@ -143,7 +147,7 @@ struct TaskRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack { Text(task.title).font(.body.weight(.medium)).lineLimit(2); Spacer(minLength: 0) }
-            HStack { StatusBadge(task: task); Spacer(); Text(task.mode == "research" ? "调研" : "代码").font(.caption).foregroundStyle(.secondary) }
+            HStack { StatusBadge(task: task); Spacer(); Text(task.createdAt.prefix(10)).font(.caption).foregroundStyle(.secondary) }
         }.padding(.vertical, 8)
     }
 }
@@ -175,8 +179,7 @@ struct InboxView: View {
                         HStack {
                             Text(idea.createdAt.prefix(10)).font(.caption).foregroundStyle(.secondary)
                             Spacer()
-                            if idea.taskId != nil { Label("已布置任务", systemImage: "checkmark.circle").font(.caption).foregroundStyle(fridayAccent) }
-                            else { Button { delegate(idea) } label: { Label("交给 Friday", systemImage: "arrow.up.right") }.buttonStyle(.bordered) }
+                            Button { delegate(idea) } label: { Label(idea.taskId == nil ? "交给 Friday" : "打开对话", systemImage: idea.taskId == nil ? "arrow.up.right" : "bubble.left") }.buttonStyle(.bordered).disabled((!store.connected && idea.taskId == nil) || store.delegatingIdeas.contains(idea.id))
                         }
                     }.padding(18).background(.background, in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(.quaternary))
                     .contextMenu { Button("删除想法", role: .destructive) { Task { _ = await store.perform("/api/ideas/\(idea.id)", method: "DELETE") } } }
@@ -184,41 +187,6 @@ struct InboxView: View {
             }.padding(28).frame(maxWidth: 850)
             .frame(maxWidth: .infinity)
         }
-    }
-}
-
-struct TaskComposer: View {
-    @ObservedObject var store: FridayStore
-    let initialPrompt: String; let ideaId: String?; let onCreated: (String) -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var prompt = ""
-    @State private var project = ""
-    @State private var mode = "research"
-    @State private var requestId = UUID().uuidString
-    @State private var submitting = false
-    @State private var error: String?
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack { Text("交给 Friday").font(.title2.bold()); Spacer(); Button("取消") { dismiss() }.keyboardShortcut(.cancelAction) }
-            Text("说清楚你想得到什么，Friday 会替你推进。").foregroundStyle(.secondary)
-            TextEditor(text: $prompt).frame(minHeight: 130).padding(8).overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary)).accessibilityLabel("任务要求")
-            Picker("任务类型", selection: $mode) { Text("调研与整理").tag("research"); Text("代码任务").tag("code") }.pickerStyle(.segmented)
-            Picker("关联项目", selection: $project) { Text("不关联项目").tag(""); ForEach(store.projects) { Text($0.name).tag($0.id) } }
-            HStack { Image(systemName: "terminal"); Text("由主机上的 Codex 执行"); Spacer() }.font(.caption).foregroundStyle(.secondary)
-            if let error { Text(error).font(.caption).foregroundStyle(.red) }
-            HStack { Spacer(); if submitting { ProgressView().controlSize(.small) }; Button("开始任务") {
-                submitting = true
-                Task {
-                    do { let id = try await store.createTask(prompt: prompt, projectId: project, mode: mode, ideaId: ideaId, requestId: requestId); onCreated(id); dismiss() }
-                    catch { self.error = error.localizedDescription }
-                    submitting = false
-                }
-            }.buttonStyle(.borderedProminent).disabled(submitting || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !store.connected || (mode == "code" && project.isEmpty)) }
-        }.padding(28)
-        #if os(macOS)
-        .frame(width: 550)
-        #endif
-        .onAppear { prompt = initialPrompt }
     }
 }
 
@@ -233,24 +201,30 @@ struct TaskDetail: View {
         if let task {
             VStack(spacing: 0) {
                 HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 8) { Text(task.title).font(.title3.bold()).textSelection(.enabled); HStack { StatusBadge(task: task); Text(task.agent.capitalized).font(.caption).foregroundStyle(.secondary) } }
+                    VStack(alignment: .leading, spacing: 8) { Text(task.title).font(.title3.bold()).lineLimit(2).textSelection(.enabled); StatusBadge(task: task) }
                     Spacer()
-                    if task.active { Button("停止", role: .destructive) { Task { _ = await store.perform("/api/tasks/\(id)/cancel") } }.disabled(!store.connected) }
+                    if task.active || task.status == "needs_project" { Button("停止", role: .destructive) { Task { _ = await store.perform("/api/tasks/\(id)/cancel") } }.disabled(!store.connected) }
                 }.padding(22)
                 Divider()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        Text(task.prompt).padding(16).frame(maxWidth: .infinity, alignment: .leading).background(fridayAccent.opacity(0.07), in: RoundedRectangle(cornerRadius: 12)).textSelection(.enabled)
+                        ForEach(task.conversation) { message in
+                            if message.role == "user" {
+                                HStack { Spacer(minLength: 36); Text(message.text).padding(14).background(fridayAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 14)).textSelection(.enabled) }
+                            } else {
+                                VStack(alignment: .leading, spacing: 8) { Text("Friday").font(.caption.weight(.medium)).foregroundStyle(.secondary); Text(.init(message.text)).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled).lineSpacing(5) }
+                            }
+                        }
+                        if task.status == "needs_project" { WorkspaceChoice(store: store, task: task).id(task.durableId) }
                         ForEach(task.approvals.filter { $0.state == "pending" }) { approval in ApprovalCard(store: store, taskId: id, approval: approval) }
                         if let error = task.error { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange).textSelection(.enabled) }
-                        if task.result.isEmpty {
-                            if task.active { HStack { ProgressView().controlSize(.small); Text(task.status == "queued" ? "已排队，前面的任务完成后开始。" : "Friday 正在处理，关掉窗口也可以继续。").font(.callout).foregroundStyle(.secondary) } }
-                        } else {
-                            Text(.init(task.result)).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled).lineSpacing(5)
-                            if task.artifact != nil { HStack { Label("成果已保存到主机", systemImage: "doc.text").font(.caption).foregroundStyle(.secondary); Spacer(); ShareLink(item: task.result) { Label("导出结果", systemImage: "square.and.arrow.up") } } }
-                        }
-                        DisclosureGroup("执行记录 · \(task.events.count)", isExpanded: $showEvents) {
+                        if task.active { HStack { ProgressView().controlSize(.small); Text(task.status == "queued" ? "已排队，稍后开始。" : task.status == "waiting" ? "等你处理上面的请求。" : "正在处理，可以继续补充。").font(.callout).foregroundStyle(.secondary) } }
+                        if task.artifact != nil { ShareLink(item: task.result) { Label("导出结果", systemImage: "square.and.arrow.up") }.font(.caption) }
+                        DisclosureGroup("执行详情", isExpanded: $showEvents) {
                             VStack(alignment: .leading, spacing: 16) {
+                                Text("执行工具：\(task.agent.capitalized)").font(.caption).foregroundStyle(.secondary)
+                                if task.projectId != nil { Text("工作目录：\(task.cwd)").font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+                                if let thread = task.threadId { Text("会话 \(thread)").font(.caption2.monospaced()).foregroundStyle(.tertiary).textSelection(.enabled) }
                                 ForEach(task.events) { event in
                                     VStack(alignment: .leading, spacing: 5) {
                                         Text("\(event.at.dropFirst(11).prefix(8)) · \(event.kind)").font(.caption2).foregroundStyle(.secondary)
@@ -259,25 +233,25 @@ struct TaskDetail: View {
                                 }
                             }.padding(.top, 12)
                         }.font(.callout)
-                        if let thread = task.threadId { Text("会话 \(thread)").font(.caption2.monospaced()).foregroundStyle(.tertiary).textSelection(.enabled) }
                     }.padding(22)
                 }
                 Divider()
                 VStack(alignment: .leading, spacing: 10) {
-                    TextField(task.active ? "补充要求…" : "基于这个结果，接着做什么？", text: $message, axis: .vertical).lineLimit(2...5).textFieldStyle(.plain)
+                    TextField("补充要求，或接着聊…", text: $message, axis: .vertical).lineLimit(2...5).textFieldStyle(.plain).accessibilityLabel("补充要求")
                     HStack {
                         if let error = store.error { Text(error).font(.caption).foregroundStyle(.orange).lineLimit(2) }
                         Spacer()
-                        Button(task.active ? "发送补充" : "继续任务") {
+                        Button("发送") {
                             sending = true
+                            let text = message
                             Task {
-                                if await store.perform("/api/tasks/\(id)/message", body: ["text": message, "requestId": messageId]) { message = ""; messageId = UUID().uuidString }
+                                if await store.perform("/api/tasks/\(id)/message", body: ["text": text, "requestId": messageId]) { if message == text { message = "" }; messageId = UUID().uuidString }
                                 sending = false
                             }
-                        }.buttonStyle(.borderedProminent).disabled(sending || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task.status == "queued")
+                        }.buttonStyle(.borderedProminent).keyboardShortcut(.return, modifiers: .command).disabled(sending || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task.status == "queued")
                     }
                 }.padding(18)
-            }.navigationTitle("任务详情")
+            }.navigationTitle("Friday")
             .onChange(of: id) { _, _ in message = ""; messageId = UUID().uuidString }
         } else { EmptyPanel(icon: "checklist", title: "正在加载任务", subtitle: "连接主机后会显示最新进展。") }
     }

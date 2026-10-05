@@ -13,6 +13,7 @@ final class FridayStore: ObservableObject {
     @Published var connected = false
     @Published var error: String?
     @Published var outbox: [OutboxIdea] = []
+    @Published var delegatingIdeas: Set<String> = []
     let connection = Connection()
     private var streamTask: Task<Void, Never>?
     private var flushing = false
@@ -98,11 +99,18 @@ final class FridayStore: ObservableObject {
         do { _ = try await connection.data(path, method: method, body: method == "DELETE" ? nil : body); await refresh(); return true }
         catch { self.error = error.localizedDescription; return false }
     }
-    func createTask(prompt: String, projectId: String, mode: String, ideaId: String?, requestId: String) async throws -> String {
-        var body: [String: Any] = ["prompt": prompt, "mode": mode, "projectId": projectId.isEmpty ? NSNull() : projectId, "requestId": requestId, "agent": "codex"]
+    func createTask(prompt: String, ideaId: String? = nil, requestId: String) async throws -> String {
+        var body: [String: Any] = ["prompt": prompt, "requestId": requestId]
         if let ideaId { body["ideaId"] = ideaId }
         let response = try await connection.decode(IDResponse.self, "/api/tasks", method: "POST", body: body)
         await refresh(); return response.id
+    }
+    func delegate(_ idea: Idea) async -> String? {
+        if let taskId = idea.taskId { return taskId }
+        guard !delegatingIdeas.contains(idea.id) else { return nil }
+        delegatingIdeas.insert(idea.id); defer { delegatingIdeas.remove(idea.id) }
+        do { return try await createTask(prompt: idea.text, ideaId: idea.id, requestId: "idea-" + idea.id) }
+        catch { self.error = error.localizedDescription; return nil }
     }
     func pair(server: String, code: String, name: String) async throws {
         let oldServer = connection.server; let oldToken = connection.token

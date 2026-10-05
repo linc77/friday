@@ -58,9 +58,20 @@ export class Engine extends EventEmitter {
           try {
             const work = (await this.snapshot()).tasks.find(t => t.id === task.input.id)!;
             const result = await this.executor.run({ task: work, prompt: task.input.prompt, signal: runtime.signal, update: update => this.updateExecution(work.id, update) });
+            const needsProject = !!(await this.snapshot()).tasks.find(t => t.id === work.id)?.workspaceRequest;
+            if (needsProject) {
+              await this.patchTask(work.id, item => {
+                item.status = 'needs_project'; item.result = result; item.artifact = null;
+                item.messages?.push({ id: randomUUID(), role: 'assistant', text: result });
+                item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; });
+              });
+              await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'needs_project' } } }), ctx);
+              return;
+            }
             await writeFile(join(this.directory, 'artifacts', `${work.id}.md`), `# ${work.title}\n\n${result}\n`, { mode: 0o600 });
             await this.patchTask(work.id, item => {
               item.status = 'completed'; item.result = result; item.artifact = `${work.id}.md`;
+              item.messages?.push({ id: randomUUID(), role: 'assistant', text: result });
               item.events.push(event('status', '成果已保存'));
               item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; });
             });
@@ -123,19 +134,26 @@ export class Engine extends EventEmitter {
       if (item.events.length > 120) item.events.splice(0, item.events.length - 120);
     });
   }
-  async createTask(input: { prompt: string; projectId: string | null; mode: 'research' | 'code'; requestId: string; ideaId?: string; continueId?: string }) {
+  async createTask(input: { prompt: string; projectId: string | null; mode: WorkItem['mode']; requestId: string; ideaId?: string; continueId?: string }) {
     if (['__proto__', 'constructor', 'prototype'].includes(input.requestId)) throw new Error('请求 ID 无效');
     const snapshot = await this.snapshot();
     const project = snapshot.projects.find(p => p.id === input.projectId);
     if (input.projectId && !project) throw new Error('项目不存在');
     if (input.mode === 'code' && !project) throw new Error('代码任务需要先选择一个项目目录');
-    const skill = await readFile(fileURLToPath(new URL(`../../skills/${input.mode === 'code' ? 'code-validation' : 'project-research'}/SKILL.md`, import.meta.url)), 'utf8');
+    const skill = await readFile(fileURLToPath(new URL(`../../skills/${input.mode === 'auto' ? 'personal-assistant' : input.mode === 'code' ? 'code-validation' : 'project-research'}/SKILL.md`, import.meta.url)), 'utf8');
     const id = await this.root.commit(async tx => {
       const workspace = await tx.doc(WorkspaceDoc);
       if (Object.hasOwn(workspace.requests, input.requestId)) return workspace.requests[input.requestId];
+      const sourceIdea = input.ideaId ? workspace.ideas.find(i => i.id === input.ideaId) : undefined;
+      if (input.ideaId && !sourceIdea) throw new Error('想法不存在');
+      if (sourceIdea?.taskId) return sourceIdea.taskId;
       let work = input.continueId ? workspace.tasks.find(t => t.id === input.continueId) : undefined;
       if (input.continueId && !work) throw new Error('任务不存在');
       if (work && activeStatuses.includes(work.status)) throw new Error('任务正在运行，请使用补充要求');
+      if (work && input.projectId && work.projectId !== input.projectId) {
+        if (work.status !== 'needs_project') throw new Error('当前对话没有等待选择工作目录');
+        work.projectId = project!.id; work.cwd = project!.path;
+      }
       if (!work && workspace.tasks.length >= 300) throw new Error('第一版最多保留 300 个任务；当前数据已保留，需要增加归档能力后才能创建更多任务。');
       const predecessor = workspace.queueTail ?? null;
       const stamp = now();
@@ -144,14 +162,26 @@ export class Engine extends EventEmitter {
         cwd: project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent: 'codex',
         status: 'queued', createdAt: stamp, updatedAt: stamp, durableId: null, threadId: null, turnId: null,
         result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: input.requestId,
+        messages: [], workspaceRequest: null,
       };
+      if (!task.messages) {
+        task.messages = [{ id: randomUUID(), role: 'user', text: task.prompt }];
+        if (task.result) task.messages.push({ id: randomUUID(), role: 'assistant', text: task.result });
+      } else if (work && task.result && task.messages.at(-1)?.text !== task.result) {
+        task.messages.push({ id: randomUUID(), role: 'assistant', text: task.result });
+      }
+      task.messages.push({ id: randomUUID(), role: 'user', text: input.prompt });
+      task.mode = input.mode; task.result = ''; task.artifact = null; task.workspaceRequest = null;
       const effectiveProject = workspace.projects.find(p => p.id === task.projectId);
       const prompt = [
         `Task: ${input.prompt}`,
-        `Mode: ${task.mode}. ${task.mode === 'research' ? 'Research and report. Do not modify project files. Cite sources when researching externally.' : 'Implement the requested change, perform relevant verification, and report the files changed.'}`,
+        task.mode === 'auto'
+          ? `Understand the user's intent and respond or act accordingly. ${effectiveProject ? 'The user selected the workspace below. Only modify files when requested; inspect and explain read-only requests without changing files.' : 'No workspace is selected. Answer questions and research normally. If a local workspace is needed, call friday_request_workspace and stop this turn. Never guess a working directory or attempt file changes before selection.'}`
+          : `Mode: ${task.mode}. ${task.mode === 'research' ? 'Research and report. Do not modify project files. Cite sources when researching externally.' : 'Implement the requested change, perform relevant verification, and report the files changed.'}`,
         effectiveProject ? `Project: ${effectiveProject.name}\nProject context:\n${effectiveProject.context}` : '',
         workspace.memories.length ? `User-confirmed preferences:\n${workspace.memories.map(m => `- ${m.text}`).join('\n')}` : '',
         `Workflow skill:\n${skill}`,
+        sourceIdea ? 'The user explicitly delegated this saved idea now. Act on it instead of saving the same idea again.' : '',
         work ? 'Continue this existing task. Check the current workspace and previous results before repeating any external operation.' : '',
       ].filter(Boolean).join('\n\n');
       const durableId = await tx.createTask(this.execution, { id: task.id, predecessor, prompt }, { ownership: { kind: 'conversation' } });
@@ -169,11 +199,20 @@ export class Engine extends EventEmitter {
     return id;
   }
   async updateExecution(id: string, update: ExecutionUpdate) {
+    if (update.kind === 'idea') {
+      await this.mutate(s => {
+        const task = s.tasks.find(t => t.id === id);
+        if (!task || !activeStatuses.includes(task.status)) return;
+        if (!s.ideas.some(i => i.id === update.id)) s.ideas.unshift({ id: update.id, text: update.text, createdAt: now(), taskId: null });
+      });
+      return;
+    }
     await this.patchTask(id, item => {
       if (!activeStatuses.includes(item.status)) return;
       if (update.kind === 'session') item.threadId = update.threadId;
       if (update.kind === 'turn') item.turnId = update.turnId;
       if (update.kind === 'output') item.result = update.text;
+      if (update.kind === 'workspace' && !item.projectId) item.workspaceRequest = update.reason;
       if (update.kind === 'event') item.events.push(event(update.eventKind, update.text));
       if (update.kind === 'approval') { item.approvals.push(update.approval); item.status = 'waiting'; }
       if (update.kind === 'approvalResolved') {
@@ -186,6 +225,10 @@ export class Engine extends EventEmitter {
   async cancel(id: string) {
     const task = (await this.snapshot()).tasks.find(t => t.id === id);
     if (!task?.durableId) throw new Error('任务不存在');
+    if (task.status === 'needs_project') {
+      await this.patchTask(id, item => { item.status = 'cancelled'; item.workspaceRequest = null; });
+      return;
+    }
     if (!activeStatuses.includes(task.status)) return;
     await this.harness.abortTask(task.durableId as TaskId, context);
     await this.harness.waitForTask(task.durableId as TaskId, context);
@@ -201,7 +244,7 @@ export class Engine extends EventEmitter {
   }
   async steer(id: string, text: string, requestId: string) {
     await this.executor.steer(id, text, requestId);
-    await this.patchTask(id, item => { item.events.push(event('user', text)); });
+    await this.patchTask(id, item => { item.events.push(event('user', text)); item.messages?.push({ id: randomUUID(), role: 'user', text }); });
   }
   async artifact(id: string) {
     const task = (await this.snapshot()).tasks.find(t => t.id === id);
