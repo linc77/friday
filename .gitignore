@@ -1,0 +1,11 @@
+node_modules/
+.friday/
+.build/
+dist/
+.DS_Store
+.env
+.env.*
+!.env.example
+*.log
+*.xcuserstate
+xcuserdata/

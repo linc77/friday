@@ -1,0 +1,215 @@
+import { EventEmitter } from 'node:events';
+import { randomUUID } from 'node:crypto';
+import { mkdir, writeFile, readFile, chmod } from 'node:fs/promises';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
+import { createModels } from '@earendil-works/pi-ai/models';
+import { Harness, createRegistry, defineDoc, defineExtension, defineTask, type Conversation, type TaskId, type DocumentWatch } from '@earendil-works/pi-durable';
+import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node';
+import type { Executor, ExecutionUpdate, Workspace, WorkItem, TaskStatus } from './types.js';
+import { activeStatuses } from './types.js';
+import { CodexExecutor } from './codex.js';
+import { fileURLToPath } from 'node:url';
+
+const WorkspaceDoc = defineDoc<Workspace>({
+  kind: 'friday.workspace', version: 1, scope: 'session',
+  initial: () => ({ revision: 0, ideas: [], projects: [], memories: [], tasks: [], requests: {}, queueTail: null }),
+});
+const now = () => new Date().toISOString();
+const event = (kind: string, text: string) => ({ id: randomUUID(), kind, text, at: now() });
+type Input = { id: string; predecessor: number | null; prompt: string };
+type Checkpoint = { phase: 'queued' } | { phase: 'execute' };
+
+export class Engine extends EventEmitter {
+  harness!: Harness;
+  root!: Conversation;
+  watch?: DocumentWatch<Workspace>;
+  private lease!: DatabaseSync;
+  private closed = false;
+  readonly execution;
+  constructor(readonly directory: string, readonly executor: Executor = new CodexExecutor()) {
+    super();
+    this.execution = defineTask<Input, Checkpoint, { status: string }, {}>({
+      name: 'friday.execute', version: 1,
+      initial: () => ({ phase: 'queued' }),
+      phases: {
+        queued: async (task, runtime, ctx) => {
+          const predecessor = task.input.predecessor;
+          await runtime.commit(() => predecessor === null
+            ? { status: 'running', checkpoint: { phase: 'execute' } }
+            : { status: 'waiting', checkpoint: { phase: 'execute' }, on: [predecessor as TaskId], policy: 'allSettled' }, ctx);
+        },
+        execute: async (task, runtime, ctx) => {
+          const attempted = await runtime.memo<boolean>('external-started', ctx);
+          if (attempted) {
+            // An external turn may have executed before its receipt was persisted. Never replay it implicitly.
+            await this.patchTask(task.input.id, item => {
+              item.status = 'interrupted';
+              item.error = '服务曾中断。已保留会话和执行记录；请检查成果，再补充要求或继续任务。';
+              item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; });
+              item.events.push(event('recovery', item.error));
+            });
+            await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'interrupted' } } }), ctx);
+            return;
+          }
+          await runtime.memo('external-started', true, ctx);
+          await this.patchTask(task.input.id, item => { item.status = 'running'; item.error = null; item.events.push(event('status', '正在连接本地 Codex')); });
+          try {
+            const work = (await this.snapshot()).tasks.find(t => t.id === task.input.id)!;
+            const result = await this.executor.run({ task: work, prompt: task.input.prompt, signal: runtime.signal, update: update => this.updateExecution(work.id, update) });
+            await writeFile(join(this.directory, 'artifacts', `${work.id}.md`), `# ${work.title}\n\n${result}\n`, { mode: 0o600 });
+            await this.patchTask(work.id, item => {
+              item.status = 'completed'; item.result = result; item.artifact = `${work.id}.md`;
+              item.events.push(event('status', '成果已保存'));
+              item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; });
+            });
+            await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'completed' } } }), ctx);
+          } catch (error) {
+            if (runtime.signal.aborted) throw error;
+            await this.patchTask(task.input.id, item => {
+              item.status = 'failed'; item.error = error instanceof Error ? error.message : '执行失败';
+              item.events.push(event('error', item.error));
+              item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; });
+            });
+            await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'failed' } } }), ctx);
+          }
+        },
+      },
+      abort: async (task, runtime, ctx) => {
+        await this.patchTask(task.input.id, item => {
+          item.status = 'cancelled'; item.events.push(event('status', '任务已取消；已经完成的外部操作不会自动撤销。'));
+          item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; });
+        });
+        await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'cancelled' } } }), ctx);
+      },
+    });
+  }
+
+  async open() {
+    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await chmod(this.directory, 0o700);
+    await mkdir(join(this.directory, 'artifacts'), { recursive: true, mode: 0o700 });
+    // SQLite releases this exclusive writer lease automatically on process death.
+    this.lease = new DatabaseSync(join(this.directory, 'owner.sqlite'));
+    try { this.lease.exec('PRAGMA busy_timeout=0; CREATE TABLE IF NOT EXISTS owner (id INTEGER); BEGIN IMMEDIATE'); }
+    catch { this.lease.close(); throw new Error('已有 Friday 服务正在使用这个数据目录。'); }
+    try {
+      const registry = createRegistry();
+      registry.install(defineExtension({ name: 'friday', tasks: [this.execution] }));
+      this.harness = await Harness.open(await openNodeSqliteStorage(join(this.directory, 'friday.sqlite')), {
+        models: createModels(), registry, onReport: error => console.error('[Friday runtime]', error instanceof Error ? error.message : 'runtime failure'),
+      }, context);
+      this.root = await this.harness.root(context);
+      await this.root.commit(async tx => { await tx.doc(WorkspaceDoc); }, context);
+      this.watch = await this.harness.watchDoc(WorkspaceDoc, context);
+      this.watch?.start(async () => { this.emit('change'); });
+      this.harness.resume();
+      return this;
+    } catch (error) { this.lease.close(); throw error; }
+  }
+  async snapshot(): Promise<Workspace> {
+    return structuredClone((await this.harness.snapshot(WorkspaceDoc, context))!);
+  }
+  async mutate(change: (workspace: Workspace) => void) {
+    await this.root.commit(async tx => { const workspace = await tx.doc(WorkspaceDoc); change(workspace); workspace.revision++; }, context);
+  }
+  async patchTask(id: string, change: (task: WorkItem) => void) {
+    await this.mutate(workspace => {
+      const item = workspace.tasks.find(t => t.id === id);
+      if (!item) throw new Error('任务不存在');
+      change(item); item.updatedAt = now();
+      // ponytail: bounded per-task logs and one workspace snapshot suit personal use; split documents when lists grow.
+      if (item.events.length > 120) item.events.splice(0, item.events.length - 120);
+    });
+  }
+  async createTask(input: { prompt: string; projectId: string | null; mode: 'research' | 'code'; requestId: string; ideaId?: string; continueId?: string }) {
+    if (['__proto__', 'constructor', 'prototype'].includes(input.requestId)) throw new Error('请求 ID 无效');
+    const snapshot = await this.snapshot();
+    const project = snapshot.projects.find(p => p.id === input.projectId);
+    if (input.projectId && !project) throw new Error('项目不存在');
+    if (input.mode === 'code' && !project) throw new Error('代码任务需要先选择一个项目目录');
+    const skill = await readFile(fileURLToPath(new URL(`../../skills/${input.mode === 'code' ? 'code-validation' : 'project-research'}/SKILL.md`, import.meta.url)), 'utf8');
+    const id = await this.root.commit(async tx => {
+      const workspace = await tx.doc(WorkspaceDoc);
+      if (Object.hasOwn(workspace.requests, input.requestId)) return workspace.requests[input.requestId];
+      let work = input.continueId ? workspace.tasks.find(t => t.id === input.continueId) : undefined;
+      if (input.continueId && !work) throw new Error('任务不存在');
+      if (work && activeStatuses.includes(work.status)) throw new Error('任务正在运行，请使用补充要求');
+      if (!work && workspace.tasks.length >= 300) throw new Error('第一版最多保留 300 个任务；当前数据已保留，需要增加归档能力后才能创建更多任务。');
+      const predecessor = workspace.queueTail ?? null;
+      const stamp = now();
+      const task: WorkItem = work ?? {
+        id: randomUUID(), title: input.prompt.slice(0, 64), prompt: input.prompt, projectId: input.projectId,
+        cwd: project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent: 'codex',
+        status: 'queued', createdAt: stamp, updatedAt: stamp, durableId: null, threadId: null, turnId: null,
+        result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: input.requestId,
+      };
+      const effectiveProject = workspace.projects.find(p => p.id === task.projectId);
+      const prompt = [
+        `Task: ${input.prompt}`,
+        `Mode: ${task.mode}. ${task.mode === 'research' ? 'Research and report. Do not modify project files. Cite sources when researching externally.' : 'Implement the requested change, perform relevant verification, and report the files changed.'}`,
+        effectiveProject ? `Project: ${effectiveProject.name}\nProject context:\n${effectiveProject.context}` : '',
+        workspace.memories.length ? `User-confirmed preferences:\n${workspace.memories.map(m => `- ${m.text}`).join('\n')}` : '',
+        `Workflow skill:\n${skill}`,
+        work ? 'Continue this existing task. Check the current workspace and previous results before repeating any external operation.' : '',
+      ].filter(Boolean).join('\n\n');
+      const durableId = await tx.createTask(this.execution, { id: task.id, predecessor, prompt }, { ownership: { kind: 'conversation' } });
+      workspace.queueTail = durableId;
+      task.durableId = durableId; task.lastRequestId = input.requestId; task.status = 'queued'; task.error = null; task.turnId = null;
+      task.updatedAt = stamp; task.events.push(event('user', input.prompt));
+      if (!work) workspace.tasks.push(task);
+      workspace.requests[input.requestId] = task.id;
+      const idea = workspace.ideas.find(i => i.id === input.ideaId);
+      if (idea) idea.taskId = task.id;
+      workspace.revision++;
+      return task.id;
+    }, context);
+    this.harness.resume();
+    return id;
+  }
+  async updateExecution(id: string, update: ExecutionUpdate) {
+    await this.patchTask(id, item => {
+      if (!activeStatuses.includes(item.status)) return;
+      if (update.kind === 'session') item.threadId = update.threadId;
+      if (update.kind === 'turn') item.turnId = update.turnId;
+      if (update.kind === 'output') item.result = update.text;
+      if (update.kind === 'event') item.events.push(event(update.eventKind, update.text));
+      if (update.kind === 'approval') { item.approvals.push(update.approval); item.status = 'waiting'; }
+      if (update.kind === 'approvalResolved') {
+        const approval = item.approvals.find(a => a.id === update.id);
+        if (approval) approval.state = 'answered';
+        if (!item.approvals.some(a => a.state === 'pending')) item.status = 'running';
+      }
+    });
+  }
+  async cancel(id: string) {
+    const task = (await this.snapshot()).tasks.find(t => t.id === id);
+    if (!task?.durableId) throw new Error('任务不存在');
+    if (!activeStatuses.includes(task.status)) return;
+    await this.harness.abortTask(task.durableId as TaskId, context);
+    await this.harness.waitForTask(task.durableId as TaskId, context);
+  }
+  async answer(id: string, approvalId: string, decision: 'accept' | 'decline', answers: Record<string, string[]>) {
+    const task = (await this.snapshot()).tasks.find(t => t.id === id);
+    const approval = task?.approvals.find(a => a.id === approvalId && a.state === 'pending');
+    if (!approval) throw new Error('授权请求已过期');
+    if (approval.method.includes('requestUserInput') && approval.questions.some(q => !answers[q.id]?.some(v => v.trim()))) throw new Error('请回答所有问题');
+    await this.executor.answer(id, approvalId, decision, answers);
+    await this.updateExecution(id, { kind: 'approvalResolved', id: approvalId });
+    await this.patchTask(id, item => { item.events.push(event('decision', approval.method.includes('requestUserInput') ? '已提交补充信息' : decision === 'accept' ? '已允许本次操作' : '已拒绝本次操作')); });
+  }
+  async steer(id: string, text: string, requestId: string) {
+    await this.executor.steer(id, text, requestId);
+    await this.patchTask(id, item => { item.events.push(event('user', text)); });
+  }
+  async artifact(id: string) {
+    const task = (await this.snapshot()).tasks.find(t => t.id === id);
+    if (!task?.artifact) throw new Error('成果尚未生成');
+    return readFile(join(this.directory, 'artifacts', `${task.id}.md`), 'utf8');
+  }
+  async close() {
+    if (this.closed) return; this.closed = true;
+    await this.watch?.stop(); await this.harness.close(context); this.lease.close(); this.removeAllListeners();
+  }
+}
