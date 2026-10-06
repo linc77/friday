@@ -4,13 +4,13 @@ import AppKit
 #endif
 
 private enum FridaySection: String, CaseIterable, Identifiable {
-    case chat = "对话", inbox = "想法", tasks = "记录", projects = "项目", memory = "记忆"
+    case chat = "对话", inbox = "想法", tasks = "任务", projects = "项目", memory = "记忆"
     var id: String { rawValue }
     var icon: String {
         switch self {
         case .chat: FridaySymbols.chat
         case .inbox: "scribble"
-        case .tasks: "clock"
+        case .tasks: "checklist.unchecked"
         case .projects: "folder"
         case .memory: "sparkles"
         }
@@ -19,8 +19,7 @@ private enum FridaySection: String, CaseIterable, Identifiable {
     var motion: FridaySymbolMotion {
         switch self {
         case .chat, .projects: .bounce
-        case .inbox: .wiggle
-        case .tasks: .rotate
+        case .inbox, .tasks: .wiggle
         case .memory: .pulse
         }
     }
@@ -72,7 +71,7 @@ public struct FridayRootView: View {
                         .navigationTitle("Friday").toolbar { Button { newTask() } label: { Label("新对话", systemImage: "square.and.pencil") } }
                 }.tabItem { Label("对话", systemImage: FridaySymbols.chat) }.tag(0)
                 NavigationStack { inbox.navigationTitle("想法") }.tabItem { Label("想法", systemImage: "scribble") }.tag(1)
-                NavigationStack { tasksList.navigationTitle("记录").navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id) } }.tabItem { Label("记录", systemImage: "clock") }.tag(2)
+                NavigationStack { tasksList.navigationTitle("任务").navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id) } }.tabItem { Label("任务", systemImage: "checklist.unchecked") }.tag(2)
                 NavigationStack {
                     List {
                         connectionStatus
@@ -187,7 +186,7 @@ public struct FridayRootView: View {
             HSplitView {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text("对话记录").font(.headline)
+                        Text("任务").font(.headline)
                         Spacer()
                         Text("\(store.tasks.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     }.padding(.horizontal, 20).padding(.top, 22).padding(.bottom, 8)
