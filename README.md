@@ -1,5 +1,7 @@
 # Friday
 
+<img src="assets/brand/friday-mac-icon.png" alt="Friday：浅灰磨砂玻璃底上的圆润石墨色 F" width="96" />
+
 Friday 是你的个人 Agent：随手收集想法、关联项目、布置任务，再从任意已连接的设备查看进展和成果。
 
 目前是可运行的 **0.1 开发版**：独立 TypeScript 常驻服务、Pi Durable + SQLite 持久化、原生 SwiftUI Mac 客户端、iOS 客户端与分享扩展源码。Friday 通过 OpenAI OAuth 直连模型，使用 Pi Durable 的模型与工具循环。Codex 是需单独批准的可选编码工具；Claude Code、Hermes、Pi Coding Agent 目前只检测安装状态。

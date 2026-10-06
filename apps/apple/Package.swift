@@ -6,7 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [.library(name: "FridayKit", targets: ["FridayKit"]), .executable(name: "Friday", targets: ["FridayMac"])],
     targets: [
-        .target(name: "FridayKit"),
+        .target(name: "FridayKit", resources: [.process("Resources")]),
         .executableTarget(name: "FridayMac", dependencies: ["FridayKit"])
     ]
 )
