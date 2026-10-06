@@ -23,6 +23,21 @@ let glassCanvas = CGContext(
     bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
 )!
 glassCanvas.draw(glassImage, in: CGRect(x: 0, y: 0, width: glassImage.width, height: glassImage.height))
+// The darker edit supplies F colors only. Retain the approved glass and alpha,
+// since generated variants can flatten the translucent background.
+let darkMaster = root.appendingPathComponent("assets/brand/friday-glass-dark.png")
+guard let darkSource = NSImage(contentsOf: darkMaster),
+      let darkImage = darkSource.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+    fatalError("Missing darker F color source: \(darkMaster.path)")
+}
+let darkCanvas = CGContext(
+    data: nil, width: glassImage.width, height: glassImage.height,
+    bitsPerComponent: 8, bytesPerRow: glassImage.width * 4,
+    space: CGColorSpace(name: CGColorSpace.sRGB)!,
+    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+)!
+darkCanvas.draw(darkImage, in: CGRect(x: 0, y: 0, width: glassImage.width, height: glassImage.height))
+let darkPixels = darkCanvas.data!.assumingMemoryBound(to: UInt8.self)
 let pixels = glassCanvas.data!.assumingMemoryBound(to: UInt8.self)
 for offset in stride(from: 0, to: glassCanvas.bytesPerRow * glassImage.height, by: 4) {
     let alpha = CGFloat(pixels[offset + 3]) / 255
@@ -31,9 +46,14 @@ for offset in stride(from: 0, to: glassCanvas.bytesPerRow * glassImage.height, b
     let blend = foreground * foreground * (3 - 2 * foreground)
     let edgeCoverage = min(1, alpha / 0.30)
     let adjustedAlpha = (glassOpacity + (alpha - glassOpacity) * blend) * edgeCoverage
-    // Rescale premultiplied RGB alongside alpha, preserving the original colors.
+    let darkAlpha = CGFloat(darkPixels[offset + 3]) / 255
+    let colorBlend = darkAlpha > 0 ? blend : 0
+    // Blend straight RGB only on the F, then restore the approved alpha.
     for channel in 0..<3 {
-        pixels[offset + channel] = UInt8((CGFloat(pixels[offset + channel]) * adjustedAlpha / alpha).rounded())
+        let original = CGFloat(pixels[offset + channel]) / alpha
+        let darker = darkAlpha > 0 ? CGFloat(darkPixels[offset + channel]) / darkAlpha : original
+        let color = original + (darker - original) * colorBlend
+        pixels[offset + channel] = UInt8(min(255, max(0, color * adjustedAlpha)).rounded())
     }
     pixels[offset + 3] = UInt8((adjustedAlpha * 255).rounded())
 }
