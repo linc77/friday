@@ -5,59 +5,30 @@ import AppKit
 let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
 let files = FileManager.default
 let master = root.appendingPathComponent("assets/brand/friday-logo.png")
-guard let artwork = NSImage(contentsOf: master) else {
+guard let source = NSImage(contentsOf: master),
+      let sourceImage = source.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
     fatalError("Missing icon master: \(master.path)")
 }
-let glassMaster = root.appendingPathComponent("assets/brand/friday-glass.png")
-guard let glassSource = NSImage(contentsOf: glassMaster),
-      let glassImage = glassSource.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-    fatalError("Missing translucent macOS icon master: \(glassMaster.path)")
-}
-// Keep the approved artwork; set glass transparency numerically at export time.
-// The source glass has alpha around 0.5, while the F is above 0.95.
-let glassOpacity: CGFloat = 0.70
-let glassCanvas = CGContext(
-    data: nil, width: glassImage.width, height: glassImage.height,
-    bitsPerComponent: 8, bytesPerRow: glassImage.width * 4,
+// Keep the generated silhouette, with exactly black and white flat interiors.
+// The tonal clamp removes faint generated shading while retaining antialiasing.
+let masterCanvas = CGContext(
+    data: nil, width: sourceImage.width, height: sourceImage.height,
+    bitsPerComponent: 8, bytesPerRow: sourceImage.width * 4,
     space: CGColorSpace(name: CGColorSpace.sRGB)!,
     bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
 )!
-glassCanvas.draw(glassImage, in: CGRect(x: 0, y: 0, width: glassImage.width, height: glassImage.height))
-// The darker edit supplies F colors only. Retain the approved glass and alpha,
-// since generated variants can flatten the translucent background.
-let darkMaster = root.appendingPathComponent("assets/brand/friday-glass-dark.png")
-guard let darkSource = NSImage(contentsOf: darkMaster),
-      let darkImage = darkSource.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-    fatalError("Missing darker F color source: \(darkMaster.path)")
+masterCanvas.draw(sourceImage, in: CGRect(x: 0, y: 0, width: sourceImage.width, height: sourceImage.height))
+let pixels = masterCanvas.data!.assumingMemoryBound(to: UInt8.self)
+for offset in stride(from: 0, to: masterCanvas.bytesPerRow * sourceImage.height, by: 4) {
+    let luminance = (CGFloat(pixels[offset]) + CGFloat(pixels[offset + 1]) + CGFloat(pixels[offset + 2])) / (3 * 255)
+    let monochrome = UInt8((max(0, min(1, (luminance - 0.10) / 0.80)) * 255).rounded())
+    for channel in 0..<3 { pixels[offset + channel] = monochrome }
+    pixels[offset + 3] = 255
 }
-let darkCanvas = CGContext(
-    data: nil, width: glassImage.width, height: glassImage.height,
-    bitsPerComponent: 8, bytesPerRow: glassImage.width * 4,
-    space: CGColorSpace(name: CGColorSpace.sRGB)!,
-    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
-)!
-darkCanvas.draw(darkImage, in: CGRect(x: 0, y: 0, width: glassImage.width, height: glassImage.height))
-let darkPixels = darkCanvas.data!.assumingMemoryBound(to: UInt8.self)
-let pixels = glassCanvas.data!.assumingMemoryBound(to: UInt8.self)
-for offset in stride(from: 0, to: glassCanvas.bytesPerRow * glassImage.height, by: 4) {
-    let alpha = CGFloat(pixels[offset + 3]) / 255
-    guard alpha > 0 else { continue }
-    let foreground = max(0, min(1, (alpha - 0.65) / 0.30))
-    let blend = foreground * foreground * (3 - 2 * foreground)
-    let edgeCoverage = min(1, alpha / 0.30)
-    let adjustedAlpha = (glassOpacity + (alpha - glassOpacity) * blend) * edgeCoverage
-    let darkAlpha = CGFloat(darkPixels[offset + 3]) / 255
-    let colorBlend = darkAlpha > 0 ? blend : 0
-    // Blend straight RGB only on the F, then restore the approved alpha.
-    for channel in 0..<3 {
-        let original = CGFloat(pixels[offset + channel]) / alpha
-        let darker = darkAlpha > 0 ? CGFloat(darkPixels[offset + channel]) / darkAlpha : original
-        let color = original + (darker - original) * colorBlend
-        pixels[offset + channel] = UInt8(min(255, max(0, color * adjustedAlpha)).rounded())
-    }
-    pixels[offset + 3] = UInt8((adjustedAlpha * 255).rounded())
-}
-let glassArtwork = NSImage(cgImage: glassCanvas.makeImage()!, size: glassSource.size)
+let artwork = NSImage(cgImage: masterCanvas.makeImage()!, size: source.size)
+// Preserve the previous F-to-tile proportions by trimming the master's margin.
+let artworkBounds = NSRect(origin: .zero, size: artwork.size)
+    .insetBy(dx: artwork.size.width * 0.055, dy: artwork.size.height * 0.055)
 
 func writePNG(size: Int, to url: URL, macOS: Bool = false) throws {
     let alpha = macOS ? CGImageAlphaInfo.premultipliedLast : CGImageAlphaInfo.noneSkipLast
@@ -74,20 +45,18 @@ func writePNG(size: Int, to url: URL, macOS: Bool = false) throws {
         NSColor.clear.setFill()
         bounds.fill(using: .copy)
         let scale = CGFloat(size) / 1024
-        // Match standard Dock footprints and preserve the glass master's alpha.
-        // A white underlay would make the translucent backing opaque again.
+        // Match the approved Dock footprint; only the outer margin is transparent.
         let tile = bounds.insetBy(dx: 112 * scale, dy: 112 * scale)
         let shape = NSBezierPath(roundedRect: tile, xRadius: 176 * scale, yRadius: 176 * scale)
         shape.addClip()
-        // Trim the generated source's outer margin before applying the native mask.
-        let source = NSRect(origin: .zero, size: glassArtwork.size)
-            .insetBy(dx: glassArtwork.size.width * 0.055, dy: glassArtwork.size.height * 0.055)
-        glassArtwork.draw(in: tile, from: source, operation: .sourceOver, fraction: 1)
+        NSColor.black.setFill()
+        tile.fill()
+        artwork.draw(in: tile, from: artworkBounds, operation: .sourceOver, fraction: 1)
     } else {
         // iOS supplies the icon mask; its source must be full bleed and opaque.
-        NSColor.white.setFill()
+        NSColor.black.setFill()
         bounds.fill()
-        artwork.draw(in: bounds)
+        artwork.draw(in: bounds, from: artworkBounds, operation: .sourceOver, fraction: 1)
     }
     NSGraphicsContext.restoreGraphicsState()
     let bitmap = NSBitmapImageRep(cgImage: canvas.makeImage()!)
