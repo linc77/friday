@@ -44,7 +44,7 @@ pnpm service:stop
 - `access.sqlite` / `owner-token`：设备授权及本机凭据，勿加入 Git 或公开分享。
 - `runtime/`：已安装的服务和依赖；`service*.log`：启动日志。
 - Friday 自己的模型消息、工具结果和会话存入 `friday.sqlite`；客户端只投影最近 100 条文本消息。
-- `model-auth.json` / `model-device-id`：Friday 独立的 OAuth 凭据与安装标识，权限 0600，不进入客户端快照或 Git。
+- `model-auth.json` / `model-device-id` / `openai-registration.json`：Friday 独立的 OAuth 凭据、安装标识与客户端注册，权限 0600，不进入客户端快照或 Git。令牌交换失败仍保留已签发的客户端 ID，下次使用该 ID 重新授权。
 - 只有调用可选 Codex 工具或继续旧 Codex 任务时，才记录其 thread / turn ID。
 
 关闭客户端不影响执行。重启服务后，Friday 模型会话由 Pi Durable 接续；读取和幂等内部操作可恢复。文件写入、保存笔记和 Codex 调用为不可安全重放工具，中断后会向模型返回 interrupted，要求先核对当前状态。旧 Codex 任务仍保留原先的“待恢复”策略。取消不会撤销已经发生的改动。
@@ -52,6 +52,10 @@ pnpm service:stop
 备份时先停止服务，再复制整个数据目录。如果需要保留 Codex 后续续聊能力，也应按其原生方式保留本地会话。不要只复制一个正在写入的 SQLite 文件。
 
 开发环境可以设置 `FRIDAY_DATA_DIR`、`FRIDAY_PORT`、`FRIDAY_HOST`；客户端本机默认端口为 4317。
+
+服务启动时优先使用 `HTTP_PROXY` / `HTTPS_PROXY`（兼容小写及 `ALL_PROXY`），没有显式配置时读取 macOS 当前的 HTTP/HTTPS 系统代理；本机回调地址始终直连，`NO_PROXY` 可补充绕过地址。服务安装会保留这些环境变量，系统代理变化后需重启服务。浏览器回调页只表示授权码已收到，令牌交换和保存完成后 Friday 才显示已连接。
+
+`patches/` 中的 pi-ai 补丁让重新授权复用已签发的客户端 ID，并校验回调 ID；通过 `pnpm install --frozen-lockfile` 自动应用。若 OpenAI 授权页面提示当前工作空间或套餐的所需权限不可用，该账户暂时不能向 Friday 授予直连模型权限，反复登录无法解决。
 
 ## iPhone 与多端连接
 

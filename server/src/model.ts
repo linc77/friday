@@ -34,6 +34,34 @@ export class ModelCredentials implements CredentialStore {
 }
 
 type LoginState = { status: 'idle' | 'waiting' | 'connected' | 'error'; url?: string; error?: string; manual?: boolean };
+
+// Do not return raw provider errors: token endpoints can echo credentials or callback details.
+export function loginError(error: unknown, exchanging: boolean, aborted: boolean): string {
+  if (aborted) return '登录已取消或超时，请重试。';
+  const message = error instanceof Error ? error.message : '';
+  const codes: string[] = []; let cause: unknown = error;
+  for (let depth = 0; depth < 6 && cause && typeof cause === 'object'; depth++) {
+    const item = cause as { code?: unknown; cause?: unknown };
+    if (typeof item.code === 'string') codes.push(item.code);
+    cause = item.cause;
+  }
+  const stage = exchanging ? '浏览器已返回，但 Friday 交换登录凭据失败。' : 'Friday 登录未完成。';
+  if (codes.some(c => c === 'ENOTFOUND' || c === 'EAI_AGAIN')) return stage + '服务无法解析 OpenAI 地址，请检查主机网络或代理后重新登录。';
+  if (codes.some(c => ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT'].includes(c))) return stage + '服务无法连接 OpenAI，请检查主机网络或代理后重新登录。';
+  if (codes.includes('EADDRINUSE') || message.startsWith('Port 1455 is in use')) return '本机登录回调端口 1455 正被其他登录占用，请结束那次登录后重试。';
+  const response = message.match(/^OpenAI OAuth token request failed \((\d{3})\):\s*([\s\S]*)$/);
+  if (response) {
+    let code = '';
+    try {
+      const body = JSON.parse(response[2]); const value = typeof body.error === 'string' ? body.error : body.error?.code;
+      if (['invalid_grant', 'invalid_client', 'invalid_request', 'unauthorized_client', 'unsupported_grant_type', 'invalid_scope', 'invalid_resource', 'access_denied', 'temporarily_unavailable', 'server_error'].includes(value)) code = value;
+    } catch { /* Non-JSON response bodies stay private. */ }
+    return stage + `OpenAI 拒绝了凭据交换（HTTP ${response[1]}${code ? `，${code}` : ''}），请重新发起登录。`;
+  }
+  if (message.includes('chatgpt.tokens.use.direct')) return 'OpenAI 未授予模型调用权限，请重新登录并完成授权。';
+  if (codes.includes('EACCES') || codes.includes('ENOSPC')) return 'Friday 无法保存登录凭据，请检查主机数据目录的权限和可用空间。';
+  return stage + '请重新登录；如果浏览器显示成功，请以 Friday 的连接状态为准。';
+}
 export class ModelConnection {
   readonly credentials: ModelCredentials;
   readonly models;
@@ -65,6 +93,14 @@ export class ModelConnection {
   }
   private async beginLogin() {
     if (this.controller) return this.status(true);
+    const registrationFile = join(this.directory, 'openai-registration.json');
+    let clientId: string | undefined;
+    try { clientId = JSON.parse(await readFile(registrationFile, 'utf8')).clientId; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    if (!clientId) {
+      const credential = await this.credentials.read('openai');
+      if (credential?.type === 'oauth' && typeof credential.clientId === 'string') clientId = credential.clientId;
+    }
     const deviceFile = join(this.directory, 'model-device-id');
     let deviceId: string;
     try { deviceId = (await readFile(deviceFile, 'utf8')).trim(); }
@@ -73,6 +109,7 @@ export class ModelConnection {
       deviceId = randomUUID(); await writeFile(deviceFile, deviceId, { mode: 0o600, flag: 'wx' });
     }
     const controller = this.controller = new AbortController();
+    let exchanging = false;
     this.login = { status: 'waiting' };
     const timeout = setTimeout(() => controller.abort(), 5 * 60_000); timeout.unref();
     let announced!: () => void;
@@ -80,8 +117,9 @@ export class ModelConnection {
     this.completion = this.models.login('openai', 'oauth', {
       signal: controller.signal,
       notify: info => {
+        if (info.type === 'progress') { exchanging = true; this.login.manual = false; }
         if (info.type === 'auth_url') {
-          const url = new URL(info.url); url.searchParams.set('agent_name_hint', 'Friday');
+          const url = new URL(info.url);
           this.login = { status: 'waiting', url: url.toString() }; announced();
         }
       },
@@ -94,13 +132,18 @@ export class ModelConnection {
         this.login.manual = true;
         this.manual = value => { signal.removeEventListener('abort', abort); this.manual = undefined; resolve(value); };
       }),
-    }, { getDeviceId: () => deviceId }).then(() => { this.login = { status: 'connected' }; }).catch(() => {
+    }, { getDeviceId: () => deviceId, openai: { clientId, agentName: 'Friday', onClientId: async issuedId => {
+      if (!/^[A-Za-z0-9_-]{1,256}$/.test(issuedId) || issuedId === 'dynamic_agent_client') throw new Error('OpenAI 返回的客户端注册无效');
+      const temporary = `${registrationFile}.${randomUUID()}.tmp`;
+      try { await writeFile(temporary, JSON.stringify({ clientId: issuedId }), { mode: 0o600, flag: 'wx' }); await rename(temporary, registrationFile); }
+      finally { await rm(temporary, { force: true }); }
+    } } }).then(() => { this.login = { status: 'connected' }; }).catch(error => {
       // Provider error bodies can contain sensitive data. Keep them out of API responses and logs.
-      this.login = { status: 'error', error: controller.signal.aborted ? '登录已取消或超时，请重试。' : 'OpenAI 登录未完成，请检查网络及本机 1455 端口后重试。' };
+      this.login = { status: 'error', error: loginError(error, exchanging, controller.signal.aborted) };
     }).finally(() => { clearTimeout(timeout); this.controller = undefined; this.manual = undefined; announced(); });
     await announcement; return this.status(true);
   }
   completeLogin(value: string) { if (!this.manual) throw new Error('当前没有等待中的登录'); this.manual(value); }
-  async logout() { this.controller?.abort(); await this.completion; await this.credentials.delete('openai'); this.login = { status: 'idle' }; }
+  async logout() { this.controller?.abort(); await this.completion; await this.credentials.delete('openai'); await rm(join(this.directory, 'openai-registration.json'), { force: true }); this.login = { status: 'idle' }; }
   async close() { this.controller?.abort(); await this.completion; }
 }
