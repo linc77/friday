@@ -9,9 +9,34 @@ guard let artwork = NSImage(contentsOf: master) else {
     fatalError("Missing icon master: \(master.path)")
 }
 let glassMaster = root.appendingPathComponent("assets/brand/friday-glass.png")
-guard let glassArtwork = NSImage(contentsOf: glassMaster) else {
+guard let glassSource = NSImage(contentsOf: glassMaster),
+      let glassImage = glassSource.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
     fatalError("Missing translucent macOS icon master: \(glassMaster.path)")
 }
+// Keep the approved artwork; set glass transparency numerically at export time.
+// The source glass has alpha around 0.5, while the F is above 0.95.
+let glassOpacity: CGFloat = 0.30
+let glassCanvas = CGContext(
+    data: nil, width: glassImage.width, height: glassImage.height,
+    bitsPerComponent: 8, bytesPerRow: glassImage.width * 4,
+    space: CGColorSpace(name: CGColorSpace.sRGB)!,
+    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+)!
+glassCanvas.draw(glassImage, in: CGRect(x: 0, y: 0, width: glassImage.width, height: glassImage.height))
+let pixels = glassCanvas.data!.assumingMemoryBound(to: UInt8.self)
+for offset in stride(from: 0, to: glassCanvas.bytesPerRow * glassImage.height, by: 4) {
+    let alpha = CGFloat(pixels[offset + 3]) / 255
+    guard alpha > 0 else { continue }
+    let foreground = max(0, min(1, (alpha - 0.65) / 0.30))
+    let blend = foreground * foreground * (3 - 2 * foreground)
+    let adjustedAlpha = min(alpha, glassOpacity + (alpha - glassOpacity) * blend)
+    // Rescale premultiplied RGB alongside alpha, preserving the original colors.
+    for channel in 0..<3 {
+        pixels[offset + channel] = UInt8((CGFloat(pixels[offset + channel]) * adjustedAlpha / alpha).rounded())
+    }
+    pixels[offset + 3] = UInt8((adjustedAlpha * 255).rounded())
+}
+let glassArtwork = NSImage(cgImage: glassCanvas.makeImage()!, size: glassSource.size)
 
 func writePNG(size: Int, to url: URL, macOS: Bool = false) throws {
     let alpha = macOS ? CGImageAlphaInfo.premultipliedLast : CGImageAlphaInfo.noneSkipLast
