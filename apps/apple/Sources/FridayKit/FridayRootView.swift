@@ -40,20 +40,19 @@ public struct FridayRootView: View {
     public var body: some View {
         Group {
             #if os(macOS)
-            NavigationSplitView {
-                sidebar.navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 270)
-            } detail: {
+            HStack(spacing: 0) {
+                sidebar
+                Divider()
                 VStack(spacing: 0) {
                     if let error = store.error { errorBanner(error) }
                     content
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(FridayTheme.canvas)
-                .navigationTitle(section == .chat ? "Friday" : section?.rawValue ?? "Friday")
-                .toolbar { windowToolbar }
-                .toolbarBackground(.hidden, for: .windowToolbar)
             }
-            .navigationSplitViewStyle(.balanced)
+            .navigationTitle(section == .chat ? "Friday" : section?.rawValue ?? "Friday")
+            .toolbar { windowToolbar }
+            .toolbarBackground(.hidden, for: .windowToolbar)
             .frame(minWidth: 980, minHeight: 640)
             #else
             TabView(selection: $mobileTab) {
@@ -92,8 +91,6 @@ public struct FridayRootView: View {
     @ToolbarContentBuilder private var windowToolbar: some ToolbarContent {
         #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
-            DefaultToolbarItem(kind: .sidebarToggle)
-                .sharedBackgroundVisibility(.hidden)
             newTaskToolbarItem.sharedBackgroundVisibility(.hidden)
         } else {
             newTaskToolbarItem
@@ -112,29 +109,29 @@ public struct FridayRootView: View {
     }
 
     private var sidebar: some View {
-        List(selection: $section) {
-            SwiftUI.Section("工作空间") {
+        VStack(spacing: 8) {
+            VStack(spacing: 8) {
                 ForEach(FridaySection.allCases) { item in sidebarRow(item) }
             }
-        }
-        .listStyle(.sidebar).scrollContentBackground(.hidden)
-        .safeAreaInset(edge: .bottom, alignment: .trailing, spacing: 0) {
+            Spacer(minLength: 16)
             FridaySettingsLink()
-                .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 16)
+                .frame(width: 40, height: 40)
         }
+        .padding(.vertical, 12)
+        .frame(width: 64)
+        .frame(maxHeight: .infinity)
+        .background(.bar)
     }
 
     private func sidebarRow(_ item: FridaySection) -> some View {
-        HStack(spacing: 11) {
-            Image(systemName: item.icon).font(.system(size: 16, weight: .regular)).frame(width: 22)
-            Text(item.rawValue).font(.system(size: 14, weight: section == item ? .semibold : .regular))
-            Spacer(minLength: 4)
-            if item == .tasks, store.tasks.contains(where: { $0.active }) {
-                Text("\(store.tasks.filter { $0.active }.count)").font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary).accessibilityLabel("进行中的任务数")
-            }
+        Button { section = item } label: {
+            Label(item.rawValue, systemImage: item.icon)
         }
-        .padding(.vertical, 7).tag(item).listRowSeparator(.hidden)
+        .buttonStyle(FridaySidebarButtonStyle(selected: section == item))
+        .help(item.rawValue)
+        .accessibilityAddTraits(section == item ? .isSelected : [])
+        .accessibilityValue(item == .tasks && store.tasks.contains(where: { $0.active })
+            ? "\(store.tasks.filter { $0.active }.count) 个进行中的任务" : "")
     }
     #endif
 
@@ -227,6 +224,37 @@ public struct FridayRootView: View {
 
     private func newTask() { selectedTask = nil; section = .chat; mobileTab = 0 }
 }
+
+#if os(macOS)
+private struct FridaySidebarButtonStyle: ButtonStyle {
+    let selected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        FridaySidebarButtonBody(configuration: configuration, selected: selected)
+    }
+}
+
+private struct FridaySidebarButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    let selected: Bool
+    @State private var hovering = false
+
+    var body: some View {
+        configuration.label
+            .labelStyle(.iconOnly)
+            .font(.system(size: 18, weight: .regular))
+            .symbolRenderingMode(.monochrome)
+            .foregroundStyle(selected ? .primary : .secondary)
+            .frame(width: 40, height: 40)
+            .background {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.primary.opacity(configuration.isPressed ? 0.14 : selected ? 0.09 : hovering ? 0.055 : 0))
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+            .onHover { hovering = $0 }
+    }
+}
+#endif
 
 struct TaskRow: View {
     let task: WorkItem
