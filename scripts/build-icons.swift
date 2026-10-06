@@ -15,7 +15,7 @@ guard let glassSource = NSImage(contentsOf: glassMaster),
 }
 // Keep the approved artwork; set glass transparency numerically at export time.
 // The source glass has alpha around 0.5, while the F is above 0.95.
-let glassOpacity: CGFloat = 0.30
+let glassOpacity: CGFloat = 0.70
 let glassCanvas = CGContext(
     data: nil, width: glassImage.width, height: glassImage.height,
     bitsPerComponent: 8, bytesPerRow: glassImage.width * 4,
@@ -29,7 +29,8 @@ for offset in stride(from: 0, to: glassCanvas.bytesPerRow * glassImage.height, b
     guard alpha > 0 else { continue }
     let foreground = max(0, min(1, (alpha - 0.65) / 0.30))
     let blend = foreground * foreground * (3 - 2 * foreground)
-    let adjustedAlpha = min(alpha, glassOpacity + (alpha - glassOpacity) * blend)
+    let edgeCoverage = min(1, alpha / 0.30)
+    let adjustedAlpha = (glassOpacity + (alpha - glassOpacity) * blend) * edgeCoverage
     // Rescale premultiplied RGB alongside alpha, preserving the original colors.
     for channel in 0..<3 {
         pixels[offset + channel] = UInt8((CGFloat(pixels[offset + channel]) * adjustedAlpha / alpha).rounded())
