@@ -3,6 +3,15 @@ import SwiftUI
 import AppKit
 #endif
 
+private let fridayResourceBundle: Bundle = {
+    // The packaged Mac app keeps SwiftPM resources in Contents/Resources.
+    #if os(macOS)
+    if let url = Bundle.main.url(forResource: "Friday_FridayKit", withExtension: "bundle"),
+       let bundle = Bundle(url: url) { return bundle }
+    #endif
+    return .module
+}()
+
 private let fridayAccent = Color(red: 0.12, green: 0.49, blue: 0.43)
 private enum Section: String, CaseIterable, Identifiable {
     case chat = "对话", inbox = "想法", tasks = "记录", projects = "项目", memory = "记忆", agents = "工具", connection = "连接"
@@ -26,7 +35,10 @@ public struct FridayRootView: View {
             NavigationSplitView {
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(spacing: 10) {
-                        Image(systemName: "sparkle").font(.title).foregroundStyle(fridayAccent)
+                        Image("FridayLogo", bundle: fridayResourceBundle)
+                            .resizable().scaledToFit().frame(width: 36, height: 36)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) { Text("Friday").font(.title2.bold()); Text("你的个人 Agent").font(.caption).foregroundStyle(.secondary) }
                     }.padding(.horizontal, 16).padding(.top, 20)
                     List(Section.allCases, selection: $section) { item in Label(item.rawValue, systemImage: item.icon).tag(item).padding(.vertical, 5) }.listStyle(.sidebar)
