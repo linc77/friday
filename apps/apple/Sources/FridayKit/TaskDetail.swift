@@ -25,7 +25,7 @@ struct TaskDetail: View {
                                 .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                         }
                         if let error = task.error {
-                            Label(error, systemImage: "exclamationmark.circle")
+                            Label(friday: error, systemImage: "exclamationmark.circle")
                                 .fridaySymbolFeedback(.wiggle)
                                 .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
                                 .padding(18).frame(maxWidth: .infinity, alignment: .leading).fridayCard()
@@ -72,7 +72,7 @@ struct TaskDetail: View {
             }
             Spacer(minLength: 8)
             if task.active || task.status == "needs_project" {
-                Button("停止", systemImage: "stop", role: .destructive) {
+                Button(friday: "停止", systemImage: "stop", role: .destructive) {
                     Task { _ = await store.perform("/api/tasks/\(id)/cancel") }
                 }
                 .buttonStyle(FridayButtonStyle(compact: true)).disabled(!store.connected)
@@ -108,9 +108,9 @@ struct TaskDetail: View {
                 .foregroundStyle(task.status == "waiting" ? .orange : FridayTheme.accent)
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 5) {
-                Text(task.status == "queued" ? "已加入队列" : task.status == "waiting" ? "需要你的确认" : "Friday 正在处理")
+                Text(fridayString: task.status == "queued" ? "已加入队列" : task.status == "waiting" ? "需要你的确认" : "Friday 正在处理")
                     .font(.callout.weight(.medium))
-                Text(task.status == "queued" ? "前面的任务完成后开始。" : task.status == "waiting" ? "处理上方请求后，任务会继续推进。" : "你可以继续补充要求，关闭窗口也不影响执行。")
+                Text(fridayString: task.status == "queued" ? "前面的任务完成后开始。" : task.status == "waiting" ? "处理上方请求后，任务会继续推进。" : "你可以继续补充要求，关闭窗口也不影响执行。")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
@@ -123,12 +123,12 @@ struct TaskDetail: View {
         HStack(spacing: 12) {
             Image(systemName: "doc.text").font(.title3).foregroundStyle(FridayTheme.accent).fridaySymbolFeedback()
             VStack(alignment: .leading, spacing: 3) {
-                Text("任务成果").font(.callout.weight(.medium))
-                Text("已保存在主机，可随时导出").font(.caption).foregroundStyle(.secondary)
+                Text(friday: "任务成果").font(.callout.weight(.medium))
+                Text(friday: "已保存在主机，可随时导出").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            ShareLink(item: task.result) { Image(systemName: "square.and.arrow.up").accessibilityLabel("导出结果") }
-                .buttonStyle(FridayButtonStyle(compact: true)).help("导出结果")
+            ShareLink(item: task.result) { Image(systemName: "square.and.arrow.up").accessibilityLabel(Text(friday: "导出结果")) }
+                .buttonStyle(FridayButtonStyle(compact: true)).help(Text(friday: "导出结果"))
         }
         .padding(18).fridayCard()
     }
@@ -136,12 +136,12 @@ struct TaskDetail: View {
     private func executionHistory(_ task: WorkItem) -> some View {
         DisclosureGroup(isExpanded: $showEvents) {
             LazyVStack(alignment: .leading, spacing: 18) {
-                Text("执行工具：\(task.agent.capitalized)").font(.caption).foregroundStyle(.secondary)
+                Text(friday: "执行工具：\(task.agent.capitalized)").font(.caption).foregroundStyle(.secondary)
                 if task.projectId != nil {
-                    Text("工作目录：\(task.cwd)").font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                    Text(friday: "工作目录：\(task.cwd)").font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                 }
                 if let thread = task.threadId {
-                    Text("会话 \(thread)").font(.caption2.monospaced()).foregroundStyle(.tertiary).textSelection(.enabled)
+                    Text(friday: "会话 \(thread)").font(.caption2.monospaced()).foregroundStyle(.tertiary).textSelection(.enabled)
                 }
                 ForEach(task.events) { event in
                     HStack(alignment: .top, spacing: 12) {
@@ -159,7 +159,7 @@ struct TaskDetail: View {
             }.padding(.top, 16)
         } label: {
             HStack {
-                Label("执行详情", systemImage: "clock.arrow.circlepath")
+                Label(friday: "执行详情", systemImage: "clock.arrow.circlepath")
                     .fridaySymbolFeedback(.rotate, active: showEvents)
                 Spacer()
                 Text("\(task.events.count)").monospacedDigit()
@@ -195,17 +195,17 @@ private struct FloatingComposer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            TextField(active ? "补充要求，或告诉 Friday 更多背景…" : "基于这个结果，接着做什么？", text: $message, axis: .vertical)
+            TextField(friday: active ? "补充要求，或告诉 Friday 更多背景…" : "基于这个结果，接着做什么？", text: $message, axis: .vertical)
                 .font(.body).lineLimit(2...5).textFieldStyle(.plain)
-                .focused($focused).accessibilityLabel("补充要求")
+                .focused($focused).accessibilityLabel(Text(friday: "补充要求"))
                 .onChatSubmit { if !disabled { send() } }
             HStack(spacing: 12) {
                 if let error {
-                    Text(error).font(.caption).foregroundStyle(.orange).lineLimit(2)
+                    Text(fridayString: error).font(.caption).foregroundStyle(.orange).lineLimit(2)
                 }
                 Spacer(minLength: 0)
                 Button(action: send) {
-                    Label(sending ? "发送中" : "发送", systemImage: "arrow.up")
+                    Label(friday: sending ? "发送中" : "发送", systemImage: "arrow.up")
                 }
                 .buttonStyle(FridayButtonStyle(prominent: true, compact: true))
                 .keyboardShortcut(.return, modifiers: .command).disabled(disabled)
@@ -251,14 +251,14 @@ struct ApprovalCard: View {
                             }.frame(maxWidth: .infinity, alignment: .leading)
                         }.buttonStyle(FridayButtonStyle())
                     }
-                    TextField("你的回答", text: Binding(get: { answers[question.id] ?? "" }, set: { answers[question.id] = $0 }))
+                    TextField(friday: "你的回答", text: Binding(get: { answers[question.id] ?? "" }, set: { answers[question.id] = $0 }))
                         .textFieldStyle(.roundedBorder)
                 }
             }
             HStack {
                 Spacer()
-                if approval.questions.isEmpty { Button("拒绝") { respond("decline") }.buttonStyle(FridayButtonStyle()) }
-                Button(approval.questions.isEmpty ? "允许本次" : "提交回答") { respond("accept") }
+                if approval.questions.isEmpty { Button(friday: "拒绝") { respond("decline") }.buttonStyle(FridayButtonStyle()) }
+                Button(friday: approval.questions.isEmpty ? "允许本次" : "提交回答") { respond("accept") }
                     .buttonStyle(FridayButtonStyle(prominent: true))
             }
         }

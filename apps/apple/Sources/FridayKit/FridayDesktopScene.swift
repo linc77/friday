@@ -1,48 +1,34 @@
 #if os(macOS)
 import SwiftUI
 
-/// The main and settings windows observe the same client connection and state.
+/// All pages share the main window's client connection and navigation state.
 @MainActor
 public struct FridayDesktopScene: Scene {
     @StateObject private var store = FridayStore()
-    @State private var settingsSection: FridaySettingsSection = .agents
+    @StateObject private var navigation = FridayNavigation()
+    @Environment(\.openWindow) private var openWindow
+    @AppStorage(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
 
     public init() {}
 
     public var body: some Scene {
         Window("Friday", id: "main") {
-            FridayRootView(store: store) { settingsSection = .connection }
+            FridayRootView(store: store, navigation: navigation)
         }
         .defaultSize(width: 1180, height: 780)
         .windowToolbarStyle(.unifiedCompact)
 
-        Settings {
-            FridaySettingsView(store: store, selection: $settingsSection)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button(friday: "设置…") {
+                    navigation.section = .settings
+                    openWindow(id: "main")
+                }
+                .keyboardShortcut(",", modifiers: .command)
+                .environment(\.locale, language.locale)
+            }
         }
     }
 }
 
-enum FridaySettingsSection: Hashable {
-    case agents, connection
-}
-
-struct FridaySettingsView: View {
-    @ObservedObject var store: FridayStore
-    @Binding var selection: FridaySettingsSection
-
-    var body: some View {
-        TabView(selection: $selection) {
-            AgentsView(store: store)
-                .tabItem { Label("工具", systemImage: "terminal") }
-                .tag(FridaySettingsSection.agents)
-            ConnectionView(store: store)
-                .tabItem { Label("连接", systemImage: "network") }
-                .tag(FridaySettingsSection.connection)
-        }
-        .frame(width: 660, height: 560)
-        .background(FridayTheme.canvas)
-        .tint(FridayTheme.accent)
-        .symbolRenderingMode(.monochrome)
-    }
-}
 #endif

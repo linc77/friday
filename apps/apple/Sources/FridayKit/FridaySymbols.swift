@@ -133,19 +133,3 @@ private struct FridayProcessingEffect: ViewModifier {
         #endif
     }
 }
-
-#if os(macOS)
-struct FridaySettingsLink: View {
-    var body: some View {
-        SettingsLink {
-            Label { Text("设置") } icon: {
-                Image(systemName: "gear")
-                    .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 17, weight: .light))
-            }
-        }
-        .buttonStyle(FridayToolbarButtonStyle(motion: .rotate))
-        .help("设置（⌘,）")
-    }
-}
-#endif

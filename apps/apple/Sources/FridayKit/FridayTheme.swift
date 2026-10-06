@@ -68,8 +68,8 @@ struct PageHeading: View {
     let subtitle: String
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
-            Text(title).font(.largeTitle.weight(.semibold)).tracking(-0.6)
-            Text(subtitle).font(.callout).foregroundStyle(.secondary).lineSpacing(4)
+            Text(fridayString: title).font(.largeTitle.weight(.semibold)).tracking(-0.6)
+            Text(fridayString: subtitle).font(.callout).foregroundStyle(.secondary).lineSpacing(4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -278,8 +278,8 @@ struct EmptyPanel: View {
                 .padding(.bottom, 4)
                 .fridaySymbolFeedback(icon == "scribble" ? .wiggle : .bounce)
                 .accessibilityHidden(true)
-            Text(title).font(.title3.weight(.semibold))
-            Text(subtitle).font(.callout).foregroundStyle(.secondary)
+            Text(fridayString: title).font(.title3.weight(.semibold))
+            Text(fridayString: subtitle).font(.callout).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center).lineSpacing(4).frame(maxWidth: 310)
         }
         .padding(36).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -300,7 +300,7 @@ struct StatusBadge: View {
     var body: some View {
         HStack(spacing: 5) {
             FridayTaskStatusIcon(status: task.status).frame(width: 12, height: 12)
-            Text(task.statusText)
+            Text(fridayString: task.statusText)
         }
         .font(.caption.weight(.medium))
         .padding(.horizontal, 9).padding(.vertical, 5)
