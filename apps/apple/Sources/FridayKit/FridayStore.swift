@@ -99,7 +99,7 @@ final class FridayStore: ObservableObject {
         catch { self.error = error.localizedDescription; return false }
     }
     func createTask(prompt: String, projectId: String, mode: String, ideaId: String?, requestId: String) async throws -> String {
-        var body: [String: Any] = ["prompt": prompt, "mode": mode, "projectId": projectId.isEmpty ? NSNull() : projectId, "requestId": requestId, "agent": "codex"]
+        var body: [String: Any] = ["prompt": prompt, "mode": mode, "projectId": projectId.isEmpty ? NSNull() : projectId, "requestId": requestId, "agent": "friday"]
         if let ideaId { body["ideaId"] = ideaId }
         let response = try await connection.decode(IDResponse.self, "/api/tasks", method: "POST", body: body)
         await refresh(); return response.id

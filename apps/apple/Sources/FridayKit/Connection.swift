@@ -32,6 +32,9 @@ final class Connection {
         server = UserDefaults.standard.string(forKey: "friday.server") ?? "http://127.0.0.1:4317"
         token = SecureToken.read(for: server) ?? ""
         #if os(macOS)
+        if let previewServer = ProcessInfo.processInfo.environment["FRIDAY_SERVER_URL"] {
+            server = previewServer; token = ""
+        }
         if token.isEmpty && ["127.0.0.1", "localhost"].contains(URL(string: server)?.host ?? "") {
             let directory = ProcessInfo.processInfo.environment["FRIDAY_DATA_DIR"] ?? NSHomeDirectory() + "/Library/Application Support/Friday"
             token = (try? String(contentsOfFile: directory + "/owner-token", encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)) ?? ""

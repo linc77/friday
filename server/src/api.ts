@@ -36,6 +36,17 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     c.set('device', device); await next();
   });
   app.get('/api/state', async c => c.json({ ...await engine.snapshot(), agents: agents(), devices: auth.devices(), deviceId: c.get('device') }));
+  app.get('/api/model', async c => c.json(await engine.modelConnection.status(c.get('device') === 'owner')));
+  app.use('/api/model/*', async (c, next) => {
+    if (c.get('device') !== 'owner') return c.json({ error: '请在主机上管理 OpenAI 登录' }, 403);
+    await next();
+  });
+  app.post('/api/model/login', async c => c.json(await engine.modelConnection.startLogin()));
+  app.post('/api/model/callback', async c => { const body = await c.req.json(); engine.modelConnection.completeLogin(text(body.url, '回调地址', 8000)); return c.json({ ok: true }); });
+  app.post('/api/model/logout', async c => {
+    if ((await engine.snapshot()).tasks.some(t => t.agent === 'friday' && activeStatuses.includes(t.status))) throw new Error('请先停止 Friday 正在处理的会话再退出登录');
+    await engine.modelConnection.logout(); return c.json({ ok: true });
+  });
   app.get('/api/events', c => streamSSE(c, async stream => {
     let dirty = true; let ended = false;
     const changed = () => { dirty = true; };
@@ -82,9 +93,9 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   app.delete('/api/memories/:id', async c => { await engine.mutate(s => { s.memories = s.memories.filter(m => m.id !== c.req.param('id')); }); return c.json({ ok: true }); });
   app.post('/api/tasks', async c => {
     const body = await c.req.json();
-    if (body.agent && body.agent !== 'codex') throw new Error('第一版目前仅支持 Codex 执行，其他工具只显示发现状态');
-    if (!agents().find(a => a.id === 'codex')?.installed) throw new Error('主机上未找到 Codex');
-    if (!['research', 'code'].includes(body.mode)) throw new Error('任务类型无效');
+    // Older clients send "codex". New work still belongs to Friday; only old records keep that executor.
+    if (body.agent && !['friday', 'codex'].includes(body.agent)) throw new Error('请向 Friday 提交请求，其他 Agent 尚未接入');
+    if (!['assistant', 'research', 'code'].includes(body.mode)) throw new Error('任务类型无效');
     const id = await engine.createTask({ prompt: text(body.prompt, '任务要求'), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode: body.mode, requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined });
     return c.json({ id }, 201);
   });

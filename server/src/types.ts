@@ -3,13 +3,16 @@ export type Idea = { id: string; text: string; createdAt: string; taskId: string
 export type Project = { id: string; name: string; path: string; context: string };
 export type Memory = { id: string; text: string; updatedAt: string };
 export type Question = { id: string; header: string; question: string; options: { label: string; description: string }[] };
-export type Approval = { id: string; method: string; title: string; detail: string; questions: Question[]; state: 'pending' | 'answered' | 'expired' };
+export type Approval = { id: string; method: string; title: string; detail: string; questions: Question[]; state: 'pending' | 'answered' | 'expired'; decision?: 'accept' | 'decline'; answers?: Record<string, string[]> };
+export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string };
+export type TaskMode = 'assistant' | 'research' | 'code';
 export type TaskEvent = { id: string; kind: string; text: string; at: string };
 export type WorkItem = {
   id: string; title: string; prompt: string; projectId: string | null; cwd: string;
-  agent: string; mode: 'research' | 'code'; status: TaskStatus; createdAt: string; updatedAt: string;
+  agent: string; mode: TaskMode; status: TaskStatus; createdAt: string; updatedAt: string;
   durableId: number | null; threadId: string | null; turnId: string | null;
   result: string; error: string | null; events: TaskEvent[]; approvals: Approval[];
+  conversationId?: number; messages?: ChatMessage[];
   artifact: string | null; lastRequestId: string;
 };
 export type Workspace = {

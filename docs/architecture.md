@@ -8,7 +8,9 @@ flowchart LR
     Outbox --> iPhone
     Service --> Durable[Pi Durable]
     Durable --> DB[(SQLite)]
-    Service --> Codex[Codex app-server]
+    Durable --> Model[OpenAI Responses API / OAuth]
+    Durable --> Tools[Friday 自有工具]
+    Tools -->|可选编码委派 / 用户批准| Codex[Codex app-server]
     Codex --> Workspace[选定的本地目录]
     Service --> Artifacts[Markdown 成果]
 ```
@@ -17,11 +19,17 @@ Friday 保存长期产品状态，客户端负责交互，CLI 工具执行具体
 
 ## Pi Durable 的职责
 
-`friday.execute` 是实际注册到 Pi Durable 的持久任务，使用它的 checkpoint、memo、等待依赖和终止状态。任务创建和应用状态更新在同一 Durable commit 中保存。所有任务按创建/继续的顺序串行执行，避免多个代码任务同时改同一目录。
+`friday.respond` 管理 Friday 请求的排队和成果；其独立 conversation 使用 Pi Durable 内置 `pi.generation` / `pi.tool` 执行模型与工具循环。`friday.execute` 保留给旧 Codex 任务，使用 checkpoint、memo、等待依赖和终止状态。任务创建和应用状态更新在同一 Durable commit 中保存。所有任务按创建/继续的顺序串行执行，避免多个代码任务同时改同一目录。
 
 Pi Durable 不是 CLI 外部副作用的事务管理器。Friday 在启动外部 turn 前保存 external-started 标记与 thread ID；重启后不确定的 turn 需要用户继续。Pi Durable 的存储由单进程持有，另一个 SQLite writer transaction 用作会随进程退出而释放的占用锁。
 
-当前没有在 Pi 内额外运行一个自主规划模型。调研/代码任务直接委派 Codex；这保留了今后引入个人助理会话、模型规划、周期任务与其他 executor 的位置，也避免第一版重复支付两层模型的费用。
+Friday 现在自己运行模型决策循环。每个会话在提交前原子保存 conversation ID，输入用 request ID 去重；模型消息和工具结果进入同一 SQLite。动态 prompt section 读取当前显式记忆、项目背景和 Skill。普通请求不依赖 Codex 安装。
+
+自有工具包括 workspace、save_idea、remember、list_files、read_file、save_note、write_file、ask_user；delegate_codex 仅在关联项目的代码模式、用户批准后执行。项目路径经 realpath 校验，拒绝越界和部分明确的凭据文件；这是一组受限文件工具，不是通用 OS 沙箱。写项目文件展示全文并等待授权，无通用 shell 工具。
+
+读取、基于 tool-call ID 去重的内部写入和提问可安全恢复；文件写入、笔记文件和外部调用标记 unsafe，中断后由 Pi 返回 interrupted，不自动重放。用户问题和答案在 workspace 中持久化；中断的其他待决授权失效。
+
+OpenAI 登录使用 pi-ai 的 openai provider OAuth 适配器，直接请求 Responses API。稳定主机 ID 和独立 OAuth 凭据保存在私有数据目录，登录/退出/手动回调仅主机 owner 可操作。凭据刷新在单实例租约内串行、原子落盘；缺少 OAuth 不回退到 API key。模型授权与实际可用性须由真实登录和推理确认。
 
 ## Codex 适配器
 
@@ -35,11 +43,11 @@ Pi Durable 不是 CLI 外部副作用的事务管理器。Friday 在启动外部
 
 | 层 | 内容 | 写入与读取 |
 | --- | --- | --- |
-| Session Memory | 当前任务的 thread、输出、执行记录 | 执行过程中写入，续聊复用原生会话 |
+| Session Memory | Friday conversation 的模型消息、工具结果；可选 Codex 的 thread ID | Pi Durable 持久化并复用 Friday 会话；Codex 只保存其受委派部分 |
 | SQLite Long-term Memory | 用户明确保存的偏好、项目背景 | UI 中增改删；任务创建时注入当前快照 |
 | Skill Memory | `skills/*/SKILL.md` 中可复用工作流程 | 维护文件；按任务模式读取并固化到任务输入 |
 
-没有从全屏监控或输入法中自动抽取记忆。全量个人数据不默认发给每一次任务；目前注入的是用户保存的显式记忆和关联项目背景。未来应增加按相关性选择、来源及过期管理。
+没有从全屏监控或输入法中自动抽取记忆。目前系统上下文注入用户保存的显式记忆和关联项目背景；workspace 工具可按模型需要读取有上限的想法、项目和任务概况。未来应增加按相关性选择、来源及过期管理。
 
 ## 同步与授权
 
