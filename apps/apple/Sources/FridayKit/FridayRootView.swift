@@ -34,6 +34,7 @@ public struct FridayRootView: View {
     @Environment(\.scenePhase) private var scenePhase
     #if os(macOS)
     @Environment(\.openSettings) private var openSettings
+    @FocusState private var focusedSidebarSection: FridaySection?
     private var selectConnectionSettings: () -> Void = {}
     #endif
     public init() {}
@@ -61,7 +62,7 @@ public struct FridayRootView: View {
             }
             .background { FridayWindowBackground().ignoresSafeArea() }
             .navigationTitle("")
-            .toolbar { windowToolbar }
+            .focusedSceneValue(\.newFridayConversation, { newTask() })
             .toolbarBackground(.hidden, for: .windowToolbar)
             .frame(minWidth: 980, minHeight: 640)
             #else
@@ -99,26 +100,6 @@ public struct FridayRootView: View {
     }
 
     #if os(macOS)
-    @ToolbarContentBuilder private var windowToolbar: some ToolbarContent {
-        #if compiler(>=6.2)
-        if #available(macOS 26.0, *) {
-            newTaskToolbarItem.sharedBackgroundVisibility(.hidden)
-        } else {
-            newTaskToolbarItem
-        }
-        #else
-        newTaskToolbarItem
-        #endif
-    }
-
-    private var newTaskToolbarItem: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
-            Button { newTask() } label: { Label("新对话", systemImage: "square.and.pencil") }
-                .buttonStyle(FridayToolbarButtonStyle())
-                .keyboardShortcut("n", modifiers: .command).help("新对话（⌘N）")
-        }
-    }
-
     private var sidebar: some View {
         VStack(spacing: 8) {
             VStack(spacing: 8) {
@@ -137,7 +118,9 @@ public struct FridayRootView: View {
         Button { section = item } label: {
             Label(item.rawValue, systemImage: item.icon)
         }
-        .buttonStyle(FridaySidebarButtonStyle(selected: section == item))
+        .buttonStyle(FridaySidebarButtonStyle(selected: section == item, focused: focusedSidebarSection == item))
+        .focused($focusedSidebarSection, equals: item)
+        .focusEffectDisabled()
         .help(item.rawValue)
         .accessibilityAddTraits(section == item ? .isSelected : [])
         .accessibilityValue(item == .tasks && store.tasks.contains(where: { $0.active })
@@ -239,15 +222,17 @@ public struct FridayRootView: View {
 #if os(macOS)
 private struct FridaySidebarButtonStyle: ButtonStyle {
     let selected: Bool
+    let focused: Bool
 
     func makeBody(configuration: Configuration) -> some View {
-        FridaySidebarButtonBody(configuration: configuration, selected: selected)
+        FridaySidebarButtonBody(configuration: configuration, selected: selected, focused: focused)
     }
 }
 
 private struct FridaySidebarButtonBody: View {
     let configuration: ButtonStyleConfiguration
     let selected: Bool
+    let focused: Bool
     @State private var hovering = false
 
     var body: some View {
@@ -260,6 +245,11 @@ private struct FridaySidebarButtonBody: View {
             .background {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(.primary.opacity(configuration.isPressed ? 0.14 : selected ? 0.09 : hovering ? 0.055 : 0))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(.primary.opacity(focused ? 0.3 : 0), lineWidth: 1)
+                    .allowsHitTesting(false)
             }
             .contentShape(RoundedRectangle(cornerRadius: 10))
             .onHover { hovering = $0 }

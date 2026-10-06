@@ -15,9 +15,33 @@ public struct FridayDesktopScene: Scene {
         }
         .defaultSize(width: 1180, height: 780)
         .windowToolbarStyle(.unifiedCompact)
+        .commands { FridayConversationCommands() }
 
         Settings {
             FridaySettingsView(store: store, selection: $settingsSection)
+        }
+    }
+}
+
+private struct FridayNewConversationKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
+extension FocusedValues {
+    var newFridayConversation: (() -> Void)? {
+        get { self[FridayNewConversationKey.self] }
+        set { self[FridayNewConversationKey.self] = newValue }
+    }
+}
+
+private struct FridayConversationCommands: Commands {
+    @FocusedValue(\.newFridayConversation) private var newConversation
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("新对话") { newConversation?() }
+                .keyboardShortcut("n", modifiers: .command)
+                .disabled(newConversation == nil)
         }
     }
 }
