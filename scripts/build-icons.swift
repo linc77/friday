@@ -9,8 +9,9 @@ guard let source = NSImage(contentsOf: master),
       let sourceImage = source.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
     fatalError("Missing icon master: \(master.path)")
 }
-// Keep the generated silhouette, with exactly black and white flat interiors.
+// Keep the generated silhouette, with black and soft neutral-white interiors.
 // The tonal clamp removes faint generated shading while retaining antialiasing.
+let glyphLevel: CGFloat = 230 // #E6E6E6, matching the softer whites in the Dock references.
 let masterCanvas = CGContext(
     data: nil, width: sourceImage.width, height: sourceImage.height,
     bitsPerComponent: 8, bytesPerRow: sourceImage.width * 4,
@@ -21,7 +22,7 @@ masterCanvas.draw(sourceImage, in: CGRect(x: 0, y: 0, width: sourceImage.width, 
 let pixels = masterCanvas.data!.assumingMemoryBound(to: UInt8.self)
 for offset in stride(from: 0, to: masterCanvas.bytesPerRow * sourceImage.height, by: 4) {
     let luminance = (CGFloat(pixels[offset]) + CGFloat(pixels[offset + 1]) + CGFloat(pixels[offset + 2])) / (3 * 255)
-    let monochrome = UInt8((max(0, min(1, (luminance - 0.10) / 0.80)) * 255).rounded())
+    let monochrome = UInt8((max(0, min(1, (luminance - 0.10) / 0.80)) * glyphLevel).rounded())
     for channel in 0..<3 { pixels[offset + channel] = monochrome }
     pixels[offset + 3] = 255
 }
