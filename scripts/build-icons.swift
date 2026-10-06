@@ -8,6 +8,10 @@ let master = root.appendingPathComponent("assets/brand/friday-logo.png")
 guard let artwork = NSImage(contentsOf: master) else {
     fatalError("Missing icon master: \(master.path)")
 }
+let glassMaster = root.appendingPathComponent("assets/brand/friday-glass.png")
+guard let glassArtwork = NSImage(contentsOf: glassMaster) else {
+    fatalError("Missing translucent macOS icon master: \(glassMaster.path)")
+}
 
 func writePNG(size: Int, to url: URL, macOS: Bool = false) throws {
     let alpha = macOS ? CGImageAlphaInfo.premultipliedLast : CGImageAlphaInfo.noneSkipLast
@@ -24,19 +28,15 @@ func writePNG(size: Int, to url: URL, macOS: Bool = false) throws {
         NSColor.clear.setFill()
         bounds.fill(using: .copy)
         let scale = CGFloat(size) / 1024
-        let tile = bounds.insetBy(dx: 64 * scale, dy: 64 * scale)
-        let shape = NSBezierPath(roundedRect: tile, xRadius: 196 * scale, yRadius: 196 * scale)
-        NSGraphicsContext.saveGraphicsState()
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.18)
-        shadow.shadowBlurRadius = 24 * scale
-        shadow.shadowOffset = NSSize(width: 0, height: -10 * scale)
-        shadow.set()
-        NSColor.white.setFill()
-        shape.fill()
-        NSGraphicsContext.restoreGraphicsState()
+        // Match standard Dock footprints and preserve the glass master's alpha.
+        // A white underlay would make the translucent backing opaque again.
+        let tile = bounds.insetBy(dx: 112 * scale, dy: 112 * scale)
+        let shape = NSBezierPath(roundedRect: tile, xRadius: 176 * scale, yRadius: 176 * scale)
         shape.addClip()
-        artwork.draw(in: tile)
+        // Trim the generated source's outer margin before applying the native mask.
+        let source = NSRect(origin: .zero, size: glassArtwork.size)
+            .insetBy(dx: glassArtwork.size.width * 0.055, dy: glassArtwork.size.height * 0.055)
+        glassArtwork.draw(in: tile, from: source, operation: .sourceOver, fraction: 1)
     } else {
         // iOS supplies the icon mask; its source must be full bleed and opaque.
         NSColor.white.setFill()
