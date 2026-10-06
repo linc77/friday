@@ -3,8 +3,8 @@ import SwiftUI
 import AppKit
 #endif
 
-private enum FridaySection: String, CaseIterable, Identifiable {
-    case chat = "对话", inbox = "想法", tasks = "任务", projects = "项目", memory = "记忆"
+enum FridaySection: String, CaseIterable, Identifiable {
+    case chat = "对话", inbox = "想法", tasks = "任务", projects = "项目", memory = "记忆", settings = "设置"
     var id: String { rawValue }
     var icon: String {
         switch self {
@@ -13,6 +13,7 @@ private enum FridaySection: String, CaseIterable, Identifiable {
         case .tasks: "checklist.unchecked"
         case .projects: "folder"
         case .memory: "sparkles"
+        case .settings: "gear"
         }
     }
 
@@ -21,28 +22,35 @@ private enum FridaySection: String, CaseIterable, Identifiable {
         case .chat, .projects: .bounce
         case .inbox, .tasks: .wiggle
         case .memory: .pulse
+        case .settings: .rotate
         }
     }
 }
 
 @MainActor
+final class FridayNavigation: ObservableObject {
+    @Published var section: FridaySection = .chat
+}
+
+@MainActor
 public struct FridayRootView: View {
     @StateObject private var store = FridayStore()
-    @State private var section: FridaySection? = .chat
+    @StateObject private var navigation = FridayNavigation()
     @State private var selectedTask: String?
     @State private var mobileTab = 0
+    @AppStorage(FridayPreferenceKeys.appearance) private var appearance: FridayAppearance = .system
+    @AppStorage(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
     @Environment(\.scenePhase) private var scenePhase
     #if os(macOS)
-    @Environment(\.openSettings) private var openSettings
     @FocusState private var focusedSidebarSection: FridaySection?
-    private var selectConnectionSettings: () -> Void = {}
+    @State private var settingsSection: FridaySettingsSection = .appearance
     #endif
     public init() {}
 
     #if os(macOS)
-    init(store: FridayStore, selectConnectionSettings: @escaping () -> Void) {
+    init(store: FridayStore, navigation: FridayNavigation) {
         _store = StateObject(wrappedValue: store)
-        self.selectConnectionSettings = selectConnectionSettings
+        _navigation = StateObject(wrappedValue: navigation)
     }
     #endif
 
@@ -68,27 +76,30 @@ public struct FridayRootView: View {
             #else
             TabView(selection: $mobileTab) {
                 NavigationStack {
-                    VStack(spacing: 0) { if let error = store.error { Text(error).font(.caption).foregroundStyle(.orange).padding(8) }; conversation }
-                        .navigationTitle("Friday").toolbar { Button { newTask() } label: { Label("新对话", systemImage: "square.and.pencil") } }
-                }.tabItem { Label("对话", systemImage: FridaySymbols.chat) }.tag(0)
-                NavigationStack { inbox.navigationTitle("想法") }.tabItem { Label("想法", systemImage: "scribble") }.tag(1)
-                NavigationStack { tasksList.navigationTitle("任务").navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id) } }.tabItem { Label("任务", systemImage: "checklist.unchecked") }.tag(2)
+                    VStack(spacing: 0) { if let error = store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).padding(8) }; conversation }
+                        .navigationTitle("Friday").toolbar { Button { newTask() } label: { Label(friday: "新对话", systemImage: "square.and.pencil") } }
+                }.tabItem { Label(friday: "对话", systemImage: FridaySymbols.chat) }.tag(0)
+                NavigationStack { inbox.navigationTitle(Text(friday: "想法")) }.tabItem { Label(friday: "想法", systemImage: "scribble") }.tag(1)
+                NavigationStack { tasksList.navigationTitle(Text(friday: "任务")).navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id) } }.tabItem { Label(friday: "任务", systemImage: "checklist.unchecked") }.tag(2)
                 NavigationStack {
                     List {
                         connectionStatus
-                        if let error = store.error { Text(error).font(.caption).foregroundStyle(.orange) }
-                        NavigationLink("项目") { ProjectsView(store: store) }
-                        NavigationLink("记忆") { MemoriesView(store: store) }
-                        NavigationLink("本地工具") { AgentsView(store: store) }
-                        NavigationLink("连接与设备") { ConnectionView(store: store) }
-                    }.navigationTitle("我的 Friday")
-                }.tabItem { Label("设置", systemImage: "gear") }.tag(3)
+                        if let error = store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
+                        NavigationLink(friday: "项目") { ProjectsView(store: store) }
+                        NavigationLink(friday: "记忆") { MemoriesView(store: store) }
+                        NavigationLink(friday: "本地工具") { AgentsView(store: store) }
+                        NavigationLink(friday: "外观") { AppearanceSettingsView() }
+                        NavigationLink(friday: "连接与设备") { ConnectionView(store: store) }
+                    }.navigationTitle(Text(friday: "我的 Friday"))
+                }.tabItem { Label(friday: "设置", systemImage: "gear") }.tag(3)
             }
             #endif
         }
         .tint(FridayTheme.accent)
         .accentColor(FridayTheme.accent)
         .symbolRenderingMode(.monochrome)
+        .environment(\.locale, language.locale)
+        .preferredColorScheme(appearance.colorScheme)
         .task { await store.importSharedIdeas(); await store.connect() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await store.importSharedIdeas(); await store.connect() } }
@@ -103,11 +114,11 @@ public struct FridayRootView: View {
     private var sidebar: some View {
         VStack(spacing: 8) {
             VStack(spacing: 8) {
-                ForEach(FridaySection.allCases) { item in sidebarRow(item) }
+                ForEach(FridaySection.allCases.filter { $0 != .settings }) { item in sidebarRow(item) }
             }
             Spacer(minLength: 16)
-            FridaySettingsLink()
-                .frame(width: 40, height: 40)
+            sidebarRow(.settings)
+                .help(Text(friday: "设置（⌘,）"))
         }
         .padding(.vertical, 12)
         .frame(width: 64)
@@ -115,17 +126,17 @@ public struct FridayRootView: View {
     }
 
     private func sidebarRow(_ item: FridaySection) -> some View {
-        Button { section = item } label: {
-            Label(item.rawValue, systemImage: item.icon)
+        Button { navigation.section = item } label: {
+            Label(friday: item.rawValue, systemImage: item.icon)
         }
-        .buttonStyle(FridaySidebarButtonStyle(selected: section == item, focused: focusedSidebarSection == item))
+        .buttonStyle(FridaySidebarButtonStyle(selected: navigation.section == item, focused: focusedSidebarSection == item))
         .focused($focusedSidebarSection, equals: item)
         .focusEffectDisabled()
-        .help(item.rawValue)
-        .accessibilityAddTraits(section == item ? .isSelected : [])
+        .help(Text(fridayString: item.rawValue))
+        .accessibilityAddTraits(navigation.section == item ? .isSelected : [])
         .accessibilityValue(item == .tasks && store.tasks.contains(where: { $0.active })
-            ? "\(store.tasks.filter { $0.active }.count) 个进行中的任务" : "")
-        .fridaySymbolFeedback(item.motion, active: section == item)
+            ? Text(friday: "\(store.tasks.filter { $0.active }.count) 个进行中的任务") : Text(""))
+        .fridaySymbolFeedback(item.motion, active: navigation.section == item)
     }
     #endif
 
@@ -136,8 +147,8 @@ public struct FridayRootView: View {
                 .fridaySymbolFeedback(active: store.connected)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
-                Text(store.connected ? "主机已连接" : "等待连接主机").font(.caption.weight(.medium))
-                if !store.outbox.isEmpty { Text("\(store.outbox.count) 条想法待同步").font(.caption2).foregroundStyle(.secondary) }
+                Text(fridayString: store.connected ? "主机已连接" : "等待连接主机").font(.caption.weight(.medium))
+                if !store.outbox.isEmpty { Text(friday: "\(store.outbox.count) 条想法待同步").font(.caption2).foregroundStyle(.secondary) }
             }
         }.accessibilityElement(children: .combine)
     }
@@ -145,12 +156,12 @@ public struct FridayRootView: View {
     private func errorBanner(_ message: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.circle").fridaySymbolFeedback(.wiggle)
-            Text(message).lineLimit(2)
+            Text(fridayString: message).lineLimit(2)
             Spacer()
-            Button("连接设置") {
+            Button(friday: "连接设置") {
                 #if os(macOS)
-                selectConnectionSettings()
-                openSettings()
+                settingsSection = .connection
+                navigation.section = .settings
                 #else
                 mobileTab = 3
                 #endif
@@ -161,7 +172,7 @@ public struct FridayRootView: View {
     }
 
     @ViewBuilder private var content: some View {
-        switch section ?? .chat {
+        switch navigation.section {
         case .chat: conversation
         case .inbox: inbox
         case .tasks:
@@ -169,7 +180,7 @@ public struct FridayRootView: View {
             HSplitView {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text("任务").font(.headline)
+                        Text(friday: "任务").font(.headline)
                         Spacer()
                         Text("\(store.tasks.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     }.padding(.horizontal, 20).padding(.top, 22).padding(.bottom, 8)
@@ -184,6 +195,12 @@ public struct FridayRootView: View {
             #endif
         case .projects: ProjectsView(store: store)
         case .memory: MemoriesView(store: store)
+        case .settings:
+            #if os(macOS)
+            FridaySettingsView(store: store, selection: $settingsSection)
+            #else
+            ConnectionView(store: store)
+            #endif
         }
     }
 
@@ -196,7 +213,7 @@ public struct FridayRootView: View {
         else { NewConversationView(store: store, onCreated: openConversation) }
     }
 
-    private func openConversation(_ id: String) { selectedTask = id; section = .chat; mobileTab = 0 }
+    private func openConversation(_ id: String) { selectedTask = id; navigation.section = .chat; mobileTab = 0 }
 
     private var tasksList: some View {
         Group {
@@ -216,7 +233,7 @@ public struct FridayRootView: View {
         }
     }
 
-    private func newTask() { selectedTask = nil; section = .chat; mobileTab = 0 }
+    private func newTask() { selectedTask = nil; navigation.section = .chat; mobileTab = 0 }
 }
 
 #if os(macOS)
@@ -286,26 +303,26 @@ struct InboxView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     ZStack(alignment: .topLeading) {
                         if draft.isEmpty {
-                            Text("有什么想研究、想完成的事？").foregroundStyle(.tertiary)
+                            Text(friday: "有什么想研究、想完成的事？").foregroundStyle(.tertiary)
                                 .padding(.top, 8).padding(.leading, 5).allowsHitTesting(false)
                         }
                         TextEditor(text: $draft).font(.body).frame(minHeight: 90)
-                            .scrollContentBackground(.hidden).focused($focused).accessibilityLabel("记录想法")
+                            .scrollContentBackground(.hidden).focused($focused).accessibilityLabel(Text(friday: "记录想法"))
                     }
                     HStack {
-                        Text("文字、链接，都可以。").font(.caption).foregroundStyle(.secondary)
+                        Text(friday: "文字、链接，都可以。").font(.caption).foregroundStyle(.secondary)
                         Spacer()
                         Button {
                             let text = draft; saving = true
                             Task { if await store.saveIdea(text), draft == text { draft = "" }; saving = false }
-                        } label: { Label(saving ? "正在收下" : "收下这个想法", systemImage: "arrow.up") }
+                        } label: { Label(friday: saving ? "正在收下" : "收下这个想法", systemImage: "arrow.up") }
                         .buttonStyle(FridayButtonStyle(prominent: true))
                         .disabled(saving || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }.padding(20).fridayCard(highlighted: focused)
                 if !store.ideas.isEmpty || !store.outbox.isEmpty {
                     HStack {
-                        Text("已收集").font(.subheadline.weight(.semibold))
+                        Text(friday: "已收集").font(.subheadline.weight(.semibold))
                         Text("\(store.ideas.count + store.outbox.count)").font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
                     }.padding(.top, 4)
                 }
@@ -313,7 +330,7 @@ struct InboxView: View {
                     ForEach(store.outbox) { idea in
                         HStack(spacing: 16) {
                             Text(idea.text).frame(maxWidth: .infinity, alignment: .leading)
-                            Label("待同步", systemImage: "clock").font(.caption).foregroundStyle(.secondary).fridaySymbolFeedback(.rotate)
+                            Label(friday: "待同步", systemImage: "clock").font(.caption).foregroundStyle(.secondary).fridaySymbolFeedback(.rotate)
                         }.padding(20).fridayCard()
                     }
                     ForEach(store.ideas) { idea in
@@ -324,13 +341,13 @@ struct InboxView: View {
                                 Text(idea.createdAt.prefix(10)).font(.caption).foregroundStyle(.tertiary)
                                 Spacer()
                                 Button { delegate(idea) } label: {
-                                    Label(idea.taskId == nil ? "交给 Friday" : "打开对话", systemImage: idea.taskId == nil ? "arrow.up.right" : "bubble.left")
+                                    Label(friday: idea.taskId == nil ? "交给 Friday" : "打开对话", systemImage: idea.taskId == nil ? "arrow.up.right" : "bubble.left")
                                 }
                                 .buttonStyle(FridayButtonStyle(compact: true))
                                 .disabled((!store.connected && idea.taskId == nil) || store.delegatingIdeas.contains(idea.id))
                             }
                         }.padding(22).fridayCard()
-                        .contextMenu { Button("删除想法", role: .destructive) { Task { _ = await store.perform("/api/ideas/\(idea.id)", method: "DELETE") } } }
+                        .contextMenu { Button(friday: "删除想法", role: .destructive) { Task { _ = await store.perform("/api/ideas/\(idea.id)", method: "DELETE") } } }
                     }
                 }
                 if store.ideas.isEmpty && store.outbox.isEmpty {
