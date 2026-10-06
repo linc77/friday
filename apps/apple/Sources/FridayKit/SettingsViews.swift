@@ -115,7 +115,8 @@ struct MemoriesView: View {
                     HStack(alignment: .top, spacing: 14) {
                         FridaySymbolImage(systemName: "sparkles").foregroundStyle(.secondary).fridaySymbolFeedback()
                         Text(memory.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                        Menu { Button(friday: "编辑") { draft = memory.text; editingId = memory.id }; Button(friday: "删除", role: .destructive) { Task { _ = await store.perform("/api/memories/\(memory.id)", method: "DELETE") } } } label: { FridaySymbolImage(systemName: "ellipsis").fridaySymbolFeedback() }
+                        Menu { Button(friday: "编辑") { draft = memory.text; editingId = memory.id }; Button(friday: "删除", role: .destructive) { Task { _ = await store.perform("/api/memories/\(memory.id)", method: "DELETE") } } } label: { FridaySymbolImage(systemName: "ellipsis") }
+                            .buttonStyle(FridaySymbolButtonStyle())
                     }.padding(20).fridayCard()
                 }
             }.padding(28).frame(maxWidth: FridayTheme.contentWidth + 56).frame(maxWidth: .infinity)

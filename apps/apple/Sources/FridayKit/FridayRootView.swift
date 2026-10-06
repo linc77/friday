@@ -120,7 +120,7 @@ public struct FridayRootView: View {
 
     private func sidebarRow(_ item: FridaySection) -> some View {
         Button { navigation.section = item } label: {
-            FridaySymbolLabel(friday: item.rawValue, systemImage: item.icon)
+            FridaySymbolLabel(friday: item.rawValue, systemImage: item.icon, motion: item == .settings ? .rotate : .drawOn)
         }
         .buttonStyle(FridaySidebarButtonStyle(selected: navigation.section == item, focused: focusedSidebarSection == item))
         .focused($focusedSidebarSection, equals: item)
@@ -129,7 +129,6 @@ public struct FridayRootView: View {
         .accessibilityAddTraits(navigation.section == item ? .isSelected : [])
         .accessibilityValue(item == .tasks && store.tasks.contains(where: { $0.active })
             ? Text(friday: "\(store.tasks.filter { $0.active }.count) 个进行中的任务") : Text(""))
-        .fridaySymbolFeedback(active: navigation.section == item)
     }
     #endif
 
@@ -263,6 +262,7 @@ private struct FridaySidebarButtonBody: View {
             }
             .contentShape(RoundedRectangle(cornerRadius: FridayTheme.sidebarCornerRadius))
             .onHover { hovering = $0 }
+            .fridaySymbolFeedback(active: configuration.isPressed)
     }
 }
 #endif

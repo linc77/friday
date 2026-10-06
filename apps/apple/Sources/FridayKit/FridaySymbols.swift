@@ -15,6 +15,10 @@ enum FridaySymbols {
     }()
 }
 
+enum FridaySymbolMotion {
+    case drawOn, rotate
+}
+
 private struct FridaySymbolDrawTriggerKey: EnvironmentKey {
     static let defaultValue: Int? = nil
 }
@@ -30,6 +34,7 @@ private extension EnvironmentValues {
 /// triggers it, preserving the surrounding button's identity and focus.
 struct FridaySymbolImage: View {
     let systemName: String
+    var motion: FridaySymbolMotion = .drawOn
     @Environment(\.fridaySymbolDrawTrigger) private var drawTrigger
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -38,6 +43,27 @@ struct FridaySymbolImage: View {
     private var canAnimate: Bool { isEnabled && !reduceMotion && scenePhase == .active }
 
     var body: some View {
+        switch motion {
+        case .drawOn: drawingImage
+        case .rotate: rotatingImage
+        }
+    }
+
+    @ViewBuilder private var rotatingImage: some View {
+        #if compiler(>=6.0)
+        if #available(macOS 15.0, iOS 18.0, *), let drawTrigger {
+            Image(systemName: systemName)
+                .symbolEffect(.rotate.clockwise.wholeSymbol, options: .nonRepeating, value: drawTrigger)
+                .symbolEffectsRemoved(!canAnimate)
+        } else {
+            Image(systemName: systemName)
+        }
+        #else
+        Image(systemName: systemName)
+        #endif
+    }
+
+    @ViewBuilder private var drawingImage: some View {
         #if compiler(>=6.2)
         if #available(macOS 26.0, iOS 26.0, *), let drawTrigger {
             ZStack {
@@ -63,29 +89,31 @@ struct FridaySymbolImage: View {
 struct FridaySymbolLabel: View {
     let title: Text
     let systemImage: String
+    let motion: FridaySymbolMotion
 
-    init(_ title: String, systemImage: String) {
+    init(_ title: String, systemImage: String, motion: FridaySymbolMotion = .drawOn) {
         self.title = Text(title)
         self.systemImage = systemImage
+        self.motion = motion
     }
 
-    init(friday title: String, systemImage: String) {
+    init(friday title: String, systemImage: String, motion: FridaySymbolMotion = .drawOn) {
         self.title = Text(fridayString: title)
         self.systemImage = systemImage
+        self.motion = motion
     }
 
     var body: some View {
-        Label { title } icon: { FridaySymbolImage(systemName: systemImage) }
+        Label { title } icon: { FridaySymbolImage(systemName: systemImage, motion: motion) }
     }
 }
 
 /// Native symbol feedback shared by navigation, controls, and standalone icons.
-/// Only interactions change the trigger; rebuilding a view never replays an animation.
+/// Only activation or live state changes redraw; hovering and rebuilding stay still.
 private struct FridaySymbolFeedback<Value: Equatable>: ViewModifier {
     let active: Bool
     let value: Value
     @State private var trigger = 0
-    @State private var hovering = false
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -96,16 +124,20 @@ private struct FridaySymbolFeedback<Value: Equatable>: ViewModifier {
         content
             .environment(\.fridaySymbolDrawTrigger, trigger)
             .symbolEffectsRemoved(!canAnimate)
-            .onHover { inside in
-                if inside && !hovering && canAnimate { trigger += 1 }
-                hovering = inside
-            }
             .onChange(of: active) { _, active in
                 if active && canAnimate { trigger += 1 }
             }
             .onChange(of: value) { _, _ in
                 if canAnimate { trigger += 1 }
             }
+    }
+}
+
+/// Plain controls still provide symbol feedback on each press, including reselecting.
+struct FridaySymbolButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .fridaySymbolFeedback(active: configuration.isPressed)
     }
 }
 
