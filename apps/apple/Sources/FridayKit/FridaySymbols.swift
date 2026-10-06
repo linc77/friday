@@ -1,4 +1,84 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
+
+enum FridaySymbols {
+    static let chat: String = {
+        #if os(macOS)
+        NSImage(systemSymbolName: "ellipsis.message", accessibilityDescription: nil) != nil ? "ellipsis.message" : "ellipsis.bubble"
+        #else
+        UIImage(systemName: "ellipsis.message") != nil ? "ellipsis.message" : "ellipsis.bubble"
+        #endif
+    }()
+}
+
+enum FridaySymbolMotion {
+    case bounce, wiggle, rotate, pulse
+}
+
+/// Native symbol feedback shared by navigation, controls, and standalone icons.
+/// Only interactions change the trigger; rebuilding a view never replays an animation.
+private struct FridaySymbolFeedback: ViewModifier {
+    let motion: FridaySymbolMotion
+    let active: Bool
+    @State private var trigger = 0
+    @State private var hovering = false
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var canAnimate: Bool { isEnabled && !reduceMotion && scenePhase == .active }
+
+    func body(content: Content) -> some View {
+        content
+            .modifier(FridaySymbolAnimation(motion: motion, trigger: trigger))
+            .symbolEffectsRemoved(!canAnimate)
+            .onHover { inside in
+                if inside && !hovering && canAnimate { trigger += 1 }
+                hovering = inside
+            }
+            .onChange(of: active) { _, active in
+                if active && canAnimate { trigger += 1 }
+            }
+    }
+}
+
+private struct FridaySymbolAnimation: ViewModifier {
+    let motion: FridaySymbolMotion
+    let trigger: Int
+
+    @ViewBuilder func body(content: Content) -> some View {
+        switch motion {
+        case .bounce:
+            content.symbolEffect(.bounce.up.byLayer, options: .nonRepeating, value: trigger)
+        case .pulse:
+            content.symbolEffect(.pulse.byLayer, options: .nonRepeating, value: trigger)
+        case .wiggle, .rotate:
+            #if compiler(>=6.0)
+            if #available(macOS 15.0, iOS 18.0, *) {
+                if motion == .wiggle {
+                    content.symbolEffect(.wiggle.byLayer, options: .nonRepeating, value: trigger)
+                } else {
+                    content.symbolEffect(.rotate.byLayer, options: .nonRepeating.speed(1.5), value: trigger)
+                }
+            } else {
+                content.symbolEffect(.bounce.up.byLayer, options: .nonRepeating, value: trigger)
+            }
+            #else
+            content.symbolEffect(.bounce.up.byLayer, options: .nonRepeating, value: trigger)
+            #endif
+        }
+    }
+}
+
+extension View {
+    func fridaySymbolFeedback(_ motion: FridaySymbolMotion = .bounce, active: Bool = false) -> some View {
+        modifier(FridaySymbolFeedback(motion: motion, active: active))
+    }
+}
 
 /// Shared by task rows and details so both describe the same execution state.
 struct FridayTaskStatusIcon: View {
@@ -27,6 +107,7 @@ struct FridayTaskStatusIcon: View {
             .modifier(FridayProcessingEffect(active: status == "running" && !reduceMotion && scenePhase == .active))
             .symbolEffect(.bounce, options: .nonRepeating.speed(1.25), value: completionTrigger)
             .symbolEffectsRemoved(reduceMotion || scenePhase != .active)
+            .fridaySymbolFeedback(.pulse)
             .accessibilityHidden(true)
             .onChange(of: status) { previous, current in
                 // Initial snapshots and view recreation must not celebrate old results.
@@ -55,38 +136,16 @@ private struct FridayProcessingEffect: ViewModifier {
 
 #if os(macOS)
 struct FridaySettingsLink: View {
-    @State private var hoverTrigger = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
-
     var body: some View {
         SettingsLink {
-            Label { Text("设置") } icon: { animatedIcon }
+            Label { Text("设置") } icon: {
+                Image(systemName: "gear")
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: 17, weight: .light))
+            }
         }
-        .buttonStyle(FridayToolbarButtonStyle())
+        .buttonStyle(FridayToolbarButtonStyle(motion: .rotate))
         .help("设置（⌘,）")
-        .onHover { inside in
-            if inside, !reduceMotion, scenePhase == .active { hoverTrigger += 1 }
-        }
-    }
-
-    private var icon: some View {
-        Image(systemName: "gear")
-            .symbolRenderingMode(.monochrome)
-            .font(.system(size: 17, weight: .light))
-    }
-
-    @ViewBuilder private var animatedIcon: some View {
-        #if compiler(>=6.0)
-        if #available(macOS 15.0, *) {
-            icon.symbolEffect(.rotate, options: .nonRepeating.speed(1.5), value: hoverTrigger)
-                .symbolEffectsRemoved(reduceMotion || scenePhase != .active)
-        } else {
-            icon
-        }
-        #else
-        icon
-        #endif
     }
 }
 #endif

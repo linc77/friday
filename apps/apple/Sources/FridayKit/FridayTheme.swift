@@ -58,6 +58,7 @@ struct FridayMark: View {
             .foregroundStyle(FridayTheme.accent)
             .frame(width: size, height: size)
             .background(FridayTheme.accent.opacity(0.09), in: RoundedRectangle(cornerRadius: size * 0.32))
+            .fridaySymbolFeedback(.pulse)
             .accessibilityHidden(true)
     }
 }
@@ -132,13 +133,16 @@ extension View {
 
 #if os(macOS)
 struct FridayToolbarButtonStyle: ButtonStyle {
+    var motion: FridaySymbolMotion = .bounce
+
     func makeBody(configuration: Configuration) -> some View {
-        FridayToolbarButtonBody(configuration: configuration)
+        FridayToolbarButtonBody(configuration: configuration, motion: motion)
     }
 }
 
 private struct FridayToolbarButtonBody: View {
     let configuration: ButtonStyleConfiguration
+    let motion: FridaySymbolMotion
     @State private var hovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -155,6 +159,7 @@ private struct FridayToolbarButtonBody: View {
             .contentShape(RoundedRectangle(cornerRadius: 6))
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hovering)
             .onHover { hovering = $0 }
+            .fridaySymbolFeedback(motion, active: configuration.isPressed)
     }
 }
 #endif
@@ -197,6 +202,7 @@ private struct FridayButtonBody: View {
             .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: hovering)
             .onHover { hovering = $0 }
+            .fridaySymbolFeedback(active: configuration.isPressed)
     }
 }
 
@@ -212,6 +218,7 @@ struct EmptyPanel: View {
                 .frame(width: 64, height: 64)
                 .background(FridayTheme.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 22))
                 .padding(.bottom, 4)
+                .fridaySymbolFeedback(icon == "scribble" ? .wiggle : .bounce)
                 .accessibilityHidden(true)
             Text(title).font(.title3.weight(.semibold))
             Text(subtitle).font(.callout).foregroundStyle(.secondary)

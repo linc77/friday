@@ -8,11 +8,20 @@ private enum FridaySection: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var icon: String {
         switch self {
-        case .chat: "bubble.left.and.bubble.right"
-        case .inbox: "tray"
+        case .chat: FridaySymbols.chat
+        case .inbox: "scribble"
         case .tasks: "clock"
         case .projects: "folder"
         case .memory: "sparkles"
+        }
+    }
+
+    var motion: FridaySymbolMotion {
+        switch self {
+        case .chat, .projects: .bounce
+        case .inbox: .wiggle
+        case .tasks: .rotate
+        case .memory: .pulse
         }
     }
 }
@@ -59,8 +68,8 @@ public struct FridayRootView: View {
                 NavigationStack {
                     VStack(spacing: 0) { if let error = store.error { Text(error).font(.caption).foregroundStyle(.orange).padding(8) }; conversation }
                         .navigationTitle("Friday").toolbar { Button { newTask() } label: { Label("新对话", systemImage: "square.and.pencil") } }
-                }.tabItem { Label("对话", systemImage: "bubble.left.and.bubble.right") }.tag(0)
-                NavigationStack { inbox.navigationTitle("想法") }.tabItem { Label("想法", systemImage: "tray") }.tag(1)
+                }.tabItem { Label("对话", systemImage: FridaySymbols.chat) }.tag(0)
+                NavigationStack { inbox.navigationTitle("想法") }.tabItem { Label("想法", systemImage: "scribble") }.tag(1)
                 NavigationStack { tasksList.navigationTitle("记录").navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id) } }.tabItem { Label("记录", systemImage: "clock") }.tag(2)
                 NavigationStack {
                     List {
@@ -77,6 +86,7 @@ public struct FridayRootView: View {
         }
         .tint(FridayTheme.accent)
         .accentColor(FridayTheme.accent)
+        .symbolRenderingMode(.monochrome)
         .task { await store.importSharedIdeas(); await store.connect() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await store.importSharedIdeas(); await store.connect() } }
@@ -132,6 +142,7 @@ public struct FridayRootView: View {
         .accessibilityAddTraits(section == item ? .isSelected : [])
         .accessibilityValue(item == .tasks && store.tasks.contains(where: { $0.active })
             ? "\(store.tasks.filter { $0.active }.count) 个进行中的任务" : "")
+        .fridaySymbolFeedback(item.motion, active: section == item)
     }
     #endif
 
@@ -139,6 +150,7 @@ public struct FridayRootView: View {
         HStack(spacing: 8) {
             Image(systemName: store.connected ? "checkmark.circle" : "wifi.slash")
                 .foregroundStyle(store.connected ? FridayTheme.accent : .orange)
+                .fridaySymbolFeedback(active: store.connected)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(store.connected ? "主机已连接" : "等待连接主机").font(.caption.weight(.medium))
@@ -149,7 +161,7 @@ public struct FridayRootView: View {
 
     private func errorBanner(_ message: String) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "exclamationmark.circle")
+            Image(systemName: "exclamationmark.circle").fridaySymbolFeedback(.wiggle)
             Text(message).lineLimit(2)
             Spacer()
             Button("连接设置") {
@@ -312,7 +324,7 @@ struct InboxView: View {
                     ForEach(store.outbox) { idea in
                         HStack(spacing: 16) {
                             Text(idea.text).frame(maxWidth: .infinity, alignment: .leading)
-                            Label("待同步", systemImage: "clock").font(.caption).foregroundStyle(.secondary)
+                            Label("待同步", systemImage: "clock").font(.caption).foregroundStyle(.secondary).fridaySymbolFeedback(.rotate)
                         }.padding(20).fridayCard()
                     }
                     ForEach(store.ideas) { idea in
@@ -333,7 +345,7 @@ struct InboxView: View {
                     }
                 }
                 if store.ideas.isEmpty && store.outbox.isEmpty {
-                    EmptyPanel(icon: "tray", title: "为下一个念头留个位置", subtitle: "想研究的项目、突然出现的点子、要处理的小事，都可以从这里开始。")
+                    EmptyPanel(icon: "scribble", title: "为下一个念头留个位置", subtitle: "想研究的项目、突然出现的点子、要处理的小事，都可以从这里开始。")
                 }
             }
             .padding(28).frame(maxWidth: FridayTheme.contentWidth + 56).frame(maxWidth: .infinity)
