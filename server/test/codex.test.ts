@@ -38,3 +38,23 @@ test('Codex wire saves session before turn, presents diffs and questions, declin
     assert.match(await readFile(join(directory, 'wire.jsonl'), 'utf8'), /thread\/resume/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+
+test('Conversation tools use read-only access before selection and return structured workspace/capture requests', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-wire-')); await chmod(command, 0o755);
+  const executor = new CodexExecutor(command); const updates: ExecutionUpdate[] = [];
+  try {
+    const task = { ...work(directory), mode: 'auto' as const };
+    await executor.run({ task, prompt: 'choose-workspace', signal: new AbortController().signal, update: async u => { updates.push(u); } });
+    assert.ok(updates.some(u => u.kind === 'workspace' && u.reason.includes('目录')));
+    await executor.run({ task, prompt: 'capture-idea', signal: new AbortController().signal, update: async u => { updates.push(u); } });
+    assert.ok(updates.some(u => u.kind === 'idea' && u.text === '只记录这条想法' && u.id.length <= 80));
+    const wire = (await readFile(join(directory, 'wire.jsonl'), 'utf8')).trim().split('\n').map(l => JSON.parse(l));
+    const start = wire.find(m => m.method === 'thread/start');
+    assert.equal(start.params.sandbox, 'read-only'); assert.equal(start.params.approvalPolicy, 'never');
+    assert.deepEqual(start.params.dynamicTools.map((t: any) => t.name), ['friday_request_workspace', 'friday_save_idea']);
+    assert.equal(wire.find(m => m.id === 93 && !m.method).result.success, true);
+    await executor.run({ task: { ...task, projectId: 'chosen-project', threadId: 'protocol-thread' }, prompt: 'test', signal: new AbortController().signal, update: async u => { if (u.kind === 'approval') await executor.answer('test', u.approval.id, 'decline', { q: ['A'] }); } });
+    const resumed = (await readFile(join(directory, 'wire.jsonl'), 'utf8')).trim().split('\n').map(l => JSON.parse(l)).find(m => m.method === 'thread/resume');
+    assert.equal(resumed.params.sandbox, 'workspace-write'); assert.equal(resumed.params.cwd, directory);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

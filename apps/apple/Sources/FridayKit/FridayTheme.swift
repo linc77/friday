@@ -226,7 +226,7 @@ struct StatusBadge: View {
     var color: Color {
         switch task.status {
         case "completed": FridayTheme.accent
-        case "waiting", "interrupted": .orange
+        case "waiting", "interrupted", "needs_project": .orange
         case "failed": .red
         case "running": .blue
         default: .secondary

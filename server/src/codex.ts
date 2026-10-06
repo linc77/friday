@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { findExecutable } from './agents.js';
 import type { Approval, ExecutionRequest, Executor } from './types.js';
 
@@ -46,6 +46,10 @@ class Rpc {
 }
 
 type LiveRun = { rpc: Rpc; threadId: string; turnId: string; approvals: Map<string, { wireId: string | number; method: string; params: any }> };
+const fridayTools = [
+  { type: 'function', name: 'friday_request_workspace', description: 'Ask the user to select a local project directory when their request needs one. End the turn after this call; Friday will resume after selection.', inputSchema: { type: 'object', properties: { reason: { type: 'string', description: 'Brief Chinese explanation of why a directory is needed.' } }, required: ['reason'], additionalProperties: false } },
+  { type: 'function', name: 'friday_save_idea', description: 'Save an idea only when the user explicitly wants to record it without starting work.', inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'], additionalProperties: false } },
+];
 export class CodexExecutor implements Executor {
   private live = new Map<string, LiveRun>();
   constructor(private command = findExecutable('codex')) {}
@@ -74,6 +78,18 @@ export class CodexExecutor implements Executor {
         const p = message.params ?? {};
         if (p.threadId && run.threadId && p.threadId !== run.threadId) return;
         if (message.id !== undefined && message.method) {
+          if (message.method === 'item/tool/call') {
+            let response = 'Unsupported Friday tool.'; let success = false;
+            if (task.mode === 'auto' && p.tool === 'friday_request_workspace' && !task.projectId && typeof p.arguments?.reason === 'string' && p.arguments.reason.trim() && p.arguments.reason.length <= 4000) {
+              await update({ kind: 'workspace', reason: p.arguments.reason.trim() });
+              response = 'Friday will show the workspace picker. End this turn now with a brief question and do not perform any file operations. The user has not selected a directory yet.'; success = true;
+            } else if (task.mode === 'auto' && p.tool === 'friday_save_idea' && typeof p.arguments?.text === 'string' && p.arguments.text.trim() && p.arguments.text.length <= 12_000) {
+              await update({ kind: 'idea', id: `note-${task.id}-${createHash('sha256').update(task.lastRequestId).digest('hex').slice(0, 16)}`, text: p.arguments.text.trim() });
+              response = 'The idea is saved. Acknowledge briefly; do not execute it.'; success = true;
+            }
+            rpc.send({ id: message.id, result: { contentItems: [{ type: 'inputText', text: response }], success } });
+            return;
+          }
           const id = randomUUID();
           const supported = ['item/commandExecution/requestApproval', 'item/fileChange/requestApproval', 'item/tool/requestUserInput'];
           if (!supported.includes(message.method)) {
@@ -128,10 +144,11 @@ export class CodexExecutor implements Executor {
       if (signal.aborted) throw new Error('任务已中止');
       await rpc.call('initialize', { clientInfo: { name: 'friday', version: '0.1.0', title: 'Friday' }, capabilities: { experimentalApi: true } });
       rpc.send({ method: 'initialized' });
-      const params = { cwd: task.cwd, approvalPolicy: 'on-request', approvalsReviewer: 'user', sandbox: task.mode === 'research' ? 'read-only' : 'workspace-write' };
+      const unscoped = task.mode === 'auto' && !task.projectId;
+      const params = { cwd: task.cwd, approvalPolicy: unscoped ? 'never' : 'on-request', approvalsReviewer: 'user', sandbox: task.mode === 'research' || unscoped ? 'read-only' : 'workspace-write' };
       const response = task.threadId
         ? await rpc.call('thread/resume', { ...params, threadId: task.threadId })
-        : await rpc.call('thread/start', { ...params, developerInstructions: 'You are executing a task delegated by Friday, the user\'s personal agent. Stay within the user\'s task and chosen workspace. Do not commit, push, deploy, purchase, or send messages to other people unless explicitly requested. Report concrete results, verification, and remaining limitations in Chinese. Do not create or message other Codex chats. Do not spawn subagents unless the user explicitly requests delegation.' });
+        : await rpc.call('thread/start', { ...params, ...(task.mode === 'auto' ? { dynamicTools: fridayTools } : {}), developerInstructions: 'You are Friday, the user\'s personal agent. Respond naturally in Chinese and understand the request without asking the user to classify it. Without a selected workspace, answer and research read-only; call friday_request_workspace when local project access is needed, then end the turn and wait for selection. Use friday_save_idea only for explicit capture-only requests. Stay within the user\'s task and selected workspace. Do not commit, push, deploy, purchase, or send messages to other people unless explicitly requested. Report concrete results and limitations. Do not create or message other Codex chats or spawn subagents unless explicitly requested.' });
       run.threadId = response.thread.id;
       await update({ kind: 'session', threadId: run.threadId });
       // The session identifier is durably saved before the external turn can start.

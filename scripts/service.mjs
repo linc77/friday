@@ -32,6 +32,8 @@ if (action === 'install') {
     EnvironmentVariables: {
       PATH: `/opt/homebrew/bin:/usr/local/bin:${homedir()}/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin`,
       FRIDAY_DATA_DIR: data, FRIDAY_HOST: '127.0.0.1', FRIDAY_PORT: process.env.FRIDAY_PORT ?? '4317',
+      ...(process.env.FRIDAY_MODEL_ID ? { FRIDAY_MODEL_ID: process.env.FRIDAY_MODEL_ID } : {}),
+      ...Object.fromEntries(['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy'].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]])),
     },
     StandardOutPath: join(data, 'service.log'), StandardErrorPath: join(data, 'service-error.log'),
   };

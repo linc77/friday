@@ -3,7 +3,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { streamSSE } from 'hono/streaming';
 import { randomUUID } from 'node:crypto';
 import { realpath, stat } from 'node:fs/promises';
-import { isAbsolute } from 'node:path';
+import { isAbsolute, basename } from 'node:path';
 import type { Engine } from './engine.js';
 import { Auth } from './auth.js';
 import { discoverAgents } from './agents.js';
@@ -36,6 +36,20 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     c.set('device', device); await next();
   });
   app.get('/api/state', async c => c.json({ ...await engine.snapshot(), agents: agents(), devices: auth.devices(), deviceId: c.get('device') }));
+  app.get('/api/model', async c => c.json(await engine.modelConnection.status(c.get('device') === 'owner')));
+  app.use('/api/model/*', async (c, next) => {
+    if (c.get('device') !== 'owner') return c.json({ error: '请在主机上配置 DeepSeek API Key' }, 403);
+    await next();
+  });
+  app.use('/api/model/*', async (c, next) => {
+    if ((await engine.snapshot()).tasks.some(t => t.agent === 'friday' && activeStatuses.includes(t.status))) return c.json({ error: '请先停止 Friday 正在处理的会话再修改模型连接' }, 409);
+    await next();
+  });
+  app.put('/api/model/key', async c => {
+    const body = await c.req.json();
+    return c.json(await engine.modelConnection.saveKey(text(body.apiKey, 'API Key', 512)));
+  });
+  app.delete('/api/model/key', async c => { await engine.modelConnection.clearKey(); return c.json({ ok: true }); });
   app.get('/api/events', c => streamSSE(c, async stream => {
     let dirty = true; let ended = false;
     const changed = () => { dirty = true; };
@@ -82,11 +96,36 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   app.delete('/api/memories/:id', async c => { await engine.mutate(s => { s.memories = s.memories.filter(m => m.id !== c.req.param('id')); }); return c.json({ ok: true }); });
   app.post('/api/tasks', async c => {
     const body = await c.req.json();
-    if (body.agent && body.agent !== 'codex') throw new Error('第一版目前仅支持 Codex 执行，其他工具只显示发现状态');
-    if (!agents().find(a => a.id === 'codex')?.installed) throw new Error('主机上未找到 Codex');
-    if (!['research', 'code'].includes(body.mode)) throw new Error('任务类型无效');
-    const id = await engine.createTask({ prompt: text(body.prompt, '任务要求'), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode: body.mode, requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined });
+    // Older clients send "codex". New work still belongs to Friday; only old records keep that executor.
+    if (body.agent && !['friday', 'codex'].includes(body.agent)) throw new Error('请向 Friday 提交请求，其他 Agent 尚未接入');
+    const mode = body.mode ?? 'auto';
+    if (!['auto', 'assistant', 'research', 'code'].includes(mode)) throw new Error('任务类型无效');
+    const id = await engine.createTask({ prompt: text(body.prompt, '任务要求'), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode, requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined });
     return c.json({ id }, 201);
+  });
+  app.post('/api/tasks/:id/workspace', async c => {
+    const body = await c.req.json(); const requestId = text(body.requestId, '请求 ID', 100);
+    const state = await engine.snapshot(); const id = c.req.param('id');
+    if (Object.hasOwn(state.requests, requestId)) {
+      if (state.requests[requestId] !== id) throw new Error('请求 ID 已被其他任务使用');
+      return c.json({ id });
+    }
+    if (state.tasks.find(t => t.id === id)?.status !== 'needs_project') throw new Error('当前对话没有等待选择工作目录');
+    let projectId: string;
+    if (body.projectId) projectId = text(body.projectId, '项目 ID', 80);
+    else {
+      const path = text(body.path, '工作目录', 4096);
+      if (!isAbsolute(path) || !(await stat(path)).isDirectory()) throw new Error('请选择主机上存在的目录');
+      const resolved = await realpath(path); let selectedId = '';
+      await engine.mutate(s => {
+        let project = s.projects.find(p => p.path === resolved);
+        if (!project) { project = { id: randomUUID(), name: basename(resolved) || resolved, path: resolved, context: '' }; s.projects.push(project); }
+        selectedId = project.id;
+      });
+      projectId = selectedId;
+    }
+    await engine.createTask({ continueId: id, prompt: '就在我选择的这个工作目录里，继续刚才的请求。', projectId, mode: 'auto', requestId });
+    return c.json({ id });
   });
   app.post('/api/tasks/:id/cancel', async c => { await engine.cancel(c.req.param('id')); return c.json({ ok: true }); });
   app.post('/api/tasks/:id/message', async c => {

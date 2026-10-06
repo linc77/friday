@@ -12,6 +12,7 @@ struct FridayTaskStatusIcon: View {
         case "queued": "clock"
         case "running": "sparkle"
         case "waiting": "hand.raised"
+        case "needs_project": "folder.badge.questionmark"
         case "completed": "checkmark.circle"
         case "failed": "exclamationmark.circle"
         case "cancelled": "xmark.circle"

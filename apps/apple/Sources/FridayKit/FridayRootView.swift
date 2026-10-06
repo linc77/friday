@@ -4,12 +4,13 @@ import AppKit
 #endif
 
 private enum FridaySection: String, CaseIterable, Identifiable {
-    case inbox = "想法", tasks = "任务", projects = "项目", memory = "记忆"
+    case chat = "对话", inbox = "想法", tasks = "记录", projects = "项目", memory = "记忆"
     var id: String { rawValue }
     var icon: String {
         switch self {
+        case .chat: "bubble.left.and.bubble.right"
         case .inbox: "tray"
-        case .tasks: "checklist"
+        case .tasks: "clock"
         case .projects: "folder"
         case .memory: "sparkles"
         }
@@ -19,11 +20,8 @@ private enum FridaySection: String, CaseIterable, Identifiable {
 @MainActor
 public struct FridayRootView: View {
     @StateObject private var store = FridayStore()
-    @State private var section: FridaySection? = .inbox
+    @State private var section: FridaySection? = .chat
     @State private var selectedTask: String?
-    @State private var composing = false
-    @State private var seed = ""
-    @State private var ideaId: String?
     @State private var mobileTab = 0
     @Environment(\.scenePhase) private var scenePhase
     #if os(macOS)
@@ -51,7 +49,7 @@ public struct FridayRootView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(FridayTheme.canvas)
-                .navigationTitle(section?.rawValue ?? "Friday")
+                .navigationTitle(section == .chat ? "Friday" : section?.rawValue ?? "Friday")
                 .toolbar { windowToolbar }
                 .toolbarBackground(.hidden, for: .windowToolbar)
             }
@@ -59,8 +57,12 @@ public struct FridayRootView: View {
             .frame(minWidth: 980, minHeight: 640)
             #else
             TabView(selection: $mobileTab) {
-                NavigationStack { inbox.navigationTitle("想法").toolbar { Button { newTask() } label: { Image(systemName: "plus") } } }.tabItem { Label("想法", systemImage: "tray") }.tag(0)
-                NavigationStack { tasksList.navigationTitle("任务").navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id) } }.tabItem { Label("任务", systemImage: "checklist") }.tag(1)
+                NavigationStack {
+                    VStack(spacing: 0) { if let error = store.error { Text(error).font(.caption).foregroundStyle(.orange).padding(8) }; conversation }
+                        .navigationTitle("Friday").toolbar { Button { newTask() } label: { Label("新对话", systemImage: "square.and.pencil") } }
+                }.tabItem { Label("对话", systemImage: "bubble.left.and.bubble.right") }.tag(0)
+                NavigationStack { inbox.navigationTitle("想法") }.tabItem { Label("想法", systemImage: "tray") }.tag(1)
+                NavigationStack { tasksList.navigationTitle("记录").navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id) } }.tabItem { Label("记录", systemImage: "clock") }.tag(2)
                 NavigationStack {
                     List {
                         connectionStatus
@@ -70,15 +72,12 @@ public struct FridayRootView: View {
                         NavigationLink("本地工具") { AgentsView(store: store) }
                         NavigationLink("连接与设备") { ConnectionView(store: store) }
                     }.navigationTitle("我的 Friday")
-                }.tabItem { Label("设置", systemImage: "gear") }.tag(2)
+                }.tabItem { Label("设置", systemImage: "gear") }.tag(3)
             }
             #endif
         }
         .tint(FridayTheme.accent)
         .accentColor(FridayTheme.accent)
-        .sheet(isPresented: $composing) {
-            TaskComposer(store: store, initialPrompt: seed, ideaId: ideaId) { id in selectedTask = id; section = .tasks; mobileTab = 1 }
-        }
         .task { await store.importSharedIdeas(); await store.connect() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await store.importSharedIdeas(); await store.connect() } }
@@ -106,16 +105,16 @@ public struct FridayRootView: View {
 
     private var newTaskToolbarItem: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
-            Button { newTask() } label: { Label("新任务", systemImage: "square.and.pencil") }
+            Button { newTask() } label: { Label("新对话", systemImage: "square.and.pencil") }
                 .buttonStyle(FridayToolbarButtonStyle())
-                .keyboardShortcut("n", modifiers: .command).help("新任务（⌘N）")
+                .keyboardShortcut("n", modifiers: .command).help("新对话（⌘N）")
         }
     }
 
     private var sidebar: some View {
         List(selection: $section) {
             SwiftUI.Section("工作空间") {
-                ForEach([FridaySection.inbox, .tasks, .projects, .memory]) { item in sidebarRow(item) }
+                ForEach(FridaySection.allCases) { item in sidebarRow(item) }
             }
         }
         .listStyle(.sidebar).scrollContentBackground(.hidden)
@@ -161,7 +160,7 @@ public struct FridayRootView: View {
                 selectConnectionSettings()
                 openSettings()
                 #else
-                mobileTab = 2
+                mobileTab = 3
                 #endif
             }.buttonStyle(FridayButtonStyle(compact: true))
         }
@@ -170,14 +169,15 @@ public struct FridayRootView: View {
     }
 
     @ViewBuilder private var content: some View {
-        switch section ?? .inbox {
+        switch section ?? .chat {
+        case .chat: conversation
         case .inbox: inbox
         case .tasks:
             #if os(macOS)
             HSplitView {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text("所有任务").font(.headline)
+                        Text("对话记录").font(.headline)
                         Spacer()
                         Text("\(store.tasks.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     }.padding(.horizontal, 20).padding(.top, 22).padding(.bottom, 8)
@@ -197,8 +197,15 @@ public struct FridayRootView: View {
     }
 
     private var inbox: some View {
-        InboxView(store: store) { idea in seed = idea.text; ideaId = idea.id; composing = true }
+        InboxView(store: store) { idea in Task { if let id = await store.delegate(idea) { openConversation(id) } } }
     }
+
+    @ViewBuilder private var conversation: some View {
+        if let selectedTask { TaskDetail(store: store, id: selectedTask).id(selectedTask) }
+        else { NewConversationView(store: store, onCreated: openConversation) }
+    }
+
+    private func openConversation(_ id: String) { selectedTask = id; section = .chat; mobileTab = 0 }
 
     private var tasksList: some View {
         Group {
@@ -218,7 +225,7 @@ public struct FridayRootView: View {
         }
     }
 
-    private func newTask() { seed = ""; ideaId = nil; composing = true }
+    private func newTask() { selectedTask = nil; section = .chat; mobileTab = 0 }
 }
 
 struct TaskRow: View {
@@ -230,9 +237,7 @@ struct TaskRow: View {
             HStack {
                 StatusBadge(task: task)
                 Spacer(minLength: 4)
-                Image(systemName: task.mode == "research" ? "magnifyingglass" : "chevron.left.forwardslash.chevron.right")
-                    .font(.caption).foregroundStyle(.tertiary)
-                    .accessibilityLabel(task.mode == "research" ? "调研任务" : "代码任务")
+                Text(task.createdAt.prefix(10)).font(.caption).foregroundStyle(.tertiary)
             }
         }.padding(.vertical, 10)
     }
@@ -289,12 +294,11 @@ struct InboxView: View {
                             HStack {
                                 Text(idea.createdAt.prefix(10)).font(.caption).foregroundStyle(.tertiary)
                                 Spacer()
-                                if idea.taskId != nil {
-                                    Label("已布置任务", systemImage: "checkmark.circle").font(.caption).foregroundStyle(FridayTheme.accent)
-                                } else {
-                                    Button { delegate(idea) } label: { Label("交给 Friday", systemImage: "arrow.up.right") }
-                                        .buttonStyle(FridayButtonStyle(compact: true))
+                                Button { delegate(idea) } label: {
+                                    Label(idea.taskId == nil ? "交给 Friday" : "打开对话", systemImage: idea.taskId == nil ? "arrow.up.right" : "bubble.left")
                                 }
+                                .buttonStyle(FridayButtonStyle(compact: true))
+                                .disabled((!store.connected && idea.taskId == nil) || store.delegatingIdeas.contains(idea.id))
                             }
                         }.padding(22).fridayCard()
                         .contextMenu { Button("删除想法", role: .destructive) { Task { _ = await store.perform("/api/ideas/\(idea.id)", method: "DELETE") } } }
@@ -306,40 +310,5 @@ struct InboxView: View {
             }
             .padding(28).frame(maxWidth: FridayTheme.contentWidth + 56).frame(maxWidth: .infinity)
         }.background(FridayTheme.canvas)
-    }
-}
-
-struct TaskComposer: View {
-    @ObservedObject var store: FridayStore
-    let initialPrompt: String; let ideaId: String?; let onCreated: (String) -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var prompt = ""
-    @State private var project = ""
-    @State private var mode = "research"
-    @State private var requestId = UUID().uuidString
-    @State private var submitting = false
-    @State private var error: String?
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack { Text("交给 Friday").font(.title2.bold()); Spacer(); Button("取消") { dismiss() }.keyboardShortcut(.cancelAction) }
-            Text("说清楚你想得到什么，Friday 会替你推进。").foregroundStyle(.secondary)
-            TextEditor(text: $prompt).frame(minHeight: 130).padding(8).overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary)).accessibilityLabel("任务要求")
-            Picker("任务类型", selection: $mode) { Text("调研与整理").tag("research"); Text("代码任务").tag("code") }.pickerStyle(.segmented)
-            Picker("关联项目", selection: $project) { Text("不关联项目").tag(""); ForEach(store.projects) { Text($0.name).tag($0.id) } }
-            HStack { Image(systemName: "terminal"); Text("由主机上的 Codex 执行"); Spacer() }.font(.caption).foregroundStyle(.secondary)
-            if let error { Text(error).font(.caption).foregroundStyle(.red) }
-            HStack { Spacer(); if submitting { ProgressView().controlSize(.small) }; Button("开始任务") {
-                submitting = true
-                Task {
-                    do { let id = try await store.createTask(prompt: prompt, projectId: project, mode: mode, ideaId: ideaId, requestId: requestId); onCreated(id); dismiss() }
-                    catch { self.error = error.localizedDescription }
-                    submitting = false
-                }
-            }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(submitting || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !store.connected || (mode == "code" && project.isEmpty)) }
-        }.padding(28).background(FridayTheme.canvas)
-        #if os(macOS)
-        .frame(width: 550)
-        #endif
-        .onAppear { prompt = initialPrompt }
     }
 }
