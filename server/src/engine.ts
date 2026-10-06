@@ -4,18 +4,17 @@ import { mkdir, writeFile, readFile, chmod } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
-import { createModels } from '@earendil-works/pi-ai/models';
-import { Harness, createRegistry, defineDoc, defineExtension, defineTask, type Conversation, type TaskId, type DocumentWatch } from '@earendil-works/pi-durable';
+import type { Models } from '@earendil-works/pi-ai/models';
+import { Harness, configure, createRegistry, defineExtension, defineTask, type Conversation, type ConversationId, type ModelRef, type TaskId, type DocumentWatch } from '@earendil-works/pi-durable';
 import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node';
-import type { Executor, ExecutionUpdate, Workspace, WorkItem, TaskStatus } from './types.js';
+import type { Executor, ExecutionUpdate, Workspace, WorkItem, TaskMode } from './types.js';
 import { activeStatuses } from './types.js';
 import { CodexExecutor } from './codex.js';
 import { fileURLToPath } from 'node:url';
+import { WorkspaceDoc } from './state.js';
+import { ModelConnection } from './model.js';
+import { FridayAssistant } from './assistant.js';
 
-const WorkspaceDoc = defineDoc<Workspace>({
-  kind: 'friday.workspace', version: 1, scope: 'session',
-  initial: () => ({ revision: 0, ideas: [], projects: [], memories: [], tasks: [], requests: {}, queueTail: null }),
-});
 const now = () => new Date().toISOString();
 const event = (kind: string, text: string) => ({ id: randomUUID(), kind, text, at: now() });
 type Input = { id: string; predecessor: number | null; prompt: string };
@@ -28,8 +27,18 @@ export class Engine extends EventEmitter {
   private lease!: DatabaseSync;
   private closed = false;
   readonly execution;
-  constructor(readonly directory: string, readonly executor: Executor = new CodexExecutor()) {
+  readonly response;
+  readonly executor: Executor;
+  readonly modelConnection: ModelConnection;
+  readonly assistant: FridayAssistant;
+  private readonly legacyDefault: boolean;
+  constructor(readonly directory: string, executor?: Executor, readonly agentOptions?: { models: Models; model: ModelRef }) {
     super();
+    this.executor = executor ?? new CodexExecutor();
+    this.legacyDefault = executor !== undefined && agentOptions === undefined;
+    this.modelConnection = new ModelConnection(directory);
+    this.assistant = new FridayAssistant(this);
+    this.response = this.createResponse();
     this.execution = defineTask<Input, Checkpoint, { status: string }, {}>({
       name: 'friday.execute', version: 1,
       initial: () => ({ phase: 'queued' }),
@@ -97,6 +106,43 @@ export class Engine extends EventEmitter {
     });
   }
 
+  readonly createResponse = () => defineTask<Input & { requestId: string }, Checkpoint, { status: string }, {}>({
+    name: 'friday.respond', version: 1, initial: () => ({ phase: 'queued' }),
+    phases: {
+      queued: async (task, runtime, ctx) => {
+        await runtime.commit(() => task.input.predecessor === null
+          ? { status: 'running', checkpoint: { phase: 'execute' } }
+          : { status: 'waiting', checkpoint: { phase: 'execute' }, on: [task.input.predecessor as TaskId], policy: 'allSettled' }, ctx);
+      },
+      execute: async (task, runtime, ctx) => {
+        try {
+          if (!this.agentOptions) await this.modelConnection.ready();
+          const work = (await this.snapshot()).tasks.find(t => t.id === task.input.id)!;
+          await this.patchTask(work.id, item => { item.status = item.approvals.some(a => a.state === 'pending') ? 'waiting' : 'running'; item.error = null; });
+          const result = await this.assistant.run(work, task.input.prompt, task.input.requestId, ctx);
+          if ((await this.snapshot()).tasks.find(t => t.id === work.id)?.workspaceRequest) {
+            await this.patchTask(work.id, item => { item.status = 'needs_project'; item.result = result; item.artifact = null; });
+            await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'needs_project' } } }), ctx);
+            return;
+          }
+          await writeFile(join(this.directory, 'artifacts', `${work.id}.md`), `# ${work.title}\n\n${result}\n`, { mode: 0o600 });
+          await this.patchTask(work.id, item => { item.status = 'completed'; item.result = result; item.artifact = `${work.id}.md`; item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; }); });
+          await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'completed' } } }), ctx);
+        } catch (error) {
+          if (runtime.signal.aborted) throw error;
+          await this.patchTask(task.input.id, item => { item.status = 'failed'; item.error = error instanceof Error ? error.message : 'Friday 执行失败'; item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; }); });
+          await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'failed' } } }), ctx);
+        }
+      },
+    },
+    abort: async (task, runtime, ctx) => {
+      const work = (await this.snapshot()).tasks.find(t => t.id === task.input.id)!;
+      await this.assistant.abort(work);
+      await this.patchTask(work.id, item => { item.status = 'cancelled'; item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; }); });
+      await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'cancelled' } } }), ctx);
+    },
+  });
+
   async open() {
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     await chmod(this.directory, 0o700);
@@ -107,12 +153,20 @@ export class Engine extends EventEmitter {
     catch { this.lease.close(); throw new Error('已有 Friday 服务正在使用这个数据目录。'); }
     try {
       const registry = createRegistry();
-      registry.install(defineExtension({ name: 'friday', tasks: [this.execution] }));
+      registry.install(defineExtension({ name: 'friday', tasks: [this.execution, this.response] }));
+      registry.install(this.assistant.extension);
       this.harness = await Harness.open(await openNodeSqliteStorage(join(this.directory, 'friday.sqlite')), {
-        models: createModels(), registry, onReport: error => console.error('[Friday runtime]', error instanceof Error ? error.message : 'runtime failure'),
+        models: this.agentOptions?.models ?? this.modelConnection.models, registry,
+        settings: { toolExecution: 'sequential', retry: { maxRetries: 2 } },
+        onReport: () => console.error('[Friday runtime] runtime failure'),
       }, context);
       this.root = await this.harness.root(context);
       await this.root.commit(async tx => { await tx.doc(WorkspaceDoc); }, context);
+      await this.mutate(state => {
+        for (const task of state.tasks) if (task.agent === 'friday') {
+          for (const approval of task.approvals) if (approval.state === 'pending' && approval.method !== 'friday/requestUserInput') approval.state = 'expired';
+        }
+      });
       this.watch = await this.harness.watchDoc(WorkspaceDoc, context);
       this.watch?.start(async () => { this.emit('change'); });
       this.harness.resume();
@@ -134,9 +188,13 @@ export class Engine extends EventEmitter {
       if (item.events.length > 120) item.events.splice(0, item.events.length - 120);
     });
   }
-  async createTask(input: { prompt: string; projectId: string | null; mode: WorkItem['mode']; requestId: string; ideaId?: string; continueId?: string }) {
+  async createTask(input: { prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string }) {
     if (['__proto__', 'constructor', 'prototype'].includes(input.requestId)) throw new Error('请求 ID 无效');
     const snapshot = await this.snapshot();
+    if (Object.hasOwn(snapshot.requests, input.requestId)) return snapshot.requests[input.requestId];
+    const previous = snapshot.tasks.find(t => t.id === input.continueId);
+    const native = previous ? previous.agent === 'friday' : !this.legacyDefault;
+    if (native && !this.agentOptions) await this.modelConnection.ready();
     const project = snapshot.projects.find(p => p.id === input.projectId);
     if (input.projectId && !project) throw new Error('项目不存在');
     if (input.mode === 'code' && !project) throw new Error('代码任务需要先选择一个项目目录');
@@ -159,7 +217,7 @@ export class Engine extends EventEmitter {
       const stamp = now();
       const task: WorkItem = work ?? {
         id: randomUUID(), title: input.prompt.slice(0, 64), prompt: input.prompt, projectId: input.projectId,
-        cwd: project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent: 'codex',
+        cwd: project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent: native ? 'friday' : 'codex',
         status: 'queued', createdAt: stamp, updatedAt: stamp, durableId: null, threadId: null, turnId: null,
         result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: input.requestId,
         messages: [], workspaceRequest: null,
@@ -167,7 +225,7 @@ export class Engine extends EventEmitter {
       if (!task.messages) {
         task.messages = [{ id: randomUUID(), role: 'user', text: task.prompt }];
         if (task.result) task.messages.push({ id: randomUUID(), role: 'assistant', text: task.result });
-      } else if (work && task.result && task.messages.at(-1)?.text !== task.result) {
+      } else if (!native && work && task.result && task.messages.at(-1)?.text !== task.result) {
         task.messages.push({ id: randomUUID(), role: 'assistant', text: task.result });
       }
       task.messages.push({ id: randomUUID(), role: 'user', text: input.prompt });
@@ -184,7 +242,14 @@ export class Engine extends EventEmitter {
         sourceIdea ? 'The user explicitly delegated this saved idea now. Act on it instead of saving the same idea again.' : '',
         work ? 'Continue this existing task. Check the current workspace and previous results before repeating any external operation.' : '',
       ].filter(Boolean).join('\n\n');
-      const durableId = await tx.createTask(this.execution, { id: task.id, predecessor, prompt }, { ownership: { kind: 'conversation' } });
+      if (native && !task.conversationId) {
+        const conversation = await tx.createConversation({ ownership: { kind: 'ownerless' } });
+        task.conversationId = conversation.id;
+        await configure(tx, conversation.id, { model: this.agentOptions?.model ?? this.modelConnection.model, thinkingLevel: 'medium', extensions: [this.assistant.extension] });
+      }
+      const durableId = native
+        ? await tx.createTask(this.response, { id: task.id, predecessor, prompt: input.prompt, requestId: input.requestId }, { ownership: { kind: 'conversation' } })
+        : await tx.createTask(this.execution, { id: task.id, predecessor, prompt }, { ownership: { kind: 'conversation' } });
       workspace.queueTail = durableId;
       task.durableId = durableId; task.lastRequestId = input.requestId; task.status = 'queued'; task.error = null; task.turnId = null;
       task.updatedAt = stamp; task.events.push(event('user', input.prompt));
@@ -238,13 +303,24 @@ export class Engine extends EventEmitter {
     const approval = task?.approvals.find(a => a.id === approvalId && a.state === 'pending');
     if (!approval) throw new Error('授权请求已过期');
     if (approval.method.includes('requestUserInput') && approval.questions.some(q => !answers[q.id]?.some(v => v.trim()))) throw new Error('请回答所有问题');
-    await this.executor.answer(id, approvalId, decision, answers);
+    if (approval.method.startsWith('friday/')) {
+      await this.patchTask(id, item => { const a = item.approvals.find(a => a.id === approvalId)!; a.decision = decision; a.answers = answers; });
+    } else await this.executor.answer(id, approvalId, decision, answers);
     await this.updateExecution(id, { kind: 'approvalResolved', id: approvalId });
     await this.patchTask(id, item => { item.events.push(event('decision', approval.method.includes('requestUserInput') ? '已提交补充信息' : decision === 'accept' ? '已允许本次操作' : '已拒绝本次操作')); });
   }
   async steer(id: string, text: string, requestId: string) {
-    await this.executor.steer(id, text, requestId);
-    await this.patchTask(id, item => { item.events.push(event('user', text)); item.messages?.push({ id: randomUUID(), role: 'user', text }); });
+    const task = (await this.snapshot()).tasks.find(t => t.id === id);
+    if (task?.agent === 'friday') {
+      if (task.status === 'queued') throw new Error('会话尚在排队，请开始后补充要求');
+      const conversation = await this.harness.conversation(task.conversationId as ConversationId, context);
+      if (!conversation) throw new Error('Friday 会话不存在');
+      await conversation.submit({ type: 'input', content: text, requestId, whenBusy: 'steer' }, context);
+    } else await this.executor.steer(id, text, requestId);
+    await this.patchTask(id, item => {
+      item.events.push(event('user', text));
+      if (item.agent !== 'friday') item.messages?.push({ id: randomUUID(), role: 'user', text });
+    });
   }
   async artifact(id: string) {
     const task = (await this.snapshot()).tasks.find(t => t.id === id);
@@ -253,6 +329,6 @@ export class Engine extends EventEmitter {
   }
   async close() {
     if (this.closed) return; this.closed = true;
-    await this.watch?.stop(); await this.harness.close(context); this.lease.close(); this.removeAllListeners();
+    await this.modelConnection.close(); await this.harness.close(context); await this.watch?.stop(); this.lease.close(); this.removeAllListeners();
   }
 }

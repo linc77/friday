@@ -8,7 +8,9 @@ flowchart LR
     Outbox --> iPhone
     Service --> Durable[Pi Durable]
     Durable --> DB[(SQLite)]
-    Service --> Codex[Codex app-server]
+    Durable --> Model[OpenAI Responses API / OAuth]
+    Durable --> Tools[Friday 自有工具]
+    Tools -->|可选编码委派 / 用户批准| Codex[Codex app-server]
     Codex --> Workspace[选定的本地目录]
     Service --> Artifacts[Markdown 成果]
 ```
@@ -17,13 +19,19 @@ Friday 保存长期产品状态，客户端负责交互，CLI 工具执行具体
 
 ## Pi Durable 的职责
 
-`friday.execute` 是实际注册到 Pi Durable 的持久任务，使用它的 checkpoint、memo、等待依赖和终止状态。任务创建和应用状态更新在同一 Durable commit 中保存。所有任务按创建/继续的顺序串行执行，避免多个代码任务同时改同一目录。
+`friday.respond` 管理 Friday 请求的排队和成果；其独立 conversation 使用 Pi Durable 内置 `pi.generation` / `pi.tool` 执行模型与工具循环。`friday.execute` 保留给旧 Codex 任务，使用 checkpoint、memo、等待依赖和终止状态。任务创建和应用状态更新在同一 Durable commit 中保存。所有任务按创建/继续的顺序串行执行，避免多个代码任务同时改同一目录。
 
 Pi Durable 不是 CLI 外部副作用的事务管理器。Friday 在启动外部 turn 前保存 external-started 标记与 thread ID；重启后不确定的 turn 需要用户继续。Pi Durable 的存储由单进程持有，另一个 SQLite writer transaction 用作会随进程退出而释放的占用锁。
 
-当前没有在 Pi 内额外运行一个自主规划模型。用户直接与 Friday 对话，由同一 Codex 会话理解意图、回答或执行，不额外增加分类模型调用，也不使用关键词猜测任务类型。
+Friday 现在自己运行模型决策循环。每个会话在提交前原子保存 conversation ID，输入用 request ID 去重；模型消息和工具结果进入同一 SQLite。动态 prompt section 读取当前显式记忆、项目背景和 Skill。普通请求不依赖 Codex 安装。
 
-新对话采用内部 `auto` 模式：没有选定目录时只读运行，不能申请提权绕过选择。Codex 的动态工具 `friday_request_workspace` 把必要的目录问题交给界面，持久化为 `needs_project` 后释放执行队列；用户选择目录后在同一个 thread 中继续。`friday_save_idea` 只用于明确的记录请求，写入想法箱且不自动交办。旧的 research/code 任务和接口仍兼容。
+新对话沿用直接输入的交互，内部采用 `auto` 模式。`friday_request_workspace` 把必要的目录选择交给界面，持久化为 `needs_project` 后释放执行队列；选择目录后复用原 Friday conversation。`save_idea` 仅用于明确的记录请求，不自动交办。旧任务继续兼容。
+
+自有工具包括 workspace、friday_request_workspace、save_idea、remember、list_files、read_file、save_note、write_file、ask_user；delegate_codex 仅在选定项目的编码请求获批后执行，research 模式保持只读。项目路径经 realpath 校验，拒绝越界和部分明确的凭据文件；这是一组受限文件工具，不是通用 OS 沙箱。写项目文件展示全文并等待授权，无通用 shell 工具。
+
+读取、基于 tool-call ID 去重的内部写入和提问可安全恢复；文件写入、笔记文件和外部调用标记 unsafe，中断后由 Pi 返回 interrupted，不自动重放。用户问题和答案在 workspace 中持久化；中断的其他待决授权失效。
+
+OpenAI 登录使用 pi-ai 的 openai provider OAuth 适配器，直接请求 Responses API。稳定主机 ID 和独立 OAuth 凭据保存在私有数据目录，登录/退出/手动回调仅主机 owner 可操作。凭据刷新在单实例租约内串行、原子落盘；缺少 OAuth 不回退到 API key。模型授权与实际可用性须由真实登录和推理确认。
 
 ## Codex 适配器
 
@@ -37,11 +45,11 @@ Pi Durable 不是 CLI 外部副作用的事务管理器。Friday 在启动外部
 
 | 层 | 内容 | 写入与读取 |
 | --- | --- | --- |
-| Session Memory | 当前任务的 thread、用户与助手消息、输出、执行记录 | 执行过程中写入，续聊复用原生会话；界面保留多轮问答 |
-| SQLite Long-term Memory | 用户明确保存的偏好、项目背景 | UI 中增改删；任务创建时注入当前快照 |
-| Skill Memory | `skills/*/SKILL.md` 中可复用工作流程 | 维护文件；按任务模式读取并固化到任务输入 |
+| Session Memory | Friday conversation 的模型消息、工具结果；可选 Codex 的 thread ID | Pi Durable 持久化并复用 Friday 会话；Codex 只保存其受委派部分 |
+| SQLite Long-term Memory | 用户明确保存的偏好、项目背景 | UI 增改删，remember 工具新增；模型循环读取当前快照 |
+| Skill Memory | `skills/*/SKILL.md` 中可复用工作流程 | 维护文件；Friday 动态读取，旧执行器固化到任务输入 |
 
-没有从全屏监控或输入法中自动抽取记忆。全量个人数据不默认发给每一次任务；目前注入的是用户保存的显式记忆和关联项目背景。未来应增加按相关性选择、来源及过期管理。
+没有从全屏监控或输入法中自动抽取记忆。目前系统上下文注入用户保存的显式记忆和关联项目背景；workspace 工具可按模型需要读取有上限的想法、项目和任务概况。未来应增加按相关性选择、来源及过期管理。
 
 ## 同步与授权
 
@@ -51,6 +59,6 @@ HTTP 负责命令，SSE 发送带 revision 的完整状态快照。重连先拉�
 
 ## 第一版规模
 
-一个用户、一个服务、一条执行队列，一个有上限的 workspace document。当前最多 300 个任务、100 条显式记忆，每任务保存最近 120 条执行事件，流式预览限制 80k 字符。原始完整会话由 Codex 保存。没有提供任务归档/清理 UI；达到任务上限后需要增加归档能力再继续扩展。
+一个用户、一个服务、一条执行队列，一个有上限的 workspace document。当前最多 300 个任务、100 条显式记忆，每任务保存最近 120 条执行事件，流式预览限制 80k 字符。Friday 完整模型会话由 Pi Durable 保存，可选 Codex 受委派部分由其原生存储保存。没有提供任务归档/清理 UI；达到任务上限后需要增加归档能力再继续扩展。
 
 后续增加多 executor 时，保持 run、answer、steer 的边界，同时显式描述每个工具的继续、取消、授权、事件和成果能力；不要假定所有 CLI 都支持同样的协议。

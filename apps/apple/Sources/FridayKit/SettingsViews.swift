@@ -93,7 +93,7 @@ struct AgentsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 Text("Friday 的执行工具").font(.largeTitle.bold())
-                Text("使用主机上已有的工具和登录状态。第一版通过 Codex 处理任务。").foregroundStyle(.secondary)
+                Text("Friday 自己处理对话和个人事务。需要独立编码时，可以经你确认后调用本机 Codex。").foregroundStyle(.secondary)
                 ForEach(store.agents) { agent in
                     VStack(alignment: .leading, spacing: 12) {
                         HStack { Label(agent.name, systemImage: "terminal").font(.headline); Spacer(); Text(agent.installed ? (agent.executableSupported ? "可以执行任务" : "已发现 · 尚未接入") : "未安装").font(.caption).foregroundStyle(agent.installed && agent.executableSupported ? .green : .secondary) }
@@ -123,6 +123,8 @@ struct ConnectionView: View {
                 Text(store.connection.server).font(.callout.monospaced()).textSelection(.enabled)
                 Text("任务在主机上执行。关闭客户端不影响任务；主机需要保持运行。").foregroundStyle(.secondary)
                 Button("重新连接") { Task { await store.connect() } }
+                Divider()
+                ModelSettingsView(store: store)
                 if store.deviceId == "owner" {
                     Divider()
                     Text("连接另一台设备").font(.title3.bold())
@@ -154,5 +156,60 @@ struct ConnectionView: View {
             name = "我的 iPhone"
             #endif
         }
+    }
+}
+
+struct ModelSettingsView: View {
+    @ObservedObject var store: FridayStore
+    @Environment(\.openURL) private var openURL
+    @State private var state: ModelConnectionState?
+    @State private var callback = ""
+    @State private var busy = false
+    @State private var error: String?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Friday 的模型").font(.title3.bold())
+            Text("使用 OpenAI 账号登录，让 Friday 与你对话、记住偏好并处理事情。").font(.callout).foregroundStyle(.secondary)
+            if let state {
+                Label(state.connected ? "OpenAI 已连接" : "尚未登录 OpenAI", systemImage: state.connected ? "checkmark.circle.fill" : "person.crop.circle").foregroundStyle(state.connected ? .green : .secondary)
+                Text(state.model).font(.caption).foregroundStyle(.secondary)
+                if store.deviceId == "owner" {
+                    if state.login?.status == "waiting" {
+                        Text("请在这台主机的浏览器中完成登录。").font(.callout)
+                        if let raw = state.login?.url, let url = URL(string: raw) { Button("打开 OpenAI 登录页面") { openURL(url) } }
+                        if state.login?.manual == true {
+                            DisclosureGroup("浏览器未自动返回？") {
+                                Text("将登录后浏览器地址栏中的完整回调地址粘贴到这里。").font(.caption).foregroundStyle(.secondary)
+                                TextField("http://127.0.0.1:1455/auth/callback…", text: $callback).textFieldStyle(.roundedBorder)
+                                Button("完成登录") { Task { if await store.perform("/api/model/callback", body: ["url": callback]) { callback = "" }; await refresh() } }.disabled(callback.isEmpty)
+                            }
+                        }
+                        Button("取消登录") { Task { _ = await store.perform("/api/model/logout"); await refresh() } }
+                    } else if state.connected {
+                        Button("退出 OpenAI 登录", role: .destructive) { Task { _ = await store.perform("/api/model/logout"); await refresh() } }
+                    } else {
+                        Button("使用 OpenAI 登录") {
+                            busy = true
+                            Task {
+                                do {
+                                    self.state = try await store.connection.decode(ModelConnectionState.self, "/api/model/login", method: "POST", body: [:])
+                                    if let raw = self.state?.login?.url, let url = URL(string: raw) { openURL(url) }
+                                } catch { self.error = error.localizedDescription }
+                                busy = false
+                            }
+                        }.buttonStyle(.borderedProminent).disabled(busy || !store.connected)
+                    }
+                } else { Text("请在主机上登录 OpenAI，所有已连接设备会共用 Friday。").font(.caption).foregroundStyle(.secondary) }
+                if let error = state.login?.error { Text(error).font(.caption).foregroundStyle(.orange) }
+            }
+            if let error { Text(error).font(.caption).foregroundStyle(.orange) }
+        }.task {
+            await refresh()
+            while !Task.isCancelled { try? await Task.sleep(for: .seconds(2)); if Task.isCancelled { break }; if state?.login?.status == "waiting" || state == nil { await refresh() } }
+        }
+    }
+    private func refresh() async {
+        do { state = try await store.connection.decode(ModelConnectionState.self, "/api/model"); error = nil }
+        catch { self.error = error.localizedDescription }
     }
 }

@@ -40,6 +40,8 @@ test('Durable deduplicates submissions, serializes execution, and retains artifa
     const second = await engine.createTask(input('second'));
     await until(engine, s => s.tasks.find(t => t.id === first)?.threadId !== null);
     assert.deepEqual(executor.calls, [first]);
+    await engine.steer(first, 'Please include the verification result', 'legacy-steer');
+    assert.equal((await engine.snapshot()).tasks[0].messages?.at(-1)?.text, 'Please include the verification result');
     executor.releases[0]();
     await until(engine, s => s.tasks.find(t => t.id === second)?.threadId !== null);
     assert.deepEqual(executor.calls, [first, second]);

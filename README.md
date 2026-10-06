@@ -2,11 +2,11 @@
 
 Friday 是你的个人 Agent：随手收集想法、关联项目、布置任务，再从任意已连接的设备查看进展和成果。
 
-目前是可运行的 **0.1 开发版**：独立 TypeScript 常驻服务、Pi Durable + SQLite 持久化、原生 SwiftUI Mac 客户端、iOS 客户端与分享扩展源码。Codex 是首个执行工具；Claude Code、Hermes、Pi Coding Agent 目前只检测安装状态。
+目前是可运行的 **0.1 开发版**：独立 TypeScript 常驻服务、Pi Durable + SQLite 持久化、原生 SwiftUI Mac 客户端、iOS 客户端与分享扩展源码。Friday 通过 OpenAI OAuth 直连模型，使用 Pi Durable 的模型与工具循环。Codex 是需单独批准的可选编码工具；Claude Code、Hermes、Pi Coding Agent 目前只检测安装状态。
 
 ## 本机运行
 
-需要 Node.js 22.19+、pnpm、macOS 14+、Swift 5.10+，以及已经安装并登录的 Codex CLI。当前已在 Node 26.10 / Swift 6.2.3 / Apple Silicon 上验证。
+需要 Node.js 22.19+、pnpm、macOS 14+、Swift 5.10+，以及用于 Friday 登录的 OpenAI 账号。只有调用可选编码工具时才需要安装并登录 Codex CLI。当前已在 Node 26.10 / Swift 6.2.3 / Apple Silicon 上验证。
 
 ```sh
 pnpm install --frozen-lockfile
@@ -15,9 +15,13 @@ pnpm mac:build
 pnpm mac:open
 ```
 
+启动后先进入“连接”，点击“使用 OpenAI 登录”，在本机浏览器完成 ChatGPT OAuth 授权。默认模型为 `gpt-6-sol`；主机启动时可用 `FRIDAY_MODEL_ID` 选择当前 Pi 模型目录中的其他 OpenAI 模型，账号是否可用以实际请求为准。
+
 打开后直接在“对话”中输入需求并发送，无需选择任务类型或执行工具。“想法”中的“交给 Friday”会直接开始同一段对话，不再弹出表单。只想记录时，可以在“想法”中保存，或对 Friday 说“先记下，不要执行”。
 
-普通问答和调研直接处理。新对话尚未选择项目时采用只读执行；确实需要本地项目时，Friday 会在对话中请你选择已有项目或主机目录。选好后沿用原会话继续；等待选目录的对话不占用执行队列。后续消息继承这个目录，不再重复询问。内部执行工具、目录和会话 ID 收在“执行详情”中。
+普通问答直接处理。新对话尚未选择项目时不允许访问本地项目文件；确实需要本地项目时，Friday 会在对话中请你选择已有项目或主机目录。选好后沿用原会话继续；等待选目录的对话不占用执行队列。后续消息继承这个目录，不再重复询问。内部执行工具、目录和会话 ID 收在“执行详情”中。
+
+Friday 自己读取想法和显式记忆，可以保存想法与 Markdown 笔记；只有用户明确要求才写入长期记忆。选定项目后，文件写入需核对内容并批准；调用 Codex 也需单独批准。尚未接入网页搜索、邮件、日历和定时提醒。
 
 Mac 本机客户端从私有文件读取主机凭据；配对设备的凭据保存在系统钥匙串。应用默认仅连接 `http://127.0.0.1:4317`。
 
@@ -39,9 +43,11 @@ pnpm service:stop
 - `artifacts/`：任务成果 Markdown。
 - `access.sqlite` / `owner-token`：设备授权及本机凭据，勿加入 Git 或公开分享。
 - `runtime/`：已安装的服务和依赖；`service*.log`：启动日志。
-- Codex 自己保存原生会话；Friday 记录对应 thread / turn ID。
+- Friday 自己的模型消息、工具结果和会话存入 `friday.sqlite`；客户端只投影最近 100 条文本消息。
+- `model-auth.json` / `model-device-id`：Friday 独立的 OAuth 凭据与安装标识，权限 0600，不进入客户端快照或 Git。
+- 只有调用可选 Codex 工具或继续旧 Codex 任务时，才记录其 thread / turn ID。
 
-关闭客户端不影响执行。重启服务后，尚未开始的任务继续排队；对曾启动的外部调用保守地标记“待恢复”，由用户检查后明确继续。无法确认的外部操作不会自动重放；取消也不会撤销已经发生的改动。
+关闭客户端不影响执行。重启服务后，Friday 模型会话由 Pi Durable 接续；读取和幂等内部操作可恢复。文件写入、保存笔记和 Codex 调用为不可安全重放工具，中断后会向模型返回 interrupted，要求先核对当前状态。旧 Codex 任务仍保留原先的“待恢复”策略。取消不会撤销已经发生的改动。
 
 备份时先停止服务，再复制整个数据目录。如果需要保留 Codex 后续续聊能力，也应按其原生方式保留本地会话。不要只复制一个正在写入的 SQLite 文件。
 
@@ -73,3 +79,9 @@ git diff --check
 首次验收已使用真实 Codex 完成纯文本任务、隔离目录中的文件写入/读取、以及重启后的原会话续聊验证。测试任务与“Friday 验证项目”保留在应用中，便于查看真实记录。
 
 完整能力边界与后续方向见 [第一版交付](docs/first-delivery.md) 和 [架构](docs/architecture.md)。
+
+## 当前运行层验证
+
+自动测试使用 Pi 的 faux provider 覆盖真实 Durable 模型/工具循环、无 Codex 环境、会话续聊、问题等待恢复、文件路径边界、写入审批及 OAuth 凭据保存。它不代表真实 OpenAI 授权或推理已经通过；真实链路需要在 Friday 中完成 OAuth 登录后验收。
+
+可以用 `FRIDAY_DATA_DIR`、`FRIDAY_PORT` 启动独立服务；Mac 客户端另支持 `FRIDAY_SERVER_URL` 环境变量，用于隔离预览，不修改已保存的连接地址。
