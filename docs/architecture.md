@@ -8,7 +8,7 @@ flowchart LR
     Outbox --> iPhone
     Service --> Durable[Pi Durable]
     Durable --> DB[(SQLite)]
-    Durable --> Model[OpenAI Responses API / OAuth]
+    Durable --> Model[DeepSeek Chat Completions / API Key]
     Durable --> Tools[Friday 自有工具]
     Tools -->|可选编码委派 / 用户批准| Codex[Codex app-server]
     Codex --> Workspace[选定的本地目录]
@@ -31,7 +31,7 @@ Friday 现在自己运行模型决策循环。每个会话在提交前原子保�
 
 读取、基于 tool-call ID 去重的内部写入和提问可安全恢复；文件写入、笔记文件和外部调用标记 unsafe，中断后由 Pi 返回 interrupted，不自动重放。用户问题和答案在 workspace 中持久化；中断的其他待决授权失效。
 
-OpenAI 登录使用 pi-ai 的 openai provider OAuth 适配器，直接请求 Responses API。稳定主机 ID 和独立 OAuth 凭据保存在私有数据目录，登录/退出/手动回调仅主机 owner 可操作。凭据刷新在单实例租约内串行、原子落盘；缺少 OAuth 不回退到 API key。模型授权与实际可用性须由真实登录和推理确认。
+模型接入使用 pi-ai 的 DeepSeek provider，直接请求官方 Chat Completions API，默认 `deepseek-flash`。主机 owner 在连接页配置 API Key；先发一次非思考模式的简短测试请求，成功后以 0600 权限串行、原子保存，失败保留旧密钥。配对设备只能查看连接状态；凭据不进入快照。正常会话支持流式回复、思考与工具调用；后续用户消息保留原 conversation，并切到当前配置的模型。旧 OpenAI 凭据保留但不再使用，OAuth 入口已移除。
 
 ## Codex 适配器
 

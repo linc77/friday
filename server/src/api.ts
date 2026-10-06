@@ -38,15 +38,18 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   app.get('/api/state', async c => c.json({ ...await engine.snapshot(), agents: agents(), devices: auth.devices(), deviceId: c.get('device') }));
   app.get('/api/model', async c => c.json(await engine.modelConnection.status(c.get('device') === 'owner')));
   app.use('/api/model/*', async (c, next) => {
-    if (c.get('device') !== 'owner') return c.json({ error: '请在主机上管理 OpenAI 登录' }, 403);
+    if (c.get('device') !== 'owner') return c.json({ error: '请在主机上配置 DeepSeek API Key' }, 403);
     await next();
   });
-  app.post('/api/model/login', async c => c.json(await engine.modelConnection.startLogin()));
-  app.post('/api/model/callback', async c => { const body = await c.req.json(); engine.modelConnection.completeLogin(text(body.url, '回调地址', 8000)); return c.json({ ok: true }); });
-  app.post('/api/model/logout', async c => {
-    if ((await engine.snapshot()).tasks.some(t => t.agent === 'friday' && activeStatuses.includes(t.status))) throw new Error('请先停止 Friday 正在处理的会话再退出登录');
-    await engine.modelConnection.logout(); return c.json({ ok: true });
+  app.use('/api/model/*', async (c, next) => {
+    if ((await engine.snapshot()).tasks.some(t => t.agent === 'friday' && activeStatuses.includes(t.status))) return c.json({ error: '请先停止 Friday 正在处理的会话再修改模型连接' }, 409);
+    await next();
   });
+  app.put('/api/model/key', async c => {
+    const body = await c.req.json();
+    return c.json(await engine.modelConnection.saveKey(text(body.apiKey, 'API Key', 512)));
+  });
+  app.delete('/api/model/key', async c => { await engine.modelConnection.clearKey(); return c.json({ ok: true }); });
   app.get('/api/events', c => streamSSE(c, async stream => {
     let dirty = true; let ended = false;
     const changed = () => { dirty = true; };

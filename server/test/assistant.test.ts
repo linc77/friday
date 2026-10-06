@@ -135,7 +135,7 @@ test('Friday resumes a pending question after restart and cancels its own model 
   } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
-test('OAuth storage serializes refreshes, persists privately, and API hides login details from paired devices', async () => {
+test('Credential storage stays private and paired devices cannot change the model key', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-oauth-')); const engine = await new Engine(directory).open(); const auth = new Auth(directory);
   try {
     const file = join(directory, 'test-auth.json'); const store = new ModelCredentials(file);
@@ -148,8 +148,8 @@ test('OAuth storage serializes refreshes, persists privately, and API hides logi
     const headers = { Authorization: `Bearer ${paired.token}`, 'Content-Type': 'application/json' };
     const state = await (await app.request('/api/model', { headers })).json();
     assert.equal(state.connected, false); assert.equal(state.login, undefined);
-    assert.equal((await app.request('/api/model/login', { method: 'POST', headers, body: '{}' })).status, 403);
-    await assert.rejects(engine.createTask(input('no-login')), /OpenAI OAuth/);
+    assert.equal((await app.request('/api/model/key', { method: 'PUT', headers, body: '{}' })).status, 403);
+    await assert.rejects(engine.createTask(input('no-login')), /DeepSeek API Key/);
   } finally { await engine.close(); auth.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
