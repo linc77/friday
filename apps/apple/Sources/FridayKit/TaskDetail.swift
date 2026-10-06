@@ -160,7 +160,7 @@ struct TaskDetail: View {
         } label: {
             HStack {
                 FridaySymbolLabel(friday: "执行详情", systemImage: "clock.arrow.circlepath")
-                    .fridaySymbolFeedback(active: showEvents)
+                    .fridaySymbolFeedback(value: showEvents)
                 Spacer()
                 Text("\(task.events.count)").monospacedDigit()
             }.font(.caption).foregroundStyle(.secondary)

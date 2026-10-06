@@ -37,10 +37,9 @@ struct AppearanceSettingsView: View {
                             .frame(maxWidth: .infinity)
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(FridaySymbolButtonStyle())
                         .accessibilityLabel(Text(fridayString: option.title))
                         .accessibilityAddTraits(appearance == option ? .isSelected : [])
-                        .fridaySymbolFeedback(active: appearance == option)
                     }
                 }
                 Text(friday: "选择“系统”时，外观会跟随系统的浅色或深色模式。")

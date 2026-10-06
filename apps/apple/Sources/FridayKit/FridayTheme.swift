@@ -267,7 +267,6 @@ struct FridayToolbarButtonStyle: ButtonStyle {
 private struct FridayToolbarButtonBody: View {
     let configuration: ButtonStyleConfiguration
     @State private var hovering = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         configuration.label
@@ -280,7 +279,6 @@ private struct FridayToolbarButtonBody: View {
                     .fill(.primary.opacity(configuration.isPressed ? 0.12 : hovering ? 0.065 : 0))
             }
             .contentShape(RoundedRectangle(cornerRadius: 6))
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hovering)
             .onHover { hovering = $0 }
             .fridaySymbolFeedback(active: configuration.isPressed)
     }
@@ -323,7 +321,6 @@ private struct FridayButtonBody: View {
             .opacity(isEnabled ? 1 : 0.4)
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: hovering)
             .onHover { hovering = $0 }
             .fridaySymbolFeedback(active: configuration.isPressed)
     }
