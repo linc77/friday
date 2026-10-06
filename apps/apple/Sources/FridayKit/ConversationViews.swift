@@ -15,10 +15,7 @@ struct NewConversationView: View {
         VStack {
             Spacer(minLength: 30)
             VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("想到什么，直接说。").font(.largeTitle.weight(.semibold))
-                    Text("一个想法，一件想推进的事。").foregroundStyle(.secondary)
-                }
+                PageHeading(title: "想到什么，直接说。", subtitle: "一个想法，一件想推进的事。")
                 VStack(alignment: .leading, spacing: 12) {
                     ZStack(alignment: .topLeading) {
                         if draft.isEmpty { Text("告诉 Friday 你想做什么…").foregroundStyle(.tertiary).padding(.leading, 5).padding(.top, 8).allowsHitTesting(false) }
@@ -30,14 +27,15 @@ struct NewConversationView: View {
                         #endif
                         Spacer()
                         if sending { ProgressView().controlSize(.small) }
-                        Button("发送", action: send).buttonStyle(.borderedProminent).keyboardShortcut(.return, modifiers: .command)
+                        Button("发送", systemImage: "arrow.up", action: send).buttonStyle(FridayButtonStyle(prominent: true)).keyboardShortcut(.return, modifiers: .command)
                             .disabled(sending || !store.connected || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
-                }.padding(16).background(.background, in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(.quaternary))
+                }.padding(20).fridayCard(highlighted: focused)
                 if let error { Text(error).font(.caption).foregroundStyle(.orange) }
             }.frame(maxWidth: 660).padding(28)
             Spacer(minLength: 80)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(FridayTheme.canvas)
         .onAppear { focused = true }
         .onChange(of: draft) { _, _ in if !sending { requestId = UUID().uuidString } }
     }
@@ -69,7 +67,7 @@ struct WorkspaceChoice: View {
                         VStack(alignment: .leading, spacing: 3) { Text(project.name); Text(project.path).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                         Spacer(); Image(systemName: "chevron.right").font(.caption)
                     }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
-                }.buttonStyle(.bordered)
+                }.buttonStyle(FridayButtonStyle())
             }
             #if os(macOS)
             if store.deviceId == "owner" {
@@ -83,7 +81,7 @@ struct WorkspaceChoice: View {
             #endif
             Text("选择后，Friday 会在这里继续处理你的请求。").font(.caption).foregroundStyle(.secondary)
             if busy { ProgressView().controlSize(.small) }
-        }.padding(18).background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 14)).disabled(busy || !store.connected)
+        }.padding(22).fridayCard().disabled(busy || !store.connected)
     }
     private var remotePath: some View {
         HStack {

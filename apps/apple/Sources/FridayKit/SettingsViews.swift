@@ -8,21 +8,54 @@ struct ProjectsView: View {
     @State private var adding = false
     @State private var editing: Project?
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack { VStack(alignment: .leading, spacing: 6) { Text("项目").font(.largeTitle.bold()); Text("把主机目录和项目背景放在一起。").foregroundStyle(.secondary) }; Spacer(); Button("添加项目") { adding = true }.buttonStyle(.borderedProminent).disabled(!store.connected) }
-            if store.projects.isEmpty { EmptyPanel(icon: "folder", title: "先关联一个项目", subtitle: "代码任务会在你选择的主机目录中执行。") }
-            List(store.projects) { project in
-                Button { editing = project } label: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label(project.name, systemImage: "folder").font(.headline)
-                        Text(project.path).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
-                        if !project.context.isEmpty { Text(project.context).font(.callout).lineLimit(3).foregroundStyle(.secondary) }
-                    }.padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
-                }.buttonStyle(.plain)
-            }.listStyle(.plain)
-        }.padding(24)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                HStack(alignment: .top, spacing: 20) {
+                    PageHeading(title: "项目", subtitle: "把主机目录和项目背景放在一起。")
+                    Button { adding = true } label: { Label("添加项目", systemImage: "plus") }
+                        .buttonStyle(FridayButtonStyle(prominent: true)).disabled(!store.connected)
+                }
+                if store.projects.isEmpty {
+                    EmptyPanel(icon: "folder", title: "先关联一个项目", subtitle: "代码任务会在你选择的主机目录中执行。")
+                }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18)], alignment: .leading, spacing: 18) {
+                    ForEach(store.projects) { project in
+                        Button { editing = project } label: {
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack {
+                                    Image(systemName: "folder").font(.system(size: 23, weight: .light))
+                                        .foregroundStyle(FridayTheme.accent)
+                                        .frame(width: 48, height: 48)
+                                        .background(FridayTheme.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 15))
+                                    Spacer()
+                                    Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.tertiary)
+                                }
+                                Text(project.name).font(.headline).lineLimit(2)
+                                Text(project.context.isEmpty ? "添加项目背景，让 Friday 更了解这件事。" : project.context)
+                                    .font(.callout).foregroundStyle(.secondary).lineLimit(3)
+                                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .topLeading)
+                                Text(project.path).font(.caption.monospaced()).foregroundStyle(.tertiary)
+                                    .lineLimit(1).truncationMode(.middle)
+                            }
+                            .padding(22).frame(maxWidth: .infinity, alignment: .leading).fridayCard()
+                        }.buttonStyle(ProjectCardStyle())
+                    }
+                }
+            }.padding(28).frame(maxWidth: 960).frame(maxWidth: .infinity)
+        }.background(FridayTheme.canvas)
         .sheet(isPresented: $adding) { ProjectEditor(store: store, project: nil) }
         .sheet(item: $editing) { ProjectEditor(store: store, project: $0) }
+    }
+}
+
+private struct ProjectCardStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(RoundedRectangle(cornerRadius: FridayTheme.cornerRadius))
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.985 : 1)
+            .animation(reduceMotion ? nil : FridayTheme.motion, value: configuration.isPressed)
     }
 }
 
@@ -51,7 +84,7 @@ struct ProjectEditor: View {
             HStack { Spacer(); Button("保存项目") {
                 busy = true
                 Task { if await store.perform(project.map { "/api/projects/\($0.id)" } ?? "/api/projects", method: project == nil ? "POST" : "PUT", body: ["name": name, "path": path, "context": context]) { dismiss() }; busy = false }
-            }.buttonStyle(.borderedProminent).disabled(busy || name.isEmpty || path.isEmpty || !store.connected) }
+            }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(busy || name.isEmpty || path.isEmpty || !store.connected) }
         }.padding(26)
         #if os(macOS)
         .frame(width: 560)
@@ -68,21 +101,20 @@ struct MemoriesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                Text("记住你明确告诉我的事").font(.largeTitle.bold())
-                Text("你的偏好、工作方式和长期背景。你可以随时修改或删除；Friday 会在任务开始时读取。").foregroundStyle(.secondary)
-                TextEditor(text: $draft).frame(minHeight: 90).padding(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary)).accessibilityLabel("长期记忆")
+                PageHeading(title: "记住你明确告诉我的事", subtitle: "你的偏好、工作方式和长期背景。你可以随时修改或删除；Friday 会在任务开始时读取。")
+                TextEditor(text: $draft).scrollContentBackground(.hidden).frame(minHeight: 90).padding(16).fridayCard().accessibilityLabel("长期记忆")
                 HStack { if editingId != nil { Button("取消编辑") { draft = ""; editingId = nil } }; Spacer(); Button(editingId == nil ? "记住这件事" : "保存修改") {
                     busy = true; var body: [String: Any] = ["text": draft]; if let editingId { body["id"] = editingId }
                     Task { if await store.perform("/api/memories", body: body) { draft = ""; editingId = nil }; busy = false }
-                }.buttonStyle(.borderedProminent).disabled(busy || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !store.connected) }
+                }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(busy || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !store.connected) }
                 ForEach(store.memories) { memory in
                     HStack(alignment: .top, spacing: 14) {
                         Image(systemName: "sparkles").foregroundStyle(.secondary)
                         Text(memory.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                         Menu { Button("编辑") { draft = memory.text; editingId = memory.id }; Button("删除", role: .destructive) { Task { _ = await store.perform("/api/memories/\(memory.id)", method: "DELETE") } } } label: { Image(systemName: "ellipsis") }
-                    }.padding(18).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+                    }.padding(20).fridayCard()
                 }
-            }.padding(28).frame(maxWidth: 850).frame(maxWidth: .infinity)
+            }.padding(28).frame(maxWidth: FridayTheme.contentWidth + 56).frame(maxWidth: .infinity)
         }
     }
 }
@@ -92,17 +124,16 @@ struct AgentsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                Text("Friday 的执行工具").font(.largeTitle.bold())
-                Text("Friday 自己处理对话和个人事务。需要独立编码时，可以经你确认后调用本机 Codex。").foregroundStyle(.secondary)
+                PageHeading(title: "Friday 的执行工具", subtitle: "Friday 自己处理对话和个人事务。需要独立编码时，可以经你确认后调用本机 Codex。")
                 ForEach(store.agents) { agent in
                     VStack(alignment: .leading, spacing: 12) {
-                        HStack { Label(agent.name, systemImage: "terminal").font(.headline); Spacer(); Text(agent.installed ? (agent.executableSupported ? "可以执行任务" : "已发现 · 尚未接入") : "未安装").font(.caption).foregroundStyle(agent.installed && agent.executableSupported ? .green : .secondary) }
+                        HStack { Label(agent.name, systemImage: "terminal").font(.headline); Spacer(); Text(agent.installed ? (agent.executableSupported ? "可以执行任务" : "已发现 · 尚未接入") : "未安装").font(.caption).foregroundStyle(.secondary) }
                         Text(agent.description).font(.callout).foregroundStyle(.secondary)
                         if let executable = agent.executable { Text(executable).font(.caption.monospaced()).foregroundStyle(.tertiary).textSelection(.enabled) }
-                    }.padding(20).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+                    }.padding(22).fridayCard()
                 }
-                Button("重新检测") { Task { await store.refresh() } }.disabled(!store.connected)
-            }.padding(28).frame(maxWidth: 850).frame(maxWidth: .infinity)
+                Button("重新检测") { Task { await store.refresh() } }.buttonStyle(FridayButtonStyle()).disabled(!store.connected)
+            }.padding(28).frame(maxWidth: FridayTheme.contentWidth + 56).frame(maxWidth: .infinity)
         }
     }
 }
@@ -118,8 +149,8 @@ struct ConnectionView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text("随时找到 Friday").font(.largeTitle.bold())
-                Label(store.connected ? "已连接主机" : "主机暂时离线", systemImage: store.connected ? "checkmark.circle.fill" : "wifi.slash").foregroundStyle(store.connected ? .green : .orange)
+                PageHeading(title: "随时找到 Friday", subtitle: "连接你的主机，让进展随时可见。")
+                Label(store.connected ? "已连接主机" : "主机暂时离线", systemImage: store.connected ? "checkmark.circle.fill" : "wifi.slash").foregroundStyle(store.connected ? FridayTheme.accent : .orange)
                 Text(store.connection.server).font(.callout.monospaced()).textSelection(.enabled)
                 Text("任务在主机上执行。关闭客户端不影响任务；主机需要保持运行。").foregroundStyle(.secondary)
                 Button("重新连接") { Task { await store.connect() } }
@@ -131,7 +162,7 @@ struct ConnectionView: View {
                     Text("先为主机配置可访问的 HTTPS 地址，例如 Tailscale Serve。然后在另一台设备填写地址和一次性配对码。").font(.callout).foregroundStyle(.secondary)
                     Button("生成配对码") {
                         Task { do { pairing = try await store.connection.decode(PairingCode.self, "/api/pairing", method: "POST", body: [:]); error = nil } catch { self.error = error.localizedDescription } }
-                    }.buttonStyle(.borderedProminent).disabled(!store.connected)
+                    }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(!store.connected)
                     if let pairing { VStack(alignment: .leading, spacing: 6) { Text(pairing.code).font(.system(size: 36, weight: .medium, design: .monospaced)).textSelection(.enabled); Text("5 分钟内有效，只能使用一次。").font(.caption).foregroundStyle(.secondary) } }
                     ForEach(store.devices) { device in
                         HStack {
@@ -146,7 +177,7 @@ struct ConnectionView: View {
                 TextField("设备名称", text: $name).textFieldStyle(.roundedBorder)
                 TextField("6 位配对码", text: $code).textFieldStyle(.roundedBorder)
                 if let error = error ?? store.error { Text(error).font(.caption).foregroundStyle(.orange) }
-                Button("连接") { busy = true; Task { do { try await store.pair(server: server, code: code, name: name); code = ""; error = nil } catch { self.error = error.localizedDescription }; busy = false } }.buttonStyle(.borderedProminent).disabled(busy || server.isEmpty || name.isEmpty || code.count != 6)
+                Button("连接") { busy = true; Task { do { try await store.pair(server: server, code: code, name: name); code = ""; error = nil } catch { self.error = error.localizedDescription }; busy = false } }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(busy || server.isEmpty || name.isEmpty || code.count != 6)
             }.padding(28).frame(maxWidth: 760).frame(maxWidth: .infinity)
         }.onAppear {
             server = store.connection.server
@@ -170,7 +201,7 @@ struct ModelSettingsView: View {
             Text("Friday 的模型").font(.title3.bold())
             Text("连接 DeepSeek，让 Friday 与你对话、记住偏好并处理事情。").font(.callout).foregroundStyle(.secondary)
             if let state {
-                Label(state.connected ? "DeepSeek API Key 已配置" : "尚未配置 DeepSeek API Key", systemImage: state.connected ? "checkmark.circle.fill" : "key").foregroundStyle(state.connected ? .green : .secondary)
+                Label(state.connected ? "DeepSeek API Key 已配置" : "尚未配置 DeepSeek API Key", systemImage: state.connected ? "checkmark.circle.fill" : "key").foregroundStyle(state.connected ? FridayTheme.accent : .secondary)
                 Text(state.model).font(.caption).foregroundStyle(.secondary)
                 if store.deviceId == "owner" {
                     SecureField(state.connected ? "输入新的 API Key 以替换" : "DeepSeek API Key", text: $apiKey)
@@ -187,7 +218,7 @@ struct ModelSettingsView: View {
                                 } catch { self.error = error.localizedDescription }
                                 busy = false
                             }
-                        }.buttonStyle(.borderedProminent).disabled(busy || !store.connected || apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(busy || !store.connected || apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         if state.connected {
                             Button("移除 API Key", role: .destructive) {
                                 busy = true; error = nil

@@ -13,7 +13,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct FridayApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
     var body: some Scene {
-        Window("Friday", id: "main") { FridayRootView() }
-            .defaultSize(width: 1120, height: 760)
+        FridayDesktopScene()
     }
 }
