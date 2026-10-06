@@ -26,6 +26,8 @@ Mac app 为本机 ad-hoc 签名开发产物，尚未发布到 App Store。
 
 ## Friday 自有 Agent 循环
 
-新增 OpenAI OAuth、Pi Durable 原生模型/工具循环。沿用直接对话入口、想法一键交办和按需选目录，选好后在原 Friday 会话继续。普通请求不再委派 Codex；其作为需批准的可选编码工具保留，旧任务仍可续聊。新增状态、续聊、审批、恢复和凭据隔离测试；真实 OpenAI 登录与模型推理须单独验收。
+模型连接已切换为 DeepSeek API Key，使用 Pi Durable 原生模型/工具循环。沿用直接对话入口、想法一键交办和按需选目录，选好后在原 Friday 会话继续。普通请求不再委派 Codex；其作为需批准的可选编码工具保留，旧任务仍可续聊。新增状态、续聊、审批、恢复和凭据隔离测试；真实 DeepSeek 推理需要在主机连接页填入 API Key 后单独验收。
 
-合并验证：`pnpm check` 通过 16 项服务测试，`pnpm apple:check` 与 `pnpm mac:build` 通过。原生会话的选目录、等待时释放队列、重启后继续、文件写入审批和想法交办去重已通过 faux provider 集成测试。
+合并验证：`pnpm check` 通过 20 项服务测试，`pnpm apple:check` 与 `pnpm mac:build` 通过。原生会话的选目录、等待时释放队列、重启后继续、文件写入审批和想法交办去重已通过 faux provider 集成测试。
+
+DeepSeek 接入已通过密钥验证与失败保留、HTTP 流式协议、工具调用往返及旧模型会话切换测试。Mac 连接页已在真实窗口检查；真实账户验证以“验证并保存”的结果为准。

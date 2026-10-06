@@ -242,10 +242,13 @@ export class Engine extends EventEmitter {
         sourceIdea ? 'The user explicitly delegated this saved idea now. Act on it instead of saving the same idea again.' : '',
         work ? 'Continue this existing task. Check the current workspace and previous results before repeating any external operation.' : '',
       ].filter(Boolean).join('\n\n');
-      if (native && !task.conversationId) {
-        const conversation = await tx.createConversation({ ownership: { kind: 'ownerless' } });
-        task.conversationId = conversation.id;
-        await configure(tx, conversation.id, { model: this.agentOptions?.model ?? this.modelConnection.model, thinkingLevel: 'medium', extensions: [this.assistant.extension] });
+      if (native) {
+        if (!task.conversationId) {
+          const conversation = await tx.createConversation({ ownership: { kind: 'ownerless' } });
+          task.conversationId = conversation.id;
+        }
+        // Keep history, but use Friday's current provider on every new user turn.
+        await configure(tx, task.conversationId as ConversationId, { model: this.agentOptions?.model ?? this.modelConnection.model, thinkingLevel: this.agentOptions ? 'medium' : 'high', extensions: [this.assistant.extension] });
       }
       const durableId = native
         ? await tx.createTask(this.response, { id: task.id, predecessor, prompt: input.prompt, requestId: input.requestId }, { ownership: { kind: 'conversation' } })

@@ -161,52 +161,50 @@ struct ConnectionView: View {
 
 struct ModelSettingsView: View {
     @ObservedObject var store: FridayStore
-    @Environment(\.openURL) private var openURL
     @State private var state: ModelConnectionState?
-    @State private var callback = ""
+    @State private var apiKey = ""
     @State private var busy = false
     @State private var error: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Friday 的模型").font(.title3.bold())
-            Text("使用 OpenAI 账号登录，让 Friday 与你对话、记住偏好并处理事情。").font(.callout).foregroundStyle(.secondary)
+            Text("连接 DeepSeek，让 Friday 与你对话、记住偏好并处理事情。").font(.callout).foregroundStyle(.secondary)
             if let state {
-                Label(state.connected ? "OpenAI 已连接" : "尚未登录 OpenAI", systemImage: state.connected ? "checkmark.circle.fill" : "person.crop.circle").foregroundStyle(state.connected ? .green : .secondary)
+                Label(state.connected ? "DeepSeek API Key 已配置" : "尚未配置 DeepSeek API Key", systemImage: state.connected ? "checkmark.circle.fill" : "key").foregroundStyle(state.connected ? .green : .secondary)
                 Text(state.model).font(.caption).foregroundStyle(.secondary)
                 if store.deviceId == "owner" {
-                    if state.login?.status == "waiting" {
-                        Text("请在这台主机的浏览器中完成登录。").font(.callout)
-                        if let raw = state.login?.url, let url = URL(string: raw) { Button("打开 OpenAI 登录页面") { openURL(url) } }
-                        if state.login?.manual == true {
-                            DisclosureGroup("浏览器未自动返回？") {
-                                Text("将登录后浏览器地址栏中的完整回调地址粘贴到这里。").font(.caption).foregroundStyle(.secondary)
-                                TextField("http://127.0.0.1:1455/auth/callback…", text: $callback).textFieldStyle(.roundedBorder)
-                                Button("完成登录") { Task { if await store.perform("/api/model/callback", body: ["url": callback]) { callback = "" }; await refresh() } }.disabled(callback.isEmpty)
-                            }
-                        }
-                        Button("取消登录") { Task { _ = await store.perform("/api/model/logout"); await refresh() } }
-                    } else if state.connected {
-                        Button("退出 OpenAI 登录", role: .destructive) { Task { _ = await store.perform("/api/model/logout"); await refresh() } }
-                    } else {
-                        Button("使用 OpenAI 登录") {
-                            busy = true
+                    SecureField(state.connected ? "输入新的 API Key 以替换" : "DeepSeek API Key", text: $apiKey)
+                        .textFieldStyle(.roundedBorder).accessibilityLabel("DeepSeek API Key")
+                        .disabled(busy || !store.connected)
+                    Text("密钥只保存在主机上。保存前会发送一次简短测试请求，产生少量 API 用量。").font(.caption).foregroundStyle(.secondary)
+                    HStack {
+                        Button(busy ? "正在验证…" : "验证并保存") {
+                            busy = true; error = nil
                             Task {
                                 do {
-                                    self.state = try await store.connection.decode(ModelConnectionState.self, "/api/model/login", method: "POST", body: [:])
-                                    if let raw = self.state?.login?.url, let url = URL(string: raw) { openURL(url) }
+                                    self.state = try await store.connection.decode(ModelConnectionState.self, "/api/model/key", method: "PUT", body: ["apiKey": apiKey])
+                                    apiKey = ""
                                 } catch { self.error = error.localizedDescription }
                                 busy = false
                             }
-                        }.buttonStyle(.borderedProminent).disabled(busy || !store.connected)
+                        }.buttonStyle(.borderedProminent).disabled(busy || !store.connected || apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        if state.connected {
+                            Button("移除 API Key", role: .destructive) {
+                                busy = true; error = nil
+                                Task {
+                                    do { _ = try await store.connection.data("/api/model/key", method: "DELETE"); apiKey = ""; await refresh() }
+                                    catch { self.error = error.localizedDescription }
+                                    busy = false
+                                }
+                            }.disabled(busy || !store.connected)
+                        }
                     }
-                } else { Text("请在主机上登录 OpenAI，所有已连接设备会共用 Friday。").font(.caption).foregroundStyle(.secondary) }
-                if let error = state.login?.error { Text(error).font(.caption).foregroundStyle(.orange) }
+                    Link("获取 DeepSeek API Key", destination: URL(string: "https://platform.deepseek.com/api_keys")!).font(.caption)
+                } else { Text("请在主机上配置 DeepSeek API Key，所有已连接设备会共用 Friday。").font(.caption).foregroundStyle(.secondary) }
             }
             if let error { Text(error).font(.caption).foregroundStyle(.orange) }
-        }.task {
-            await refresh()
-            while !Task.isCancelled { try? await Task.sleep(for: .seconds(2)); if Task.isCancelled { break }; if state?.login?.status == "waiting" || state == nil { await refresh() } }
-        }
+        }.task(id: store.connected) { if store.connected { await refresh() } }
+        .onDisappear { apiKey = "" }
     }
     private func refresh() async {
         do { state = try await store.connection.decode(ModelConnectionState.self, "/api/model"); error = nil }

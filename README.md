@@ -2,11 +2,11 @@
 
 Friday 是你的个人 Agent：随手收集想法、关联项目、布置任务，再从任意已连接的设备查看进展和成果。
 
-目前是可运行的 **0.1 开发版**：独立 TypeScript 常驻服务、Pi Durable + SQLite 持久化、原生 SwiftUI Mac 客户端、iOS 客户端与分享扩展源码。Friday 通过 OpenAI OAuth 直连模型，使用 Pi Durable 的模型与工具循环。Codex 是需单独批准的可选编码工具；Claude Code、Hermes、Pi Coding Agent 目前只检测安装状态。
+目前是可运行的 **0.1 开发版**：独立 TypeScript 常驻服务、Pi Durable + SQLite 持久化、原生 SwiftUI Mac 客户端、iOS 客户端与分享扩展源码。Friday 通过 DeepSeek API 直连模型，使用 Pi Durable 的模型与工具循环。Codex 是需单独批准的可选编码工具；Claude Code、Hermes、Pi Coding Agent 目前只检测安装状态。
 
 ## 本机运行
 
-需要 Node.js 22.19+、pnpm、macOS 14+、Swift 5.10+，以及用于 Friday 登录的 OpenAI 账号。只有调用可选编码工具时才需要安装并登录 Codex CLI。当前已在 Node 26.10 / Swift 6.2.3 / Apple Silicon 上验证。
+需要 Node.js 22.19+、pnpm、macOS 14+、Swift 5.10+，以及DeepSeek API Key。只有调用可选编码工具时才需要安装并登录 Codex CLI。当前已在 Node 26.10 / Swift 6.2.3 / Apple Silicon 上验证。
 
 ```sh
 pnpm install --frozen-lockfile
@@ -15,7 +15,7 @@ pnpm mac:build
 pnpm mac:open
 ```
 
-启动后先进入“连接”，点击“使用 OpenAI 登录”，在本机浏览器完成 ChatGPT OAuth 授权。默认模型为 `gpt-6-sol`；主机启动时可用 `FRIDAY_MODEL_ID` 选择当前 Pi 模型目录中的其他 OpenAI 模型，账号是否可用以实际请求为准。
+启动后先进入“连接”，填入 [DeepSeek API Key](https://platform.deepseek.com/api_keys)，点击“验证并保存”。Friday 会向官方接口发送一次简短测试请求（产生少量 API 用量），成功后才保存密钥；失败不会覆盖已有密钥。默认模型为 `deepseek-flash`，主机启动时可用 `FRIDAY_MODEL_ID=deepseek-v4-pro` 选择 Pro。模型和工具调用使用 [DeepSeek 官方 Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/)，由 Pi Durable 驱动。续聊会保留历史，并使用当前配置的模型。
 
 打开后直接在“对话”中输入需求并发送，无需选择任务类型或执行工具。“想法”中的“交给 Friday”会直接开始同一段对话，不再弹出表单。只想记录时，可以在“想法”中保存，或对 Friday 说“先记下，不要执行”。
 
@@ -44,7 +44,7 @@ pnpm service:stop
 - `access.sqlite` / `owner-token`：设备授权及本机凭据，勿加入 Git 或公开分享。
 - `runtime/`：已安装的服务和依赖；`service*.log`：启动日志。
 - Friday 自己的模型消息、工具结果和会话存入 `friday.sqlite`；客户端只投影最近 100 条文本消息。
-- `model-auth.json` / `model-device-id` / `openai-registration.json`：Friday 独立的 OAuth 凭据、安装标识与客户端注册，权限 0600，不进入客户端快照或 Git。令牌交换失败仍保留已签发的客户端 ID，下次使用该 ID 重新授权。
+- `model-auth.json`：Friday 独立保存的 DeepSeek API Key，权限 0600，不进入客户端快照或 Git。只有主机所有者可修改；配对设备看不到密钥。历史 OpenAI 凭据及注册文件保留，但当前运行层不读取、不刷新，也不提供 OpenAI 登录入口。
 - 只有调用可选 Codex 工具或继续旧 Codex 任务时，才记录其 thread / turn ID。
 
 关闭客户端不影响执行。重启服务后，Friday 模型会话由 Pi Durable 接续；读取和幂等内部操作可恢复。文件写入、保存笔记和 Codex 调用为不可安全重放工具，中断后会向模型返回 interrupted，要求先核对当前状态。旧 Codex 任务仍保留原先的“待恢复”策略。取消不会撤销已经发生的改动。
@@ -53,9 +53,7 @@ pnpm service:stop
 
 开发环境可以设置 `FRIDAY_DATA_DIR`、`FRIDAY_PORT`、`FRIDAY_HOST`；客户端本机默认端口为 4317。
 
-服务启动时优先使用 `HTTP_PROXY` / `HTTPS_PROXY`（兼容小写及 `ALL_PROXY`），没有显式配置时读取 macOS 当前的 HTTP/HTTPS 系统代理；本机回调地址始终直连，`NO_PROXY` 可补充绕过地址。服务安装会保留这些环境变量，系统代理变化后需重启服务。浏览器回调页只表示授权码已收到，令牌交换和保存完成后 Friday 才显示已连接。
-
-`patches/` 中的 pi-ai 补丁让重新授权复用已签发的客户端 ID，并校验回调 ID；通过 `pnpm install --frozen-lockfile` 自动应用。若 OpenAI 授权页面提示当前工作空间或套餐的所需权限不可用，该账户暂时不能向 Friday 授予直连模型权限，反复登录无法解决。
+服务启动时优先使用 `HTTP_PROXY` / `HTTPS_PROXY`（兼容小写及 `ALL_PROXY`），没有显式配置时读取 macOS 当前的 HTTP/HTTPS 系统代理；本机地址始终直连，`NO_PROXY` 可补充绕过地址。服务安装会保留这些环境变量，系统代理变化后需重启服务。
 
 ## iPhone 与多端连接
 
@@ -86,6 +84,6 @@ git diff --check
 
 ## 当前运行层验证
 
-自动测试使用 Pi 的 faux provider 覆盖真实 Durable 模型/工具循环、无 Codex 环境、会话续聊、问题等待恢复、文件路径边界、写入审批及 OAuth 凭据保存。它不代表真实 OpenAI 授权或推理已经通过；真实链路需要在 Friday 中完成 OAuth 登录后验收。
+自动测试使用 Pi 的 faux provider 覆盖真实 Durable 模型/工具循环、无 Codex 环境、会话续聊、问题等待恢复、文件路径边界、写入审批及凭据保存。DeepSeek 协议测试通过本地模拟 HTTP 响应覆盖密钥验证、失败重试、流式回复、工具调用和旧模型会话迁移；它不代表真实 DeepSeek 账户可用。真实链路需要填入 API Key 并完成“验证并保存”后验收。
 
 可以用 `FRIDAY_DATA_DIR`、`FRIDAY_PORT` 启动独立服务；Mac 客户端另支持 `FRIDAY_SERVER_URL` 环境变量，用于隔离预览，不修改已保存的连接地址。
