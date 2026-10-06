@@ -12,7 +12,7 @@ struct ProjectsView: View {
             VStack(alignment: .leading, spacing: 28) {
                 HStack(alignment: .top, spacing: 20) {
                     PageHeading(title: "项目", subtitle: "把主机目录和项目背景放在一起。")
-                    Button { adding = true } label: { Label(friday: "添加项目", systemImage: "plus") }
+                    Button { adding = true } label: { FridaySymbolLabel(friday: "添加项目", systemImage: "plus") }
                         .buttonStyle(FridayButtonStyle(prominent: true)).disabled(!store.connected)
                 }
                 if store.projects.isEmpty {
@@ -23,12 +23,12 @@ struct ProjectsView: View {
                         Button { editing = project } label: {
                             VStack(alignment: .leading, spacing: 16) {
                                 HStack {
-                                    Image(systemName: "folder").font(.system(size: 23, weight: .light))
+                                    FridaySymbolImage(systemName: "folder").font(.system(size: 23, weight: .light))
                                         .foregroundStyle(FridayTheme.accent)
                                         .frame(width: 48, height: 48)
                                         .background(FridayTheme.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 15))
                                     Spacer()
-                                    Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.tertiary)
+                                    FridaySymbolImage(systemName: "arrow.up.right").font(.caption).foregroundStyle(.tertiary)
                                 }
                                 Text(project.name).font(.headline).lineLimit(2)
                                 Group {
@@ -113,9 +113,9 @@ struct MemoriesView: View {
                 }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(busy || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !store.connected) }
                 ForEach(store.memories) { memory in
                     HStack(alignment: .top, spacing: 14) {
-                        Image(systemName: "sparkles").foregroundStyle(.secondary).fridaySymbolFeedback(.pulse)
+                        FridaySymbolImage(systemName: "sparkles").foregroundStyle(.secondary).fridaySymbolFeedback()
                         Text(memory.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                        Menu { Button(friday: "编辑") { draft = memory.text; editingId = memory.id }; Button(friday: "删除", role: .destructive) { Task { _ = await store.perform("/api/memories/\(memory.id)", method: "DELETE") } } } label: { Image(systemName: "ellipsis").fridaySymbolFeedback() }
+                        Menu { Button(friday: "编辑") { draft = memory.text; editingId = memory.id }; Button(friday: "删除", role: .destructive) { Task { _ = await store.perform("/api/memories/\(memory.id)", method: "DELETE") } } } label: { FridaySymbolImage(systemName: "ellipsis").fridaySymbolFeedback() }
                     }.padding(20).fridayCard()
                 }
             }.padding(28).frame(maxWidth: FridayTheme.contentWidth + 56).frame(maxWidth: .infinity)
@@ -207,9 +207,10 @@ struct ConnectionView: View {
     private var hostSettings: some View {
         SettingsGroup("当前主机") {
             SettingsRow("连接状态", detail: "任务在主机上执行，关闭客户端不影响任务。") {
-                Label(friday: store.connected ? "已连接" : "离线", systemImage: store.connected ? "checkmark.circle" : "wifi.slash")
+                FridaySymbolLabel(friday: store.connected ? "已连接" : "离线", systemImage: store.connected ? "checkmark.circle" : "wifi.slash")
                     .font(.system(size: 12)).foregroundStyle(store.connected ? FridayTheme.accent : .orange)
                     .fixedSize()
+                    .fridaySymbolFeedback(value: store.connected)
             }
             SettingsDivider()
             SettingsRow("主机地址") {
@@ -309,8 +310,9 @@ struct ModelSettingsView: View {
             SettingsGroup("模型") {
                 SettingsRow("DeepSeek", detail: "用于对话、记忆和日常任务。") {
                     if let state {
-                        Label(friday: state.connected ? "已配置" : "未配置", systemImage: state.connected ? "checkmark.circle" : "key")
+                        FridaySymbolLabel(friday: state.connected ? "已配置" : "未配置", systemImage: state.connected ? "checkmark.circle" : "key")
                             .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize()
+                            .fridaySymbolFeedback(value: state.connected)
                     } else {
                         Text(fridayString: store.connected ? "正在读取…" : "等待主机连接")
                             .font(.system(size: 12)).foregroundStyle(.secondary)
@@ -359,8 +361,9 @@ struct ModelSettingsView: View {
                     }
                 }
                 Link(destination: URL(string: "https://platform.deepseek.com/api_keys")!) {
-                    Label(friday: "获取 DeepSeek API Key", systemImage: "arrow.up.right")
+                    FridaySymbolLabel(friday: "获取 DeepSeek API Key", systemImage: "arrow.up.right")
                         .font(.system(size: 12))
+                        .fridaySymbolFeedback()
                 }
             } else if state != nil {
                 Text(friday: "请在主机上配置 DeepSeek API Key，所有已连接设备会共用 Friday。")

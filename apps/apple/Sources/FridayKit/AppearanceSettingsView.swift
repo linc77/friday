@@ -40,6 +40,7 @@ struct AppearanceSettingsView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel(Text(fridayString: option.title))
                         .accessibilityAddTraits(appearance == option ? .isSelected : [])
+                        .fridaySymbolFeedback(active: appearance == option)
                     }
                 }
                 Text(friday: "选择“系统”时，外观会跟随系统的浅色或深色模式。")
@@ -88,9 +89,9 @@ private struct ThemePreview: View {
                 startPoint: .topLeading, endPoint: .bottomTrailing)
             HStack(spacing: 0) {
                 VStack(spacing: 9) {
-                    Image(systemName: FridaySymbols.chat)
-                    Image(systemName: "checklist")
-                    Image(systemName: "gearshape")
+                    FridaySymbolImage(systemName: FridaySymbols.chat)
+                    FridaySymbolImage(systemName: "checklist")
+                    FridaySymbolImage(systemName: "gearshape")
                 }
                 .font(.system(size: 8, weight: .regular))
                 .foregroundStyle(dark ? Color.white.opacity(0.5) : Color.black.opacity(0.35))

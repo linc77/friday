@@ -24,9 +24,9 @@ extension Button where Label == Text {
     }
 }
 
-extension Button where Label == SwiftUI.Label<Text, Image> {
+extension Button where Label == FridaySymbolLabel {
     init(friday title: String, systemImage: String, role: ButtonRole? = nil, action: @escaping () -> Void) {
-        self.init(role: role, action: action) { SwiftUI.Label(friday: title, systemImage: systemImage) }
+        self.init(role: role, action: action) { FridaySymbolLabel(friday: title, systemImage: systemImage) }
     }
 }
 

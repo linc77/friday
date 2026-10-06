@@ -74,13 +74,13 @@ struct FridaySettingsView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .padding(.horizontal, 8)
             HStack(spacing: 7) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(.secondary).fridaySymbolFeedback()
                 TextField(friday: "搜索设置", text: $search)
                     .textFieldStyle(.plain)
                     .accessibilityLabel(Text(friday: "搜索设置"))
                 if !search.isEmpty {
                     Button { search = "" } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        FridaySymbolImage(systemName: "xmark.circle.fill").foregroundStyle(.secondary).fridaySymbolFeedback()
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(Text(friday: "清除搜索"))
@@ -123,7 +123,7 @@ struct FridaySettingsView: View {
                 ForEach(visible) { section in
                     Button { selection = section } label: {
                         HStack(spacing: 9) {
-                            Image(systemName: section.icon)
+                            FridaySymbolImage(systemName: section.icon)
                                 .font(.system(size: 13, weight: .regular))
                                 .frame(width: 16)
                             Text(fridayString: section.rawValue).font(.system(size: 13))
@@ -135,6 +135,7 @@ struct FridaySettingsView: View {
                     }
                     .buttonStyle(SettingsNavigationStyle(selected: selection == section))
                     .accessibilityAddTraits(selection == section ? .isSelected : [])
+                    .fridaySymbolFeedback(active: selection == section)
                 }
             }
         }
