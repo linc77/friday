@@ -1,0 +1,155 @@
+#if os(macOS)
+import SwiftUI
+
+enum FridaySettingsSection: String, CaseIterable, Identifiable {
+    case appearance = "外观"
+    case model = "模型服务"
+    case agents = "本地工具"
+    case connection = "主机连接"
+    case devices = "设备管理"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .appearance: "circle.lefthalf.filled"
+        case .model: "sparkles"
+        case .agents: "terminal"
+        case .connection: "network"
+        case .devices: "laptopcomputer.and.iphone"
+        }
+    }
+
+    var searchTerms: String {
+        switch self {
+        case .appearance: "外观 主题 系统 浅色 深色 语言 中文 英文 Appearance Theme System Light Dark Language Chinese English"
+        case .model: "模型服务 DeepSeek API Key 密钥 验证 Model Provider"
+        case .agents: "本地工具 Codex Claude Code Hermes Pi 编码 执行 Local Tools"
+        case .connection: "主机连接 地址 服务器 配对 重新连接 Host Connection Server Pair"
+        case .devices: "设备管理 iPhone Mac 配对码 访问 撤销 Devices Access"
+        }
+    }
+}
+
+struct FridaySettingsView: View {
+    @ObservedObject var store: FridayStore
+    @Binding var selection: FridaySettingsSection
+    @State private var search = ""
+
+    private var filteredSections: [FridaySettingsSection] {
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        return FridaySettingsSection.allCases.filter {
+            query.isEmpty || $0.searchTerms.localizedStandardContains(query)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            sidebar
+            Divider()
+            Group {
+                switch selection {
+                case .appearance: AppearanceSettingsView()
+                case .model:
+                    SettingsPage(title: "模型服务", subtitle: "选择 Friday 与你对话、处理事情时使用的模型。") {
+                        ModelSettingsView(store: store)
+                    }
+                case .agents: AgentsView(store: store)
+                case .connection: ConnectionView(store: store, section: .host)
+                case .devices: ConnectionView(store: store, section: .devices)
+                }
+            }
+            .id(selection)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(FridayTheme.surface)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .tint(FridayTheme.accent)
+        .symbolRenderingMode(.monochrome)
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text(friday: "设置")
+                .font(.system(size: 17, weight: .semibold))
+                .padding(.horizontal, 8)
+            HStack(spacing: 7) {
+                FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(.secondary).fridaySymbolFeedback()
+                TextField(friday: "搜索设置", text: $search)
+                    .textFieldStyle(.plain)
+                    .accessibilityLabel(Text(friday: "搜索设置"))
+                if !search.isEmpty {
+                    Button { search = "" } label: {
+                        FridaySymbolImage(systemName: "xmark.circle.fill").foregroundStyle(.secondary).fridaySymbolFeedback()
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text(friday: "清除搜索"))
+                }
+            }
+            .font(.system(size: 12))
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    navigationGroup("通用", sections: [.appearance])
+                    navigationGroup("Friday", sections: [.model, .agents])
+                    navigationGroup("连接与同步", sections: [.connection, .devices])
+                    if filteredSections.isEmpty {
+                        Text(friday: "没有匹配的设置")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 22)
+        .padding(.bottom, 16)
+        .frame(width: 220)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(FridayTheme.canvas.opacity(0.65))
+    }
+
+    @ViewBuilder private func navigationGroup(_ title: String, sections: [FridaySettingsSection]) -> some View {
+        let visible = sections.filter { filteredSections.contains($0) }
+        if !visible.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(fridayString: title)
+                    .font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                    .padding(.horizontal, 8).padding(.bottom, 4)
+                ForEach(visible) { section in
+                    Button { selection = section } label: {
+                        HStack(spacing: 9) {
+                            FridaySymbolImage(systemName: section.icon)
+                                .font(.system(size: 13, weight: .regular))
+                                .frame(width: 16)
+                            Text(fridayString: section.rawValue).font(.system(size: 13))
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 8)
+                        .frame(height: 30)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(SettingsNavigationStyle(selected: selection == section))
+                    .accessibilityAddTraits(selection == section ? .isSelected : [])
+                    .fridaySymbolFeedback(active: selection == section)
+                }
+            }
+        }
+    }
+}
+
+private struct SettingsNavigationStyle: ButtonStyle {
+    let selected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.primary)
+            .background(.primary.opacity(selected ? 0.065 : configuration.isPressed ? 0.035 : 0),
+                        in: RoundedRectangle(cornerRadius: 7))
+    }
+}
+#endif

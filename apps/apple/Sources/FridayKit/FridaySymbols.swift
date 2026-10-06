@@ -61,16 +61,21 @@ struct FridaySymbolImage: View {
 
 /// Keep the native Label layout and accessibility while allowing its image to redraw.
 struct FridaySymbolLabel: View {
-    let title: String
+    let title: Text
     let systemImage: String
 
     init(_ title: String, systemImage: String) {
-        self.title = title
+        self.title = Text(title)
+        self.systemImage = systemImage
+    }
+
+    init(friday title: String, systemImage: String) {
+        self.title = Text(fridayString: title)
         self.systemImage = systemImage
     }
 
     var body: some View {
-        Label { Text(title) } icon: { FridaySymbolImage(systemName: systemImage) }
+        Label { title } icon: { FridaySymbolImage(systemName: systemImage) }
     }
 }
 
@@ -140,19 +145,3 @@ struct FridayTaskStatusIcon: View {
             .accessibilityHidden(true)
     }
 }
-
-#if os(macOS)
-struct FridaySettingsLink: View {
-    var body: some View {
-        SettingsLink {
-            Label { Text("设置") } icon: {
-                FridaySymbolImage(systemName: "gear")
-                    .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 17, weight: .light))
-            }
-        }
-        .buttonStyle(FridayToolbarButtonStyle())
-        .help("设置（⌘,）")
-    }
-}
-#endif

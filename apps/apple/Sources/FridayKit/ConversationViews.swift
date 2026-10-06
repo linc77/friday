@@ -19,19 +19,18 @@ struct NewConversationView: View {
                 PageHeading(title: "想到什么，直接说。", subtitle: "一个想法，一件想推进的事。")
                 VStack(alignment: .leading, spacing: 12) {
                     ZStack(alignment: .topLeading) {
-                        if draft.isEmpty { Text("告诉 Friday 你想做什么…").foregroundStyle(.tertiary).padding(.leading, 5).padding(.top, 8).allowsHitTesting(false) }
-                        TextEditor(text: $draft).font(.body).frame(height: 90).scrollContentBackground(.hidden).focused($focused).accessibilityLabel("告诉 Friday 你想做什么")
+                        if draft.isEmpty { Text(friday: "告诉 Friday 你想做什么…").foregroundStyle(.tertiary).padding(.leading, 5).padding(.top, 8).allowsHitTesting(false) }
+                        TextEditor(text: $draft).font(.body).frame(height: 90).scrollContentBackground(.hidden).focused($focused).accessibilityLabel(Text(friday: "告诉 Friday 你想做什么"))
                             .onChatSubmit(send)
                     }
                     HStack {
                         Spacer()
                         if sending { ProgressView().controlSize(.small) }
-                        Button(action: send) { FridaySymbolLabel("发送", systemImage: "arrow.up") }
-                            .buttonStyle(FridayButtonStyle(prominent: true)).keyboardShortcut(.return, modifiers: .command)
+                        Button(friday: "发送", systemImage: "arrow.up", action: send).buttonStyle(FridayButtonStyle(prominent: true)).keyboardShortcut(.return, modifiers: .command)
                             .disabled(!canSend)
                     }
                 }.padding(20).fridayCard(highlighted: focused)
-                if let error { Text(error).font(.caption).foregroundStyle(.orange) }
+                if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
             }.frame(maxWidth: 660).padding(28)
             Spacer(minLength: 80)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -86,7 +85,7 @@ struct WorkspaceChoice: View {
     @State private var path = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("选择要处理的项目").font(.headline)
+            Text(friday: "选择要处理的项目").font(.headline)
             ForEach(store.projects) { project in
                 Button { choose(projectId: project.id) } label: {
                     HStack {
@@ -98,7 +97,7 @@ struct WorkspaceChoice: View {
             }
             #if os(macOS)
             if store.deviceId == "owner" {
-                Button("选择其他目录…") {
+                Button(friday: "选择其他目录…") {
                     let panel = NSOpenPanel(); panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
                     if panel.runModal() == .OK, let url = panel.url { choose(path: url.path) }
                 }
@@ -106,14 +105,14 @@ struct WorkspaceChoice: View {
             #else
             remotePath
             #endif
-            Text("选择后，Friday 会在这里继续处理你的请求。").font(.caption).foregroundStyle(.secondary)
+            Text(friday: "选择后，Friday 会在这里继续处理你的请求。").font(.caption).foregroundStyle(.secondary)
             if busy { ProgressView().controlSize(.small) }
         }.padding(22).fridayCard().disabled(busy || !store.connected)
     }
     private var remotePath: some View {
         HStack {
-            TextField("或填写主机上的目录", text: $path).textFieldStyle(.roundedBorder)
-            Button("继续") { choose(path: path) }.disabled(path.isEmpty)
+            TextField(friday: "或填写主机上的目录", text: $path).textFieldStyle(.roundedBorder)
+            Button(friday: "继续") { choose(path: path) }.disabled(path.isEmpty)
         }
     }
     private func choose(projectId: String? = nil, path: String? = nil) {
