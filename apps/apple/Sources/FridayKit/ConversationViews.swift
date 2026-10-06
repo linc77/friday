@@ -11,6 +11,7 @@ struct NewConversationView: View {
     @State private var sending = false
     @State private var error: String?
     @FocusState private var focused: Bool
+    private var canSend: Bool { !sending && store.connected && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     var body: some View {
         VStack {
             Spacer(minLength: 30)
@@ -20,15 +21,13 @@ struct NewConversationView: View {
                     ZStack(alignment: .topLeading) {
                         if draft.isEmpty { Text("告诉 Friday 你想做什么…").foregroundStyle(.tertiary).padding(.leading, 5).padding(.top, 8).allowsHitTesting(false) }
                         TextEditor(text: $draft).font(.body).frame(height: 90).scrollContentBackground(.hidden).focused($focused).accessibilityLabel("告诉 Friday 你想做什么")
+                            .onChatSubmit(send)
                     }
                     HStack {
-                        #if os(macOS)
-                        Text("⌘ ↵ 发送").font(.caption).foregroundStyle(.secondary)
-                        #endif
                         Spacer()
                         if sending { ProgressView().controlSize(.small) }
                         Button("发送", systemImage: "arrow.up", action: send).buttonStyle(FridayButtonStyle(prominent: true)).keyboardShortcut(.return, modifiers: .command)
-                            .disabled(sending || !store.connected || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .disabled(!canSend)
                     }
                 }.padding(20).fridayCard(highlighted: focused)
                 if let error { Text(error).font(.caption).foregroundStyle(.orange) }
@@ -40,6 +39,7 @@ struct NewConversationView: View {
         .onChange(of: draft) { _, _ in if !sending { requestId = UUID().uuidString } }
     }
     private func send() {
+        guard canSend else { return }
         let prompt = draft; sending = true; error = nil
         Task {
             do {
@@ -49,6 +49,32 @@ struct NewConversationView: View {
             } catch { self.error = error.localizedDescription }
             sending = false
         }
+    }
+}
+
+extension View {
+    func onChatSubmit(_ action: @escaping () -> Void) -> some View {
+        #if os(macOS)
+        onKeyPress(.return, phases: .down) { key in
+            guard key.modifiers.intersection([.option, .control]).isEmpty else { return .ignored }
+            guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView else { return .ignored }
+            // Return must finish input-method composition before it can send a message.
+            guard !editor.hasMarkedText() else { return .ignored }
+            if key.modifiers.contains(.shift) {
+                // A field editor treats Shift-Return as ending the edit. Insert after key dispatch.
+                guard editor.isFieldEditor else { return .ignored }
+                let selection = editor.selectedRange()
+                DispatchQueue.main.async { [weak editor] in
+                    editor?.insertText("\n", replacementRange: selection)
+                }
+                return .handled
+            }
+            action()
+            return .handled
+        }
+        #else
+        self
+        #endif
     }
 }
 

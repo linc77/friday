@@ -26,6 +26,7 @@ struct TaskDetail: View {
                         }
                         if let error = task.error {
                             Label(error, systemImage: "exclamationmark.circle")
+                                .fridaySymbolFeedback(.wiggle)
                                 .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
                                 .padding(18).frame(maxWidth: .infinity, alignment: .leading).fridayCard()
                         }
@@ -120,7 +121,7 @@ struct TaskDetail: View {
 
     private func artifactCard(_ task: WorkItem) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "doc.text").font(.title3).foregroundStyle(FridayTheme.accent)
+            Image(systemName: "doc.text").font(.title3).foregroundStyle(FridayTheme.accent).fridaySymbolFeedback()
             VStack(alignment: .leading, spacing: 3) {
                 Text("任务成果").font(.callout.weight(.medium))
                 Text("已保存在主机，可随时导出").font(.caption).foregroundStyle(.secondary)
@@ -159,6 +160,7 @@ struct TaskDetail: View {
         } label: {
             HStack {
                 Label("执行详情", systemImage: "clock.arrow.circlepath")
+                    .fridaySymbolFeedback(.rotate, active: showEvents)
                 Spacer()
                 Text("\(task.events.count)").monospacedDigit()
             }.font(.caption).foregroundStyle(.secondary)
@@ -196,13 +198,10 @@ private struct FloatingComposer: View {
             TextField(active ? "补充要求，或告诉 Friday 更多背景…" : "基于这个结果，接着做什么？", text: $message, axis: .vertical)
                 .font(.body).lineLimit(2...5).textFieldStyle(.plain)
                 .focused($focused).accessibilityLabel("补充要求")
+                .onChatSubmit { if !disabled { send() } }
             HStack(spacing: 12) {
                 if let error {
                     Text(error).font(.caption).foregroundStyle(.orange).lineLimit(2)
-                } else {
-                    #if os(macOS)
-                    Text("⌘ ↵ 发送").font(.caption2).foregroundStyle(.tertiary)
-                    #endif
                 }
                 Spacer(minLength: 0)
                 Button(action: send) {
@@ -233,6 +232,7 @@ struct ApprovalCard: View {
             HStack(spacing: 10) {
                 Image(systemName: "hand.raised.fill").foregroundStyle(.orange)
                     .frame(width: 34, height: 34).background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                    .fridaySymbolFeedback(.wiggle)
                 Text(approval.title).font(.headline)
             }
             Text(approval.detail).font(.callout).lineSpacing(4).textSelection(.enabled)

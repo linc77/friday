@@ -42,6 +42,7 @@ struct FridaySettingsView: View {
         .frame(width: 660, height: 560)
         .background(FridayTheme.canvas)
         .tint(FridayTheme.accent)
+        .symbolRenderingMode(.monochrome)
     }
 }
 #endif
