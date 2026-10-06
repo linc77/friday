@@ -208,18 +208,6 @@ struct TaskDetail: View {
                 Divider()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        ForEach(task.conversation) { message in
-                            if message.role == "user" {
-                                HStack { Spacer(minLength: 36); Text(message.text).padding(14).background(fridayAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 14)).textSelection(.enabled) }
-                            } else {
-                                VStack(alignment: .leading, spacing: 8) { Text("Friday").font(.caption.weight(.medium)).foregroundStyle(.secondary); Text(.init(message.text)).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled).lineSpacing(5) }
-                            }
-                        }
-                        if task.status == "needs_project" { WorkspaceChoice(store: store, task: task).id(task.durableId) }
-                        ForEach(task.approvals.filter { $0.state == "pending" }) { approval in ApprovalCard(store: store, taskId: id, approval: approval) }
-                        if let error = task.error { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange).textSelection(.enabled) }
-                        if task.active { HStack { ProgressView().controlSize(.small); Text(task.status == "queued" ? "已排队，稍后开始。" : task.status == "waiting" ? "等你处理上面的请求。" : "正在处理，可以继续补充。").font(.callout).foregroundStyle(.secondary) } }
-                        if task.artifact != nil { ShareLink(item: task.result) { Label("导出结果", systemImage: "square.and.arrow.up") }.font(.caption) }
                         DisclosureGroup("执行详情", isExpanded: $showEvents) {
                             VStack(alignment: .leading, spacing: 16) {
                                 Text("执行工具：\(task.agent.capitalized)").font(.caption).foregroundStyle(.secondary)
@@ -233,6 +221,18 @@ struct TaskDetail: View {
                                 }
                             }.padding(.top, 12)
                         }.font(.callout)
+                        ForEach(task.conversation) { message in
+                            if message.role == "user" {
+                                HStack { Spacer(minLength: 36); Text(message.text).padding(14).background(fridayAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 14)).textSelection(.enabled) }
+                            } else {
+                                VStack(alignment: .leading, spacing: 8) { Text("Friday").font(.caption.weight(.medium)).foregroundStyle(.secondary); Text(.init(message.text)).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled).lineSpacing(5) }
+                            }
+                        }
+                        if task.status == "needs_project" { WorkspaceChoice(store: store, task: task).id(task.durableId) }
+                        ForEach(task.approvals.filter { $0.state == "pending" }) { approval in ApprovalCard(store: store, taskId: id, approval: approval) }
+                        if let error = task.error { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange).textSelection(.enabled) }
+                        if task.active { HStack { ProgressView().controlSize(.small); Text(task.status == "queued" ? "已排队，稍后开始。" : task.status == "waiting" ? "等你处理上面的请求。" : "正在处理，可以继续补充。").font(.callout).foregroundStyle(.secondary) } }
+                        if task.artifact != nil { ShareLink(item: task.result) { Label("导出结果", systemImage: "square.and.arrow.up") }.font(.caption) }
                     }.padding(22)
                 }
                 Divider()
