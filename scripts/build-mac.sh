@@ -10,4 +10,5 @@ cp apps/apple/Assets/Friday.icns dist/Friday.app/Contents/Resources/Friday.icns
 rm -rf dist/Friday.app/Contents/Resources/Friday_FridayKit.bundle
 cp -R "$FRIDAY_BIN_DIR/Friday_FridayKit.bundle" dist/Friday.app/Contents/Resources/
 codesign --force --sign - dist/Friday.app
+touch dist/Friday.app
 printf 'Built %s/dist/Friday.app\n' "$PWD"
