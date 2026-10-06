@@ -24,6 +24,16 @@ enum FridayTheme {
     static let contentWidth: CGFloat = 780
     static let cornerRadius: CGFloat = 20
     static let motion = Animation.spring(response: 0.28, dampingFraction: 0.86)
+    #if os(macOS)
+    static let sidebarWidth: CGFloat = 60
+    static let trafficLightSize: CGFloat = 13.2
+    static let trafficLightSpacing: CGFloat = 4
+    static let sidebarTopInset: CGFloat = 40
+    static let windowEdgeInset: CGFloat = 5
+    static let sidebarButtonSize: CGFloat = 32
+    static let sidebarIconSize: CGFloat = 17
+    static let sidebarCornerRadius: CGFloat = 8
+    #endif
 
     static var canvas: Color {
         #if os(macOS)
@@ -162,13 +172,71 @@ private struct FridayWindowVisualEffect: NSViewRepresentable {
 }
 
 private final class FridayWindowEffectView: NSVisualEffectView {
+    private var buttonLayoutScheduled = false
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        if let window {
+            NotificationCenter.default.removeObserver(self, name: nil, object: window)
+        }
+        super.viewWillMove(toWindow: newWindow)
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         guard let window else { return }
+        window.styleMask.insert(.fullSizeContentView)
         window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .none
         window.backgroundColor = .clear
         window.isOpaque = false
+        for name in [NSWindow.didResizeNotification, NSWindow.didExitFullScreenNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(scheduleWindowButtonLayout), name: name, object: window)
+        }
+        scheduleWindowButtonLayout()
+    }
+
+    override func layout() {
+        super.layout()
+        scheduleWindowButtonLayout()
+    }
+
+    @objc private func scheduleWindowButtonLayout() {
+        guard !buttonLayoutScheduled else { return }
+        buttonLayoutScheduled = true
+        // AppKit positions the title-bar buttons during its own layout pass first.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.buttonLayoutScheduled = false
+            self.layoutWindowButtons()
+        }
+    }
+
+    private func layoutWindowButtons() {
+        guard let window, !window.styleMask.contains(.fullScreen) else { return }
+        let buttons = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton]
+            .compactMap { window.standardWindowButton($0) }
+        guard buttons.count == 3, let container = buttons.first?.superview,
+              buttons.allSatisfy({ $0.superview === container }) else { return }
+
+        // Keep the native buttons and actions while compacting their size and spacing.
+        let size = FridayTheme.trafficLightSize
+        let groupWidth = size * CGFloat(buttons.count)
+            + FridayTheme.trafficLightSpacing * CGFloat(buttons.count - 1)
+        let center = container.convert(NSPoint(x: FridayTheme.sidebarWidth / 2, y: 0), from: nil).x
+        var x = center - groupWidth / 2
+        for button in buttons {
+            if button.controlSize != .regular { button.controlSize = .regular }
+            let frame = NSRect(x: x, y: button.frame.midY - size / 2, width: size, height: size)
+            if button.frame != frame {
+                button.frame = frame
+            }
+            // Scale the native 14-point artwork to the requested fractional size.
+            let drawingBounds = NSRect(x: 0, y: 0, width: 14, height: 14)
+            if button.bounds != drawingBounds {
+                button.bounds = drawingBounds
+            }
+            x += size + FridayTheme.trafficLightSpacing
+        }
     }
 }
 
