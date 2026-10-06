@@ -249,16 +249,11 @@ private struct FridaySidebarButtonBody: View {
             .labelStyle(.iconOnly)
             .font(.system(size: FridayTheme.sidebarIconSize, weight: .regular))
             .symbolRenderingMode(.monochrome)
-            .foregroundStyle(selected ? .primary : .secondary)
+            .foregroundStyle(selected || focused ? .primary : .secondary)
             .frame(width: FridayTheme.sidebarButtonSize, height: FridayTheme.sidebarButtonSize)
             .background {
                 RoundedRectangle(cornerRadius: FridayTheme.sidebarCornerRadius)
                     .fill(.primary.opacity(configuration.isPressed ? 0.14 : selected ? 0.09 : hovering ? 0.055 : 0))
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: FridayTheme.sidebarCornerRadius)
-                    .strokeBorder(.primary.opacity(focused ? 0.3 : 0), lineWidth: 1)
-                    .allowsHitTesting(false)
             }
             .contentShape(RoundedRectangle(cornerRadius: FridayTheme.sidebarCornerRadius))
             .onHover { hovering = $0 }
