@@ -57,9 +57,10 @@ public struct FridayRootView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .modifier(FridayReadingSurface())
-                .padding(.top, 6)
-                .padding([.trailing, .bottom], 10)
+                .padding([.top, .trailing, .bottom], FridayTheme.windowEdgeInset)
             }
+            // The traffic lights sit over the rail; content reaches the top window edge.
+            .ignoresSafeArea(.container, edges: .top)
             .background { FridayWindowBackground().ignoresSafeArea() }
             .navigationTitle("")
             .focusedSceneValue(\.newFridayConversation, { newTask() })
@@ -107,10 +108,11 @@ public struct FridayRootView: View {
             }
             Spacer(minLength: 16)
             FridaySettingsLink()
-                .frame(width: 40, height: 40)
+                .frame(width: FridayTheme.sidebarButtonSize, height: FridayTheme.sidebarButtonSize)
         }
-        .padding(.vertical, 12)
-        .frame(width: 64)
+        .padding(.top, FridayTheme.sidebarTopInset)
+        .padding(.bottom, 12)
+        .frame(width: FridayTheme.sidebarWidth)
         .frame(maxHeight: .infinity)
     }
 
@@ -238,20 +240,20 @@ private struct FridaySidebarButtonBody: View {
     var body: some View {
         configuration.label
             .labelStyle(.iconOnly)
-            .font(.system(size: 18, weight: .regular))
+            .font(.system(size: FridayTheme.sidebarIconSize, weight: .regular))
             .symbolRenderingMode(.monochrome)
             .foregroundStyle(selected ? .primary : .secondary)
-            .frame(width: 40, height: 40)
+            .frame(width: FridayTheme.sidebarButtonSize, height: FridayTheme.sidebarButtonSize)
             .background {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: FridayTheme.sidebarCornerRadius)
                     .fill(.primary.opacity(configuration.isPressed ? 0.14 : selected ? 0.09 : hovering ? 0.055 : 0))
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: FridayTheme.sidebarCornerRadius)
                     .strokeBorder(.primary.opacity(focused ? 0.3 : 0), lineWidth: 1)
                     .allowsHitTesting(false)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 10))
+            .contentShape(RoundedRectangle(cornerRadius: FridayTheme.sidebarCornerRadius))
             .onHover { hovering = $0 }
     }
 }

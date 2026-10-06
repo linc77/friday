@@ -141,7 +141,7 @@ struct FridaySettingsLink: View {
             Label { Text("设置") } icon: {
                 Image(systemName: "gear")
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 17, weight: .light))
+                    .font(.system(size: FridayTheme.sidebarIconSize, weight: .light))
             }
         }
         .buttonStyle(FridayToolbarButtonStyle(motion: .rotate))
