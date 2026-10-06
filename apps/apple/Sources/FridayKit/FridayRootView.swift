@@ -42,15 +42,17 @@ public struct FridayRootView: View {
             #if os(macOS)
             HStack(spacing: 0) {
                 sidebar
-                Divider()
                 VStack(spacing: 0) {
                     if let error = store.error { errorBanner(error) }
                     content
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(FridayTheme.canvas)
+                .modifier(FridayReadingSurface())
+                .padding(.top, 6)
+                .padding([.trailing, .bottom], 10)
             }
-            .navigationTitle(section == .chat ? "Friday" : section?.rawValue ?? "Friday")
+            .background { FridayWindowBackground().ignoresSafeArea() }
+            .navigationTitle("")
             .toolbar { windowToolbar }
             .toolbarBackground(.hidden, for: .windowToolbar)
             .frame(minWidth: 980, minHeight: 640)
@@ -120,7 +122,6 @@ public struct FridayRootView: View {
         .padding(.vertical, 12)
         .frame(width: 64)
         .frame(maxHeight: .infinity)
-        .background(.bar)
     }
 
     private func sidebarRow(_ item: FridaySection) -> some View {
@@ -181,7 +182,6 @@ public struct FridayRootView: View {
                     tasksList
                 }
                 .frame(minWidth: 230, idealWidth: 260, maxWidth: 310, maxHeight: .infinity)
-                .background(FridayTheme.surface.opacity(0.45))
                 if let selectedTask { TaskDetail(store: store, id: selectedTask).id(selectedTask).frame(minWidth: 420) }
                 else { EmptyPanel(icon: "checklist", title: "专注眼前的一件事", subtitle: "选择左侧任务，查看进展、补充要求，或收下完成的成果。") }
             }

@@ -131,6 +131,64 @@ extension View {
 }
 
 #if os(macOS)
+/// One continuous native material behind the rail, title bar, and content edges.
+struct FridayWindowBackground: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        FridayWindowVisualEffect()
+            .overlay {
+                if reduceTransparency || contrast == .increased {
+                    Color(nsColor: .windowBackgroundColor)
+                }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+private struct FridayWindowVisualEffect: NSViewRepresentable {
+    func makeNSView(context: Context) -> FridayWindowEffectView {
+        let view = FridayWindowEffectView()
+        view.material = .sidebar
+        view.blendingMode = .behindWindow
+        view.state = .followsWindowActiveState
+        return view
+    }
+
+    func updateNSView(_ nsView: FridayWindowEffectView, context: Context) {}
+}
+
+private final class FridayWindowEffectView: NSVisualEffectView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let window else { return }
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.backgroundColor = .clear
+        window.isOpaque = false
+    }
+}
+
+/// Keep text on a quiet surface, inset into the translucent window chrome.
+struct FridayReadingSurface: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func body(content: Content) -> some View {
+        content
+            .background(FridayTheme.canvas)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(.primary.opacity(contrast == .increased ? 0.25 : 0.045), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.12 : 0.04), radius: 10, x: 0, y: 3)
+    }
+}
+
 struct FridayToolbarButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         FridayToolbarButtonBody(configuration: configuration)
