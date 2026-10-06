@@ -53,12 +53,12 @@ enum FridayTheme {
 struct FridayMark: View {
     var size: CGFloat = 40
     var body: some View {
-        Image(systemName: "sparkle")
+        FridaySymbolImage(systemName: "sparkle")
             .font(.system(size: size * 0.52, weight: .medium))
             .foregroundStyle(FridayTheme.accent)
             .frame(width: size, height: size)
             .background(FridayTheme.accent.opacity(0.09), in: RoundedRectangle(cornerRadius: size * 0.32))
-            .fridaySymbolFeedback(.pulse)
+            .fridaySymbolFeedback()
             .accessibilityHidden(true)
     }
 }
@@ -191,16 +191,13 @@ struct FridayReadingSurface: ViewModifier {
 }
 
 struct FridayToolbarButtonStyle: ButtonStyle {
-    var motion: FridaySymbolMotion = .bounce
-
     func makeBody(configuration: Configuration) -> some View {
-        FridayToolbarButtonBody(configuration: configuration, motion: motion)
+        FridayToolbarButtonBody(configuration: configuration)
     }
 }
 
 private struct FridayToolbarButtonBody: View {
     let configuration: ButtonStyleConfiguration
-    let motion: FridaySymbolMotion
     @State private var hovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -217,7 +214,7 @@ private struct FridayToolbarButtonBody: View {
             .contentShape(RoundedRectangle(cornerRadius: 6))
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hovering)
             .onHover { hovering = $0 }
-            .fridaySymbolFeedback(motion, active: configuration.isPressed)
+            .fridaySymbolFeedback(active: configuration.isPressed)
     }
 }
 #endif
@@ -270,13 +267,13 @@ struct EmptyPanel: View {
     let subtitle: String
     var body: some View {
         VStack(spacing: 14) {
-            Image(systemName: icon)
+            FridaySymbolImage(systemName: icon)
                 .font(.system(size: 27, weight: .light))
                 .foregroundStyle(FridayTheme.accent)
                 .frame(width: 64, height: 64)
                 .background(FridayTheme.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 22))
                 .padding(.bottom, 4)
-                .fridaySymbolFeedback(icon == "scribble" ? .wiggle : .bounce)
+                .fridaySymbolFeedback()
                 .accessibilityHidden(true)
             Text(title).font(.title3.weight(.semibold))
             Text(subtitle).font(.callout).foregroundStyle(.secondary)

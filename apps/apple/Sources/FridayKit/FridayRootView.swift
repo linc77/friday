@@ -15,14 +15,6 @@ private enum FridaySection: String, CaseIterable, Identifiable {
         case .memory: "sparkles"
         }
     }
-
-    var motion: FridaySymbolMotion {
-        switch self {
-        case .chat, .projects: .bounce
-        case .inbox, .tasks: .wiggle
-        case .memory: .pulse
-        }
-    }
 }
 
 @MainActor
@@ -68,7 +60,7 @@ public struct FridayRootView: View {
             TabView(selection: $mobileTab) {
                 NavigationStack {
                     VStack(spacing: 0) { if let error = store.error { Text(error).font(.caption).foregroundStyle(.orange).padding(8) }; conversation }
-                        .navigationTitle("Friday").toolbar { Button { newTask() } label: { Label("新对话", systemImage: "square.and.pencil") } }
+                        .navigationTitle("Friday").toolbar { Button { newTask() } label: { FridaySymbolLabel("新对话", systemImage: "square.and.pencil") } }
                 }.tabItem { Label("对话", systemImage: FridaySymbols.chat) }.tag(0)
                 NavigationStack { inbox.navigationTitle("想法") }.tabItem { Label("想法", systemImage: "scribble") }.tag(1)
                 NavigationStack { tasksList.navigationTitle("任务").navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id) } }.tabItem { Label("任务", systemImage: "checklist.unchecked") }.tag(2)
@@ -113,7 +105,7 @@ public struct FridayRootView: View {
 
     private var newTaskToolbarItem: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
-            Button { newTask() } label: { Label("新对话", systemImage: "square.and.pencil") }
+            Button { newTask() } label: { FridaySymbolLabel("新对话", systemImage: "square.and.pencil") }
                 .buttonStyle(FridayToolbarButtonStyle())
                 .keyboardShortcut("n", modifiers: .command).help("新对话（⌘N）")
         }
@@ -135,20 +127,20 @@ public struct FridayRootView: View {
 
     private func sidebarRow(_ item: FridaySection) -> some View {
         Button { section = item } label: {
-            Label(item.rawValue, systemImage: item.icon)
+            Label { Text(item.rawValue) } icon: { FridaySymbolImage(systemName: item.icon) }
         }
         .buttonStyle(FridaySidebarButtonStyle(selected: section == item))
         .help(item.rawValue)
         .accessibilityAddTraits(section == item ? .isSelected : [])
         .accessibilityValue(item == .tasks && store.tasks.contains(where: { $0.active })
             ? "\(store.tasks.filter { $0.active }.count) 个进行中的任务" : "")
-        .fridaySymbolFeedback(item.motion, active: section == item)
+        .fridaySymbolFeedback(active: section == item)
     }
     #endif
 
     private var connectionStatus: some View {
         HStack(spacing: 8) {
-            Image(systemName: store.connected ? "checkmark.circle" : "wifi.slash")
+            FridaySymbolImage(systemName: store.connected ? "checkmark.circle" : "wifi.slash")
                 .foregroundStyle(store.connected ? FridayTheme.accent : .orange)
                 .fridaySymbolFeedback(active: store.connected)
                 .accessibilityHidden(true)
@@ -161,7 +153,7 @@ public struct FridayRootView: View {
 
     private func errorBanner(_ message: String) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "exclamationmark.circle").fridaySymbolFeedback(.wiggle)
+            FridaySymbolImage(systemName: "exclamationmark.circle").fridaySymbolFeedback()
             Text(message).lineLimit(2)
             Spacer()
             Button("连接设置") {
@@ -308,7 +300,7 @@ struct InboxView: View {
                         Button {
                             let text = draft; saving = true
                             Task { if await store.saveIdea(text), draft == text { draft = "" }; saving = false }
-                        } label: { Label(saving ? "正在收下" : "收下这个想法", systemImage: "arrow.up") }
+                        } label: { FridaySymbolLabel(saving ? "正在收下" : "收下这个想法", systemImage: "arrow.up") }
                         .buttonStyle(FridayButtonStyle(prominent: true))
                         .disabled(saving || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
@@ -323,7 +315,7 @@ struct InboxView: View {
                     ForEach(store.outbox) { idea in
                         HStack(spacing: 16) {
                             Text(idea.text).frame(maxWidth: .infinity, alignment: .leading)
-                            Label("待同步", systemImage: "clock").font(.caption).foregroundStyle(.secondary).fridaySymbolFeedback(.rotate)
+                            FridaySymbolLabel("待同步", systemImage: "clock").font(.caption).foregroundStyle(.secondary).fridaySymbolFeedback()
                         }.padding(20).fridayCard()
                     }
                     ForEach(store.ideas) { idea in
@@ -334,7 +326,7 @@ struct InboxView: View {
                                 Text(idea.createdAt.prefix(10)).font(.caption).foregroundStyle(.tertiary)
                                 Spacer()
                                 Button { delegate(idea) } label: {
-                                    Label(idea.taskId == nil ? "交给 Friday" : "打开对话", systemImage: idea.taskId == nil ? "arrow.up.right" : "bubble.left")
+                                    FridaySymbolLabel(idea.taskId == nil ? "交给 Friday" : "打开对话", systemImage: idea.taskId == nil ? "arrow.up.right" : "bubble.left")
                                 }
                                 .buttonStyle(FridayButtonStyle(compact: true))
                                 .disabled((!store.connected && idea.taskId == nil) || store.delegatingIdeas.contains(idea.id))

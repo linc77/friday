@@ -12,7 +12,7 @@ struct ProjectsView: View {
             VStack(alignment: .leading, spacing: 28) {
                 HStack(alignment: .top, spacing: 20) {
                     PageHeading(title: "项目", subtitle: "把主机目录和项目背景放在一起。")
-                    Button { adding = true } label: { Label("添加项目", systemImage: "plus") }
+                    Button { adding = true } label: { FridaySymbolLabel("添加项目", systemImage: "plus") }
                         .buttonStyle(FridayButtonStyle(prominent: true)).disabled(!store.connected)
                 }
                 if store.projects.isEmpty {
@@ -23,12 +23,12 @@ struct ProjectsView: View {
                         Button { editing = project } label: {
                             VStack(alignment: .leading, spacing: 16) {
                                 HStack {
-                                    Image(systemName: "folder").font(.system(size: 23, weight: .light))
+                                    FridaySymbolImage(systemName: "folder").font(.system(size: 23, weight: .light))
                                         .foregroundStyle(FridayTheme.accent)
                                         .frame(width: 48, height: 48)
                                         .background(FridayTheme.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 15))
                                     Spacer()
-                                    Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.tertiary)
+                                    FridaySymbolImage(systemName: "arrow.up.right").font(.caption).foregroundStyle(.tertiary)
                                 }
                                 Text(project.name).font(.headline).lineLimit(2)
                                 Text(project.context.isEmpty ? "添加项目背景，让 Friday 更了解这件事。" : project.context)
@@ -110,9 +110,9 @@ struct MemoriesView: View {
                 }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(busy || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !store.connected) }
                 ForEach(store.memories) { memory in
                     HStack(alignment: .top, spacing: 14) {
-                        Image(systemName: "sparkles").foregroundStyle(.secondary).fridaySymbolFeedback(.pulse)
+                        FridaySymbolImage(systemName: "sparkles").foregroundStyle(.secondary).fridaySymbolFeedback()
                         Text(memory.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                        Menu { Button("编辑") { draft = memory.text; editingId = memory.id }; Button("删除", role: .destructive) { Task { _ = await store.perform("/api/memories/\(memory.id)", method: "DELETE") } } } label: { Image(systemName: "ellipsis").fridaySymbolFeedback() }
+                        Menu { Button("编辑") { draft = memory.text; editingId = memory.id }; Button("删除", role: .destructive) { Task { _ = await store.perform("/api/memories/\(memory.id)", method: "DELETE") } } } label: { FridaySymbolImage(systemName: "ellipsis").fridaySymbolFeedback() }
                     }.padding(20).fridayCard()
                 }
             }.padding(28).frame(maxWidth: FridayTheme.contentWidth + 56).frame(maxWidth: .infinity)
@@ -128,7 +128,7 @@ struct AgentsView: View {
                 PageHeading(title: "Friday 的执行工具", subtitle: "Friday 自己处理对话和个人事务。需要独立编码时，可以经你确认后调用本机 Codex。")
                 ForEach(store.agents) { agent in
                     VStack(alignment: .leading, spacing: 12) {
-                        HStack { Label(agent.name, systemImage: "terminal").font(.headline).fridaySymbolFeedback(); Spacer(); Text(agent.installed ? (agent.executableSupported ? "可以执行任务" : "已发现 · 尚未接入") : "未安装").font(.caption).foregroundStyle(.secondary) }
+                        HStack { FridaySymbolLabel(agent.name, systemImage: "terminal").font(.headline).fridaySymbolFeedback(); Spacer(); Text(agent.installed ? (agent.executableSupported ? "可以执行任务" : "已发现 · 尚未接入") : "未安装").font(.caption).foregroundStyle(.secondary) }
                         Text(agent.description).font(.callout).foregroundStyle(.secondary)
                         if let executable = agent.executable { Text(executable).font(.caption.monospaced()).foregroundStyle(.tertiary).textSelection(.enabled) }
                     }.padding(22).fridayCard()
@@ -151,7 +151,7 @@ struct ConnectionView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 PageHeading(title: "随时找到 Friday", subtitle: "连接你的主机，让进展随时可见。")
-                Label(store.connected ? "已连接主机" : "主机暂时离线", systemImage: store.connected ? "checkmark.circle.fill" : "wifi.slash").foregroundStyle(store.connected ? FridayTheme.accent : .orange)
+                FridaySymbolLabel(store.connected ? "已连接主机" : "主机暂时离线", systemImage: store.connected ? "checkmark.circle.fill" : "wifi.slash").foregroundStyle(store.connected ? FridayTheme.accent : .orange)
                     .fridaySymbolFeedback(active: store.connected)
                 Text(store.connection.server).font(.callout.monospaced()).textSelection(.enabled)
                 Text("任务在主机上执行。关闭客户端不影响任务；主机需要保持运行。").foregroundStyle(.secondary)
@@ -168,7 +168,7 @@ struct ConnectionView: View {
                     if let pairing { VStack(alignment: .leading, spacing: 6) { Text(pairing.code).font(.system(size: 36, weight: .medium, design: .monospaced)).textSelection(.enabled); Text("5 分钟内有效，只能使用一次。").font(.caption).foregroundStyle(.secondary) } }
                     ForEach(store.devices) { device in
                         HStack {
-                            Label(device.name, systemImage: "iphone").fridaySymbolFeedback(); Spacer()
+                            FridaySymbolLabel(device.name, systemImage: "iphone").fridaySymbolFeedback(); Spacer()
                             Button("撤销访问", role: .destructive) { Task { _ = await store.perform("/api/devices/\(device.id)", method: "DELETE") } }
                         }
                     }
@@ -203,7 +203,7 @@ struct ModelSettingsView: View {
             Text("Friday 的模型").font(.title3.bold())
             Text("连接 DeepSeek，让 Friday 与你对话、记住偏好并处理事情。").font(.callout).foregroundStyle(.secondary)
             if let state {
-                Label(state.connected ? "DeepSeek API Key 已配置" : "尚未配置 DeepSeek API Key", systemImage: state.connected ? "checkmark.circle.fill" : "key").foregroundStyle(state.connected ? FridayTheme.accent : .secondary)
+                FridaySymbolLabel(state.connected ? "DeepSeek API Key 已配置" : "尚未配置 DeepSeek API Key", systemImage: state.connected ? "checkmark.circle.fill" : "key").foregroundStyle(state.connected ? FridayTheme.accent : .secondary)
                     .fridaySymbolFeedback(active: state.connected)
                 Text(state.model).font(.caption).foregroundStyle(.secondary)
                 if store.deviceId == "owner" {

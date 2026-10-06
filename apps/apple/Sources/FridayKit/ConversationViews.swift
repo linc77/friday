@@ -26,7 +26,8 @@ struct NewConversationView: View {
                     HStack {
                         Spacer()
                         if sending { ProgressView().controlSize(.small) }
-                        Button("发送", systemImage: "arrow.up", action: send).buttonStyle(FridayButtonStyle(prominent: true)).keyboardShortcut(.return, modifiers: .command)
+                        Button(action: send) { FridaySymbolLabel("发送", systemImage: "arrow.up") }
+                            .buttonStyle(FridayButtonStyle(prominent: true)).keyboardShortcut(.return, modifiers: .command)
                             .disabled(!canSend)
                     }
                 }.padding(20).fridayCard(highlighted: focused)
@@ -89,9 +90,9 @@ struct WorkspaceChoice: View {
             ForEach(store.projects) { project in
                 Button { choose(projectId: project.id) } label: {
                     HStack {
-                        Image(systemName: "folder")
+                        FridaySymbolImage(systemName: "folder")
                         VStack(alignment: .leading, spacing: 3) { Text(project.name); Text(project.path).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
-                        Spacer(); Image(systemName: "chevron.right").font(.caption)
+                        Spacer(); FridaySymbolImage(systemName: "chevron.right").font(.caption)
                     }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
                 }.buttonStyle(FridayButtonStyle())
             }

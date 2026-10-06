@@ -25,8 +25,8 @@ struct TaskDetail: View {
                                 .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                         }
                         if let error = task.error {
-                            Label(error, systemImage: "exclamationmark.circle")
-                                .fridaySymbolFeedback(.wiggle)
+                            FridaySymbolLabel(error, systemImage: "exclamationmark.circle")
+                                .fridaySymbolFeedback()
                                 .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
                                 .padding(18).frame(maxWidth: .infinity, alignment: .leading).fridayCard()
                         }
@@ -72,9 +72,9 @@ struct TaskDetail: View {
             }
             Spacer(minLength: 8)
             if task.active || task.status == "needs_project" {
-                Button("停止", systemImage: "stop", role: .destructive) {
+                Button(role: .destructive) {
                     Task { _ = await store.perform("/api/tasks/\(id)/cancel") }
-                }
+                } label: { FridaySymbolLabel("停止", systemImage: "stop") }
                 .buttonStyle(FridayButtonStyle(compact: true)).disabled(!store.connected)
             }
         }
@@ -121,13 +121,13 @@ struct TaskDetail: View {
 
     private func artifactCard(_ task: WorkItem) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "doc.text").font(.title3).foregroundStyle(FridayTheme.accent).fridaySymbolFeedback()
+            FridaySymbolImage(systemName: "doc.text").font(.title3).foregroundStyle(FridayTheme.accent).fridaySymbolFeedback()
             VStack(alignment: .leading, spacing: 3) {
                 Text("任务成果").font(.callout.weight(.medium))
                 Text("已保存在主机，可随时导出").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            ShareLink(item: task.result) { Image(systemName: "square.and.arrow.up").accessibilityLabel("导出结果") }
+            ShareLink(item: task.result) { FridaySymbolImage(systemName: "square.and.arrow.up").accessibilityLabel("导出结果") }
                 .buttonStyle(FridayButtonStyle(compact: true)).help("导出结果")
         }
         .padding(18).fridayCard()
@@ -145,7 +145,7 @@ struct TaskDetail: View {
                 }
                 ForEach(task.events) { event in
                     HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: "circle.fill").font(.system(size: 5))
+                        FridaySymbolImage(systemName: "circle.fill").font(.system(size: 5))
                             .foregroundStyle(.tertiary).padding(.top, 5).accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 6) {
                             Text("\(event.at.dropFirst(11).prefix(8)) · \(event.kind)")
@@ -159,8 +159,8 @@ struct TaskDetail: View {
             }.padding(.top, 16)
         } label: {
             HStack {
-                Label("执行详情", systemImage: "clock.arrow.circlepath")
-                    .fridaySymbolFeedback(.rotate, active: showEvents)
+                FridaySymbolLabel("执行详情", systemImage: "clock.arrow.circlepath")
+                    .fridaySymbolFeedback(active: showEvents)
                 Spacer()
                 Text("\(task.events.count)").monospacedDigit()
             }.font(.caption).foregroundStyle(.secondary)
@@ -205,7 +205,7 @@ private struct FloatingComposer: View {
                 }
                 Spacer(minLength: 0)
                 Button(action: send) {
-                    Label(sending ? "发送中" : "发送", systemImage: "arrow.up")
+                    FridaySymbolLabel(sending ? "发送中" : "发送", systemImage: "arrow.up")
                 }
                 .buttonStyle(FridayButtonStyle(prominent: true, compact: true))
                 .keyboardShortcut(.return, modifiers: .command).disabled(disabled)
@@ -230,9 +230,9 @@ struct ApprovalCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 10) {
-                Image(systemName: "hand.raised.fill").foregroundStyle(.orange)
+                FridaySymbolImage(systemName: "hand.raised.fill").foregroundStyle(.orange)
                     .frame(width: 34, height: 34).background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-                    .fridaySymbolFeedback(.wiggle)
+                    .fridaySymbolFeedback()
                 Text(approval.title).font(.headline)
             }
             Text(approval.detail).font(.callout).lineSpacing(4).textSelection(.enabled)
@@ -242,7 +242,7 @@ struct ApprovalCard: View {
                     ForEach(question.options, id: \.label) { option in
                         Button { answers[question.id] = option.label } label: {
                             HStack(alignment: .top, spacing: 8) {
-                                Image(systemName: answers[question.id] == option.label ? "checkmark.circle.fill" : "circle")
+                                FridaySymbolImage(systemName: answers[question.id] == option.label ? "checkmark.circle.fill" : "circle")
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(option.label)
                                     if !option.description.isEmpty { Text(option.description).font(.caption).foregroundStyle(.secondary) }
