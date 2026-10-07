@@ -4,9 +4,14 @@ export type Project = { id: string; name: string; path: string; context: string 
 export type Memory = { id: string; text: string; updatedAt: string };
 export type Question = { id: string; header: string; question: string; options: { label: string; description: string }[] };
 export type Approval = { id: string; method: string; title: string; detail: string; questions: Question[]; state: 'pending' | 'answered' | 'expired'; decision?: 'accept' | 'decline'; answers?: Record<string, string[]> };
-export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string };
+export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; at?: string; turnId?: string };
 export type TaskMode = 'auto' | 'assistant' | 'research' | 'code';
-export type TaskEvent = { id: string; kind: string; text: string; at: string };
+export type TaskEvent = {
+  id: string; kind: string; text: string; at: string;
+  itemId?: string; turnId?: string; phase?: 'commentary' | 'final_answer';
+  status?: 'running' | 'completed' | 'failed' | 'declined' | 'interrupted';
+  detail?: string; completedAt?: string; durationMs?: number; exitCode?: number;
+};
 export type WorkItem = {
   id: string; title: string; prompt: string; projectId: string | null; cwd: string;
   agent: string; mode: TaskMode; status: TaskStatus; createdAt: string; updatedAt: string;
@@ -28,6 +33,7 @@ export type ExecutionUpdate =
   | { kind: 'turn'; turnId: string }
   | { kind: 'output'; text: string }
   | { kind: 'event'; eventKind: string; text: string }
+  | { kind: 'item'; item: TaskEvent }
   | { kind: 'approval'; approval: Approval }
   | { kind: 'approvalResolved'; id: string }
   | { kind: 'workspace'; reason: string }

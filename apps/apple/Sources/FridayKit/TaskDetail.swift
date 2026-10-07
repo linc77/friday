@@ -8,6 +8,10 @@ struct TaskDetail: View {
     @State private var messageId = UUID().uuidString
     @State private var showEvents = false
     @State private var sending = false
+    @State private var followingEnd = true
+    @State private var atEnd = true
+    @State private var previousScrollTop: CGFloat?
+    @State private var scrollRequest = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var task: WorkItem? { store.tasks.first { $0.id == id } }
@@ -16,29 +20,7 @@ struct TaskDetail: View {
         if let task {
             VStack(spacing: 0) {
                 header(task)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        executionHistory(task)
-                        delegatedTasks(task)
-                        ForEach(task.conversation) { message in conversationMessage(message, task: task) }
-                        if task.status == "needs_project" { WorkspaceChoice(store: store, task: task).id(task.durableId) }
-                        ForEach(task.approvals.filter { $0.state == "pending" }) { approval in
-                            ApprovalCard(store: store, taskId: id, approval: approval)
-                                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-                        }
-                        if let error = task.error {
-                            FridaySymbolLabel(friday: error, systemImage: "exclamationmark.circle")
-                                .fridaySymbolFeedback()
-                                .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
-                                .padding(18).frame(maxWidth: .infinity, alignment: .leading).fridayCard()
-                        }
-                        if task.active { progressCard(task) }
-                        if task.artifact != nil { artifactCard(task) }
-                    }
-                    // Animate only approval insertion/removal, never the streamed result.
-                    .animation(reduceMotion ? nil : FridayTheme.motion, value: task.approvals.filter { $0.state == "pending" }.map(\.id))
-                    .padding(24).frame(maxWidth: FridayTheme.contentWidth + 48).frame(maxWidth: .infinity)
-                }
+                transcriptScroll(task)
             }
             .background(FridayTheme.canvas)
             #if os(iOS)
@@ -48,7 +30,7 @@ struct TaskDetail: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if task.localAgent {
                     AgentTaskComposer(store: store, task: task, message: $message, sending: sending, send: sendAgentMessage)
-                        .frame(maxWidth: FridayTheme.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20).frame(maxWidth: .infinity)
+                        .frame(maxWidth: FridayTheme.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
                 } else {
                     FloatingComposer(
                         message: $message,
@@ -65,9 +47,75 @@ struct TaskDetail: View {
             }
             .onChange(of: id) { _, _ in
                 message = ""; messageId = UUID().uuidString; showEvents = false
+                followingEnd = true; atEnd = true; previousScrollTop = nil
             }
         } else {
             EmptyPanel(icon: "checklist", title: "正在加载任务", subtitle: "连接主机后会显示最新进展。")
+        }
+    }
+
+    private func transcriptScroll(_ task: WorkItem) -> some View {
+        ScrollViewReader { proxy in
+            GeometryReader { viewport in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        if task.localAgent {
+                            CodexTimeline(task: task, canOpenLocalFiles: store.deviceId == "owner")
+                        } else {
+                            executionHistory(task)
+                            ForEach(task.conversation) { message in conversationMessage(message, task: task) }
+                        }
+                        delegatedTasks(task)
+                        if task.status == "needs_project" { WorkspaceChoice(store: store, task: task).id(task.durableId) }
+                        ForEach(task.approvals.filter { $0.state == "pending" }) { approval in
+                            ApprovalCard(store: store, taskId: id, approval: approval)
+                                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+                        }
+                        if let error = task.error {
+                            FridaySymbolLabel(friday: error, systemImage: "exclamationmark.circle")
+                                .fridaySymbolFeedback()
+                                .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
+                                .padding(18).frame(maxWidth: .infinity, alignment: .leading).fridayCard()
+                        }
+                        if task.active { progressCard(task) }
+                        if task.artifact != nil && !task.localAgent { artifactCard(task) }
+                        Color.clear.frame(height: 1).id("transcript-end")
+                    }
+                    // Animate only approval insertion/removal, never the streamed result.
+                    .animation(reduceMotion ? nil : FridayTheme.motion, value: task.approvals.filter { $0.state == "pending" }.map(\.id))
+                    .padding(24).frame(maxWidth: FridayTheme.contentWidth + 48).frame(maxWidth: .infinity)
+                    .background(GeometryReader { geometry in
+                        let frame = geometry.frame(in: .named("task-transcript"))
+                        Color.clear.preference(key: TranscriptScrollKey.self, value: TranscriptScrollMetrics(top: frame.minY, bottom: frame.maxY, viewportHeight: viewport.size.height))
+                    })
+                }
+                .coordinateSpace(name: "task-transcript")
+                .modifier(TranscriptScrollObserver { metrics in
+                    guard metrics.bottom > 0 else { return }
+                    if let previousScrollTop, metrics.top > previousScrollTop + 3 { followingEnd = false }
+                    previousScrollTop = metrics.top
+                    atEnd = metrics.bottom <= metrics.viewportHeight + 48
+                    if atEnd { followingEnd = true }
+                })
+                .overlay(alignment: .bottom) {
+                    if !atEnd {
+                        Button {
+                            followingEnd = true
+                            withAnimation(reduceMotion ? nil : FridayTheme.motion) { proxy.scrollTo("transcript-end", anchor: .bottom) }
+                        } label: { FridaySymbolLabel(friday: "回到最新", systemImage: "arrow.down") }
+                            .buttonStyle(FridayButtonStyle(compact: true)).font(.caption).padding(.bottom, 10)
+                    }
+                }
+                .task(id: id) {
+                    await Task.yield()
+                    proxy.scrollTo("transcript-end", anchor: .bottom)
+                }
+                .task(id: task.updatedAt) {
+                    await Task.yield()
+                    if followingEnd { proxy.scrollTo("transcript-end", anchor: .bottom) }
+                }
+                .onChange(of: scrollRequest) { _, _ in proxy.scrollTo("transcript-end", anchor: .bottom) }
+            }
         }
     }
 
@@ -224,8 +272,28 @@ struct TaskDetail: View {
             if await store.perform("/api/tasks/\(taskId)/message", body: body) {
                 if message == submittedMessage { message = "" }
                 messageId = UUID().uuidString
+                followingEnd = true; scrollRequest += 1
             }
             sending = false
+        }
+    }
+}
+
+private struct TranscriptScrollMetrics: Equatable { var top: CGFloat = 0; var bottom: CGFloat = 0; var viewportHeight: CGFloat = 0 }
+private struct TranscriptScrollKey: PreferenceKey {
+    static let defaultValue = TranscriptScrollMetrics()
+    static func reduce(value: inout TranscriptScrollMetrics, nextValue: () -> TranscriptScrollMetrics) { value = nextValue() }
+}
+
+private struct TranscriptScrollObserver: ViewModifier {
+    let changed: (TranscriptScrollMetrics) -> Void
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 15.0, iOS 18.0, *) {
+            content.onScrollGeometryChange(for: TranscriptScrollMetrics.self) { geometry in
+                TranscriptScrollMetrics(top: -geometry.contentOffset.y, bottom: geometry.contentSize.height - geometry.contentOffset.y, viewportHeight: geometry.containerSize.height)
+            } action: { _, metrics in changed(metrics) }
+        } else {
+            content.onPreferenceChange(TranscriptScrollKey.self, perform: changed)
         }
     }
 }

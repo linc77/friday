@@ -76,6 +76,28 @@ test('Interrupted external work is never replayed automatically; a queued task s
   } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
+test('Codex item snapshots persist once and unfinished items terminalize on recovery', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-items-'));
+  const executor = new ControlledExecutor(); let engine = await new Engine(directory, executor).open();
+  try {
+    const id = await engine.createTask(input('items'));
+    await until(engine, s => s.tasks[0].threadId !== null);
+    await engine.updateExecution(id, { kind: 'turn', turnId: 'turn-items' });
+    const item = { id: 'codex:turn-items:command', itemId: 'command', turnId: 'turn-items', kind: 'command', text: 'pnpm test', at: '2026-10-07T10:00:00.000Z', status: 'running' as const };
+    await engine.updateExecution(id, { kind: 'item', item });
+    await engine.updateExecution(id, { kind: 'item', item: { ...item, at: '2026-10-07T10:00:01.000Z', detail: 'streamed output' } });
+    let work = (await engine.snapshot()).tasks[0];
+    assert.equal(work.events.filter(e => e.itemId === 'command').length, 1);
+    assert.equal(work.events.find(e => e.itemId === 'command')?.at, item.at);
+    assert.equal(work.messages?.[0].turnId, 'turn-items');
+    await engine.close(); engine = await new Engine(directory, executor).open();
+    work = (await until(engine, s => s.tasks[0].status === 'interrupted')).tasks[0];
+    assert.equal(work.events.find(e => e.itemId === 'command')?.status, 'interrupted');
+    assert.equal(work.events.find(e => e.itemId === 'command')?.detail, 'streamed output');
+    assert.equal(executor.calls.length, 1, 'UI transcript recovery must not replay external work');
+  } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
 test('Continuing an older task stays in FIFO order with new tasks', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-'));
   const executor = new ControlledExecutor(); const engine = await new Engine(directory, executor).open();

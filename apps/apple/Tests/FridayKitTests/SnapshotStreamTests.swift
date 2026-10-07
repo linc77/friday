@@ -23,6 +23,37 @@ struct SnapshotStreamTests {
         current["result"] = "Streaming reply"
         let running = try JSONDecoder().decode(WorkItem.self, from: JSONSerialization.data(withJSONObject: current))
         precondition(running.conversation.map(\.text) == ["Question", "Answer", "Continue", "Streaming reply"], "Keep previous replies while the next answer streams")
+        current["messages"] = [
+            ["id": "u", "role": "user", "text": "Question", "at": "2026-10-07T10:00:00.000Z", "turnId": "t"],
+            ["id": "a", "role": "assistant", "text": "Final answer", "at": "2026-10-07T10:00:04.000Z", "turnId": "t"],
+        ]
+        current["result"] = "Final answer"
+        current["events"] = [
+            ["id": "turn", "itemId": "turn", "turnId": "t", "kind": "turn", "text": "", "at": "2026-10-07T10:00:00.000Z", "durationMs": 38000],
+            ["id": "commentary", "itemId": "c", "turnId": "t", "kind": "message", "phase": "commentary", "text": "Inspecting", "at": "2026-10-07T10:00:01.000Z"],
+            ["id": "cmd", "itemId": "cmd", "turnId": "t", "kind": "command", "text": "pwd", "at": "2026-10-07T10:00:02.000Z", "status": "completed", "detail": "/tmp"],
+            ["id": "final", "itemId": "f", "turnId": "t", "kind": "message", "phase": "final_answer", "text": "Final answer", "at": "2026-10-07T10:00:03.000Z"],
+        ]
+        let structured = try JSONDecoder().decode(WorkItem.self, from: JSONSerialization.data(withJSONObject: current))
+        let rows = CodexTranscript.rows(structured)
+        precondition(rows.count == 3, "Transcript must contain user, work fold, and exactly one final reply")
+        guard case .user("Question") = rows[0].content, case .work(let work) = rows[1].content, case .reply("Final answer") = rows[2].content else { preconditionFailure("Preserve chronological transcript order") }
+        precondition(work.map(\.kind) == ["message", "command"], "Commentary stays inside the work fold")
+        precondition(CodexTranscript.duration(work, task: structured) == 38, "Use turn duration rather than the last command")
+        current["messages"] = [["id": "u", "role": "user", "text": "Question"], ["id": "a", "role": "assistant", "text": "Final answer"]]
+        current["createdAt"] = "2026-10-07T10:00:00.000Z"; current["updatedAt"] = "2026-10-07T10:00:04.000Z"
+        current["events"] = [
+            ["id": "user", "kind": "user", "text": "Question", "at": "2026-10-07T10:00:00.000Z"],
+            ["id": "start", "kind": "command", "text": "正在执行：pwd", "at": "2026-10-07T10:00:01.000Z"],
+            ["id": "done", "kind": "command", "text": "pwd\n/tmp\n退出码：0", "at": "2026-10-07T10:00:02.000Z"],
+        ]
+        let legacyTranscript = CodexTranscript.rows(try JSONDecoder().decode(WorkItem.self, from: JSONSerialization.data(withJSONObject: current)))
+        precondition(legacyTranscript.count == 3, "Legacy logs belong between the request and its answer")
+        guard case .work(let legacyWork) = legacyTranscript[1].content else { preconditionFailure("Legacy work fold missing") }
+        precondition(legacyWork.count == 1, "Legacy command start/completion pairs count once")
+        let blocks = MarkdownBlocks.parse("## Result\n\n- **One**\n\n```swift\nlet x = 1\n```\n\n| A | B |\n| --- | --- |\n| C | D |")
+        precondition(blocks == [.heading(2, "Result"), .list("•", "**One**", 0), .code("swift", "let x = 1"), .table(["A", "B"], [["C", "D"]])], "Render headings, lists, code, and tables as native blocks")
+        precondition(MarkdownBlocks.parse("```ts\nconst partial =") == [.code("ts", "const partial =")], "Streaming unfinished fences retain code formatting")
         print("Swift SSE and conversation compatibility checks passed")
     }
 }

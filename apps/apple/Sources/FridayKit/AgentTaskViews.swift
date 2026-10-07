@@ -93,34 +93,48 @@ struct AgentTaskComposer: View {
     private var selectedModel: CodexProviderModel? { state?.models.first { $0.id == (model.isEmpty ? state?.model : model) } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            TextField(friday: active ? "补充任务要求…" : "告诉 Codex 这个任务要完成什么…", text: $message, axis: .vertical)
-                .font(.body).lineLimit(3...7).textFieldStyle(.plain).focused($focused)
-                .accessibilityLabel(Text(friday: "任务要求"))
-                .onChatSubmit { if !disabled { send(model, effort) } }
-            if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).lineLimit(2) }
-            HStack(spacing: 12) {
-                FridaySymbolImage(systemName: "terminal").font(.caption).foregroundStyle(.secondary).fridaySymbolFeedback()
-                Picker(selection: Binding(get: { model }, set: { model = $0; effort = "" })) {
-                    Text(verbatim: state?.models.first { $0.id == state?.model }?.name ?? "Codex").tag("")
-                    ForEach(state?.models ?? []) { item in Text(item.name).tag(item.id) }
-                    if !model.isEmpty && !(state?.models.contains { $0.id == model } ?? false) { Text(model).tag(model) }
-                } label: { Text(friday: "任务模型") }
-                    .labelsHidden().frame(maxWidth: 200).disabled(active || sending)
-                Divider().frame(height: 16)
-                Picker(selection: $effort) {
-                    Text(friday: "模型默认").tag("")
-                    ForEach(selectedModel?.reasoningEfforts ?? [], id: \.self) { Text($0.capitalized).tag($0) }
-                    if !effort.isEmpty && !(selectedModel?.reasoningEfforts.contains(effort) ?? false) { Text(effort.capitalized).tag(effort) }
-                } label: { Text(friday: "推理强度") }
-                    .labelsHidden().frame(maxWidth: 130).disabled(active || sending)
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .bottom, spacing: 16) {
+                TextField(friday: active ? "补充任务要求…" : "告诉 Codex 这个任务要完成什么…", text: $message, axis: .vertical)
+                    .font(.body).lineLimit(2...6).textFieldStyle(.plain).focused($focused)
+                    .accessibilityLabel(Text(friday: "任务要求"))
+                    .onChatSubmit { if !disabled { send(model, effort) } }
                 Button { send(model, effort) } label: {
                     FridaySymbolImage(systemName: "arrow.up").fridaySymbolFeedback()
                 }.buttonStyle(FridayButtonStyle(prominent: true, compact: true))
                     .accessibilityLabel(Text(friday: sending ? "发送中" : "发送"))
                     .keyboardShortcut(.return, modifiers: .command).disabled(disabled)
             }
+            if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).lineLimit(2) }
+            HStack(spacing: 12) {
+                FridaySymbolImage(systemName: "terminal").font(.caption).foregroundStyle(.secondary).fridaySymbolFeedback()
+                Menu {
+                    Button(friday: "模型默认") { model = ""; effort = "" }
+                    ForEach(state?.models ?? []) { item in Button(item.name) { model = item.id; effort = "" } }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(selectedModel?.name ?? (model.isEmpty ? "Codex" : model)).lineLimit(1)
+                        FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9))
+                    }
+                }.disabled(active || sending).accessibilityLabel(Text(friday: "任务模型"))
+                #if os(macOS)
+                .menuStyle(.borderlessButton).menuIndicator(.hidden)
+                #endif
+                Divider().frame(height: 16)
+                Menu {
+                    Button(friday: "模型默认") { effort = "" }
+                    ForEach(selectedModel?.reasoningEfforts ?? [], id: \.self) { value in Button(value.capitalized) { effort = value } }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(effort.isEmpty ? selectedModel?.defaultReasoningEffort.capitalized ?? "Default" : effort.capitalized)
+                        FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9))
+                    }
+                }.disabled(active || sending).accessibilityLabel(Text(friday: "推理强度"))
+                #if os(macOS)
+                .menuStyle(.borderlessButton).menuIndicator(.hidden)
+                #endif
+                Spacer(minLength: 0)
+            }.font(.callout).foregroundStyle(.secondary)
             Divider()
             HStack(spacing: 8) {
                 FridaySymbolImage(systemName: "folder").fridaySymbolFeedback().font(.caption)
@@ -130,7 +144,7 @@ struct AgentTaskComposer: View {
                 FridaySymbolLabel(friday: "按需确认", systemImage: "lock").fridaySymbolFeedback()
             }.font(.caption).foregroundStyle(.secondary)
         }
-        .padding(20).fridayCard(highlighted: focused)
+        .padding(16).fridayCard(highlighted: focused)
         .task(id: task?.id) { model = task?.model ?? ""; effort = task?.reasoningEffort ?? "" }
         .task(id: store.connected) {
             guard store.connected else { return }

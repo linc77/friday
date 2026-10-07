@@ -14,6 +14,17 @@ createInterface({ input: process.stdin }).on('line', line => {
   if (message.method === 'turn/start') {
     send({ id: message.id, result: { turn } }); notify('turn/started', { threadId, turn });
     scenario = message.params.input[0].text;
+    if (scenario.includes('timeline-protocol')) {
+      notify('item/started', { threadId, turnId: turn.id, item: { id: 'progress', type: 'agentMessage', phase: 'commentary', text: '' } });
+      notify('item/agentMessage/delta', { threadId, turnId: turn.id, itemId: 'progress', delta: 'Inspecting the project' });
+      notify('item/completed', { threadId, turnId: turn.id, item: { id: 'progress', type: 'agentMessage', phase: 'commentary', text: 'Inspection complete' } });
+      notify('item/started', { threadId, turnId: turn.id, item: { id: 'command', type: 'commandExecution', command: 'pwd', status: 'inProgress' } });
+      notify('item/commandExecution/outputDelta', { threadId, turnId: turn.id, itemId: 'command', delta: '/tmp' });
+      notify('item/completed', { threadId, turnId: turn.id, item: { id: 'command', type: 'commandExecution', command: 'pwd', status: 'completed', aggregatedOutput: '/tmp', exitCode: 0, durationMs: 20 } });
+      notify('item/completed', { threadId, turnId: turn.id, item: { id: 'answer', type: 'agentMessage', phase: 'final_answer', text: '## Final result\n\nVerified.' } });
+      notify('turn/completed', { threadId, turn: { ...turn, status: 'completed' } });
+      return;
+    }
     if (scenario === 'choose-workspace' || scenario === 'capture-idea') {
       send({ id: 93, method: 'item/tool/call', params: { threadId, turnId: turn.id, callId: 'call', tool: scenario === 'choose-workspace' ? 'friday_request_workspace' : 'friday_save_idea', arguments: scenario === 'choose-workspace' ? { reason: '需要一个目录来创建文件。' } : { text: '只记录这条想法' } } });
       return;
