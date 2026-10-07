@@ -11,6 +11,10 @@ Friday is a personal agent with a resident TypeScript service and native Swift c
 - Run the smallest relevant checks. Run TypeScript checks when types or public interfaces change. For cross-module changes, `pnpm check` is appropriate; explain expansion first.
 - Never put credentials, local runtime state, or transcripts in Git.
 
+## iOS 模拟器
+
+- 只有用户主动明确要求打开 iOS 模拟器查看效果时，才可以打开；不得为了 UI 验证、截图或查看效果而自行启动模拟器。
+
 ## 图标与动效
 
 - 新增或修改产品界面图标、动效时，必须遵循[图标与动效规范](docs/icon-motion.md)。具体偏好与约定统一维护在该文档中。
