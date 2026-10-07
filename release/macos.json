@@ -1,0 +1,12 @@
+{
+  "version": "0.1.0-beta.1",
+  "build": 1,
+  "architecture": "arm64",
+  "minimumSystemVersion": "14.0",
+  "nodeVersion": "24.21.0",
+  "nodeSHA256": "6239d4cf92d864487ec8cd3615038f7b67e7f58b77b21cd2f09ea9fbd68065fe",
+  "sparkleVersion": "2.10.0",
+  "sparkleKeyAccount": "dev.friday.mac.updates",
+  "feedURL": "https://raw.githubusercontent.com/linc77/friday/updates/appcast.xml",
+  "publicKey": "ry53HI/OUx/ndH0K5QgiZW3GSSDlSCWsIAqnC1a7MF4="
+}

@@ -58,6 +58,11 @@ final class FridayStore: ObservableObject {
         #endif
         streamTask = Task {
             while !Task.isCancelled {
+                #if os(macOS)
+                if connection.token.isEmpty {
+                    let fresh = Connection(); if fresh.server == connection.server { connection.token = fresh.token }
+                }
+                #endif
                 do {
                     let snapshot = try await connection.decode(Snapshot.self, "/api/state")
                     if Task.isCancelled { return }

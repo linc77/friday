@@ -12,6 +12,8 @@
     "test": "tsx --test server/test/*.test.ts",
     "check": "pnpm typecheck && pnpm test",
     "mac:build": "bash scripts/build-mac.sh",
+    "mac:release": "pnpm check && pnpm apple:check && node scripts/build-mac.mjs --standalone && node scripts/package-mac.mjs",
+    "mac:publish": "node scripts/publish-mac.mjs",
     "mac:open": "bash scripts/open-mac.sh",
     "apple:check": "bash scripts/test-apple.sh",
     "service:install": "node scripts/service.mjs install",

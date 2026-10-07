@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": false, "rootDir": ".", "outDir": "dist/runtime" },
+  "include": ["server/src/**/*.ts"]
+}

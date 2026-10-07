@@ -12,6 +12,7 @@ import { IdeaImages, ideaContent, maxImageBytes } from './ideas.js';
 import type { Idea } from './types.js';
 import { projectChanges } from './projects.js';
 import { TaskGitContexts, gitRefreshInterval } from './git-context.js';
+import { ServiceMaintenance } from './maintenance.js';
 
 function text(value: unknown, name: string, max = 12_000): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error(`${name}不能为空，且长度不能超过 ${max}`);
@@ -26,6 +27,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   const app = new Hono<{ Variables: { device: string } }>();
   const images = new IdeaImages(engine.directory);
   const gitContexts = new TaskGitContexts();
+  const maintenance = new ServiceMaintenance(() => engine.snapshot());
   const normalLimit = bodyLimit({ maxSize: 256 * 1024 });
   const noteLimit = bodyLimit({ maxSize: 1024 * 1024 });
   const imageLimit = bodyLimit({ maxSize: Math.ceil(maxImageBytes / 3) * 4 + 4096 });
@@ -38,7 +40,14 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     await next();
   });
   app.onError((error, c) => c.json({ error: error.message || '请求失败' }, 400));
-  app.get('/health', c => c.json({ name: 'Friday', version: '0.1.0', status: 'ok' }));
+  app.use('*', async (c, next) => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(c.req.method) || c.req.path === '/api/service/update') return next();
+    let leave: () => void;
+    try { leave = maintenance.enterWrite(); }
+    catch (error) { return c.json({ error: (error as Error).message }, 503); }
+    try { await next(); } finally { leave(); }
+  });
+  app.get('/health', c => c.json({ name: 'Friday', version: process.env.FRIDAY_APP_VERSION ?? '0.1.0', build: process.env.FRIDAY_SERVICE_BUILD ?? null, status: 'ok' }));
   app.post('/pair', async c => {
     const body = await c.req.json();
     const address = (c.env as any)?.incoming?.socket?.remoteAddress ?? 'local';
@@ -50,6 +59,15 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     c.set('device', device); await next();
   });
   app.get('/api/state', async c => c.json({ ...await gitContexts.snapshot(await engine.snapshot()), agents: agents(), devices: auth.devices(), deviceId: c.get('device'), notesVersion: 1 }));
+  app.post('/api/service/update', async c => {
+    if (c.get('device') !== 'owner') return c.json({ error: '只有主机可以安装更新' }, 403);
+    try { await maintenance.prepare(); return c.json({ ready: true }); }
+    catch (error) { return c.json({ error: (error as Error).message }, 409); }
+  });
+  app.delete('/api/service/update', c => {
+    if (c.get('device') !== 'owner') return c.json({ error: '只有主机可以取消更新' }, 403);
+    maintenance.cancel(); return c.json({ ok: true });
+  });
   app.get('/api/model', async c => c.json(await engine.modelConnection.status(c.get('device') === 'owner')));
   app.use('/api/model/*', async (c, next) => {
     if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置 Friday' }, 403);
