@@ -1,23 +1,22 @@
 # Friday logo
 
-当前图标为纯黑底（`#000000`）、柔和灰白 F（`#E6E6E6`）。F 保持直立粗笔画、圆润端头与转角，采用平面双色图形。
+当前图标为纯黑底（`#000000`）、柔和灰白 V（`#E6E6E6`）。V 表示罗马数字 5，呼应 Friday／周五。字形参考用户提供的 X 图标：几何直线、平直端头、尖角底部，左笔画镂空、右笔画实心，采用平面双色图形。
 
-- `friday-logo.png`：内置 imagegen 编辑得到的黑底白 F 方形母版，供 macOS、iOS 和应用内标识统一使用；导出时将 F 映射为当前的灰白色。
-- `friday-mac-icon.png`：最终 macOS 图标预览。底板完全不透明；1024 画布中的底板宽度仍为 800、圆角半径为 176，外部留白透明。
-- `friday-glass.png`、`friday-glass-dark.png`：保留的旧版玻璃素材，当前导出流程不再使用。
+- `friday-logo.svg`：唯一的矢量母版，白色 V 外轮廓与黑色镂空各由一个闭合多边形定义。所有边缘均为直线；同向斜边严格平行，各条笔画与镂空等宽。字形不使用曲线、图片生成或位图描摹。
+- `friday-logo.png`：由 SVG 导出的 1024 × 1024 黑底白 V 预览，不作为平台图标的输入。
+- `friday-mac-icon.png`：最终 macOS 图标预览。底板完全不透明；1024 画布中的底板宽度为 800、圆角半径为 176，外部留白透明。
+- `friday-glass.png`、`friday-glass-dark.png`：保留的旧版 F 玻璃素材，当前导出流程不再使用。
 
-导出时裁去母版周围 5.5% 的留白，保持 F 与底板的比例。对接近黑色和白色的像素做色阶归一化，再通过 `glyphLevel = 230` 将 F 统一映射为 `#E6E6E6`，同时保留轮廓抗锯齿。旧版玻璃底的 30% 透明度不再应用。
+矢量母版的坐标空间为 1024 × 1024。左右斜边的 `Δx/Δy` 分别为 `+9/16`、`−9/16`；黑色镂空的斜边使用相同角度，底部收口延续右笔画的角度。两个顶部端头在同一水平线上，底尖位于画布中轴。沿平行斜边之间测量，左侧两条白边各为 40.5 坐标单位的水平宽度，黑色通道为 81 单位，右侧实心笔画为 99 单位；这些宽度沿笔画保持不变，尖角交汇处按多边形相交收口。
 
-灰白色取自用户提供的 Dock 图标截图对比：第一个图标为银灰渐变，主体中位值约 `#CCCCCC`～`#E2E2E2`；第二个图标的浅色线条从上方约 `#FAFAFA` 渐变到下方约 `#E4E4E4`。这些是截图转为 sRGB 后的近似取样值，不是原始图标的色值定义。当前 F 使用接近这些浅色区域的固定灰白色，降低纯白在黑底上的视觉冲击。
+平台导出保留原有 5.5% 留白裁切比例，将白色映射为 `#E6E6E6`。每个尺寸直接填充矢量路径，再由系统抗锯齿生成像素，避免缩放生成图片造成的轮廓误差。
 
-在仓库根目录执行 `swift scripts/build-icons.swift`，仅导出图标素材。脚本使用 macOS AppKit 和 `iconutil` 生成：
+在仓库根目录执行 `swift scripts/build-icons.swift`。脚本用 macOS AppKit / Core Graphics 读取母版中的多边形，并使用 `iconutil` 生成：
 
+- `assets/brand/friday-logo.png`：全幅、纯白字形的母版预览。
+- `assets/brand/friday-mac-icon.png`：macOS 图标预览。
 - `apps/apple/Assets/Friday.icns`：macOS 多尺寸应用图标。
 - `apps/apple/Sources/FridayKit/Resources/FridayLogo.png`：应用内标识。
 - `apps/ios/Friday/Assets.xcassets/AppIcon.appiconset`：iPhone、iPad 和 App Store 图标，保持不透明、无预制圆角，由系统裁切。
 
 macOS 构建脚本将图标和 FridayKit 资源包复制到应用中，应用启动时主动加载图标。
-
-黑白版本提示词（内置 imagegen 编辑模式，以上一版 macOS 图标为输入）：
-
-> Use case: precise-object-edit, logo-brand. The attached image is the current Friday app icon to edit. Change the palette to a perfectly solid pure black background (#000000) and a pure white (#FFFFFF) capital F. Preserve the approved F silhouette exactly: upright broad strokes, deeply rounded pill-like terminals and rounded inside corners, same proportions, not a generic font. Convert the F into a clean flat white silhouette, with no gray shading, bevel, chrome, glow, shadow, outline, glass texture or reflections. The black background must be completely uniform, opaque and featureless. Asset preparation: remove ONLY the transparent outer canvas margin and the external rounded-square clipping so the original rounded-square tile's design becomes a FULL-BLEED SQUARE MASTER. The original F occupies about 48% of the tile width and 66% of the tile height; preserve this visual size and centered position relative to the black tile. The output must be a square image with solid black extending to all four edges and corners. A downstream native exporter will apply the macOS rounded-square mask and exact Dock margins. Do not draw a second tile, border or surrounding margin. No teal, extra symbols, text other than the single F, texture, decoration or mockup. Crisp high quality edges, flat two-color black and white.

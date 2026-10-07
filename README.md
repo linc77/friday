@@ -1,6 +1,6 @@
 # Friday
 
-<img src="assets/brand/friday-mac-icon.png" alt="Friday：浅灰磨砂玻璃底上的圆润石墨色 F" width="96" />
+<img src="assets/brand/friday-mac-icon.png" alt="Friday：黑底灰白几何 V，罗马数字 5 对应周五" width="96" />
 
 Friday 是你的个人 Agent：随手收集想法、关联项目、布置任务，再从任意已连接的设备查看进展和成果。
 

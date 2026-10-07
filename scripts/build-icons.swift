@@ -1,70 +1,84 @@
 // Run from the repository root: swift scripts/build-icons.swift
-// Converts the approved master into platform assets; does not generate artwork.
+// Renders the polygon SVG master directly at each platform size.
 import AppKit
 
 let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
 let files = FileManager.default
-let master = root.appendingPathComponent("assets/brand/friday-logo.png")
-guard let source = NSImage(contentsOf: master),
-      let sourceImage = source.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-    fatalError("Missing icon master: \(master.path)")
+let master = root.appendingPathComponent("assets/brand/friday-logo.svg")
+let document = try XMLDocument(contentsOf: master, options: .nodeLoadExternalEntitiesNever)
+guard let svg = document.rootElement(),
+      svg.attribute(forName: "viewBox")?.stringValue == "0 0 1024 1024" else {
+    fatalError("Expected a 1024-square SVG master: \(master.path)")
 }
-// Keep the generated silhouette, with black and soft neutral-white interiors.
-// The tonal clamp removes faint generated shading while retaining antialiasing.
+// This master deliberately uses only flat polygons. Curves and raster tracing
+// cannot enter the exported logo, and every size renders from the same vertices.
+let masterSize: CGFloat = 1024
+let polygons: [(path: CGPath, white: Bool)] = svg.elements(forName: "polygon").map { element in
+    guard let points = element.attribute(forName: "points")?.stringValue,
+          let fill = element.attribute(forName: "fill")?.stringValue,
+          fill == "#FFFFFF" || fill == "#000000" else {
+        fatalError("Logo polygons require points and a black or white fill.")
+    }
+    let tokens = points.split { $0 == "," || $0.isWhitespace }
+    let coordinates = tokens.compactMap { Double($0) }
+    guard coordinates.count == tokens.count, coordinates.count >= 6,
+          coordinates.count.isMultiple(of: 2), coordinates.allSatisfy({ $0.isFinite }) else {
+        fatalError("Invalid logo polygon: \(points)")
+    }
+    let path = CGMutablePath()
+    for offset in stride(from: 0, to: coordinates.count, by: 2) {
+        // SVG uses a top-left origin; native bitmap drawing uses bottom-left.
+        let point = CGPoint(x: coordinates[offset], y: Double(masterSize) - coordinates[offset + 1])
+        if offset == 0 { path.move(to: point) } else { path.addLine(to: point) }
+    }
+    path.closeSubpath()
+    return (path, fill == "#FFFFFF")
+}
+guard polygons.count == 2, polygons[0].white, !polygons[1].white else {
+    fatalError("Expected the white V followed by its black cutout.")
+}
 let glyphLevel: CGFloat = 230 // #E6E6E6, matching the softer whites in the Dock references.
-let masterCanvas = CGContext(
-    data: nil, width: sourceImage.width, height: sourceImage.height,
-    bitsPerComponent: 8, bytesPerRow: sourceImage.width * 4,
-    space: CGColorSpace(name: CGColorSpace.sRGB)!,
-    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
-)!
-masterCanvas.draw(sourceImage, in: CGRect(x: 0, y: 0, width: sourceImage.width, height: sourceImage.height))
-let pixels = masterCanvas.data!.assumingMemoryBound(to: UInt8.self)
-for offset in stride(from: 0, to: masterCanvas.bytesPerRow * sourceImage.height, by: 4) {
-    let luminance = (CGFloat(pixels[offset]) + CGFloat(pixels[offset + 1]) + CGFloat(pixels[offset + 2])) / (3 * 255)
-    let monochrome = UInt8((max(0, min(1, (luminance - 0.10) / 0.80)) * glyphLevel).rounded())
-    for channel in 0..<3 { pixels[offset + channel] = monochrome }
-    pixels[offset + 3] = 255
-}
-let artwork = NSImage(cgImage: masterCanvas.makeImage()!, size: source.size)
-// Preserve the previous F-to-tile proportions by trimming the master's margin.
-let artworkBounds = NSRect(origin: .zero, size: artwork.size)
-    .insetBy(dx: artwork.size.width * 0.055, dy: artwork.size.height * 0.055)
 
-func writePNG(size: Int, to url: URL, macOS: Bool = false) throws {
+func writePNG(size: Int, to url: URL, macOS: Bool = false, masterPreview: Bool = false) throws {
     let alpha = macOS ? CGImageAlphaInfo.premultipliedLast : CGImageAlphaInfo.noneSkipLast
     let canvas = CGContext(
         data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: size * 4,
         space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: alpha.rawValue
     )!
-    let context = NSGraphicsContext(cgContext: canvas, flipped: false)
-    NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = context
-    context.imageInterpolation = .high
-    let bounds = NSRect(x: 0, y: 0, width: size, height: size)
+    let bounds = CGRect(x: 0, y: 0, width: size, height: size)
+    let tile: CGRect
     if macOS {
-        NSColor.clear.setFill()
-        bounds.fill(using: .copy)
+        canvas.clear(bounds)
         let scale = CGFloat(size) / 1024
         // Match the approved Dock footprint; only the outer margin is transparent.
-        let tile = bounds.insetBy(dx: 112 * scale, dy: 112 * scale)
-        let shape = NSBezierPath(roundedRect: tile, xRadius: 176 * scale, yRadius: 176 * scale)
-        shape.addClip()
-        NSColor.black.setFill()
-        tile.fill()
-        artwork.draw(in: tile, from: artworkBounds, operation: .sourceOver, fraction: 1)
+        tile = bounds.insetBy(dx: 112 * scale, dy: 112 * scale)
+        canvas.addPath(CGPath(roundedRect: tile, cornerWidth: 176 * scale, cornerHeight: 176 * scale, transform: nil))
+        canvas.clip()
     } else {
         // iOS supplies the icon mask; its source must be full bleed and opaque.
-        NSColor.black.setFill()
-        bounds.fill()
-        artwork.draw(in: bounds, from: artworkBounds, operation: .sourceOver, fraction: 1)
+        tile = bounds
     }
-    NSGraphicsContext.restoreGraphicsState()
+    canvas.setFillColor(red: 0, green: 0, blue: 0, alpha: 1)
+    canvas.fill(tile)
+    // Keep the existing platform proportions; the PNG preview shows the full SVG.
+    let margin: CGFloat = masterPreview ? 0 : masterSize * 0.055
+    let artworkBounds = CGRect(x: margin, y: margin, width: masterSize - 2 * margin, height: masterSize - 2 * margin)
+    canvas.translateBy(x: tile.minX, y: tile.minY)
+    canvas.scaleBy(x: tile.width / artworkBounds.width, y: tile.height / artworkBounds.height)
+    canvas.translateBy(x: -artworkBounds.minX, y: -artworkBounds.minY)
+    let white = (masterPreview ? 255 : glyphLevel) / 255
+    for polygon in polygons {
+        let level = polygon.white ? white : 0
+        canvas.setFillColor(red: level, green: level, blue: level, alpha: 1)
+        canvas.addPath(polygon.path)
+        canvas.fillPath()
+    }
     let bitmap = NSBitmapImageRep(cgImage: canvas.makeImage()!)
     try files.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     try bitmap.representation(using: .png, properties: [:])!.write(to: url)
 }
 
+try writePNG(size: 1024, to: root.appendingPathComponent("assets/brand/friday-logo.png"), masterPreview: true)
 try writePNG(size: 256, to: root.appendingPathComponent("apps/apple/Sources/FridayKit/Resources/FridayLogo.png"))
 try writePNG(size: 1024, to: root.appendingPathComponent("assets/brand/friday-mac-icon.png"), macOS: true)
 
