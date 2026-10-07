@@ -127,7 +127,6 @@ struct TaskDetail: View {
                 Text("/").foregroundStyle(.tertiary)
                 Text(task.title).font(.callout.weight(.medium)).lineLimit(1).textSelection(.enabled)
                 Spacer(minLength: 8)
-                StatusBadge(task: task)
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Friday").font(.caption).foregroundStyle(.secondary)

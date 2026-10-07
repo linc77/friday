@@ -26,9 +26,13 @@ struct ProviderModelPreferencesTests {
         """.utf8)
         var settings = try JSONDecoder().decode(CodexProviderSettings.self, from: oldSettings)
         precondition(settings.customModels.isEmpty, "Existing service settings still decode")
+        precondition(settings.permissionMode == "auto", "Existing settings default to Auto")
+        settings.permissionMode = "default"
         settings.customModels.append(CustomProviderModel(id: "gateway/custom", name: "Custom"))
         let decoded = try JSONDecoder().decode(CodexProviderSettings.self, from: JSONEncoder().encode(settings))
         precondition(decoded.customModels == settings.customModels)
+        precondition(decoded.permissionMode == "default")
+        precondition(settings.body["permissionMode"] as? String == "default", "Settings writes include the chosen mode")
         print("Model favorites, visibility, order, host isolation, and settings compatibility passed")
     }
 }

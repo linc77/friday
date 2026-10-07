@@ -2,6 +2,13 @@ import Foundation
 
 /// UI terminology is Workspace; the existing service keeps its Project contract.
 enum TaskWorkspaces {
+    struct Group: Identifiable {
+        let id: String
+        let name: String
+        let project: Project?
+        var tasks: [WorkItem]
+    }
+
     static func project(for task: WorkItem, in projects: [Project]) -> Project? {
         if let id = task.projectId { return projects.first { $0.id == id } }
         return projects.first { normalized($0.path) == normalized(task.cwd) }
@@ -20,6 +27,27 @@ enum TaskWorkspaces {
                 && (search.isEmpty || [task.title, name(for: task, in: projects), task.agentName]
                     .contains { $0.localizedStandardContains(search) })
         }.sorted { $0.updatedAt == $1.updatedAt ? $0.id < $1.id : $0.updatedAt > $1.updatedAt }
+    }
+
+    static func groups(_ input: [WorkItem], projects: [Project]) -> [Group] {
+        var groups: [Group] = []
+        var indices: [String: Int] = [:]
+        // The first task is the most recent, so both groups and their tasks
+        // retain activity order. Names alone never identify a workspace.
+        for task in tasks(input, scope: nil, projects: projects) {
+            let project = project(for: task, in: projects)
+            let id: String
+            if let project { id = "project:\(project.id)" }
+            else if let projectId = task.projectId { id = "missing-project:\(projectId)" }
+            else { id = "directory:\(normalized(task.cwd))" }
+            if let index = indices[id] {
+                groups[index].tasks.append(task)
+            } else {
+                indices[id] = groups.count
+                groups.append(Group(id: id, name: name(for: task, in: projects), project: project, tasks: [task]))
+            }
+        }
+        return groups
     }
 
     private static func normalized(_ path: String) -> String {

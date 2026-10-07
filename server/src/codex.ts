@@ -105,7 +105,11 @@ export class CodexExecutor implements Executor {
       await rpc.call('initialize', { clientInfo: { name: 'friday', version: '0.1.0', title: 'Friday' }, capabilities: { experimentalApi: true } });
       rpc.send({ method: 'initialized' });
       const unscoped = !task.projectId;
-      const params = { cwd: task.cwd, model: configured?.model, approvalPolicy: unscoped ? 'never' : 'on-request', approvalsReviewer: 'user', sandbox: task.mode === 'research' || unscoped ? 'read-only' : 'workspace-write' };
+      const params = {
+        cwd: task.cwd, model: configured?.model, approvalPolicy: unscoped ? 'never' : 'on-request',
+        approvalsReviewer: !unscoped && (configured?.permissionMode ?? 'auto') === 'auto' ? 'auto_review' : 'user',
+        sandbox: task.mode === 'research' || unscoped ? 'read-only' : 'workspace-write',
+      };
       const response = task.threadId
         ? await rpc.call('thread/resume', { ...params, threadId: task.threadId })
         : await rpc.call('thread/start', { ...params, dynamicTools: this.workspace ? [...fridayTools, ...personalTools] : fridayTools, developerInstructions: 'You are Codex, a local execution agent working on a specific task delegated by Friday. Friday owns the main conversation and user context. Respond naturally in Chinese and stay within this task. Without a selected workspace, answer and research read-only; call friday_request_workspace when local project access is needed, then end the turn and wait for selection. Use friday_workspace to read personal context and friday_save_note for requested notes when available. Use friday_save_idea only for explicit capture-only requests. Use friday_remember only when the user explicitly asks to save a long-term preference. Stay within the user\'s task and selected workspace. Do not commit, push, deploy, purchase, or send messages to other people unless explicitly requested. Report concrete results and limitations. Do not create or message other Codex chats or spawn subagents unless explicitly requested.' });

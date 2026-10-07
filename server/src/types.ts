@@ -1,12 +1,15 @@
 export type TaskStatus = 'queued' | 'running' | 'waiting' | 'needs_project' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
 export type IdeaImage = { id: string; name: string; mediaType: string };
 export type Idea = { id: string; text: string; createdAt: string; taskId: string | null; title?: string; updatedAt?: string; images?: IdeaImage[]; lastEditId?: string };
-export type Project = { id: string; name: string; path: string; context: string };
+export type Project = { id: string; name: string; path: string; context: string; icon?: string; color?: string };
 export type Memory = { id: string; text: string; updatedAt: string };
 export type Question = { id: string; header: string; question: string; options: { label: string; description: string }[] };
 export type Approval = { id: string; method: string; title: string; detail: string; questions: Question[]; state: 'pending' | 'answered' | 'expired'; decision?: 'accept' | 'decline'; answers?: Record<string, string[]> };
 export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; at?: string; turnId?: string };
 export type TaskMode = 'auto' | 'assistant' | 'research' | 'code';
+export type TaskGitContext =
+  | { status: 'repository'; branch: string | null; head: string | null; isWorktree: boolean }
+  | { status: 'not_repository' | 'unavailable' };
 export type TaskEvent = {
   id: string; kind: string; text: string; at: string;
   itemId?: string; turnId?: string; phase?: 'commentary' | 'final_answer';
@@ -24,6 +27,7 @@ export type WorkItem = {
   parentId?: string; model?: string; reasoningEffort?: string;
   artifact: string | null; lastRequestId: string;
   workspaceRequest?: string | null;
+  git?: TaskGitContext; // Read-only API metadata; not persisted by the engine.
 };
 export type Workspace = {
   revision: number; ideas: Idea[]; projects: Project[]; memories: Memory[];

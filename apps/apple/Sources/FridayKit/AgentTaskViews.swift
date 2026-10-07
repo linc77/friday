@@ -21,6 +21,7 @@ struct NewAgentTaskView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
+            #if !os(macOS)
             HStack {
                 if let project {
                     Text(project.name).font(.callout).foregroundStyle(.secondary).lineLimit(1)
@@ -29,6 +30,7 @@ struct NewAgentTaskView: View {
                 Text(friday: "新任务").font(.title3.weight(.semibold))
                 Spacer()
             }
+            #endif
             if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
             Spacer(minLength: 20)
             VStack(spacing: 10) {
@@ -136,10 +138,6 @@ struct AgentTaskComposer: View {
                 #endif
                 Spacer(minLength: 0)
             }.font(.callout).foregroundStyle(.secondary)
-            HStack(spacing: 8) {
-                FridaySymbolLabel(friday: "按需确认", systemImage: "lock").fridaySymbolFeedback()
-                Spacer(minLength: 8)
-            }.font(.caption).foregroundStyle(.secondary)
         }
         .padding(16).fridayCard(highlighted: focused)
         .task(id: task?.id) { provider = task?.agent ?? "codex"; model = task?.model ?? ""; effort = task?.reasoningEffort ?? "" }

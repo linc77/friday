@@ -10,6 +10,8 @@ import { discoverAgents } from './agents.js';
 import { activeStatuses } from './types.js';
 import { IdeaImages, ideaContent, maxImageBytes } from './ideas.js';
 import type { Idea } from './types.js';
+import { projectChanges } from './projects.js';
+import { TaskGitContexts, gitRefreshInterval } from './git-context.js';
 
 function text(value: unknown, name: string, max = 12_000): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error(`${name}不能为空，且长度不能超过 ${max}`);
@@ -23,6 +25,7 @@ function optionalModel(value: unknown): string | undefined {
 export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   const app = new Hono<{ Variables: { device: string } }>();
   const images = new IdeaImages(engine.directory);
+  const gitContexts = new TaskGitContexts();
   const normalLimit = bodyLimit({ maxSize: 256 * 1024 });
   const noteLimit = bodyLimit({ maxSize: 1024 * 1024 });
   const imageLimit = bodyLimit({ maxSize: Math.ceil(maxImageBytes / 3) * 4 + 4096 });
@@ -46,7 +49,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     if (!device) return c.json({ error: '请先连接或配对设备' }, 401);
     c.set('device', device); await next();
   });
-  app.get('/api/state', async c => c.json({ ...await engine.snapshot(), agents: agents(), devices: auth.devices(), deviceId: c.get('device'), notesVersion: 1 }));
+  app.get('/api/state', async c => c.json({ ...await gitContexts.snapshot(await engine.snapshot()), agents: agents(), devices: auth.devices(), deviceId: c.get('device'), notesVersion: 1 }));
   app.get('/api/model', async c => c.json(await engine.modelConnection.status(c.get('device') === 'owner')));
   app.use('/api/model/*', async (c, next) => {
     if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置 Friday' }, 403);
@@ -76,15 +79,21 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   app.put('/api/agents/claude/settings', async c => c.json(await engine.claudeConnection.save(await c.req.json())));
   app.post('/api/agents/claude/check', async c => c.json(await engine.claudeConnection.status(true, true)));
   app.get('/api/events', c => streamSSE(c, async stream => {
-    let dirty = true; let ended = false;
+    let dirty = true; let ended = false; let nextGitRefresh = 0; let previousGit = '';
     const changed = () => { dirty = true; };
     engine.on('change', changed); stream.onAbort(() => { ended = true; engine.off('change', changed); });
     try {
       while (!ended) {
         if (!auth.identify(c.req.header('Authorization')?.replace(/^Bearer /, ''))) break;
-        if (dirty) {
-          dirty = false; const state = await engine.snapshot();
-          await stream.writeSSE({ event: 'snapshot', id: String(state.revision), data: JSON.stringify(state) });
+        if (dirty || Date.now() >= nextGitRefresh) {
+          const stateChanged = dirty; dirty = false;
+          const state = await gitContexts.snapshot(await engine.snapshot());
+          nextGitRefresh = Date.now() + gitRefreshInterval;
+          const currentGit = JSON.stringify(state.tasks.map(task => [task.id, task.git]));
+          if (stateChanged || currentGit !== previousGit) {
+            await stream.writeSSE({ event: 'snapshot', id: String(state.revision), data: JSON.stringify(state) });
+            previousGit = currentGit;
+          } else await stream.writeSSE({ event: 'heartbeat', data: '{}' });
         } else await stream.writeSSE({ event: 'heartbeat', data: '{}' });
         await stream.sleep(800);
       }
@@ -138,14 +147,14 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   });
   app.delete('/api/ideas/:id', async c => { await engine.mutate(s => { s.ideas = s.ideas.filter(i => i.id !== c.req.param('id')); }); return c.json({ ok: true }); });
   app.post('/api/projects', async c => {
-    const body = await c.req.json(); const path = text(body.path, '项目目录', 4096);
+    const body = await c.req.json(); const changes = projectChanges(body); const path = text(body.path, '项目目录', 4096);
     if (!isAbsolute(path) || !(await stat(path)).isDirectory()) throw new Error('请选择主机上存在的绝对目录');
-    const project = { id: randomUUID(), name: text(body.name, '项目名称', 120), path: await realpath(path), context: typeof body.context === 'string' ? body.context.slice(0, 20_000) : '' };
+    const project = { id: randomUUID(), path: await realpath(path), context: '', ...changes };
     await engine.mutate(s => { if (s.projects.some(p => p.path === project.path)) throw new Error('这个目录已经添加'); s.projects.push(project); }); return c.json(project, 201);
   });
   app.put('/api/projects/:id', async c => {
-    const body = await c.req.json();
-    await engine.mutate(s => { const p = s.projects.find(p => p.id === c.req.param('id')); if (!p) throw new Error('项目不存在'); p.name = text(body.name, '名称', 120); p.context = typeof body.context === 'string' ? body.context.slice(0, 20_000) : ''; });
+    const changes = projectChanges(await c.req.json());
+    await engine.mutate(s => { const p = s.projects.find(p => p.id === c.req.param('id')); if (!p) throw new Error('项目不存在'); Object.assign(p, changes); });
     return c.json({ ok: true });
   });
   app.post('/api/memories', async c => {

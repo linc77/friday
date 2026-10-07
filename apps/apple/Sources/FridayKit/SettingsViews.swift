@@ -5,6 +5,7 @@ import AppKit
 
 struct ProjectsView: View {
     @ObservedObject var store: FridayStore
+    @Environment(\.locale) private var locale
     @State private var adding = false
     @State private var editing: Project?
     var body: some View {
@@ -23,10 +24,7 @@ struct ProjectsView: View {
                         Button { editing = project } label: {
                             VStack(alignment: .leading, spacing: 16) {
                                 HStack {
-                                    FridaySymbolImage(systemName: "folder").font(.system(size: 23, weight: .light))
-                                        .foregroundStyle(FridayTheme.accent)
-                                        .frame(width: 48, height: 48)
-                                        .background(FridayTheme.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 15))
+                                    WorkspaceIcon(name: project.name, icon: project.icon, color: project.color, size: 48)
                                     Spacer()
                                     FridaySymbolImage(systemName: "arrow.up.right").font(.caption).foregroundStyle(.tertiary)
                                 }
@@ -46,8 +44,8 @@ struct ProjectsView: View {
                 }
             }.padding(28).frame(maxWidth: 960).frame(maxWidth: .infinity)
         }.background(FridayTheme.canvas)
-        .sheet(isPresented: $adding) { ProjectEditor(store: store, project: nil) }
-        .sheet(item: $editing) { ProjectEditor(store: store, project: $0) }
+        .sheet(isPresented: $adding) { ProjectEditor(store: store, project: nil).environment(\.locale, locale) }
+        .sheet(item: $editing) { ProjectEditor(store: store, project: $0).environment(\.locale, locale) }
     }
 }
 
@@ -70,11 +68,14 @@ struct ProjectEditor: View {
     @State private var name = ""
     @State private var path = ""
     @State private var context = ""
+    @State private var icon = "folder"
+    @State private var color = "blue"
     @State private var busy = false
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack { Text(fridayString: project == nil ? "添加 Workspace" : "Workspace 背景").font(.title2.bold()); Spacer(); Button(friday: "取消") { dismiss() } }
             TextField(friday: "Workspace 名称", text: $name).textFieldStyle(.roundedBorder)
+            WorkspaceAppearancePicker(icon: $icon, color: $color)
             HStack {
                 TextField(friday: "主机上的绝对目录", text: $path).textFieldStyle(.roundedBorder).disabled(project != nil)
                 #if os(macOS)
@@ -87,13 +88,19 @@ struct ProjectEditor: View {
             if let error = store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
             HStack { Spacer(); Button(friday: "保存 Workspace") {
                 busy = true
-                Task { if await store.perform(project.map { "/api/projects/\($0.id)" } ?? "/api/projects", method: project == nil ? "POST" : "PUT", body: ["name": name, "path": path, "context": context]) { dismiss() }; busy = false }
-            }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(busy || name.isEmpty || path.isEmpty || !store.connected) }
+                Task { if await store.perform(project.map { "/api/projects/\($0.id)" } ?? "/api/projects", method: project == nil ? "POST" : "PUT", body: ["name": name, "path": path, "context": context, "icon": icon, "color": color]) { dismiss() }; busy = false }
+            }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(busy || !WorkspaceStyle.validName(name) || path.isEmpty || !store.connected) }
         }.padding(26)
         #if os(macOS)
         .frame(width: 560)
         #endif
-        .onAppear { if let project { name = project.name; path = project.path; context = project.context } }
+        .interactiveDismissDisabled(busy)
+        .onAppear {
+            if let project {
+                name = project.name; path = project.path; context = project.context
+                icon = WorkspaceStyle.icon(project.icon); color = WorkspaceStyle.color(project.color, name: project.name)
+            }
+        }
     }
 }
 

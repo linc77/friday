@@ -44,7 +44,7 @@ export class ClaudeExecutor implements Executor {
         cwd: task.cwd, pathToClaudeCodeExecutable: configured.command, env: configured.env,
         model: configured.model, effort: configured.effort as EffortLevel | undefined,
         ...(task.threadId ? { resume: sessionId } : { sessionId }),
-        abortController, includePartialMessages: true, permissionMode: 'default', settingSources: configured.settingSources,
+        abortController, includePartialMessages: true, permissionMode: configured.permissionMode, settingSources: configured.settingSources,
         // Independent local tasks do not spawn more agents. Research stays read-only.
         disallowedTools: ['Agent', 'Task', ...(task.mode === 'research' || !task.projectId ? ['Bash', 'Write', 'Edit', 'NotebookEdit', 'EnterWorktree', 'ExitWorktree'] : [])],
         systemPrompt: { type: 'preset', preset: 'claude_code', append: 'You are Claude Code executing a specific local task delegated by Friday. Respond naturally in Chinese. Stay within the user request and selected workspace. Friday owns the main conversation. Do not commit, push, deploy, purchase, send messages, or spawn subagents unless explicitly requested. On continuation inspect current results before repeating any external action. Report concrete results and limitations.' },

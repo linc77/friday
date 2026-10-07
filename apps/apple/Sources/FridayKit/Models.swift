@@ -27,7 +27,10 @@ struct Idea: Codable, Identifiable, Equatable {
         }.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
-struct Project: Codable, Identifiable { let id: String; var name: String; let path: String; var context: String }
+struct Project: Codable, Identifiable {
+    let id: String; var name: String; let path: String; var context: String
+    var icon: String? = nil; var color: String? = nil
+}
 struct MemoryItem: Codable, Identifiable { let id: String; let text: String; let updatedAt: String }
 struct AgentInfo: Codable, Identifiable { let id: String; let name: String; let installed: Bool; let executable: String?; let executableSupported: Bool; let description: String }
 struct Device: Codable, Identifiable { let id: String; let name: String; let createdAt: String }
@@ -61,9 +64,10 @@ struct CodexProviderSettings: Codable, Equatable {
     var homePath = ""; var shadowHomePath = ""; var launchArgs = ""
     var model = ""; var reasoningEffort = ""; var environment: [CodexEnvironmentVariable] = []
     var customModels: [CustomProviderModel] = []
+    var permissionMode = "auto"
     init() {}
     enum CodingKeys: String, CodingKey {
-        case enabled, displayName, binaryPath, homePath, shadowHomePath, launchArgs, model, reasoningEffort, environment, customModels
+        case enabled, displayName, binaryPath, homePath, shadowHomePath, launchArgs, model, reasoningEffort, environment, customModels, permissionMode
     }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -77,6 +81,7 @@ struct CodexProviderSettings: Codable, Equatable {
         reasoningEffort = try values.decode(String.self, forKey: .reasoningEffort)
         environment = try values.decode([CodexEnvironmentVariable].self, forKey: .environment)
         customModels = try values.decodeIfPresent([CustomProviderModel].self, forKey: .customModels) ?? []
+        permissionMode = try values.decodeIfPresent(String.self, forKey: .permissionMode) ?? "auto"
     }
     var body: [String: Any] {
         var body = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(self))) as? [String: Any] ?? [:]
@@ -98,6 +103,12 @@ struct CodexConnectionState: Decodable {
     let checkedAt: String; let error: String?; let loginPending: Bool; let settings: CodexProviderSettings?
 }
 struct CodexLoginResponse: Decodable { let url: String }
+struct TaskGitContext: Codable {
+    let status: String
+    var branch: String? = nil
+    var head: String? = nil
+    var isWorktree: Bool? = nil
+}
 struct WorkItem: Codable, Identifiable {
     let id: String; let title: String; let prompt: String; let projectId: String?; let cwd: String
     let agent: String; let mode: String; let status: String; let createdAt: String; let updatedAt: String
@@ -105,6 +116,7 @@ struct WorkItem: Codable, Identifiable {
     let result: String; let error: String?; let events: [TaskEvent]; let approvals: [Approval]; let artifact: String?
     let workspaceRequest: String?; let messages: [ChatMessage]?
     let parentId: String?; let model: String?; let reasoningEffort: String?
+    var git: TaskGitContext? = nil
     var localAgent: Bool { agent != "friday" }
     var agentName: String { agent == "codex" ? "Codex" : agent == "claude" ? "Claude Code" : "Friday" }
     var conversation: [ChatMessage] {
