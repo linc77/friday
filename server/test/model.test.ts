@@ -46,6 +46,20 @@ test('Codex probe paginates models, detects auth, redacts environment and preser
   } finally { await connection.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
+test('Codex custom models survive refresh without invented capabilities and are passed to the runtime', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-codex-custom-')); const connection = new CodexConnection(directory);
+  try {
+    const state = await connection.save({ ...config(directory), model: 'gateway/custom', reasoningEffort: '', customModels: [{ id: 'gateway/custom', name: 'Custom gateway' }, { id: 'first', name: 'Duplicate built-in' }] });
+    assert.deepEqual(state.models.map(model => model.id), ['first', 'second', 'gateway/custom']);
+    assert.equal(state.models[2]?.isCustom, true); assert.deepEqual(state.models[2]?.reasoningEfforts, []);
+    assert.equal((await connection.runtime()).model, 'gateway/custom');
+    assert.ok((await connection.status(true, true)).models.some(model => model.id === 'gateway/custom'));
+    await assert.rejects(connection.save({ ...config(directory), customModels: [{ id: 'bad id', name: '' }] }), /无效/);
+    await connection.save({ ...config(directory), model: 'missing-default', customModels: [] });
+    await assert.rejects(connection.runtime(), /不可用/);
+  } finally { await connection.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
 test('Codex shadow home shares config and sessions while protecting independent credentials and existing files', async () => {
   const root = await mkdtemp(join(tmpdir(), 'friday-shadow-')); const shared = join(root, 'shared'); const shadow = join(root, 'shadow');
   try {

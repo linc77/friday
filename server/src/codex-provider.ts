@@ -1,7 +1,8 @@
 import { CodexRpc } from './codex-rpc.js';
 import { codexRuntime, loadCodexSettings, saveCodexSettings, validateSettings, type CodexSettings } from './codex-settings.js';
+import { appendCustomModels, type ProviderModel } from './provider-models.js';
 
-export type CodexModel = { id: string; name: string; description: string; isDefault: boolean; reasoningEfforts: string[]; defaultReasoningEffort: string };
+export type CodexModel = ProviderModel;
 type Probe = { connected: boolean; installed: boolean; version: string | null; account: { type: string; email: string | null; plan: string | null } | null; models: CodexModel[]; checkedAt: string; error: string | null };
 export type ModelStatus = Omit<Probe, 'connected'> & {
   provider: string; displayName: string; enabled: boolean; model: string; connected: boolean; loginPending: boolean;
@@ -75,7 +76,7 @@ export class CodexConnection {
       provider: 'Codex', displayName: settings.displayName, enabled: settings.enabled, model,
       connected: settings.enabled && probe.connected, installed: probe.installed, version: probe.version,
       account: probe.account ? { ...probe.account, email: owner ? probe.account.email : null } : null,
-      models: probe.models, checkedAt: probe.checkedAt, error: probe.error, loginPending: !!this.loginClient,
+      models: appendCustomModels(probe.models, settings.customModels), checkedAt: probe.checkedAt, error: probe.error, loginPending: !!this.loginClient,
       settings: owner ? { ...settings, environment: settings.environment.map(e => ({ name: e.name, value: null, hasValue: true })) } : null,
     };
   }
@@ -91,7 +92,7 @@ export class CodexConnection {
     const model = selection?.model || state.model;
     const effort = selection?.reasoningEffort || (selection?.model ? '' : settings.reasoningEffort);
     const selected = state.models.find(m => m.id === model);
-    if (selection?.model && !selected) throw new Error('当前 Codex 模型不可用，请重新选择。');
+    if (model && !selected) throw new Error('当前 Codex 模型不可用，请重新选择。');
     if (effort && selected && !selected.reasoningEfforts.includes(effort)) throw new Error('当前模型不支持所选推理强度，请在 Providers 的 Codex 页面中重新选择。');
     return { ...await codexRuntime(settings), model: model || undefined, effort: effort || selected?.defaultReasoningEffort || undefined };
   }

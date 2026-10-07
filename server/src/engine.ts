@@ -14,6 +14,9 @@ import { fileURLToPath } from 'node:url';
 import { WorkspaceDoc } from './state.js';
 import { ModelConnection } from './model.js';
 import { CodexConnection } from './codex-provider.js';
+import { ClaudeConnection } from './claude-provider.js';
+import { ClaudeExecutor } from './claude.js';
+import { LocalAgentExecutor } from './local-agents.js';
 import { FridayAssistant } from './assistant.js';
 
 const now = () => new Date().toISOString();
@@ -39,13 +42,15 @@ export class Engine extends EventEmitter {
   readonly modelConnection: ModelConnection;
   readonly assistant: FridayAssistant;
   readonly codexConnection: CodexConnection;
+  readonly claudeConnection: ClaudeConnection;
   private readonly customExecutor: boolean;
   constructor(readonly directory: string, executor?: Executor, readonly agentOptions?: { models: Models; model: ModelRef }) {
     super();
     this.customExecutor = executor !== undefined;
     this.modelConnection = new ModelConnection(directory);
     this.codexConnection = new CodexConnection(directory);
-    this.executor = executor ?? new CodexExecutor(undefined, this.codexConnection, () => this.snapshot());
+    this.claudeConnection = new ClaudeConnection(directory);
+    this.executor = executor ?? new LocalAgentExecutor({ codex: new CodexExecutor(undefined, this.codexConnection, () => this.snapshot()), claude: new ClaudeExecutor(this.claudeConnection) });
     this.assistant = new FridayAssistant(this);
     this.response = this.createResponse();
     this.execution = defineTask<Input, Checkpoint, { status: string }, {}>({
@@ -73,7 +78,7 @@ export class Engine extends EventEmitter {
             return;
           }
           await runtime.memo('external-started', true, ctx);
-          await this.patchTask(task.input.id, item => { item.status = 'running'; item.error = null; item.events.push(event('status', '正在连接本地 Codex')); });
+          await this.patchTask(task.input.id, item => { item.status = 'running'; item.error = null; item.events.push(event('status', item.agent === 'claude' ? '正在连接本地 Claude' : '正在连接本地 Codex')); });
           try {
             const work = (await this.snapshot()).tasks.find(t => t.id === task.input.id)!;
             const result = await this.executor.run({ task: work, prompt: task.input.prompt, signal: runtime.signal, update: update => this.updateExecution(work.id, update) });
@@ -207,16 +212,17 @@ export class Engine extends EventEmitter {
       if (item.events.length > 600) item.events.splice(0, item.events.length - 600);
     });
   }
-  async createTask(input: { prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; agent?: 'friday' | 'codex'; parentId?: string; model?: string; reasoningEffort?: string }) {
+  async createTask(input: { prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; agent?: 'friday' | 'codex' | 'claude'; parentId?: string; model?: string; reasoningEffort?: string }) {
     if (['__proto__', 'constructor', 'prototype'].includes(input.requestId)) throw new Error('请求 ID 无效');
     const snapshot = await this.snapshot();
     if (Object.hasOwn(snapshot.requests, input.requestId)) return snapshot.requests[input.requestId];
     const previous = snapshot.tasks.find(t => t.id === input.continueId);
-    const native = (previous?.agent ?? input.agent ?? 'friday') === 'friday';
+    const agent = previous?.agent ?? input.agent ?? 'friday';
+    const native = agent === 'friday';
     if (previous && input.agent && input.agent !== previous.agent) throw new Error('不能切换会话所属 Agent，请新建任务');
     if (native && !this.agentOptions) await this.modelConnection.ready();
-    if (!native && !this.customExecutor) await this.codexConnection.ready();
-    if (!native && input.mode === 'assistant') throw new Error('主对话由 Friday 处理，请从任务入口调用 Codex');
+    if (!native && !this.customExecutor) await (agent === 'claude' ? this.claudeConnection : this.codexConnection).runtime({ model: input.model ?? previous?.model, reasoningEffort: input.reasoningEffort ?? previous?.reasoningEffort });
+    if (!native && input.mode === 'assistant') throw new Error('主对话由 Friday 处理，请从任务入口调用本地 Agent');
     const project = snapshot.projects.find(p => p.id === input.projectId);
     if (input.projectId && !project) throw new Error('项目不存在');
     if (input.mode === 'code' && !project) throw new Error('代码任务需要先选择一个项目目录');
@@ -242,7 +248,7 @@ export class Engine extends EventEmitter {
       const stamp = now();
       const task: WorkItem = work ?? {
         id: randomUUID(), title: input.prompt.slice(0, 64), prompt: input.prompt, projectId: input.projectId,
-        cwd: project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent: native ? 'friday' : 'codex',
+        cwd: project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent,
         status: 'queued', createdAt: stamp, updatedAt: stamp, durableId: null, threadId: null, turnId: null,
         result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: input.requestId,
         messages: [], workspaceRequest: null,
@@ -325,7 +331,7 @@ export class Engine extends EventEmitter {
     }
     await this.patchTask(id, item => {
       if (!activeStatuses.includes(item.status)) return;
-      if (update.kind === 'session') { item.threadId = update.threadId; if (update.codexHome) item.codexHome = update.codexHome; if (update.model) item.model = update.model; if (update.reasoningEffort) item.reasoningEffort = update.reasoningEffort; }
+      if (update.kind === 'session') { item.threadId = update.threadId; if (update.codexHome) item.codexHome = update.codexHome; if (update.claudeHome) item.claudeHome = update.claudeHome; if (update.model) item.model = update.model; if (update.reasoningEffort !== undefined) item.reasoningEffort = update.reasoningEffort; }
       if (update.kind === 'turn') {
         item.turnId = update.turnId;
         const user = item.messages?.findLast(m => m.role === 'user');
@@ -362,7 +368,7 @@ export class Engine extends EventEmitter {
     const task = (await this.snapshot()).tasks.find(t => t.id === id);
     const approval = task?.approvals.find(a => a.id === approvalId && a.state === 'pending');
     if (!approval) throw new Error('授权请求已过期');
-    if (approval.method.includes('requestUserInput') && approval.questions.some(q => !answers[q.id]?.some(v => v.trim()))) throw new Error('请回答所有问题');
+    if (decision === 'accept' && approval.method.includes('requestUserInput') && approval.questions.some(q => !answers[q.id]?.some(v => v.trim()))) throw new Error('请回答所有问题');
     if (approval.method.startsWith('friday/')) {
       await this.patchTask(id, item => { const a = item.approvals.find(a => a.id === approvalId)!; a.decision = decision; a.answers = answers; });
     } else await this.executor.answer(id, approvalId, decision, answers);
@@ -389,6 +395,6 @@ export class Engine extends EventEmitter {
   }
   async close() {
     if (this.closed) return; this.closed = true;
-    await this.modelConnection.close(); await this.codexConnection.close(); await this.harness.close(context); await this.watch?.stop(); this.lease.close(); this.removeAllListeners();
+    await this.modelConnection.close(); await this.codexConnection.close(); await this.claudeConnection.close(); await this.harness.close(context); await this.watch?.stop(); this.lease.close(); this.removeAllListeners();
   }
 }

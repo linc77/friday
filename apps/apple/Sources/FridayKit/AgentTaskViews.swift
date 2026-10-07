@@ -18,7 +18,7 @@ struct NewAgentTaskView: View {
             HStack {
                 Text(friday: "新任务").font(.title3.weight(.semibold))
                 Spacer()
-                Text("Codex").font(.callout).foregroundStyle(.secondary)
+                Text("Claude · Codex").font(.callout).foregroundStyle(.secondary)
             }
             SettingsGroup("项目") {
                 SettingsRow("工作目录", detail: "本地 Agent 在你选择的项目中执行。") {
@@ -38,7 +38,7 @@ struct NewAgentTaskView: View {
             }
             if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
             Spacer(minLength: 20)
-            Text(friday: "主对话由 Friday 处理。这里是独立的任务会话，当前支持 Codex。")
+            Text(friday: "选择模型，把任务交给 Claude 或 Codex。关闭窗口也不影响执行。")
                 .font(.caption).foregroundStyle(.secondary)
             AgentTaskComposer(store: store, projectPath: project?.path, requiresProject: true, message: $message, sending: sending, send: send)
         }
@@ -62,12 +62,12 @@ struct NewAgentTaskView: View {
     }
     #endif
 
-    private func send(_ model: String, _ effort: String) {
+    private func send(_ provider: String, _ model: String, _ effort: String) {
         guard let project, !sending else { return }
         let prompt = message; sending = true; error = nil
         Task {
             do {
-                let id = try await store.createTask(prompt: prompt, requestId: requestId, projectId: project.id, agent: "codex", model: model, reasoningEffort: effort)
+                let id = try await store.createTask(prompt: prompt, requestId: requestId, projectId: project.id, agent: provider, model: model, reasoningEffort: effort)
                 message = ""; requestId = UUID().uuidString; onCreated(id)
             } catch { self.error = error.localizedDescription }
             sending = false
@@ -82,12 +82,18 @@ struct AgentTaskComposer: View {
     var requiresProject = false
     @Binding var message: String
     let sending: Bool
-    let send: (String, String) -> Void
-    @State private var state: CodexConnectionState?
+    let send: (String, String, String) -> Void
+    @State private var states: [String: CodexConnectionState] = [:]
+    @State private var provider = "codex"
+    @State private var showModels = false
     @State private var model = ""
     @State private var effort = ""
     @State private var error: String?
     @FocusState private var focused: Bool
+    @Environment(\.locale) private var locale
+    private var state: CodexConnectionState? { states[provider] }
+    private var providerName: String { provider == "claude" ? "Claude" : "Codex" }
+    private var connectionError: String? { error ?? (state?.enabled == false ? "已停用" : state?.error) }
     private var active: Bool { task?.active == true }
     private var disabled: Bool { sending || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task?.status == "queued" || (requiresProject && projectPath == nil) || (!active && state?.connected != true) }
     private var selectedModel: CodexProviderModel? { state?.models.first { $0.id == (model.isEmpty ? state?.model : model) } }
@@ -95,31 +101,30 @@ struct AgentTaskComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .bottom, spacing: 16) {
-                TextField(friday: active ? "补充任务要求…" : "告诉 Codex 这个任务要完成什么…", text: $message, axis: .vertical)
+                TextField(friday: active ? "补充任务要求…" : "这个任务要完成什么…", text: $message, axis: .vertical)
                     .font(.body).lineLimit(2...6).textFieldStyle(.plain).focused($focused)
                     .accessibilityLabel(Text(friday: "任务要求"))
-                    .onChatSubmit { if !disabled { send(model, effort) } }
-                Button { send(model, effort) } label: {
+                    .onChatSubmit { if !disabled { send(provider, model, effort) } }
+                Button { send(provider, model, effort) } label: {
                     FridaySymbolImage(systemName: "arrow.up").fridaySymbolFeedback()
                 }.buttonStyle(FridayButtonStyle(prominent: true, compact: true))
                     .accessibilityLabel(Text(friday: sending ? "发送中" : "发送"))
                     .keyboardShortcut(.return, modifiers: .command).disabled(disabled)
             }
-            if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).lineLimit(2) }
+            if let connectionError { Text(fridayString: connectionError).font(.caption).foregroundStyle(.orange).lineLimit(2) }
             HStack(spacing: 12) {
-                FridaySymbolImage(systemName: "terminal").font(.caption).foregroundStyle(.secondary).fridaySymbolFeedback()
-                Menu {
-                    Button(friday: "模型默认") { model = ""; effort = "" }
-                    ForEach(state?.models ?? []) { item in Button(item.name) { model = item.id; effort = "" } }
-                } label: {
+                Button { showModels.toggle() } label: {
                     HStack(spacing: 5) {
-                        Text(selectedModel?.name ?? (model.isEmpty ? "Codex" : model)).lineLimit(1)
+                        FridaySymbolImage(systemName: provider == "claude" ? "sparkle" : "cpu").font(.caption)
+                        Text(selectedModel?.selectionName ?? (model.isEmpty ? providerName : model)).lineLimit(1)
                         FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9))
                     }
-                }.disabled(active || sending).accessibilityLabel(Text(friday: "任务模型"))
-                #if os(macOS)
-                .menuStyle(.borderlessButton).menuIndicator(.hidden)
-                #endif
+                }.buttonStyle(FridaySymbolButtonStyle()).disabled(active || sending).accessibilityLabel(Text(friday: "任务模型"))
+                    .popover(isPresented: $showModels) {
+                        TaskModelPicker(server: store.connection.server, states: states, lockedProvider: task?.agent, provider: provider, model: selectedModel?.id ?? model) { choice in
+                            provider = choice.provider; model = choice.model.id; effort = ""; showModels = false
+                        }.environment(\.locale, locale)
+                    }
                 Divider().frame(height: 16)
                 Menu {
                     Button(friday: "模型默认") { effort = "" }
@@ -129,7 +134,7 @@ struct AgentTaskComposer: View {
                         Text(effort.isEmpty ? selectedModel?.defaultReasoningEffort.capitalized ?? "Default" : effort.capitalized)
                         FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9))
                     }
-                }.disabled(active || sending).accessibilityLabel(Text(friday: "推理强度"))
+                }.disabled(active || sending || (selectedModel?.reasoningEfforts.isEmpty ?? true)).accessibilityLabel(Text(friday: "推理强度"))
                 #if os(macOS)
                 .menuStyle(.borderlessButton).menuIndicator(.hidden)
                 #endif
@@ -145,11 +150,14 @@ struct AgentTaskComposer: View {
             }.font(.caption).foregroundStyle(.secondary)
         }
         .padding(16).fridayCard(highlighted: focused)
-        .task(id: task?.id) { model = task?.model ?? ""; effort = task?.reasoningEffort ?? "" }
+        .task(id: task?.id) { provider = task?.agent ?? "codex"; model = task?.model ?? ""; effort = task?.reasoningEffort ?? "" }
         .task(id: store.connected) {
             guard store.connected else { return }
-            do { state = try await store.connection.decode(CodexConnectionState.self, "/api/agents/codex"); error = state?.enabled == false ? "已停用" : state?.error }
-            catch { self.error = error.localizedDescription }
+            for value in ["codex", "claude"] {
+                do { states[value] = try await store.connection.decode(CodexConnectionState.self, "/api/agents/\(value)") }
+                catch { if value == provider { self.error = error.localizedDescription } }
+            }
+            if task == nil && states[provider]?.connected != true && states["claude"]?.connected == true { provider = "claude"; model = ""; effort = ""; error = nil }
         }
     }
 }

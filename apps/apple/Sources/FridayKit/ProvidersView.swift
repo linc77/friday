@@ -20,7 +20,8 @@ struct ProvidersView: View {
             Picker("Provider", selection: $selection) {
                 Text("Friday").tag("friday")
                 Text("Codex").tag("codex")
-                ForEach(store.agents.filter { $0.id != "codex" }) { agent in Text(agent.name).tag(agent.id) }
+                Text("Claude").tag("claude")
+                ForEach(store.agents.filter { !["codex", "claude"].contains($0.id) }) { agent in Text(agent.name).tag(agent.id) }
             }.pickerStyle(.menu)
             details
             #endif
@@ -31,7 +32,8 @@ struct ProvidersView: View {
         VStack(alignment: .leading, spacing: 4) {
             providerRow(id: "friday", name: "Friday", icon: "sparkles", detail: "主会话 · API")
             providerRow(id: "codex", name: "Codex", icon: "cpu", detail: "任务 · 本地")
-            ForEach(store.agents.filter { $0.id != "codex" }) { agent in
+            providerRow(id: "claude", name: "Claude", icon: "sparkle", detail: "任务 · 本地")
+            ForEach(store.agents.filter { !["codex", "claude"].contains($0.id) }) { agent in
                 providerRow(id: agent.id, name: agent.name, icon: "terminal", detail: "任务 · 本地",
                             status: agent.installed ? "尚未接入" : "未安装")
             }
@@ -57,7 +59,8 @@ struct ProvidersView: View {
     @ViewBuilder private var details: some View {
         switch selection {
         case "friday": ModelSettingsView(store: store)
-        case "codex": CodexSettingsView(store: store)
+        case "codex": CodexSettingsView(store: store).id("codex")
+        case "claude": CodexSettingsView(store: store, provider: "claude").id("claude")
         default:
             if let agent = store.agents.first(where: { $0.id == selection }) { localAgentDetails(agent) }
         }
