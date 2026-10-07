@@ -127,6 +127,24 @@ struct CodexSettingsView: View {
                 }
                 environment
             }
+            if owner {
+                SettingsGroup("权限") {
+                    SettingsRow("权限模式", detail: "新任务和续聊使用此设置；正在执行的任务不受影响。") {
+                        Picker(selection: $draft.permissionMode) {
+                            Text("Auto").tag("auto")
+                            Text(friday: "手动确认").tag("default")
+                            if provider == "claude" {
+                                Text(friday: "自动接受编辑").tag("acceptEdits")
+                                Text(friday: "规划模式").tag("plan")
+                            }
+                        } label: { Text(friday: "权限模式") }
+                            .labelsHidden().frame(maxWidth: 210).disabled(busy)
+                    }
+                    SettingsDivider()
+                    Text(friday: "Auto 使用工具自带的自动审批；需要补充信息时仍会询问。")
+                        .font(.system(size: 12)).foregroundStyle(.secondary).padding(14)
+                }
+            }
             SettingsGroup("模型") {
                 SettingsRow("默认模型", detail: "保存在当前主机。") {
                     Picker(selection: Binding(get: { draft.model }, set: { draft.model = $0; draft.reasoningEffort = "" })) {

@@ -9,10 +9,11 @@ struct TaskWorkspaceSidebar: View {
     @Binding var draftProjectId: String?
     @Binding var selectedTask: String?
     let newTask: () -> Void
-    @State private var picker: WorkspacePickerPurpose?
     @State private var adding = false
+    @State private var editingWorkspace: Project?
     @State private var error: String?
     @State private var drag: CGFloat = 0
+    @AppStorage("friday.tasks.collapsedWorkspaceGroups") private var collapsedWorkspaceData = Data()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.locale) private var locale
@@ -20,8 +21,10 @@ struct TaskWorkspaceSidebar: View {
     private var pages: [String?] { [nil] + store.projects.map { Optional($0.id) } }
     private var index: Int { pages.firstIndex(of: scope) ?? 0 }
     private var project: Project? { store.projects.first { $0.id == scope } }
-    private var draftProject: Project? { store.projects.first { $0.id == draftProjectId } }
     private var motion: Animation? { reduceMotion || scenePhase != .active ? nil : FridayTheme.motion }
+    private var collapsedWorkspaceGroups: Set<String> {
+        Set((try? JSONDecoder().decode([String].self, from: collapsedWorkspaceData)) ?? [])
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -60,66 +63,58 @@ struct TaskWorkspaceSidebar: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Text(friday: "任务").font(.headline)
-                Spacer()
-                #if os(macOS)
-                if store.deviceId == "owner" {
-                    Button(action: chooseDirectory) {
-                        FridaySymbolImage(systemName: "folder.badge.plus").frame(width: 28, height: 28)
-                    }.buttonStyle(FridaySymbolButtonStyle())
-                        .help(Text(friday: "添加 Workspace"))
-                        .accessibilityLabel(Text(friday: "添加 Workspace"))
-                        .disabled(adding || !store.connected)
+        HStack(spacing: 6) {
+            HStack(spacing: TaskSidebarLayout.iconSpacing) {
+                if let project {
+                    Button { editingWorkspace = project } label: {
+                        HStack(spacing: TaskSidebarLayout.iconSpacing) {
+                            WorkspaceIcon(name: project.name, icon: project.icon, color: project.color, size: TaskSidebarLayout.iconSize)
+                            Text(project.name).lineLimit(1)
+                        }.frame(maxWidth: .infinity, alignment: .leading).frame(height: 28).contentShape(Rectangle())
+                    }.buttonStyle(WorkspaceTitleButtonStyle())
+                        .accessibilityLabel(Text(friday: "编辑 Workspace") + Text("：\(project.name)"))
+                        .help(Text(friday: "修改名称、图标和颜色"))
+                        .disabled(!store.connected)
+                } else {
+                    FridaySymbolImage(systemName: "square.grid.2x2").font(.system(size: 11))
+                        .frame(width: TaskSidebarLayout.iconSize, height: TaskSidebarLayout.iconSize)
+                    Text(friday: "全部 Workspace").lineLimit(1)
                 }
-                #endif
-                Button(action: newTask) {
-                    FridaySymbolImage(systemName: "square.and.pencil").frame(width: 28, height: 28)
-                }.buttonStyle(FridaySymbolButtonStyle())
-                    .help(Text(friday: "新任务"))
-                    .accessibilityLabel(Text(friday: "新任务"))
+                Spacer(minLength: 0)
+                Text("\(TaskWorkspaces.tasks(store.tasks, scope: scope, projects: store.projects).count)")
+                    .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                    .fixedSize()
             }
-            Button { picker = .filter } label: {
-                HStack(spacing: 8) {
-                    FridaySymbolImage(systemName: project == nil ? "square.grid.2x2" : "folder")
-                    if let project { Text(project.name).lineLimit(1) }
-                    else { Text(friday: "全部 Workspace") }
-                    Spacer(minLength: 0)
-                    Text("\(TaskWorkspaces.tasks(store.tasks, scope: scope, projects: store.projects).count)")
-                        .font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
-                    FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9))
-                }
-                .font(.callout.weight(.medium)).padding(.horizontal, 10).padding(.vertical, 9)
-                .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
-                .contentShape(Rectangle())
-            }.buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: "切换 Workspace"))
-                .accessibilityValue(Text(fridayString: project?.name ?? "全部 Workspace"))
-                .popover(isPresented: pickerBinding(.filter), arrowEdge: .bottom) { workspacePicker(.filter) }
-            if selectedTask == nil {
-                Button { picker = .draft } label: {
-                    HStack(spacing: 5) {
-                        Text(friday: "新任务").foregroundStyle(.tertiary)
-                        Text("·").foregroundStyle(.tertiary)
-                        if let draftProject { Text(draftProject.name).lineLimit(1) }
-                        else { Text(friday: "选择 Workspace") }
-                        Spacer(minLength: 0)
-                        FridaySymbolImage(systemName: "chevron.down").font(.system(size: 8))
-                    }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 3)
-                        .padding(.vertical, 2).contentShape(Rectangle())
+            .font(.callout.weight(.medium))
+            .padding(.leading, TaskSidebarLayout.rowInset).padding(.trailing, 8)
+            .frame(maxWidth: .infinity).frame(height: 28)
+            #if os(macOS)
+            if store.deviceId == "owner" {
+                Button(action: chooseDirectory) {
+                    FridaySymbolImage(systemName: "folder.badge.plus").frame(width: 28, height: 28)
                 }.buttonStyle(FridaySymbolButtonStyle())
-                    .accessibilityLabel(Text(friday: "新任务 Workspace"))
-                    .accessibilityValue(Text(fridayString: draftProject?.name ?? "选择 Workspace"))
-                    .help(draftProject?.path ?? "Workspace")
-                    .popover(isPresented: pickerBinding(.draft), arrowEdge: .bottom) { workspacePicker(.draft) }
+                    .help(Text(friday: "添加 Workspace"))
+                    .accessibilityLabel(Text(friday: "添加 Workspace"))
+                    .disabled(adding || !store.connected)
             }
-        }.padding(.horizontal, 16).padding(.top, 18).padding(.bottom, 14)
+            #endif
+            Button(action: newTask) {
+                FridaySymbolImage(systemName: "square.and.pencil").frame(width: 28, height: 28)
+            }.buttonStyle(FridaySymbolButtonStyle())
+                .help(Text(friday: "新任务"))
+                .accessibilityLabel(Text(friday: "新任务"))
+        }.padding(.leading, TaskSidebarLayout.listInset).padding(.trailing, 12).padding(.vertical, 8)
+            .popover(item: $editingWorkspace, arrowEdge: .bottom) {
+                WorkspaceIdentityEditor(store: store, project: $0)
+                    .environment(\.locale, locale)
+            }
     }
 
     private func taskList(scope: String?) -> some View {
         let tasks = TaskWorkspaces.tasks(store.tasks, scope: scope, projects: store.projects)
+        let collapsed = collapsedWorkspaceGroups
         return ScrollView {
-            LazyVStack(spacing: 4) {
+            LazyVStack(spacing: 3) {
                 if tasks.isEmpty {
                     VStack(spacing: 9) {
                         Text(friday: "这个 Workspace 还没有任务")
@@ -128,18 +123,59 @@ struct TaskWorkspaceSidebar: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }.multilineTextAlignment(.center).padding(.horizontal, 20).padding(.top, 44)
                 }
-                ForEach(tasks) { task in
-                    Button { selectedTask = task.id } label: {
-                        TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects))
-                            .padding(.horizontal, 12).foregroundStyle(.primary)
-                            .background(selectedTask == task.id ? FridayTheme.surface : .clear, in: RoundedRectangle(cornerRadius: 10))
-                            .contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                        .accessibilityAddTraits(selectedTask == task.id ? .isSelected : [])
-                        .help(task.cwd)
+                if scope == nil {
+                    ForEach(TaskWorkspaces.groups(store.tasks, projects: store.projects)) { group in
+                        Section {
+                            if !collapsed.contains(group.id) {
+                                ForEach(group.tasks) { task in taskButton(task) }
+                            }
+                        } header: {
+                            workspaceGroupHeader(group, collapsed: collapsed.contains(group.id))
+                        }
+                    }
+                } else {
+                    ForEach(tasks) { task in taskButton(task) }
                 }
-            }.padding(.horizontal, 8).padding(.bottom, 12)
+            }.padding(.horizontal, TaskSidebarLayout.listInset).padding(.bottom, 12)
         }
+    }
+
+    private func workspaceGroupHeader(_ group: TaskWorkspaces.Group, collapsed: Bool) -> some View {
+        Button { toggleWorkspaceGroup(group.id) } label: {
+            HStack(spacing: TaskSidebarLayout.iconSpacing) {
+                WorkspaceIcon(name: group.name, icon: group.project?.icon, color: group.project?.color, size: TaskSidebarLayout.iconSize)
+                Text(fridayString: group.name).lineLimit(1)
+                Spacer(minLength: 0)
+                FridaySymbolImage(systemName: collapsed ? "chevron.right" : "chevron.down")
+                    .font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+                    .frame(width: 12).accessibilityHidden(true)
+            }
+            .font(.system(size: 14, weight: .medium)).foregroundStyle(.primary)
+            .frame(minHeight: 24).padding(.horizontal, TaskSidebarLayout.rowInset).contentShape(Rectangle())
+        }
+        .buttonStyle(WorkspaceTitleButtonStyle())
+        .padding(.top, 8).padding(.bottom, 2)
+        .accessibilityLabel(Text(fridayString: group.name))
+        .accessibilityValue(Text(fridayString: collapsed ? "已收起" : "已展开"))
+        .accessibilityHint(Text(fridayString: collapsed ? "展开任务" : "收起任务"))
+        .accessibilityAddTraits(.isHeader)
+        .help(Text(fridayString: collapsed ? "展开任务" : "收起任务"))
+    }
+
+    private func toggleWorkspaceGroup(_ id: String) {
+        var collapsed = collapsedWorkspaceGroups
+        if !collapsed.insert(id).inserted { collapsed.remove(id) }
+        guard let data = try? JSONEncoder().encode(collapsed.sorted()) else { return }
+        withAnimation(motion) { collapsedWorkspaceData = data }
+    }
+
+    private func taskButton(_ task: WorkItem) -> some View {
+        Button { selectedTask = task.id } label: {
+            TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects), selected: selectedTask == task.id, showsWorkspace: false)
+                .padding(.horizontal, TaskSidebarLayout.rowInset).foregroundStyle(.primary)
+        }.buttonStyle(TaskRowButtonStyle(selected: selectedTask == task.id))
+            .accessibilityAddTraits(selectedTask == task.id ? .isSelected : [])
+            .help("\(task.title)\n\(task.cwd)")
     }
 
     private var footer: some View {
@@ -180,18 +216,6 @@ struct TaskWorkspaceSidebar: View {
         if let draftProjectId, !ids.contains(draftProjectId) { self.draftProjectId = nil }
     }
 
-    private func pickerBinding(_ purpose: WorkspacePickerPurpose) -> Binding<Bool> {
-        Binding(get: { picker == purpose }, set: { picker = $0 ? purpose : nil })
-    }
-
-    private func workspacePicker(_ purpose: WorkspacePickerPurpose) -> some View {
-        WorkspacePicker(projects: store.projects, selection: purpose == .filter ? scope : draftProjectId, includesAll: purpose == .filter) { id in
-            picker = nil
-            if purpose == .filter { select(id) }
-            else { draftProjectId = id }
-        }.environment(\.locale, locale)
-    }
-
     #if os(macOS)
     private func chooseDirectory() {
         let panel = NSOpenPanel()
@@ -211,57 +235,4 @@ struct TaskWorkspaceSidebar: View {
         }
     }
     #endif
-}
-
-private enum WorkspacePickerPurpose: String, Identifiable {
-    case filter, draft
-    var id: String { rawValue }
-}
-
-struct WorkspacePicker: View {
-    let projects: [Project]
-    let selection: String?
-    var includesAll = false
-    let select: (String?) -> Void
-    @State private var search = ""
-
-    private var matches: [Project] {
-        projects.filter { search.isEmpty || $0.name.localizedStandardContains(search) || $0.path.localizedStandardContains(search) }
-    }
-
-    var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField(friday: "搜索 Workspace…", text: $search).textFieldStyle(.plain)
-            }.padding(8)
-            Divider()
-            ScrollView {
-                VStack(spacing: 3) {
-                    if includesAll && search.isEmpty { row(id: nil, name: "全部 Workspace", path: nil) }
-                    ForEach(matches) { project in row(id: project.id, name: project.name, path: project.path) }
-                    if matches.isEmpty {
-                        Text(friday: "没有匹配的 Workspace").font(.callout).foregroundStyle(.secondary).padding(16)
-                    }
-                }
-            }.frame(maxHeight: 300)
-        }.padding(10).frame(width: 310)
-    }
-
-    private func row(id: String?, name: String, path: String?) -> some View {
-        Button { select(id) } label: {
-            HStack(spacing: 10) {
-                FridaySymbolImage(systemName: id == nil ? "square.grid.2x2" : "folder").frame(width: 18)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(fridayString: name).lineLimit(1)
-                    if let path { Text(path).font(.caption2).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle) }
-                }
-                Spacer(minLength: 2)
-                if selection == id { FridaySymbolImage(systemName: "checkmark").font(.caption) }
-            }.padding(9).frame(maxWidth: .infinity, alignment: .leading)
-                .background(selection == id ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 7))
-                .contentShape(Rectangle())
-        }.buttonStyle(FridaySymbolButtonStyle()).help(path ?? name)
-            .accessibilityAddTraits(selection == id ? .isSelected : [])
-    }
 }

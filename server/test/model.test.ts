@@ -92,12 +92,18 @@ test('Local tool settings are owner-only and drive independent durable tasks, co
     let state = await until(engine, s => s.tasks[0].status === 'completed');
     assert.equal(state.tasks[0].threadId, 'provider-thread'); assert.equal(state.tasks[0].codexHome, directory);
     assert.match(state.tasks[0].result, /private-test-value/);
+    assert.equal((await engine.codexConnection.runtime()).permissionMode, 'auto');
+    await engine.codexConnection.save({ ...config(directory), permissionMode: 'default' });
     await engine.close(); engine = await new Engine(directory).open();
     await engine.createTask({ prompt: '请记住我喜欢中文回答', projectId: 'project', mode: 'code', requestId: 'second', continueId: id, model: 'second', reasoningEffort: 'low' });
     state = await until(engine, s => ['completed', 'failed'].includes(s.tasks[0].status)); assert.equal(state.tasks[0].status, 'completed', state.tasks[0].error ?? '');
     assert.equal(state.memories[0].text, '喜欢中文回答'); assert.equal(state.tasks[0].messages?.filter(m => m.role === 'user').length, 2);
     const lines = (await readFile(join(directory, 'wire.jsonl'), 'utf8')).trim().split('\n').map(l => JSON.parse(l));
     assert.equal(lines.find(m => m.method === 'thread/start').params.model, 'first');
+    assert.equal(lines.find(m => m.method === 'thread/start').params.approvalsReviewer, 'auto_review');
+    assert.equal(lines.find(m => m.method === 'thread/start').params.approvalPolicy, 'on-request');
+    assert.equal(lines.find(m => m.method === 'thread/start').params.sandbox, 'workspace-write');
+    assert.equal(lines.find(m => m.method === 'thread/resume').params.approvalsReviewer, 'user');
     assert.equal(lines.find(m => m.method === 'turn/start').params.effort, 'high'); assert.ok(lines.some(m => m.method === 'thread/resume'));
     assert.equal(lines.findLast(m => m.method === 'turn/start').params.model, 'second');
     assert.equal(lines.findLast(m => m.method === 'turn/start').params.effort, 'low');

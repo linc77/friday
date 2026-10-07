@@ -9,10 +9,11 @@ export type CodexSettings = {
   enabled: boolean; displayName: string; binaryPath: string; homePath: string; shadowHomePath: string;
   launchArgs: string; model: string; reasoningEffort: string; environment: { name: string; value: string }[];
   customModels: { id: string; name: string }[];
+  permissionMode: 'auto' | 'default' | 'acceptEdits' | 'plan';
 };
 export const defaultCodexSettings: CodexSettings = {
   enabled: true, displayName: 'Codex', binaryPath: 'codex', homePath: '', shadowHomePath: '',
-  launchArgs: '', model: '', reasoningEffort: '', environment: [], customModels: [],
+  launchArgs: '', model: '', reasoningEffort: '', environment: [], customModels: [], permissionMode: 'auto',
 };
 export const expandHome = (value: string) => value === '~' ? homedir() : value.startsWith('~/') ? join(homedir(), value.slice(2)) : value;
 
@@ -41,11 +42,15 @@ export function validateSettings(input: unknown, previous: CodexSettings, provid
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('模型配置格式无效。');
   const value = input as Record<string, unknown>;
   if (typeof value.enabled !== 'boolean') throw new Error('启用状态无效。');
+  const permissionMode = value.permissionMode === undefined ? previous.permissionMode : value.permissionMode;
+  const permissionModes = provider === 'Claude' ? ['auto', 'default', 'acceptEdits', 'plan'] : ['auto', 'default'];
+  if (typeof permissionMode !== 'string' || !permissionModes.includes(permissionMode)) throw new Error('权限模式无效。');
   const result: CodexSettings = {
     enabled: value.enabled, displayName: field(value.displayName, '显示名称', 80) || provider,
     binaryPath: field(value.binaryPath, '可执行文件') || provider.toLowerCase(), homePath: field(value.homePath, '配置目录'),
     shadowHomePath: field(value.shadowHomePath, '独立账号目录'), launchArgs: field(value.launchArgs, '启动参数', 8000),
     model: field(value.model, '模型', 160), reasoningEffort: field(value.reasoningEffort, '推理强度', 30), environment: [], customModels: [],
+    permissionMode: permissionMode as CodexSettings['permissionMode'],
   };
   for (const path of [result.homePath, result.shadowHomePath]) if (path && !isAbsolute(expandHome(path))) throw new Error('配置目录必须使用绝对路径或 ~/ 开头的路径。');
   if (result.reasoningEffort && !['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(result.reasoningEffort)) throw new Error('推理强度无效。');

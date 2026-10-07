@@ -200,12 +200,14 @@ public struct FridayRootView: View {
         case .inbox: inbox
         case .tasks:
             #if os(macOS)
-            HSplitView {
+            HStack(spacing: 0) {
                 TaskWorkspaceSidebar(store: store, scope: $workspaceScope, draftProjectId: $draftProjectId, selectedTask: $selectedTask) {
                     if let workspaceScope { draftProjectId = workspaceScope }
                     selectedTask = nil
                 }
-                .frame(minWidth: 250, idealWidth: 280, maxWidth: 340, maxHeight: .infinity)
+                .frame(width: 250)
+                .frame(maxHeight: .infinity)
+                Divider()
                 if let selectedTask { TaskDetail(store: store, id: selectedTask, onOpenTask: openLocalTask).id(selectedTask).frame(minWidth: 420) }
                 else { NewAgentTaskView(store: store, project: store.projects.first { $0.id == draftProjectId }, onCreated: openLocalTask, drafts: $taskDrafts) }
             }
@@ -250,16 +252,15 @@ public struct FridayRootView: View {
                     LazyVStack(spacing: 6) {
                         ForEach(localTasks.reversed()) { task in
                             Button { selectedTask = task.id } label: {
-                                TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects)).padding(.horizontal, 12)
+                                TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects), workspace: TaskWorkspaces.project(for: task, in: store.projects), selected: selectedTask == task.id).padding(.horizontal, 12)
                                     .foregroundStyle(.primary)
-                                    .background(selectedTask == task.id ? FridayTheme.surface : Color.clear, in: RoundedRectangle(cornerRadius: 10))
-                            }.buttonStyle(.plain)
+                            }.buttonStyle(TaskRowButtonStyle(selected: selectedTask == task.id))
                                 .accessibilityAddTraits(selectedTask == task.id ? .isSelected : [])
                         }
                     }.padding(.horizontal, 10)
                 }
                 #else
-                List(localTasks.reversed()) { task in NavigationLink(value: task.id) { TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects)) } }.refreshable { await store.refresh() }
+                List(localTasks.reversed()) { task in NavigationLink(value: task.id) { TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects), workspace: TaskWorkspaces.project(for: task, in: store.projects)) } }.refreshable { await store.refresh() }
                 #endif
             }
         }
@@ -301,25 +302,3 @@ private struct FridaySidebarButtonBody: View {
     }
 }
 #endif
-
-struct TaskRow: View {
-    let task: WorkItem
-    let workspaceName: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 6) {
-                FridaySymbolImage(systemName: "folder").font(.caption2)
-                Text(fridayString: workspaceName).lineLimit(1)
-                Spacer(minLength: 4)
-                Text(task.updatedAt.prefix(10)).font(.caption2).foregroundStyle(.tertiary)
-            }.font(.caption).foregroundStyle(.secondary)
-            Text(task.title).font(.callout.weight(.medium)).lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            HStack {
-                Text(task.agentName).font(.caption).foregroundStyle(.secondary)
-                StatusBadge(task: task)
-                Spacer(minLength: 4)
-            }
-        }.padding(.vertical, 10)
-    }
-}

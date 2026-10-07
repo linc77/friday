@@ -30,10 +30,14 @@ test('Claude SDK persists identity before launch, streams once, resumes with sel
     const final = updates.filter(value => value.kind === 'item' && value.item.phase === 'final_answer'); assert.equal(final.length, 1);
     assert.ok(!JSON.stringify(updates).includes('private-test-thinking'), 'raw thinking is not persisted in the UI transcript');
     const session = updates.find(value => value.kind === 'session'); assert.ok(session?.kind === 'session');
+    const initialLaunch = (await wire(directory)).find(entry => entry.args?.includes('--permission-mode'));
+    assert.equal(initialLaunch.args[initialLaunch.args.indexOf('--permission-mode') + 1], 'auto');
+    await connection.save({ ...defaultClaudeSettings, binaryPath, homePath: directory, permissionMode: 'default' });
     const resumed = { ...work(directory), threadId: session.threadId, claudeHome: directory, model: 'opus', reasoningEffort: 'high' };
     await executor.run({ task: resumed, prompt: 'continue', signal: new AbortController().signal, update: async () => {} });
     const entries = await wire(directory); const launch = entries.find(entry => entry.args?.some((arg: string) => arg.startsWith('--resume')));
     assert.ok(launch.args.some((arg: string) => arg.includes(session.threadId))); assert.ok(launch.args.includes('opus')); assert.ok(launch.args.includes('high'));
+    assert.equal(launch.args[launch.args.indexOf('--permission-mode') + 1], 'default', 'Continuation reads the current Provider mode');
     await assert.rejects(executor.run({ task: { ...resumed, claudeHome: '/different-account' }, prompt: 'continue', signal: new AbortController().signal, update: async () => {} }), /另一个 Claude/);
     const abort = new AbortController();
     const running = executor.run({ task: resumed, prompt: 'wait-for-cancel', signal: abort.signal, update: async () => {} });
@@ -46,7 +50,7 @@ test('Claude permissions apply exact inputs only after approval; questions, decl
   const directory = await mkdtemp(join(tmpdir(), 'friday-claude-controls-')); await chmod(binaryPath, 0o755);
   const connection = new ClaudeConnection(directory); const executor = new ClaudeExecutor(connection);
   try {
-    await connection.save({ ...defaultClaudeSettings, binaryPath, homePath: directory });
+    await connection.save({ ...defaultClaudeSettings, binaryPath, homePath: directory, permissionMode: 'default' });
     for (const decision of ['decline', 'accept'] as const) {
       const text = await executor.run({ task: work(directory), prompt: 'permission-test', signal: new AbortController().signal, update: async value => {
         if (value.kind === 'approval') {

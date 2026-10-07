@@ -163,7 +163,7 @@ export class ClaudeConnection {
     const home = resolve(expandHome(settings.homePath || process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')));
     const settingSources = (flags['--setting-sources'] ?? 'user,project,local').split(',').filter(Boolean);
     if (settingSources.some(value => !['user', 'project', 'local'].includes(value))) throw new Error('Claude 配置来源支持 user、project、local。');
-    return { command, home, env: { ...process.env, ...Object.fromEntries(settings.environment.map(value => [value.name, value.value])), CLAUDE_CONFIG_DIR: home }, model, effort: effort || undefined, settingSources: settingSources as ('user' | 'project' | 'local')[] };
+    return { command, home, env: { ...process.env, ...Object.fromEntries(settings.environment.map(value => [value.name, value.value])), CLAUDE_CONFIG_DIR: home }, model, effort: effort || undefined, permissionMode: settings.permissionMode, settingSources: settingSources as ('user' | 'project' | 'local')[] };
   }
 
   async save(value: unknown) {

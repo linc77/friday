@@ -94,7 +94,7 @@ export class CodexConnection {
     const selected = state.models.find(m => m.id === model);
     if (model && !selected) throw new Error('当前 Codex 模型不可用，请重新选择。');
     if (effort && selected && !selected.reasoningEfforts.includes(effort)) throw new Error('当前模型不支持所选推理强度，请在 Providers 的 Codex 页面中重新选择。');
-    return { ...await codexRuntime(settings), model: model || undefined, effort: effort || selected?.defaultReasoningEffort || undefined };
+    return { ...await codexRuntime(settings), model: model || undefined, effort: effort || selected?.defaultReasoningEffort || undefined, permissionMode: settings.permissionMode };
   }
   async save(value: unknown) {
     if (this.saving || this.loginClient) throw new Error('Codex 配置或登录正在处理中，请稍候。');
