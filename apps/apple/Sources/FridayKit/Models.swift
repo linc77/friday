@@ -106,7 +106,7 @@ struct WorkItem: Codable, Identifiable {
     let workspaceRequest: String?; let messages: [ChatMessage]?
     let parentId: String?; let model: String?; let reasoningEffort: String?
     var localAgent: Bool { agent != "friday" }
-    var agentName: String { agent == "codex" ? "Codex" : agent == "claude" ? "Claude" : "Friday" }
+    var agentName: String { agent == "codex" ? "Codex" : agent == "claude" ? "Claude Code" : "Friday" }
     var conversation: [ChatMessage] {
         var history = messages ?? [ChatMessage(id: "original-user", role: "user", text: prompt)]
         if !result.isEmpty && (history.last?.role != "assistant" || history.last?.text != result) { history.append(ChatMessage(id: "current-answer", role: "assistant", text: result)) }

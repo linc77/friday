@@ -372,3 +372,29 @@
 "自动保存" = "Autosave";
 "已自动保存" = "Saved automatically";
 "已保存在本机，待同步" = "Saved on this device, pending sync";
+
+// Task Workspaces
+"Workspace" = "Workspace";
+"全部 Workspace" = "All Workspaces";
+"未关联 Workspace" = "No Workspace";
+"添加 Workspace" = "Add Workspace";
+"切换 Workspace" = "Switch Workspace";
+"新任务 Workspace" = "New task Workspace";
+"选择 Workspace" = "Choose Workspace";
+"搜索 Workspace…" = "Search Workspaces…";
+"没有匹配的 Workspace" = "No matching Workspaces";
+"这个 Workspace 还没有任务" = "No tasks in this Workspace yet";
+"点击上方新任务按钮开始。" = "Use the new task button above to get started.";
+"在 %@ 中开始新任务" = "Start a task in %@";
+"选择模型，把任务交给 Claude Code 或 Codex。" = "Choose a model and delegate to Claude Code or Codex.";
+"从一个 Workspace 开始" = "Start with a Workspace";
+"在任务侧栏选择 Workspace，再把任务交给 Agent。" = "Choose a Workspace in the task sidebar, then give your task to an agent.";
+"管理工作目录，以及 Agent 需要了解的背景。" = "Manage working directories and context for your agents.";
+"先添加一个 Workspace" = "Add your first Workspace";
+"添加 Workspace 背景，让 Friday 更了解这件事。" = "Add context to help Friday understand this Workspace.";
+"Workspace 背景" = "Workspace context";
+"Workspace 名称" = "Workspace name";
+"Workspace 背景与约定" = "Workspace context & conventions";
+"保存 Workspace" = "Save Workspace";
+"目标、当前进展、你的偏好。此 Workspace 的任务都会读取这些内容。" = "Goals, progress, and preferences. Tasks in this Workspace read this context.";
+"代码任务会在 Workspace 对应的主机目录中执行。" = "Coding tasks run in the host directory linked to the Workspace.";

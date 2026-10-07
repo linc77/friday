@@ -372,3 +372,29 @@
 "自动保存" = "自动保存";
 "已自动保存" = "已自动保存";
 "已保存在本机，待同步" = "已保存在本机，待同步";
+
+// Task Workspaces
+"Workspace" = "Workspace";
+"全部 Workspace" = "全部 Workspace";
+"未关联 Workspace" = "未关联 Workspace";
+"添加 Workspace" = "添加 Workspace";
+"切换 Workspace" = "切换 Workspace";
+"新任务 Workspace" = "新任务 Workspace";
+"选择 Workspace" = "选择 Workspace";
+"搜索 Workspace…" = "搜索 Workspace…";
+"没有匹配的 Workspace" = "没有匹配的 Workspace";
+"这个 Workspace 还没有任务" = "这个 Workspace 还没有任务";
+"点击上方新任务按钮开始。" = "点击上方新任务按钮开始。";
+"在 %@ 中开始新任务" = "在 %@ 中开始新任务";
+"选择模型，把任务交给 Claude Code 或 Codex。" = "选择模型，把任务交给 Claude Code 或 Codex。";
+"从一个 Workspace 开始" = "从一个 Workspace 开始";
+"在任务侧栏选择 Workspace，再把任务交给 Agent。" = "在任务侧栏选择 Workspace，再把任务交给 Agent。";
+"管理工作目录，以及 Agent 需要了解的背景。" = "管理工作目录，以及 Agent 需要了解的背景。";
+"先添加一个 Workspace" = "先添加一个 Workspace";
+"添加 Workspace 背景，让 Friday 更了解这件事。" = "添加 Workspace 背景，让 Friday 更了解这件事。";
+"Workspace 背景" = "Workspace 背景";
+"Workspace 名称" = "Workspace 名称";
+"Workspace 背景与约定" = "Workspace 背景与约定";
+"保存 Workspace" = "保存 Workspace";
+"目标、当前进展、你的偏好。此 Workspace 的任务都会读取这些内容。" = "目标、当前进展、你的偏好。此 Workspace 的任务都会读取这些内容。";
+"代码任务会在 Workspace 对应的主机目录中执行。" = "代码任务会在 Workspace 对应的主机目录中执行。";

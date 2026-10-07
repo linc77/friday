@@ -5,74 +5,69 @@ import AppKit
 
 struct NewAgentTaskView: View {
     @ObservedObject var store: FridayStore
+    var project: Project? = nil
     let onCreated: (String) -> Void
-    @State private var message = ""
-    @State private var projectId = ""
-    @State private var requestId = UUID().uuidString
+    @Binding var drafts: [String: AgentTaskDraft]
     @State private var sending = false
     @State private var error: String?
-    private var project: Project? { store.projects.first { $0.id == projectId } }
+
+    private var draftKey: String { project?.id ?? "" }
+    private var message: Binding<String> {
+        Binding(get: { drafts[draftKey]?.message ?? "" }, set: { value in
+            if drafts[draftKey] == nil { drafts[draftKey] = AgentTaskDraft() }
+            drafts[draftKey]?.message = value
+        })
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             HStack {
+                if let project {
+                    Text(project.name).font(.callout).foregroundStyle(.secondary).lineLimit(1)
+                    Text("/").foregroundStyle(.tertiary)
+                }
                 Text(friday: "新任务").font(.title3.weight(.semibold))
                 Spacer()
-                Text("Claude · Codex").font(.callout).foregroundStyle(.secondary)
-            }
-            SettingsGroup("项目") {
-                SettingsRow("工作目录", detail: "本地 Agent 在你选择的项目中执行。") {
-                    Picker(selection: $projectId) {
-                        Text(friday: "选择项目").tag("")
-                        ForEach(store.projects) { project in Text(project.name).tag(project.id) }
-                    } label: { Text(friday: "选择项目") }.labelsHidden().frame(maxWidth: 230)
-                }
-                #if os(macOS)
-                if store.deviceId == "owner" {
-                    SettingsDivider()
-                    SettingsRow("选择其他目录") {
-                        Button(friday: "选择目录…") { chooseDirectory() }.disabled(sending || !store.connected)
-                    }
-                }
-                #endif
             }
             if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
             Spacer(minLength: 20)
-            Text(friday: "选择模型，把任务交给 Claude 或 Codex。关闭窗口也不影响执行。")
-                .font(.caption).foregroundStyle(.secondary)
-            AgentTaskComposer(store: store, projectPath: project?.path, requiresProject: true, message: $message, sending: sending, send: send)
+            VStack(spacing: 10) {
+                if let project {
+                    Text(friday: "在 \(project.name) 中开始新任务").font(.title2.weight(.medium))
+                    Text(friday: "选择模型，把任务交给 Claude Code 或 Codex。")
+                        .font(.callout).foregroundStyle(.secondary)
+                } else {
+                    Text(friday: "从一个 Workspace 开始").font(.title2.weight(.medium))
+                    Text(friday: "在任务侧栏选择 Workspace，再把任务交给 Agent。")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+            }.frame(maxWidth: .infinity)
+            Spacer(minLength: 20)
+            AgentTaskComposer(store: store, projectPath: project?.path, requiresProject: true, message: message, sending: sending, send: send)
         }
         .padding(28).frame(maxWidth: FridayTheme.contentWidth + 56).frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FridayTheme.canvas)
     }
 
-    #if os(macOS)
-    private func chooseDirectory() {
-        let panel = NSOpenPanel(); panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        if let existing = store.projects.first(where: { $0.path == url.path }) { projectId = existing.id; return }
-        sending = true
-        Task {
-            do {
-                let project = try await store.connection.decode(Project.self, "/api/projects", method: "POST", body: ["name": url.lastPathComponent, "path": url.path])
-                await store.refresh(); projectId = project.id; error = nil
-            } catch { self.error = error.localizedDescription }
-            sending = false
-        }
-    }
-    #endif
-
     private func send(_ provider: String, _ model: String, _ effort: String) {
         guard let project, !sending else { return }
-        let prompt = message; sending = true; error = nil
+        let draft = drafts[project.id] ?? AgentTaskDraft()
+        guard !draft.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        drafts[project.id] = draft
+        sending = true; error = nil
         Task {
             do {
-                let id = try await store.createTask(prompt: prompt, requestId: requestId, projectId: project.id, agent: provider, model: model, reasoningEffort: effort)
-                message = ""; requestId = UUID().uuidString; onCreated(id)
+                let id = try await store.createTask(prompt: draft.message, requestId: draft.requestId, projectId: project.id, agent: provider, model: model, reasoningEffort: effort)
+                drafts[project.id] = nil; onCreated(id)
             } catch { self.error = error.localizedDescription }
             sending = false
         }
     }
+}
+
+struct AgentTaskDraft {
+    var message = ""
+    let requestId = UUID().uuidString
 }
 
 struct AgentTaskComposer: View {
@@ -103,6 +98,7 @@ struct AgentTaskComposer: View {
             HStack(alignment: .bottom, spacing: 16) {
                 TextField(friday: active ? "补充任务要求…" : "这个任务要完成什么…", text: $message, axis: .vertical)
                     .font(.body).lineLimit(2...6).textFieldStyle(.plain).focused($focused)
+                    .disabled(sending || (requiresProject && projectPath == nil))
                     .accessibilityLabel(Text(friday: "任务要求"))
                     .onChatSubmit { if !disabled { send(provider, model, effort) } }
                 Button { send(provider, model, effort) } label: {
@@ -140,13 +136,9 @@ struct AgentTaskComposer: View {
                 #endif
                 Spacer(minLength: 0)
             }.font(.callout).foregroundStyle(.secondary)
-            Divider()
             HStack(spacing: 8) {
-                FridaySymbolImage(systemName: "folder").fridaySymbolFeedback().font(.caption)
-                Text(fridayString: projectPath ?? task?.cwd ?? "选择项目")
-                    .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
-                Spacer(minLength: 8)
                 FridaySymbolLabel(friday: "按需确认", systemImage: "lock").fridaySymbolFeedback()
+                Spacer(minLength: 8)
             }.font(.caption).foregroundStyle(.secondary)
         }
         .padding(16).fridayCard(highlighted: focused)
