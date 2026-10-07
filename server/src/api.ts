@@ -8,6 +8,8 @@ import type { Engine } from './engine.js';
 import { Auth } from './auth.js';
 import { discoverAgents } from './agents.js';
 import { activeStatuses } from './types.js';
+import { IdeaImages, ideaContent, maxImageBytes } from './ideas.js';
+import type { Idea } from './types.js';
 
 function text(value: unknown, name: string, max = 12_000): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error(`${name}不能为空，且长度不能超过 ${max}`);
@@ -20,7 +22,11 @@ function optionalModel(value: unknown): string | undefined {
 }
 export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   const app = new Hono<{ Variables: { device: string } }>();
-  app.use('*', bodyLimit({ maxSize: 256 * 1024 }));
+  const images = new IdeaImages(engine.directory);
+  const normalLimit = bodyLimit({ maxSize: 256 * 1024 });
+  const noteLimit = bodyLimit({ maxSize: 1024 * 1024 });
+  const imageLimit = bodyLimit({ maxSize: Math.ceil(maxImageBytes / 3) * 4 + 4096 });
+  app.use('*', (c, next) => c.req.path === '/api/idea-images' ? imageLimit(c, next) : c.req.path.startsWith('/api/ideas') ? noteLimit(c, next) : normalLimit(c, next));
   app.use('*', async (c, next) => {
     c.header('Cache-Control', 'no-store'); c.header('X-Content-Type-Options', 'nosniff');
     const origin = c.req.header('Origin');
@@ -40,7 +46,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     if (!device) return c.json({ error: '请先连接或配对设备' }, 401);
     c.set('device', device); await next();
   });
-  app.get('/api/state', async c => c.json({ ...await engine.snapshot(), agents: agents(), devices: auth.devices(), deviceId: c.get('device') }));
+  app.get('/api/state', async c => c.json({ ...await engine.snapshot(), agents: agents(), devices: auth.devices(), deviceId: c.get('device'), notesVersion: 1 }));
   app.get('/api/model', async c => c.json(await engine.modelConnection.status(c.get('device') === 'owner')));
   app.use('/api/model/*', async (c, next) => {
     if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置 Friday' }, 403);
@@ -93,8 +99,42 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     auth.revoke(c.req.param('id')); return c.json({ ok: true });
   });
   app.post('/api/ideas', async c => {
-    const body = await c.req.json(); const idea = { id: text(body.id ?? randomUUID(), 'ID', 80), text: text(body.text, '想法'), createdAt: new Date().toISOString(), taskId: null };
-    await engine.mutate(s => { if (!s.ideas.some(i => i.id === idea.id)) s.ideas.unshift(idea); }); return c.json(idea, 201);
+    const body = await c.req.json(); const id = text(body.id ?? randomUUID(), 'ID', 80);
+    // Old clients and an offline retry must get the original stored note.
+    const existing = (await engine.snapshot()).ideas.find(i => i.id === id);
+    if (existing) return c.json(existing);
+    const content = ideaContent(body); const attached = await images.validate(body.images);
+    const createdAt = typeof body.createdAt === 'string' && Number.isFinite(Date.parse(body.createdAt)) ? new Date(body.createdAt).toISOString() : new Date().toISOString();
+    let idea: Idea = { id, ...content, images: attached, createdAt, updatedAt: createdAt, taskId: null };
+    await engine.mutate(s => { const previous = s.ideas.find(i => i.id === id); if (previous) idea = JSON.parse(JSON.stringify(previous)); else s.ideas.unshift(idea); });
+    return c.json(idea, 201);
+  });
+  app.put('/api/ideas/:id', async c => {
+    const body = await c.req.json(); const content = ideaContent(body); const attached = await images.validate(body.images);
+    const editId = text(body.editId, '修改 ID', 80);
+    let idea: Idea | undefined; let conflict = false;
+    await engine.mutate(s => {
+      const stored = s.ideas.find(i => i.id === c.req.param('id'));
+      if (!stored) return;
+      if (stored.lastEditId !== editId) {
+        if (body.expectedUpdatedAt !== (stored.updatedAt ?? stored.createdAt)) conflict = true;
+        else {
+          const updatedAt = new Date(Math.max(Date.now(), (Date.parse(stored.updatedAt ?? stored.createdAt) || 0) + 1)).toISOString();
+          Object.assign(stored, content, { images: attached, updatedAt, lastEditId: editId });
+        }
+      }
+      // Durable document overlays are only valid inside this transaction.
+      idea = JSON.parse(JSON.stringify(stored));
+    });
+    if (!idea) return c.json({ error: '这篇笔记已被删除，请另存为新笔记' }, 404);
+    if (conflict) return c.json({ error: '这篇笔记已在另一台设备修改。你的草稿已保留，请重新打开后核对。' }, 409);
+    return c.json(idea);
+  });
+  app.post('/api/idea-images', async c => c.json(await images.save(await c.req.json()), 201));
+  app.get('/api/idea-images/:id', async c => {
+    const image = await images.read(c.req.param('id'));
+    c.header('Content-Type', image.mediaType);
+    return c.body(image.data);
   });
   app.delete('/api/ideas/:id', async c => { await engine.mutate(s => { s.ideas = s.ideas.filter(i => i.id !== c.req.param('id')); }); return c.json({ ok: true }); });
   app.post('/api/projects', async c => {

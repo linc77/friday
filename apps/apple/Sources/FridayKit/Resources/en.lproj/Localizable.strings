@@ -333,3 +333,42 @@
 "在任务输入框中选择 Claude 模型，即可执行任务或继续会话。" = "Choose a Claude model in the task composer to start or continue a task.";
 
 "Claude 正在执行" = "Claude is working";
+
+// Notes and idea cards
+"想法、日记和资料，都有一个自己的位置。" = "A place for your ideas, journals, and references.";
+"新建笔记" = "New note";
+"搜索笔记" = "Search notes";
+"所有笔记" = "All notes";
+"最近修改" = "Recently edited";
+"继续上次的草稿" = "Continue your draft";
+"打开笔记，阅读或编辑内容" = "Open this note to read or edit it";
+"打开笔记" = "Open note";
+"删除笔记" = "Delete note";
+"删除这篇笔记？" = "Delete this note?";
+"没有找到笔记" = "No notes found";
+"记下今天，保存图片和链接，慢慢积累自己的资料。" = "Write about today, save images and links, and build your collection.";
+"试试标题或正文中的其他词。" = "Try another word from the title or content.";
+"已交给 Friday" = "Shared with Friday";
+"另一台设备已修改这篇笔记，你的版本已保留。" = "Another device edited this note. Your version is preserved.";
+"另存为新笔记" = "Save as a new note";
+"添加链接" = "Add link";
+"链接地址" = "Link URL";
+"显示文字（可选）" = "Display text (optional)";
+"草稿自动保存在本机" = "Draft saved on this device";
+"笔记标题" = "Note title";
+"笔记正文" = "Note content";
+"添加图片" = "Add image";
+"粘贴图片" = "Paste image";
+"照片" = "Photos";
+"移除图片" = "Remove image";
+"记下一个念头，或写写今天发生的事……" = "Capture a thought, or write about your day…";
+"支持 Markdown 排版，保存后可查看图片和链接。" = "Supports Markdown. Save to view images and links.";
+"创建时间" = "Created";
+"修改时间" = "Edited";
+"重新加载图片" = "Reload image";
+"未命名笔记" = "Untitled note";
+"继续草稿" = "Continue draft";
+"支持 Markdown 排版，图片和链接随笔记一起保存。" = "Supports Markdown. Images and links are saved with your note.";
+"自动保存" = "Autosave";
+"已自动保存" = "Saved automatically";
+"已保存在本机，待同步" = "Saved on this device, pending sync";

@@ -11,12 +11,19 @@ final class FridayStore: ObservableObject {
     @Published var devices: [Device] = []
     @Published var deviceId = ""
     @Published var connected = false
+    @Published var notesSupported = false
     @Published var error: String?
     @Published var outbox: [OutboxIdea] = []
     @Published var delegatingIdeas: Set<String> = []
     let connection = Connection()
     private var streamTask: Task<Void, Never>?
+    private var noteSyncTask: Task<Void, Never>?
     private var flushing = false
+    var notes: [Idea] {
+        let pendingIDs = Set(outbox.map(\.id))
+        return (outbox.map(\.note) + ideas.filter { !pendingIDs.contains($0.id) })
+            .sorted { ($0.updatedAt ?? $0.createdAt) > ($1.updatedAt ?? $1.createdAt) }
+    }
     init() {
         if let data = UserDefaults.standard.data(forKey: "friday.outbox"), let pending = try? JSONDecoder().decode([OutboxIdea].self, from: data) { outbox = pending }
     }
@@ -39,9 +46,11 @@ final class FridayStore: ObservableObject {
         if let agents = state.agents { self.agents = agents }
         if let devices = state.devices { self.devices = devices }
         if let id = state.deviceId { deviceId = id }
+        if let version = state.notesVersion { notesSupported = version >= 1 }
+        else if state.deviceId != nil { notesSupported = false }
     }
     func connect() async {
-        streamTask?.cancel(); connected = false
+        streamTask?.cancel(); connected = false; notesSupported = false
         #if os(macOS)
         if connection.token.isEmpty {
             let fresh = Connection(); if fresh.server == connection.server { connection.token = fresh.token }
@@ -78,22 +87,94 @@ final class FridayStore: ObservableObject {
     }
     @discardableResult
     func saveIdea(_ text: String) async -> Bool {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        guard text.utf16.count <= 12_000 else { error = "想法太长，请缩短到 12,000 字以内再保存。"; return false }
-        outbox.append(OutboxIdea(id: UUID().uuidString, text: text))
-        persistOutbox(); await flushOutbox()
+        await saveNote(id: UUID().uuidString, title: "", text: text, images: [], createdAt: ISO8601DateFormatter().string(from: Date()), expectedUpdatedAt: nil)
+    }
+    @discardableResult
+    func saveNote(id: String, title: String, text: String, images: [IdeaImage], createdAt: String, expectedUpdatedAt: String?, taskId: String? = nil) async -> Bool {
+        guard enqueueNote(id: id, title: title, text: text, images: images, createdAt: createdAt, expectedUpdatedAt: expectedUpdatedAt, taskId: taskId) else { return false }
+        await flushOutbox()
         return true
     }
+    @discardableResult
+    func enqueueNote(id: String, title: String, text: String, images: [IdeaImage], createdAt: String, expectedUpdatedAt: String?, taskId: String? = nil) -> Bool {
+        guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty else { return false }
+        guard title.utf16.count <= 200, text.utf16.count <= 100_000, images.count <= 20 else { error = "标题最多 200 字，笔记最多 100,000 字和 20 张图片。"; return false }
+        let previous = outbox.first { $0.id == id }
+        // Preserve the server version on which an unsent offline edit was based.
+        let version = previous != nil ? previous?.expectedUpdatedAt : expectedUpdatedAt
+        let note = OutboxIdea(id: id, text: text, title: title, createdAt: createdAt, images: images, expectedUpdatedAt: version, editId: UUID().uuidString, taskId: taskId)
+        if let index = outbox.firstIndex(where: { $0.id == id }) { outbox[index] = note } else { outbox.append(note) }
+        // Capture edits before any asynchronous work so leaving the editor or
+        // quitting the client cannot interrupt the local save.
+        persistOutbox()
+        return true
+    }
+    func scheduleNoteSync(immediately: Bool = false) {
+        noteSyncTask?.cancel()
+        noteSyncTask = Task {
+            if !immediately {
+                do { try await Task.sleep(for: .milliseconds(650)) } catch { return }
+            }
+            guard !Task.isCancelled else { return }
+            // Later keystrokes may cancel the debounce, never an active upload.
+            noteSyncTask = nil
+            await flushOutbox()
+        }
+    }
     private func persistOutbox() { UserDefaults.standard.set(try? JSONEncoder().encode(outbox), forKey: "friday.outbox") }
+    func persistPendingNotes() { persistOutbox() }
     func flushOutbox() async {
-        guard !flushing, connected else { return }; flushing = true; defer { flushing = false }
+        guard !flushing, connected else { return }
+        guard notesSupported else {
+            if !outbox.isEmpty { error = "请先更新 Friday 主机以支持笔记。内容已保存在本机，更新后会继续同步。" }
+            return
+        }
+        flushing = true; defer { flushing = false }
+        var syncError: String?
         while let idea = outbox.first {
             do {
-                _ = try await connection.data("/api/ideas", method: "POST", body: ["id": idea.id, "text": idea.text])
-                outbox.removeAll { $0.id == idea.id }; persistOutbox()
-            } catch { self.error = error.localizedDescription; break }
+                for image in idea.images ?? [] {
+                    // Content IDs make uploading cached images safe to retry.
+                    if let data = IdeaImageCache.localData(image.id) {
+                        _ = try await connection.data("/api/idea-images", method: "POST", body: ["id": image.id, "name": image.name, "data": data.base64EncodedString()])
+                    }
+                }
+                var body: [String: Any] = ["id": idea.id, "text": idea.text, "title": idea.title ?? "", "images": (idea.images ?? []).map { ["id": $0.id, "name": $0.name, "mediaType": $0.mediaType] }]
+                if let date = idea.createdAt { body["createdAt"] = date }
+                if let version = idea.expectedUpdatedAt { body["expectedUpdatedAt"] = version; body["editId"] = idea.editId ?? idea.id }
+                let path = idea.expectedUpdatedAt == nil ? "/api/ideas" : "/api/ideas/\(idea.id)"
+                let saved = try await connection.decode(Idea.self, path, method: idea.expectedUpdatedAt == nil ? "POST" : "PUT", body: body)
+                if let index = ideas.firstIndex(where: { $0.id == saved.id }) { ideas[index] = saved } else { ideas.insert(saved, at: 0) }
+                if let index = outbox.firstIndex(where: { $0.id == idea.id }) {
+                    let sameContent = saved.text == idea.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        && (saved.title ?? "") == (idea.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                        && (saved.images ?? []) == (idea.images ?? [])
+                    if outbox[index] == idea && sameContent { outbox.remove(at: index) }
+                    else {
+                        // A create may already exist after a lost response. Retain any later
+                        // offline changes, then update the version actually acknowledged.
+                        outbox[index].expectedUpdatedAt = saved.updatedAt ?? saved.createdAt
+                    }
+                }
+                persistOutbox()
+            } catch { syncError = error.localizedDescription; break }
         }
         await refresh()
+        if let syncError { error = syncError }
+    }
+    func deleteNote(_ idea: Idea) async -> Bool {
+        if ideas.contains(where: { $0.id == idea.id }) {
+            guard connected else { error = "连接主机后才能删除已同步的笔记。"; return false }
+            guard await perform("/api/ideas/\(idea.id)", method: "DELETE") else { return false }
+        }
+        outbox.removeAll { $0.id == idea.id }; persistOutbox()
+        return true
+    }
+    func imageData(_ id: String) async throws -> Data {
+        if let data = IdeaImageCache.localData(id) { return data }
+        let data = try await connection.data("/api/idea-images/\(id)")
+        try IdeaImageCache.store(data, id: id)
+        return data
     }
     func perform(_ path: String, method: String = "POST", body: [String: Any] = [:]) async -> Bool {
         do { _ = try await connection.data(path, method: method, body: method == "DELETE" ? nil : body); await refresh(); return true }
@@ -113,7 +194,9 @@ final class FridayStore: ObservableObject {
         if let taskId = idea.taskId { return taskId }
         guard !delegatingIdeas.contains(idea.id) else { return nil }
         delegatingIdeas.insert(idea.id); defer { delegatingIdeas.remove(idea.id) }
-        do { return try await createTask(prompt: idea.text, ideaId: idea.id, requestId: "idea-" + idea.id) }
+        let content = [idea.title ?? "", idea.text].filter { !$0.isEmpty }.joined(separator: "\n\n")
+        let prompt = content.utf16.count <= 12_000 && !content.isEmpty ? content : "请查看 workspace 中 ID 为 \(idea.id) 的笔记，并根据其中的内容帮我推进。"
+        do { return try await createTask(prompt: prompt, ideaId: idea.id, requestId: "idea-" + idea.id) }
         catch { self.error = error.localizedDescription; return nil }
     }
     func pair(server: String, code: String, name: String) async throws {
