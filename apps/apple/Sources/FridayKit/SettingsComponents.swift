@@ -3,11 +3,13 @@ import SwiftUI
 struct SettingsPage<Content: View>: View {
     let title: String
     let subtitle: String
+    let contentWidth: CGFloat
     private let content: Content
 
-    init(title: String, subtitle: String, @ViewBuilder content: () -> Content) {
+    init(title: String, subtitle: String, contentWidth: CGFloat = 680, @ViewBuilder content: () -> Content) {
         self.title = title
         self.subtitle = subtitle
+        self.contentWidth = contentWidth
         self.content = content()
     }
 
@@ -22,7 +24,7 @@ struct SettingsPage<Content: View>: View {
                 .padding(.bottom, 8)
                 content
             }
-            .frame(maxWidth: 680, alignment: .leading)
+            .frame(maxWidth: contentWidth, alignment: .leading)
             #if os(macOS)
             .padding(.horizontal, 36)
             .padding(.top, 52)

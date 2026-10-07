@@ -124,42 +124,6 @@ struct MemoriesView: View {
     }
 }
 
-struct AgentsView: View {
-    @ObservedObject var store: FridayStore
-    var body: some View {
-        SettingsPage(title: "本地工具", subtitle: "Friday 处理日常对话，需要独立编码时，经你确认后调用本机工具。") {
-            SettingsGroup("执行工具") {
-                if store.agents.isEmpty {
-                    SettingsRow("尚未获取工具信息", detail: "连接主机后，可以查看本机工具的安装状态。") { EmptyView() }
-                }
-                ForEach(Array(store.agents.enumerated()), id: \.element.id) { index, agent in
-                    if index > 0 { SettingsDivider() }
-                    VStack(alignment: .leading, spacing: 0) {
-                        SettingsRow(verbatim: agent.name, detail: agent.description) {
-                            Text(fridayString: agent.installed ? (agent.executableSupported ? "可执行" : "尚未接入") : "未安装")
-                                .font(.system(size: 11)).foregroundStyle(.secondary)
-                                .padding(.horizontal, 8).padding(.vertical, 4)
-                                .background(.primary.opacity(0.045), in: Capsule())
-                                .fixedSize()
-                        }
-                        if let executable = agent.executable {
-                            Text(executable).font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.tertiary).textSelection(.enabled)
-                                .padding(.horizontal, 16).padding(.bottom, 14)
-                        }
-                    }
-                }
-            }
-            SettingsGroup("工具检测") {
-                SettingsRow("重新检测", detail: "更新本机工具的安装状态。") {
-                    Button(friday: "重新检测") { Task { await store.refresh() } }
-                        .disabled(!store.connected)
-                }
-            }
-        }
-    }
-}
-
 struct ConnectionView: View {
     @ObservedObject var store: FridayStore
     #if os(iOS)
@@ -190,9 +154,6 @@ struct ConnectionView: View {
     var body: some View {
         SettingsPage(title: title, subtitle: subtitle) {
             hostSettings
-            #if os(iOS)
-            ModelSettingsView(store: store)
-            #endif
             deviceSettings
             #if os(iOS)
             pairingSettings
@@ -306,84 +267,4 @@ struct ConnectionView: View {
         }
     }
     #endif
-}
-
-struct ModelSettingsView: View {
-    @ObservedObject var store: FridayStore
-    @State private var state: ModelConnectionState?
-    @State private var apiKey = ""
-    @State private var busy = false
-    @State private var error: String?
-    var body: some View {
-        VStack(alignment: .leading, spacing: 32) {
-            SettingsGroup("模型") {
-                SettingsRow("DeepSeek", detail: "用于对话、记忆和日常任务。") {
-                    if let state {
-                        FridaySymbolLabel(friday: state.connected ? "已配置" : "未配置", systemImage: state.connected ? "checkmark.circle" : "key")
-                            .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize()
-                            .fridaySymbolFeedback(value: state.connected)
-                    } else {
-                        Text(fridayString: store.connected ? "正在读取…" : "等待主机连接")
-                            .font(.system(size: 12)).foregroundStyle(.secondary)
-                    }
-                }
-                if let state {
-                    SettingsDivider()
-                    SettingsRow("当前模型") {
-                        Text(state.model).font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(.secondary).textSelection(.enabled)
-                    }
-                }
-            }
-            if let state, store.deviceId == "owner" {
-                SettingsGroup("访问密钥") {
-                    SettingsRow("API Key", detail: "密钥仅保存在主机上。") {
-                        SecureField(friday: state.connected ? "输入新密钥以替换" : "DeepSeek API Key", text: $apiKey)
-                            .textFieldStyle(.roundedBorder).accessibilityLabel("DeepSeek API Key")
-                            .frame(maxWidth: 250).disabled(busy || !store.connected)
-                    }
-                    SettingsDivider()
-                    SettingsRow("验证并保存", detail: "保存前发送一次简短测试请求，会产生少量 API 用量。") {
-                        Button(friday: busy ? "正在验证…" : "验证并保存") {
-                            busy = true; error = nil
-                            Task {
-                                do {
-                                    self.state = try await store.connection.decode(ModelConnectionState.self, "/api/model/key", method: "PUT", body: ["apiKey": apiKey])
-                                    apiKey = ""
-                                } catch { self.error = error.localizedDescription }
-                                busy = false
-                            }
-                        }.disabled(busy || !store.connected || apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                    if state.connected {
-                        SettingsDivider()
-                        SettingsRow("移除密钥", detail: "移除后，需要重新配置才能使用模型。") {
-                            Button(friday: "移除 API Key", role: .destructive) {
-                                busy = true; error = nil
-                                Task {
-                                    do { _ = try await store.connection.data("/api/model/key", method: "DELETE"); apiKey = ""; await refresh() }
-                                    catch { self.error = error.localizedDescription }
-                                    busy = false
-                                }
-                            }.disabled(busy || !store.connected)
-                        }
-                    }
-                }
-                Link(destination: URL(string: "https://platform.deepseek.com/api_keys")!) {
-                    FridaySymbolLabel(friday: "获取 DeepSeek API Key", systemImage: "arrow.up.right")
-                        .font(.system(size: 12))
-                        .fridaySymbolFeedback()
-                }
-            } else if state != nil {
-                Text(friday: "请在主机上配置 DeepSeek API Key，所有已连接设备会共用 Friday。")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-            }
-            if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
-        }.task(id: store.connected) { if store.connected { await refresh() } }
-        .onDisappear { apiKey = "" }
-    }
-    private func refresh() async {
-        do { state = try await store.connection.decode(ModelConnectionState.self, "/api/model"); error = nil }
-        catch { self.error = error.localizedDescription }
-    }
 }

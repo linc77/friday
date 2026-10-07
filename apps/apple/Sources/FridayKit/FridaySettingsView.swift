@@ -3,8 +3,7 @@ import SwiftUI
 
 enum FridaySettingsSection: String, CaseIterable, Identifiable {
     case appearance = "外观"
-    case model = "模型服务"
-    case agents = "本地工具"
+    case providers = "Providers"
     case devices = "设备管理"
 
     var id: String { rawValue }
@@ -12,8 +11,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .appearance: "circle.lefthalf.filled"
-        case .model: "sparkles"
-        case .agents: "terminal"
+        case .providers: "cpu"
         case .devices: "laptopcomputer.and.iphone"
         }
     }
@@ -21,8 +19,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
     var searchTerms: String {
         switch self {
         case .appearance: "外观 主题 系统 浅色 深色 语言 中文 英文 Appearance Theme System Light Dark Language Chinese English"
-        case .model: "模型服务 DeepSeek API Key 密钥 验证 Model Provider"
-        case .agents: "本地工具 Codex Claude Code Hermes Pi 编码 执行 Local Tools"
+        case .providers: "Providers 模型服务 本地工具 Friday DeepSeek API 密钥 Codex Claude Code Hermes Pi 编码 账号 模型 路径 环境变量 推理 Runtime"
         case .devices: "设备管理 iPhone Mac 主机 连接 配对码 访问 撤销 重新连接 Devices Host Connection Access Reconnect"
         }
     }
@@ -47,11 +44,7 @@ struct FridaySettingsView: View {
             Group {
                 switch selection {
                 case .appearance: AppearanceSettingsView()
-                case .model:
-                    SettingsPage(title: "模型服务", subtitle: "选择 Friday 与你对话、处理事情时使用的模型。") {
-                        ModelSettingsView(store: store)
-                    }
-                case .agents: AgentsView(store: store)
+                case .providers: ProvidersView(store: store)
                 case .devices: ConnectionView(store: store)
                 }
             }
@@ -90,7 +83,7 @@ struct FridaySettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     navigationGroup("通用", sections: [.appearance])
-                    navigationGroup("Friday", sections: [.model, .agents])
+                    navigationGroup("Friday", sections: [.providers])
                     navigationGroup("连接与同步", sections: [.devices])
                     if filteredSections.isEmpty {
                         Text(friday: "没有匹配的设置")

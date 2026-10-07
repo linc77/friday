@@ -28,7 +28,11 @@ public struct FridayRootView: View {
     @StateObject private var store = FridayStore()
     @StateObject private var navigation = FridayNavigation()
     @State private var selectedTask: String?
+    @State private var selectedConversation: String?
+    private var localTasks: [WorkItem] { store.tasks.filter { $0.localAgent } }
     @State private var mobileTab = 0
+    @State private var mobileTaskPath: [String] = []
+    @State private var startingConversation = false
     @AppStorage(FridayPreferenceKeys.appearance) private var appearance: FridayAppearance = .system
     @AppStorage(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
     @Environment(\.scenePhase) private var scenePhase
@@ -72,14 +76,18 @@ public struct FridayRootView: View {
                         .navigationTitle("Friday").toolbar { Button { newTask() } label: { FridaySymbolLabel(friday: "新对话", systemImage: "square.and.pencil") } }
                 }.tabItem { Label(friday: "对话", systemImage: FridaySymbols.chat) }.tag(0)
                 NavigationStack { inbox.navigationTitle(Text(friday: "想法")) }.tabItem { Label(friday: "想法", systemImage: "scribble") }.tag(1)
-                NavigationStack { tasksList.navigationTitle(Text(friday: "任务")).navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id) } }.tabItem { Label(friday: "任务", systemImage: "checklist.unchecked") }.tag(2)
+                NavigationStack(path: $mobileTaskPath) {
+                    tasksList.navigationTitle(Text(friday: "任务"))
+                        .navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id, onOpenTask: openLocalTask) }
+                        .toolbar { NavigationLink { NewAgentTaskView(store: store, onCreated: openLocalTask) } label: { FridaySymbolLabel(friday: "新任务", systemImage: "square.and.pencil") } }
+                }.tabItem { Label(friday: "任务", systemImage: "checklist.unchecked") }.tag(2)
                 NavigationStack {
                     List {
                         connectionStatus
                         if let error = store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
                         NavigationLink(friday: "项目") { ProjectsView(store: store) }
                         NavigationLink(friday: "记忆") { MemoriesView(store: store) }
-                        NavigationLink(friday: "本地工具") { AgentsView(store: store) }
+                        NavigationLink("Providers") { ProvidersView(store: store) }
                         NavigationLink(friday: "外观") { AppearanceSettingsView() }
                         NavigationLink(friday: "连接与设备") { ConnectionView(store: store) }
                     }.navigationTitle(Text(friday: "我的 Friday"))
@@ -174,13 +182,16 @@ public struct FridayRootView: View {
                     HStack {
                         Text(friday: "任务").font(.headline)
                         Spacer()
-                        Text("\(store.tasks.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        Button { selectedTask = nil } label: { FridaySymbolImage(systemName: "square.and.pencil").fridaySymbolFeedback() }
+                            .buttonStyle(.plain).help(Text(friday: "新任务"))
+                            .accessibilityLabel(Text(friday: "新任务"))
+                        Text("\(localTasks.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     }.padding(.horizontal, 20).padding(.top, 22).padding(.bottom, 8)
                     tasksList
                 }
                 .frame(minWidth: 230, idealWidth: 260, maxWidth: 310, maxHeight: .infinity)
-                if let selectedTask { TaskDetail(store: store, id: selectedTask).id(selectedTask).frame(minWidth: 420) }
-                else { EmptyPanel(icon: "checklist", title: "专注眼前的一件事", subtitle: "选择左侧任务，查看进展、补充要求，或收下完成的成果。") }
+                if let selectedTask { TaskDetail(store: store, id: selectedTask, onOpenTask: openLocalTask).id(selectedTask).frame(minWidth: 420) }
+                else { NewAgentTaskView(store: store, onCreated: openLocalTask) }
             }
             #else
             tasksList
@@ -201,31 +212,40 @@ public struct FridayRootView: View {
     }
 
     @ViewBuilder private var conversation: some View {
-        if let selectedTask { TaskDetail(store: store, id: selectedTask).id(selectedTask) }
+        if !startingConversation, let selectedConversation = selectedConversation ?? store.tasks.last(where: { $0.agent == "friday" })?.id, store.tasks.first(where: { $0.id == selectedConversation })?.agent == "friday" { TaskDetail(store: store, id: selectedConversation, onOpenTask: openLocalTask).id(selectedConversation) }
         else { NewConversationView(store: store, onCreated: openConversation) }
     }
 
-    private func openConversation(_ id: String) { selectedTask = id; navigation.section = .chat; mobileTab = 0 }
+    private func openConversation(_ id: String) { startingConversation = false; selectedConversation = id; navigation.section = .chat; mobileTab = 0 }
+
+    private func openLocalTask(_ id: String) { selectedTask = id; navigation.section = .tasks; mobileTab = 2; mobileTaskPath = [id] }
 
     private var tasksList: some View {
         Group {
-            if store.tasks.isEmpty {
+            if localTasks.isEmpty {
                 EmptyPanel(icon: "checklist", title: "交给 Friday 一件事", subtitle: "从一个想法开始，或直接布置新任务。")
             } else {
                 #if os(macOS)
-                List(selection: $selectedTask) {
-                    ForEach(store.tasks.reversed()) { task in
-                        TaskRow(task: task).tag(task.id).listRowSeparator(.hidden)
-                    }
-                }.listStyle(.sidebar).scrollContentBackground(.hidden)
+                ScrollView {
+                    LazyVStack(spacing: 6) {
+                        ForEach(localTasks.reversed()) { task in
+                            Button { selectedTask = task.id } label: {
+                                TaskRow(task: task).padding(.horizontal, 12)
+                                    .foregroundStyle(.primary)
+                                    .background(selectedTask == task.id ? FridayTheme.surface : Color.clear, in: RoundedRectangle(cornerRadius: 10))
+                            }.buttonStyle(.plain)
+                                .accessibilityAddTraits(selectedTask == task.id ? .isSelected : [])
+                        }
+                    }.padding(.horizontal, 10)
+                }
                 #else
-                List(store.tasks.reversed()) { task in NavigationLink(value: task.id) { TaskRow(task: task) } }.refreshable { await store.refresh() }
+                List(localTasks.reversed()) { task in NavigationLink(value: task.id) { TaskRow(task: task) } }.refreshable { await store.refresh() }
                 #endif
             }
         }
     }
 
-    private func newTask() { selectedTask = nil; navigation.section = .chat; mobileTab = 0 }
+    private func newTask() { startingConversation = true; selectedConversation = nil; navigation.section = .chat; mobileTab = 0 }
 }
 
 #if os(macOS)
@@ -269,6 +289,7 @@ struct TaskRow: View {
             Text(task.title).font(.callout.weight(.medium)).lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack {
+                Text(task.agentName).font(.caption).foregroundStyle(.secondary)
                 StatusBadge(task: task)
                 Spacer(minLength: 4)
                 Text(task.createdAt.prefix(10)).font(.caption).foregroundStyle(.tertiary)

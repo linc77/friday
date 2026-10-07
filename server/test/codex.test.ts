@@ -51,7 +51,7 @@ test('Conversation tools use read-only access before selection and return struct
     const wire = (await readFile(join(directory, 'wire.jsonl'), 'utf8')).trim().split('\n').map(l => JSON.parse(l));
     const start = wire.find(m => m.method === 'thread/start');
     assert.equal(start.params.sandbox, 'read-only'); assert.equal(start.params.approvalPolicy, 'never');
-    assert.deepEqual(start.params.dynamicTools.map((t: any) => t.name), ['friday_request_workspace', 'friday_save_idea']);
+    assert.deepEqual(start.params.dynamicTools.map((t: any) => t.name), ['friday_request_workspace', 'friday_save_idea', 'friday_remember']);
     assert.equal(wire.find(m => m.id === 93 && !m.method).result.success, true);
     await executor.run({ task: { ...task, projectId: 'chosen-project', threadId: 'protocol-thread' }, prompt: 'test', signal: new AbortController().signal, update: async u => { if (u.kind === 'approval') await executor.answer('test', u.approval.id, 'decline', { q: ['A'] }); } });
     const resumed = (await readFile(join(directory, 'wire.jsonl'), 'utf8')).trim().split('\n').map(l => JSON.parse(l)).find(m => m.method === 'thread/resume');

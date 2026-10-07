@@ -13,6 +13,11 @@ function text(value: unknown, name: string, max = 12_000): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error(`${name}不能为空，且长度不能超过 ${max}`);
   return value.trim();
 }
+function optionalModel(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.length > 120 || /[\x00-\x1f]/.test(value)) throw new Error('模型或推理强度无效');
+  return value;
+}
 export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   const app = new Hono<{ Variables: { device: string } }>();
   app.use('*', bodyLimit({ maxSize: 256 * 1024 }));
@@ -38,10 +43,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   app.get('/api/state', async c => c.json({ ...await engine.snapshot(), agents: agents(), devices: auth.devices(), deviceId: c.get('device') }));
   app.get('/api/model', async c => c.json(await engine.modelConnection.status(c.get('device') === 'owner')));
   app.use('/api/model/*', async (c, next) => {
-    if (c.get('device') !== 'owner') return c.json({ error: '请在主机上配置 DeepSeek API Key' }, 403);
-    await next();
-  });
-  app.use('/api/model/*', async (c, next) => {
+    if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置 Friday' }, 403);
     if ((await engine.snapshot()).tasks.some(t => t.agent === 'friday' && activeStatuses.includes(t.status))) return c.json({ error: '请先停止 Friday 正在处理的会话再修改模型连接' }, 409);
     await next();
   });
@@ -50,6 +52,15 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     return c.json(await engine.modelConnection.saveKey(text(body.apiKey, 'API Key', 512)));
   });
   app.delete('/api/model/key', async c => { await engine.modelConnection.clearKey(); return c.json({ ok: true }); });
+  app.get('/api/agents/codex', async c => c.json(await engine.codexConnection.status(c.get('device') === 'owner')));
+  app.use('/api/agents/codex/*', async (c, next) => {
+    if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置 Codex' }, 403);
+    if (c.req.path !== '/api/agents/codex/check' && (await engine.snapshot()).tasks.some(t => t.agent === 'codex' && activeStatuses.includes(t.status))) return c.json({ error: '请先停止 Codex 正在处理的任务再修改工具配置' }, 409);
+    await next();
+  });
+  app.put('/api/agents/codex/settings', async c => c.json(await engine.codexConnection.save(await c.req.json())));
+  app.post('/api/agents/codex/check', async c => c.json(await engine.codexConnection.status(true, true)));
+  app.post('/api/agents/codex/login', async c => c.json(await engine.codexConnection.login()));
   app.get('/api/events', c => streamSSE(c, async stream => {
     let dirty = true; let ended = false;
     const changed = () => { dirty = true; };
@@ -96,11 +107,10 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   app.delete('/api/memories/:id', async c => { await engine.mutate(s => { s.memories = s.memories.filter(m => m.id !== c.req.param('id')); }); return c.json({ ok: true }); });
   app.post('/api/tasks', async c => {
     const body = await c.req.json();
-    // Older clients send "codex". New work still belongs to Friday; only old records keep that executor.
-    if (body.agent && !['friday', 'codex'].includes(body.agent)) throw new Error('请向 Friday 提交请求，其他 Agent 尚未接入');
+    if (body.agent && !['friday', 'codex'].includes(body.agent)) throw new Error('当前只接入 Codex 本地执行，其他 Agent 尚未接入');
     const mode = body.mode ?? 'auto';
     if (!['auto', 'assistant', 'research', 'code'].includes(mode)) throw new Error('任务类型无效');
-    const id = await engine.createTask({ prompt: text(body.prompt, '任务要求'), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode, requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined });
+    const id = await engine.createTask({ prompt: text(body.prompt, '任务要求'), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode, agent: body.agent ?? 'friday', model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined });
     return c.json({ id }, 201);
   });
   app.post('/api/tasks/:id/workspace', async c => {
@@ -132,8 +142,11 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     const body = await c.req.json(); const prompt = text(body.text, '补充要求'); const requestId = text(body.requestId, '请求 ID', 100);
     const task = (await engine.snapshot()).tasks.find(t => t.id === c.req.param('id'));
     if (!task) throw new Error('任务不存在');
-    if (activeStatuses.includes(task.status)) await engine.steer(task.id, prompt, requestId);
-    else await engine.createTask({ prompt, requestId, projectId: task.projectId, mode: task.mode, continueId: task.id });
+    if (activeStatuses.includes(task.status)) {
+      if (body.model !== undefined || body.reasoningEffort !== undefined) throw new Error('请在当前执行结束后切换模型');
+      await engine.steer(task.id, prompt, requestId);
+    }
+    else await engine.createTask({ prompt, requestId, projectId: task.projectId, mode: task.mode, continueId: task.id, model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort) });
     return c.json({ id: task.id });
   });
   app.post('/api/tasks/:id/approvals/:approvalId', async c => {

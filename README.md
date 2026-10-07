@@ -4,7 +4,7 @@
 
 Friday 是你的个人 Agent：随手收集想法、关联项目、布置任务，再从任意已连接的设备查看进展和成果。
 
-目前是可运行的 **0.1 开发版**：独立 TypeScript 常驻服务、Pi Durable + SQLite 持久化、原生 SwiftUI Mac 客户端、iOS 客户端与分享扩展源码。Friday 通过 DeepSeek API 直连模型，使用 Pi Durable 的模型与工具循环。Codex 是需单独批准的可选编码工具；Claude Code、Hermes、Pi Coding Agent 目前只检测安装状态。
+目前是可运行的 **0.1 开发版**：独立 TypeScript 常驻服务、Pi Durable + SQLite 持久化、原生 SwiftUI Mac 客户端、iOS 客户端与分享扩展源码。Friday 通过 DeepSeek API 直连模型，使用 Pi Durable 的模型与工具循环。主会话始终是 Friday。Codex 是任务中的可选执行工具，Friday 委派前需单独批准；Claude Code、Hermes、Pi Coding Agent 目前只检测安装状态。
 
 ## 本机运行
 
@@ -17,7 +17,7 @@ pnpm mac:build
 pnpm mac:open
 ```
 
-启动后先进入“设置 → 模型服务”，填入 [DeepSeek API Key](https://platform.deepseek.com/api_keys)，点击“验证并保存”。Friday 会向官方接口发送一次简短测试请求（产生少量 API 用量），成功后才保存密钥；失败不会覆盖已有密钥。默认模型为 `deepseek-flash`，主机启动时可用 `FRIDAY_MODEL_ID=deepseek-v4-pro` 选择 Pro。模型和工具调用使用 [DeepSeek 官方 Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/)，由 Pi Durable 驱动。续聊会保留历史，并使用当前配置的模型。
+启动后先进入“设置 → Providers → Friday”，填入 [DeepSeek API Key](https://platform.deepseek.com/api_keys)，点击“验证并保存”。Friday 会向官方接口发送一次简短测试请求（产生少量 API 用量），成功后才保存密钥；失败不会覆盖已有密钥。默认模型为 `deepseek-flash`，主机启动时可用 `FRIDAY_MODEL_ID=deepseek-v4-pro` 选择 Pro。模型和工具调用使用 [DeepSeek 官方 Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/)，由 Pi Durable 驱动。续聊会保留历史，并使用当前配置的模型。
 
 打开后直接在“对话”中输入需求并发送，无需选择任务类型或执行工具。“想法”中的“交给 Friday”会直接开始同一段对话，不再弹出表单。只想记录时，可以在“想法”中保存，或对 Friday 说“先记下，不要执行”。
 
@@ -93,3 +93,11 @@ git diff --check
 自动测试使用 Pi 的 faux provider 覆盖真实 Durable 模型/工具循环、无 Codex 环境、会话续聊、问题等待恢复、文件路径边界、写入审批及凭据保存。DeepSeek 协议测试通过本地模拟 HTTP 响应覆盖密钥验证、失败重试、流式回复、工具调用和旧模型会话迁移；它不代表真实 DeepSeek 账户可用。真实链路需要填入 API Key 并完成“验证并保存”后验收。
 
 可以用 `FRIDAY_DATA_DIR`、`FRIDAY_PORT` 启动独立服务；Mac 客户端另支持 `FRIDAY_SERVER_URL` 环境变量，用于隔离预览，不修改已保存的连接地址。
+
+## 本地 Agent 任务
+
+主对话始终由 Friday 的 Pi Durable 模型与工具循环处理。想法交办也进入 Friday；本地 Codex 不作为 Friday 的主会话模型。
+
+“设置 → Providers → Codex”提供 T3 Code 式 Codex 运行配置：账号、版本、可执行文件、CODEX_HOME、独立账号目录、启动参数、隐藏值的环境变量，以及默认模型与推理强度。配置以 0600 权限原子保存，只有主机 owner 可以修改；正在执行的 Codex 任务会阻止修改配置。独立账号目录共享配置与会话，账号凭据独立保存，不复制或覆盖已有凭据。
+
+“任务 → 新任务”选择项目，输入任务要求，并选择模型、推理强度。每个任务有独立的 Codex thread、消息、审批和成果；后续消息继续同一个任务会话。主对话与本地任务使用各自的 Durable 排队依赖，本地任务运行时仍可与 Friday 对话。Friday 经批准委派 Codex 时也创建独立任务，在主会话显示任务入口，完成后由 Friday 汇报。Claude Code 等工具仅检测安装状态，尚未提供执行。

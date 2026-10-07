@@ -19,7 +19,7 @@ Friday 保存长期产品状态，客户端负责交互，CLI 工具执行具体
 
 ## Pi Durable 的职责
 
-`friday.respond` 管理 Friday 请求的排队和成果；其独立 conversation 使用 Pi Durable 内置 `pi.generation` / `pi.tool` 执行模型与工具循环。`friday.execute` 保留给旧 Codex 任务，使用 checkpoint、memo、等待依赖和终止状态。任务创建和应用状态更新在同一 Durable commit 中保存。所有任务按创建/继续的顺序串行执行，避免多个代码任务同时改同一目录。
+`friday.respond` 管理 Friday 请求的排队和成果；其独立 conversation 使用 Pi Durable 内置 `pi.generation` / `pi.tool` 执行模型与工具循环。`friday.execute` 管理独立的本地 Agent 任务，使用 checkpoint、memo、等待依赖和终止状态。任务创建和应用状态更新在同一 Durable commit 中保存。Friday 主会话与本地任务分别保存 Durable 队列依赖；本地任务之间按创建/继续顺序串行执行，主对话仍可响应。
 
 Pi Durable 不是 CLI 外部副作用的事务管理器。Friday 在启动外部 turn 前保存 external-started 标记与 thread ID；重启后不确定的 turn 需要用户继续。Pi Durable 的存储由单进程持有，另一个 SQLite writer transaction 用作会随进程退出而释放的占用锁。
 
@@ -31,7 +31,7 @@ Friday 现在自己运行模型决策循环。每个会话在提交前原子保�
 
 读取、基于 tool-call ID 去重的内部写入和提问可安全恢复；文件写入、笔记文件和外部调用标记 unsafe，中断后由 Pi 返回 interrupted，不自动重放。用户问题和答案在 workspace 中持久化；中断的其他待决授权失效。
 
-模型接入使用 pi-ai 的 DeepSeek provider，直接请求官方 Chat Completions API，默认 `deepseek-flash`。主机 owner 在“模型服务”页配置 API Key；先发一次非思考模式的简短测试请求，成功后以 0600 权限串行、原子保存，失败保留旧密钥。配对设备只能查看连接状态；凭据不进入快照。正常会话支持流式回复、思考与工具调用；后续用户消息保留原 conversation，并切到当前配置的模型。旧 OpenAI 凭据保留但不再使用，OAuth 入口已移除。
+模型接入使用 pi-ai 的 DeepSeek provider，直接请求官方 Chat Completions API，默认 `deepseek-flash`。主机 owner 在 Providers 的 Friday 页面配置 API Key；先发一次非思考模式的简短测试请求，成功后以 0600 权限串行、原子保存，失败保留旧密钥。配对设备只能查看连接状态；凭据不进入快照。正常会话支持流式回复、思考与工具调用；后续用户消息保留原 conversation，并切到当前配置的模型。旧 OpenAI 凭据保留但不再使用，OAuth 入口已移除。
 
 ## Codex 适配器
 
@@ -61,6 +61,14 @@ Connections 的个人接入方案使用 Tailscale Serve 提供私网 HTTPS，手
 
 ## 第一版规模
 
-一个用户、一个服务、一条执行队列，一个有上限的 workspace document。当前最多 300 个任务、100 条显式记忆，每任务保存最近 120 条执行事件，流式预览限制 80k 字符。Friday 完整模型会话由 Pi Durable 保存，可选 Codex 受委派部分由其原生存储保存。没有提供任务归档/清理 UI；达到任务上限后需要增加归档能力再继续扩展。
+一个用户、一个服务，Friday 与本地执行各自的队列，一个有上限的 workspace document。当前最多 300 个任务、100 条显式记忆，每任务保存最近 120 条执行事件，流式预览限制 80k 字符。Friday 完整模型会话由 Pi Durable 保存，可选 Codex 受委派部分由其原生存储保存。没有提供任务归档/清理 UI；达到任务上限后需要增加归档能力再继续扩展。
 
 后续增加多 executor 时，保持 run、answer、steer 的边界，同时显式描述每个工具的继续、取消、授权、事件和成果能力；不要假定所有 CLI 都支持同样的协议。
+
+## 任务会话与 Providers 配置
+
+默认提交的 agent 为 friday，始终创建或复用 Pi Durable conversation。只有显式选择 codex 或 Friday 经批准委派时才进入外部执行任务；续聊不能切换会话所属 Agent。委派任务保存 parentId，主会话与子任务的 transcript、thread ID 和审批分别持久化。
+
+/api/model 只管理 Friday 的 pi-ai provider。/api/agents/codex 独立检测 initialize、account/read 与分页 model/list；Providers 将 Friday 的 API 配置与本地 Agent 的运行配置放在同一设置入口，本地 Agent 配置不覆盖 Friday 模型配置。Codex 配置的环境变量值在接口中隐藏，配对设备不返回账号邮箱与运行配置。Codex 自己管理登录凭据。
+
+每个 Codex 任务持久化 model、reasoningEffort、thread ID 与账号目录；外部 turn 开始前先保存这些状态。任务输入面板可在执行结束后切换模型或推理强度；运行期间仅补充要求或停止。当前采用 workspace-write / on-request，不提供 Full access 开关。实现参考本机 T3 Code 的 ThreadTurnStartCommand、modelSelection 与同 thread 续聊流程，界面使用原生 SwiftUI。

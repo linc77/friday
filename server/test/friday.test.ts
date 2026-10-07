@@ -29,7 +29,7 @@ async function until(engine: Engine, predicate: (value: Workspace) => boolean) {
   while (Date.now() < limit) { const value = await engine.snapshot(); if (predicate(value)) return value; await new Promise(r => setTimeout(r, 15)); }
   throw new Error('State transition timed out');
 }
-const input = (requestId: string) => ({ prompt: 'Inspect this project', mode: 'research' as const, projectId: null, requestId });
+const input = (requestId: string) => ({ agent: 'codex' as const, prompt: 'Inspect this project', mode: 'research' as const, projectId: null, requestId });
 
 test('Durable deduplicates submissions, serializes execution, and retains artifacts across restarts', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-'));
@@ -145,11 +145,11 @@ test('A plain conversation can wait for a project across restarts, release the q
   const request = (path: string, body: unknown) => app.request(path, { method: 'POST', headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   try {
     await request('/api/ideas', { id: 'idea', text: 'Create a file' });
-    const created = await request('/api/tasks', { prompt: 'Create a file', ideaId: 'idea', requestId: 'chat-create' });
+    const created = await request('/api/tasks', { agent: 'codex', prompt: 'Create a file', ideaId: 'idea', requestId: 'chat-create' });
     assert.equal(created.status, 201); const { id } = await created.json();
-    assert.equal((await (await request('/api/tasks', { prompt: 'Create a file', ideaId: 'idea', requestId: 'second-click' })).json()).id, id);
+    assert.equal((await (await request('/api/tasks', { agent: 'codex', prompt: 'Create a file', ideaId: 'idea', requestId: 'second-click' })).json()).id, id);
     await until(engine, s => s.tasks[0].status === 'needs_project');
-    const next = await request('/api/tasks', { prompt: 'Only save an idea', requestId: 'capture' }); const nextId = (await next.json()).id;
+    const next = await request('/api/tasks', { agent: 'codex', prompt: 'Only save an idea', requestId: 'capture' }); const nextId = (await next.json()).id;
     await until(engine, s => s.tasks.find(t => t.id === nextId)?.status === 'completed');
     assert.equal((await engine.snapshot()).ideas.find(i => i.id === 'captured')?.taskId, null);
     await engine.close(); engine = await new Engine(directory, executor).open();

@@ -67,7 +67,7 @@ export class ModelConnection {
   }
   async ready() {
     if (this.pending) throw new Error('正在验证 DeepSeek API Key，请稍候再发送消息。');
-    if (!(await this.status()).connected) throw new Error('请先在「连接」中配置 DeepSeek API Key。');
+    if (!(await this.status()).connected) throw new Error('请先在「Providers → Friday」中配置 DeepSeek API Key。');
     if (!this.models.getModel(this.model.provider, this.model.modelId)) throw new Error('DeepSeek 模型不在当前目录中，请检查 FRIDAY_MODEL_ID。');
   }
   async saveKey(value: string) {
