@@ -18,6 +18,12 @@ import { FridayAssistant } from './assistant.js';
 
 const now = () => new Date().toISOString();
 const event = (kind: string, text: string) => ({ id: randomUUID(), kind, text, at: now() });
+const finishItems = (task: WorkItem, status: 'interrupted' | 'failed') => {
+  for (const item of task.events) if (item.itemId && item.status === 'running') {
+    item.status = status; item.completedAt = now();
+    item.durationMs = Date.parse(item.completedAt) - Date.parse(item.at);
+  }
+};
 type Input = { id: string; predecessor: number | null; prompt: string };
 type Checkpoint = { phase: 'queued' } | { phase: 'execute' };
 
@@ -58,6 +64,7 @@ export class Engine extends EventEmitter {
             // An external turn may have executed before its receipt was persisted. Never replay it implicitly.
             await this.patchTask(task.input.id, item => {
               item.status = 'interrupted';
+              finishItems(item, 'interrupted');
               item.error = '服务曾中断。已保留会话和执行记录；请检查成果，再补充要求或继续任务。';
               item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; });
               item.events.push(event('recovery', item.error));
@@ -74,7 +81,7 @@ export class Engine extends EventEmitter {
             if (needsProject) {
               await this.patchTask(work.id, item => {
                 item.status = 'needs_project'; item.result = result; item.artifact = null;
-                item.messages?.push({ id: randomUUID(), role: 'assistant', text: result });
+                item.messages?.push({ id: randomUUID(), role: 'assistant', text: result, at: now(), ...(item.turnId ? { turnId: item.turnId } : {}) });
                 item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; });
               });
               await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'needs_project' } } }), ctx);
@@ -83,7 +90,7 @@ export class Engine extends EventEmitter {
             await writeFile(join(this.directory, 'artifacts', `${work.id}.md`), `# ${work.title}\n\n${result}\n`, { mode: 0o600 });
             await this.patchTask(work.id, item => {
               item.status = 'completed'; item.result = result; item.artifact = `${work.id}.md`;
-              item.messages?.push({ id: randomUUID(), role: 'assistant', text: result });
+              item.messages?.push({ id: randomUUID(), role: 'assistant', text: result, at: now(), ...(item.turnId ? { turnId: item.turnId } : {}) });
               item.events.push(event('status', '成果已保存'));
               item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; });
             });
@@ -92,6 +99,7 @@ export class Engine extends EventEmitter {
             if (runtime.signal.aborted) throw error;
             await this.patchTask(task.input.id, item => {
               item.status = 'failed'; item.error = error instanceof Error ? error.message : '执行失败';
+              finishItems(item, 'failed');
               item.events.push(event('error', item.error));
               item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; });
             });
@@ -102,6 +110,7 @@ export class Engine extends EventEmitter {
       abort: async (task, runtime, ctx) => {
         await this.patchTask(task.input.id, item => {
           item.status = 'cancelled'; item.events.push(event('status', '任务已取消；已经完成的外部操作不会自动撤销。'));
+          finishItems(item, 'interrupted');
           item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; });
         });
         await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'cancelled' } } }), ctx);
@@ -193,7 +202,9 @@ export class Engine extends EventEmitter {
       if (!item) throw new Error('任务不存在');
       change(item); item.updatedAt = now();
       // ponytail: bounded per-task logs and one workspace snapshot suit personal use; split documents when lists grow.
-      if (item.events.length > 120) item.events.splice(0, item.events.length - 120);
+      // Item snapshots are replaced, not appended for each delta. Keep a larger
+      // bounded transcript so completed turns survive an ordinary continuation.
+      if (item.events.length > 600) item.events.splice(0, item.events.length - 600);
     });
   }
   async createTask(input: { prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; agent?: 'friday' | 'codex'; parentId?: string; model?: string; reasoningEffort?: string }) {
@@ -245,12 +256,12 @@ export class Engine extends EventEmitter {
       } else if (!native && work && task.result && task.messages.at(-1)?.text !== task.result) {
         task.messages.push({ id: randomUUID(), role: 'assistant', text: task.result });
       }
-      task.messages.push({ id: randomUUID(), role: 'user', text: input.prompt });
+      task.messages.push({ id: randomUUID(), role: 'user', text: input.prompt, at: stamp });
       if (!native) {
         if (input.model !== undefined) task.model = input.model;
         if (input.reasoningEffort !== undefined) task.reasoningEffort = input.reasoningEffort;
       }
-      task.mode = input.mode; task.result = ''; task.artifact = null; task.workspaceRequest = null;
+      task.mode = input.mode; task.result = ''; task.artifact = null; task.workspaceRequest = null; task.turnId = null;
       const effectiveProject = workspace.projects.find(p => p.id === task.projectId);
       const prompt = [
         !native && !task.threadId && task.messages.length > 1 ? `Previous conversation (context only; do not replay past actions):\n${task.messages.slice(0, -1).map(m => `${m.role}: ${m.text}`).join('\n\n')}` : '',
@@ -315,10 +326,19 @@ export class Engine extends EventEmitter {
     await this.patchTask(id, item => {
       if (!activeStatuses.includes(item.status)) return;
       if (update.kind === 'session') { item.threadId = update.threadId; if (update.codexHome) item.codexHome = update.codexHome; if (update.model) item.model = update.model; if (update.reasoningEffort) item.reasoningEffort = update.reasoningEffort; }
-      if (update.kind === 'turn') item.turnId = update.turnId;
+      if (update.kind === 'turn') {
+        item.turnId = update.turnId;
+        const user = item.messages?.findLast(m => m.role === 'user');
+        if (user && !user.turnId) user.turnId = update.turnId;
+      }
       if (update.kind === 'output') item.result = update.text;
       if (update.kind === 'workspace' && !item.projectId) item.workspaceRequest = update.reason;
       if (update.kind === 'event') item.events.push(event(update.eventKind, update.text));
+      if (update.kind === 'item') {
+        const index = item.events.findIndex(e => e.id === update.item.id);
+        if (index < 0) item.events.push({ ...update.item });
+        else item.events[index] = { ...update.item, at: item.events[index].at };
+      }
       if (update.kind === 'approval') { item.approvals.push(update.approval); item.status = 'waiting'; }
       if (update.kind === 'approvalResolved') {
         const approval = item.approvals.find(a => a.id === update.id);
@@ -359,7 +379,7 @@ export class Engine extends EventEmitter {
     } else await this.executor.steer(id, text, requestId);
     await this.patchTask(id, item => {
       item.events.push(event('user', text));
-      if (item.agent !== 'friday') item.messages?.push({ id: randomUUID(), role: 'user', text });
+      if (item.agent !== 'friday') item.messages?.push({ id: randomUUID(), role: 'user', text, at: now(), ...(item.turnId ? { turnId: item.turnId } : {}) });
     });
   }
   async artifact(id: string) {

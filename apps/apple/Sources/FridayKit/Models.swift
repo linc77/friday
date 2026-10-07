@@ -5,11 +5,24 @@ struct Project: Codable, Identifiable { let id: String; var name: String; let pa
 struct MemoryItem: Codable, Identifiable { let id: String; let text: String; let updatedAt: String }
 struct AgentInfo: Codable, Identifiable { let id: String; let name: String; let installed: Bool; let executable: String?; let executableSupported: Bool; let description: String }
 struct Device: Codable, Identifiable { let id: String; let name: String; let createdAt: String }
-struct TaskEvent: Codable, Identifiable { let id: String; let kind: String; let text: String; let at: String }
+struct TaskEvent: Codable, Identifiable {
+    let id: String; let kind: String; let text: String; let at: String
+    let itemId: String?; let turnId: String?; let phase: String?; let status: String?
+    let detail: String?; let completedAt: String?; let durationMs: Double?; let exitCode: Int?
+    init(id: String, kind: String, text: String, at: String, itemId: String? = nil, turnId: String? = nil, phase: String? = nil, status: String? = nil, detail: String? = nil, completedAt: String? = nil, durationMs: Double? = nil, exitCode: Int? = nil) {
+        self.id = id; self.kind = kind; self.text = text; self.at = at; self.itemId = itemId; self.turnId = turnId
+        self.phase = phase; self.status = status; self.detail = detail; self.completedAt = completedAt; self.durationMs = durationMs; self.exitCode = exitCode
+    }
+}
 struct QuestionOption: Codable { let label: String; let description: String }
 struct Question: Codable, Identifiable { let id: String; let header: String; let question: String; let options: [QuestionOption] }
 struct Approval: Codable, Identifiable { let id: String; let method: String; let title: String; let detail: String; let questions: [Question]; let state: String }
-struct ChatMessage: Codable, Identifiable { let id: String; let role: String; let text: String }
+struct ChatMessage: Codable, Identifiable {
+    let id: String; let role: String; let text: String; let at: String?; let turnId: String?
+    init(id: String, role: String, text: String, at: String? = nil, turnId: String? = nil) {
+        self.id = id; self.role = role; self.text = text; self.at = at; self.turnId = turnId
+    }
+}
 struct CodexEnvironmentVariable: Codable, Identifiable, Equatable {
     var name: String; var value: String?; var hasValue: Bool?
     var id: String { name }

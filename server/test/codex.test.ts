@@ -6,9 +6,36 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CodexExecutor } from '../src/codex.js';
 import type { WorkItem, ExecutionUpdate } from '../src/types.js';
+import { Engine } from '../src/engine.js';
 
 const command = fileURLToPath(new URL('fixtures/codex.mjs', import.meta.url));
 const work = (cwd: string): WorkItem => ({ id: 'test', title: 'test', prompt: 'test', projectId: null, cwd, agent: 'codex', mode: 'research', status: 'running', createdAt: '', updatedAt: '', durableId: 1, threadId: null, turnId: null, result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: 'request' });
+
+test('Codex wire transcript persists through Durable and reopens without duplicated output', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-wire-durable-')); await chmod(command, 0o755);
+  const executor = new CodexExecutor(command); let engine = await new Engine(directory, executor).open();
+  try {
+    await engine.createTask({ agent: 'codex', prompt: 'timeline-protocol', mode: 'research', projectId: null, requestId: 'timeline' });
+    const limit = Date.now() + 5000;
+    let task = (await engine.snapshot()).tasks[0];
+    while (task.status === 'queued' || task.status === 'running') {
+      if (Date.now() > limit) throw new Error('Codex wire execution timed out');
+      await new Promise(resolve => setTimeout(resolve, 15)); task = (await engine.snapshot()).tasks[0];
+    }
+    assert.equal(task.status, 'completed', task.error ?? '');
+    assert.equal(task.result, '## Final result\n\nVerified.');
+    assert.equal(task.events.filter(e => e.kind === 'command').length, 1);
+    assert.equal(task.events.find(e => e.kind === 'command')?.detail, '/tmp');
+    assert.equal(task.events.find(e => e.phase === 'commentary')?.text, 'Inspection complete');
+    assert.equal(task.events.find(e => e.kind === 'turn')?.status, 'completed');
+    assert.equal(task.messages?.length, 2);
+    assert.equal(task.messages?.[0].turnId, task.turnId);
+    const saved = task.events;
+    await engine.close(); engine = await new Engine(directory, executor).open();
+    assert.deepEqual((await engine.snapshot()).tasks[0].events, saved);
+    assert.ok(!(await engine.artifact(task.id)).includes('Inspection complete'));
+  } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
+});
 
 test('Codex wire saves session before turn, presents diffs and questions, declines unsupported permissions, and resumes', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-wire-')); await chmod(command, 0o755);
@@ -22,7 +49,7 @@ test('Codex wire saves session before turn, presents diffs and questions, declin
       updates.push(u);
       if (u.kind === 'approval') {
         if (u.approval.method.includes('fileChange')) {
-          assert.ok(updates.some(v => v.kind === 'event' && v.text.includes('+example')));
+          assert.ok(updates.some(v => v.kind === 'item' && v.item.detail?.includes('+example')));
           await executor.steer('test', 'Additional instruction', 'steer-1');
         }
         await executor.answer('test', u.approval.id, 'accept', { q: ['A'] });

@@ -3,6 +3,7 @@ import type { CodexConnection } from './codex-provider.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { findExecutable } from './agents.js';
 import type { Approval, ExecutionRequest, Executor, Workspace } from './types.js';
+import { CodexEvents } from './codex-events.js';
 
 
 type LiveRun = { rpc: Rpc; threadId: string; turnId: string; approvals: Map<string, { wireId: string | number; method: string; params: any }> };
@@ -28,8 +29,8 @@ export class CodexExecutor implements Executor {
     const run: LiveRun = { rpc, threadId: '', turnId: '', approvals: new Map() };
     this.live.set(task.id, run);
     let chain = Promise.resolve();
-    const messages = new Map<string, string>();
-    let finalText = ''; let lastFlush = 0;
+    const transcript = new CodexEvents(update);
+    let finished = false;
     let settle!: (text: string) => void; let fail!: (error: Error) => void;
     const completion = new Promise<string>((resolve, reject) => { settle = resolve; fail = reject; });
     // Attach immediately: an early process exit must not create an unhandled rejection.
@@ -86,35 +87,17 @@ export class CodexExecutor implements Executor {
           };
           await update({ kind: 'approval', approval });
         } else if (message.method === 'turn/started') {
-          run.turnId = p.turn.id; await update({ kind: 'turn', turnId: run.turnId });
-        } else if (message.method === 'item/agentMessage/delta') {
-          messages.set(p.itemId, (messages.get(p.itemId) ?? '') + p.delta);
-          if (Date.now() - lastFlush > 150) {
-            lastFlush = Date.now(); await update({ kind: 'output', text: [...messages.values()].join('\n\n').slice(-80_000) });
-          }
-        } else if (message.method === 'item/completed') {
-          const item = p.item;
-          if (item.type === 'agentMessage') {
-            messages.set(item.id, item.text);
-            if (item.phase === 'final_answer') finalText = item.text;
-            await update({ kind: 'output', text: [...messages.values()].join('\n\n').slice(-80_000) });
-          } else if (item.type === 'commandExecution') {
-            await update({ kind: 'event', eventKind: 'command', text: `${item.command}\n${item.aggregatedOutput ?? ''}\n退出码：${item.exitCode ?? '—'}`.slice(-12_000) });
-          } else if (item.type === 'fileChange') {
-            await update({ kind: 'event', eventKind: 'files', text: JSON.stringify(item.changes, null, 2).slice(-20_000) });
-          } else if (item.type === 'plan') await update({ kind: 'event', eventKind: 'plan', text: item.text });
-        } else if (message.method === 'item/started' && p.item?.type === 'commandExecution') {
-          await update({ kind: 'event', eventKind: 'command', text: `正在执行：${p.item.command}` });
-        } else if (message.method === 'item/started' && p.item?.type === 'fileChange') {
-          await update({ kind: 'event', eventKind: 'files', text: JSON.stringify(p.item.changes, null, 2).slice(-20_000) });
+          run.turnId = p.turn.id; await update({ kind: 'turn', turnId: run.turnId }); await transcript.startTurn(run.turnId);
         } else if (message.method === 'turn/completed') {
-          if (p.turn.status === 'completed') settle(finalText || [...messages.values()].join('\n\n') || '任务已完成，详见执行记录。');
+          await transcript.finishTurn(p.turn.id, p.turn.status === 'completed' ? 'completed' : p.turn.status === 'interrupted' ? 'interrupted' : 'failed');
+          finished = true;
+          if (p.turn.status === 'completed') settle(transcript.result);
           else fail(new Error(p.turn.error?.message ?? `Codex 任务${p.turn.status}`));
         } else if (message.method === 'serverRequest/resolved') {
           for (const [id, approval] of run.approvals) if (approval.wireId === p.requestId) {
             run.approvals.delete(id); await update({ kind: 'approvalResolved', id });
           }
-        }
+        } else await transcript.handle(message.method, p, run.turnId);
       }).catch(fail);
     };
     try {
@@ -133,10 +116,14 @@ export class CodexExecutor implements Executor {
       const turn = await rpc.call('turn/start', { threadId: run.threadId, model: configured?.model, effort: configured?.effort, clientUserMessageId: task.lastRequestId, input: [{ type: 'text', text: prompt, text_elements: [] }] });
       run.turnId = turn.turn.id;
       await update({ kind: 'turn', turnId: run.turnId });
+      await transcript.startTurn(run.turnId);
       const result = await completion; await chain;
       return result;
     } finally {
       signal.removeEventListener('abort', onAbort); this.live.delete(task.id); rpc.close();
+      // Drain queued notifications before terminalizing items on disconnect/cancel.
+      await chain;
+      if (!finished && run.turnId) await transcript.finishTurn(run.turnId, signal.aborted ? 'interrupted' : 'failed');
     }
   }
   async answer(taskId: string, approvalId: string, decision: 'accept' | 'decline', answers: Record<string, string[]>) {
