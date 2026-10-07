@@ -17,7 +17,7 @@ pnpm mac:build
 pnpm mac:open
 ```
 
-启动后先进入“连接”，填入 [DeepSeek API Key](https://platform.deepseek.com/api_keys)，点击“验证并保存”。Friday 会向官方接口发送一次简短测试请求（产生少量 API 用量），成功后才保存密钥；失败不会覆盖已有密钥。默认模型为 `deepseek-flash`，主机启动时可用 `FRIDAY_MODEL_ID=deepseek-v4-pro` 选择 Pro。模型和工具调用使用 [DeepSeek 官方 Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/)，由 Pi Durable 驱动。续聊会保留历史，并使用当前配置的模型。
+启动后先进入“设置 → 模型服务”，填入 [DeepSeek API Key](https://platform.deepseek.com/api_keys)，点击“验证并保存”。Friday 会向官方接口发送一次简短测试请求（产生少量 API 用量），成功后才保存密钥；失败不会覆盖已有密钥。默认模型为 `deepseek-flash`，主机启动时可用 `FRIDAY_MODEL_ID=deepseek-v4-pro` 选择 Pro。模型和工具调用使用 [DeepSeek 官方 Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/)，由 Pi Durable 驱动。续聊会保留历史，并使用当前配置的模型。
 
 打开后直接在“对话”中输入需求并发送，无需选择任务类型或执行工具。“想法”中的“交给 Friday”会直接开始同一段对话，不再弹出表单。只想记录时，可以在“想法”中保存，或对 Friday 说“先记下，不要执行”。
 
@@ -59,15 +59,19 @@ pnpm service:stop
 
 ## iPhone 与多端连接
 
+主机连接、设备授权、私网接入步骤、小火箭配置、MagicDNS / DERP、排障与验收边界见 [Connections 模块指南](docs/connections.md)。
+
 用完整 Xcode 打开 `apps/ios/Friday.xcodeproj`，选择 Friday scheme。为 Friday 和 FridayShare 配置同一个开发团队，并设置可用的 `FRIDAY_BUNDLE_PREFIX` 与 `FRIDAY_APP_GROUP`，在两个 target 上启用相同 App Group。App Group 的真机签名依赖你的 Apple 开发者配置。
 
-当前机器只有 Command Line Tools，尚未完成 iOS 编译、模拟器或真机验收。项目和 plist 已做语法检查，这不等于 iOS 构建通过。
+只有普通 Apple 账号时，选择 **FridayPersonal** scheme，并仅为 FridayPersonal target 选择自己的 Personal Team 和可用的 Bundle Identifier。这个 target 不包含分享扩展，也不申请 App Group；对话、想法、任务和主机配对使用同一套 FridayKit。普通账号的个人安装需要按 Apple 的签名期限重新安装。
 
-1. 为服务准备设备可访问的 HTTPS 地址。个人使用可用 Tailscale Serve，将私有 HTTPS 入口转发到 `127.0.0.1:4317`；客户端和主机加入同一 tailnet。
-2. 在主机的“连接”里生成配对码，在 iPhone 填入 HTTPS 地址、设备名称与配对码。配对码 5 分钟内单次有效。
+FridayPersonal 已使用 Xcode 27.0 和 iOS 27.0 SDK 完成签名编译、iPhone 真机安装、主机配对和双向想法同步验收；其中主机到手机的前台 SSE 更新已通过真实设备验证。首次启动需要在手机上信任开发者。包含分享扩展的 Friday scheme 尚未完成 iOS 编译或真机验收。
+
+1. 为服务准备设备可访问的 HTTPS 地址。个人使用可用 Tailscale Serve，将私有 HTTPS 入口转发到 `127.0.0.1:4317`；客户端和主机加入同一 tailnet。iOS 上两个独立 VPN 客户端不能同时连接；支持内置 Tailscale 的 Shadowrocket 可以在同一个 VPN 隧道中处理代理和私网流量，此方案已完成 Friday 真机同步验收。手机使用 Shadowrocket 的 Tailscale 模块和入网认证密钥，控制服务器使用默认值，出口节点留空，官方 Tailscale App 保持断开。没有内置模块时，也可在确认公网访问范围后改用 Tailscale Funnel，手机通过普通 HTTPS 连接，主机仍运行 Tailscale。Funnel 会让服务公网可达，Friday 的数据访问仍要求配对后的设备凭证。
+2. 在主机的“设置 → 设备管理”里生成配对码，在 iPhone 的“设置 → 连接与设备”填入 HTTPS 地址、设备名称与配对码。配对码 5 分钟内单次有效。
 3. iOS 支持保存想法、任务控制和成果查看。分享扩展保存文字/链接到 App Group；**打开 Friday 后**导入并同步。离线想法保留在设备，任务必须在线提交。
 
-Tailscale 和 HTTPS 入口尚未替你安装或配置。第一版不含 APNs：App 在前台通过 SSE 更新，回到前台后重新连接。远程连接要求 HTTPS，不把凭据发到明文局域网地址。
+HTTPS 入口需要在主机上配置，且主机需要保持在线。第一版不含 APNs：App 在前台通过 SSE 更新，回到前台后重新连接。远程连接要求 HTTPS，不把凭据发到明文局域网地址。
 
 ## 验证
 

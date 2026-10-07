@@ -160,49 +160,53 @@ struct AgentsView: View {
     }
 }
 
-enum ConnectionSettingsSection {
-    case all, host, devices
-
-    var title: String { self == .devices ? "设备管理" : "主机连接" }
-    var subtitle: String {
-        self == .devices ? "管理可以访问 Friday 的设备。" : "连接你的主机，随时查看任务与进展。"
-    }
-}
-
 struct ConnectionView: View {
     @ObservedObject var store: FridayStore
-    var section: ConnectionSettingsSection = .all
+    #if os(iOS)
     @State private var server = ""
     @State private var code = ""
     @State private var name = ""
-    @State private var pairing: PairingCode?
     @State private var busy = false
+    #endif
+    @State private var pairing: PairingCode?
     @State private var error: String?
+
+    private var title: String {
+        #if os(macOS)
+        "设备管理"
+        #else
+        "主机连接"
+        #endif
+    }
+
+    private var subtitle: String {
+        #if os(macOS)
+        "管理可以访问 Friday 的设备。"
+        #else
+        "连接你的主机，随时查看任务与进展。"
+        #endif
+    }
+
     var body: some View {
-        SettingsPage(title: section.title, subtitle: section.subtitle) {
-            if section != .devices {
-                hostSettings
-            }
-            if section == .all {
-                ModelSettingsView(store: store)
-            }
-            if section != .host {
-                deviceSettings
-            }
-            if section != .devices {
-                pairingSettings
-            }
+        SettingsPage(title: title, subtitle: subtitle) {
+            hostSettings
+            #if os(iOS)
+            ModelSettingsView(store: store)
+            #endif
+            deviceSettings
+            #if os(iOS)
+            pairingSettings
+            #endif
             if let error = error ?? store.error {
                 Text(fridayString: error).font(.caption).foregroundStyle(.orange)
             }
-        }.onAppear {
-            server = store.connection.server
-            #if os(macOS)
-            name = Host.current().localizedName ?? "我的 Mac"
-            #else
-            name = "我的 iPhone"
-            #endif
         }
+        #if os(iOS)
+        .onAppear {
+            server = store.connection.server
+            name = "我的 iPhone"
+        }
+        #endif
     }
 
     private var hostSettings: some View {
@@ -213,12 +217,14 @@ struct ConnectionView: View {
                     .fixedSize()
                     .fridaySymbolFeedback(value: store.connected)
             }
+            #if os(iOS)
             SettingsDivider()
             SettingsRow("主机地址") {
                 Text(store.connection.server).font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(.secondary).textSelection(.enabled)
                     .lineLimit(2).truncationMode(.middle)
             }
+            #endif
             SettingsDivider()
             SettingsRow("重新连接", detail: "主机需要保持运行，才能继续处理任务。") {
                 Button(friday: "重新连接") { Task { await store.connect() } }
@@ -269,6 +275,7 @@ struct ConnectionView: View {
         }
     }
 
+    #if os(iOS)
     private var pairingSettings: some View {
         SettingsGroup("配对到主机") {
             SettingsRow("主机地址", detail: "远程连接请使用 HTTPS。") {
@@ -298,6 +305,7 @@ struct ConnectionView: View {
             }
         }
     }
+    #endif
 }
 
 struct ModelSettingsView: View {

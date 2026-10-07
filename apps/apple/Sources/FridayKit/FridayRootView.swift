@@ -152,7 +152,7 @@ public struct FridayRootView: View {
             Spacer()
             Button(friday: "连接设置") {
                 #if os(macOS)
-                settingsSection = .connection
+                settingsSection = .devices
                 navigation.section = .settings
                 #else
                 mobileTab = 3
