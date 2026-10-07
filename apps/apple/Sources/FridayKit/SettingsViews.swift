@@ -11,12 +11,12 @@ struct ProjectsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 HStack(alignment: .top, spacing: 20) {
-                    PageHeading(title: "项目", subtitle: "把主机目录和项目背景放在一起。")
-                    Button { adding = true } label: { FridaySymbolLabel(friday: "添加项目", systemImage: "plus") }
+                    PageHeading(title: "Workspace", subtitle: "管理工作目录，以及 Agent 需要了解的背景。")
+                    Button { adding = true } label: { FridaySymbolLabel(friday: "添加 Workspace", systemImage: "plus") }
                         .buttonStyle(FridayButtonStyle(prominent: true)).disabled(!store.connected)
                 }
                 if store.projects.isEmpty {
-                    EmptyPanel(icon: "folder", title: "先关联一个项目", subtitle: "代码任务会在你选择的主机目录中执行。")
+                    EmptyPanel(icon: "folder", title: "先添加一个 Workspace", subtitle: "代码任务会在 Workspace 对应的主机目录中执行。")
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18)], alignment: .leading, spacing: 18) {
                     ForEach(store.projects) { project in
@@ -32,7 +32,7 @@ struct ProjectsView: View {
                                 }
                                 Text(project.name).font(.headline).lineLimit(2)
                                 Group {
-                                    if project.context.isEmpty { Text(friday: "添加项目背景，让 Friday 更了解这件事。") }
+                                    if project.context.isEmpty { Text(friday: "添加 Workspace 背景，让 Friday 更了解这件事。") }
                                     else { Text(project.context) }
                                 }
                                     .font(.callout).foregroundStyle(.secondary).lineLimit(3)
@@ -73,19 +73,19 @@ struct ProjectEditor: View {
     @State private var busy = false
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack { Text(fridayString: project == nil ? "添加项目" : "项目背景").font(.title2.bold()); Spacer(); Button(friday: "取消") { dismiss() } }
-            TextField(friday: "项目名称", text: $name).textFieldStyle(.roundedBorder)
+            HStack { Text(fridayString: project == nil ? "添加 Workspace" : "Workspace 背景").font(.title2.bold()); Spacer(); Button(friday: "取消") { dismiss() } }
+            TextField(friday: "Workspace 名称", text: $name).textFieldStyle(.roundedBorder)
             HStack {
                 TextField(friday: "主机上的绝对目录", text: $path).textFieldStyle(.roundedBorder).disabled(project != nil)
                 #if os(macOS)
                 if project == nil { Button(friday: "选择目录") { let panel = NSOpenPanel(); panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false; if panel.runModal() == .OK, let url = panel.url { path = url.path; if name.isEmpty { name = url.lastPathComponent } } } }
                 #endif
             }
-            Text(friday: "项目背景与约定").font(.headline)
+            Text(friday: "Workspace 背景与约定").font(.headline)
             TextEditor(text: $context).frame(minHeight: 150).padding(8).overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
-            Text(friday: "目标、当前进展、你的偏好。每次关联该项目的任务都会读取这些内容。").font(.caption).foregroundStyle(.secondary)
+            Text(friday: "目标、当前进展、你的偏好。此 Workspace 的任务都会读取这些内容。").font(.caption).foregroundStyle(.secondary)
             if let error = store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
-            HStack { Spacer(); Button(friday: "保存项目") {
+            HStack { Spacer(); Button(friday: "保存 Workspace") {
                 busy = true
                 Task { if await store.perform(project.map { "/api/projects/\($0.id)" } ?? "/api/projects", method: project == nil ? "POST" : "PUT", body: ["name": name, "path": path, "context": context]) { dismiss() }; busy = false }
             }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(busy || name.isEmpty || path.isEmpty || !store.connected) }

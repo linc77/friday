@@ -4,7 +4,7 @@ import AppKit
 #endif
 
 enum FridaySection: String, CaseIterable, Identifiable {
-    case chat = "对话", inbox = "想法", tasks = "任务", projects = "项目", memory = "记忆", settings = "设置"
+    case chat = "对话", inbox = "想法", tasks = "任务", projects = "Workspace", memory = "记忆", settings = "设置"
     var id: String { rawValue }
     var icon: String {
         switch self {
@@ -28,6 +28,10 @@ public struct FridayRootView: View {
     @StateObject private var store = FridayStore()
     @StateObject private var navigation = FridayNavigation()
     @State private var selectedTask: String?
+    @State private var workspaceScope: String?
+    @State private var draftProjectId: String?
+    @State private var taskDrafts: [String: AgentTaskDraft] = [:]
+    @State private var choosingMobileWorkspace = false
     @State private var selectedConversation: String?
     private var localTasks: [WorkItem] { store.tasks.filter { $0.localAgent } }
     @State private var mobileTab = 0
@@ -79,13 +83,32 @@ public struct FridayRootView: View {
                 NavigationStack(path: $mobileTaskPath) {
                     tasksList.navigationTitle(Text(friday: "任务"))
                         .navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id, onOpenTask: openLocalTask) }
-                        .toolbar { NavigationLink { NewAgentTaskView(store: store, onCreated: openLocalTask) } label: { FridaySymbolLabel(friday: "新任务", systemImage: "square.and.pencil") } }
+                        .toolbar {
+                            Button { choosingMobileWorkspace = true } label: { FridaySymbolLabel(friday: "新任务", systemImage: "square.and.pencil") }
+                        }
+                        .sheet(isPresented: $choosingMobileWorkspace) {
+                            NavigationStack {
+                                List(store.projects) { project in
+                                    NavigationLink {
+                                        NewAgentTaskView(store: store, project: project, onCreated: { id in
+                                            choosingMobileWorkspace = false; openLocalTask(id)
+                                        }, drafts: $taskDrafts)
+                                    } label: {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(project.name)
+                                            Text(project.path).font(.caption).foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }.navigationTitle(Text(friday: "选择 Workspace"))
+                                    .toolbar { Button(friday: "取消") { choosingMobileWorkspace = false } }
+                            }
+                        }
                 }.tabItem { Label(friday: "任务", systemImage: "checklist.unchecked") }.tag(2)
                 NavigationStack {
                     List {
                         connectionStatus
                         if let error = store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
-                        NavigationLink(friday: "项目") { ProjectsView(store: store) }
+                        NavigationLink(friday: "Workspace") { ProjectsView(store: store) }
                         NavigationLink(friday: "记忆") { MemoriesView(store: store) }
                         NavigationLink("Providers") { ProvidersView(store: store) }
                         NavigationLink(friday: "外观") { AppearanceSettingsView() }
@@ -178,20 +201,13 @@ public struct FridayRootView: View {
         case .tasks:
             #if os(macOS)
             HSplitView {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(friday: "任务").font(.headline)
-                        Spacer()
-                        Button { selectedTask = nil } label: { FridaySymbolImage(systemName: "square.and.pencil").fridaySymbolFeedback() }
-                            .buttonStyle(.plain).help(Text(friday: "新任务"))
-                            .accessibilityLabel(Text(friday: "新任务"))
-                        Text("\(localTasks.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                    }.padding(.horizontal, 20).padding(.top, 22).padding(.bottom, 8)
-                    tasksList
+                TaskWorkspaceSidebar(store: store, scope: $workspaceScope, draftProjectId: $draftProjectId, selectedTask: $selectedTask) {
+                    if let workspaceScope { draftProjectId = workspaceScope }
+                    selectedTask = nil
                 }
-                .frame(minWidth: 230, idealWidth: 260, maxWidth: 310, maxHeight: .infinity)
+                .frame(minWidth: 250, idealWidth: 280, maxWidth: 340, maxHeight: .infinity)
                 if let selectedTask { TaskDetail(store: store, id: selectedTask, onOpenTask: openLocalTask).id(selectedTask).frame(minWidth: 420) }
-                else { NewAgentTaskView(store: store, onCreated: openLocalTask) }
+                else { NewAgentTaskView(store: store, project: store.projects.first { $0.id == draftProjectId }, onCreated: openLocalTask, drafts: $taskDrafts) }
             }
             #else
             tasksList
@@ -218,7 +234,11 @@ public struct FridayRootView: View {
 
     private func openConversation(_ id: String) { startingConversation = false; selectedConversation = id; navigation.section = .chat; mobileTab = 0 }
 
-    private func openLocalTask(_ id: String) { selectedTask = id; navigation.section = .tasks; mobileTab = 2; mobileTaskPath = [id] }
+    private func openLocalTask(_ id: String) {
+        if let task = store.tasks.first(where: { $0.id == id }), let workspaceScope,
+           TaskWorkspaces.project(for: task, in: store.projects)?.id != workspaceScope { self.workspaceScope = nil }
+        selectedTask = id; navigation.section = .tasks; mobileTab = 2; mobileTaskPath = [id]
+    }
 
     private var tasksList: some View {
         Group {
@@ -230,7 +250,7 @@ public struct FridayRootView: View {
                     LazyVStack(spacing: 6) {
                         ForEach(localTasks.reversed()) { task in
                             Button { selectedTask = task.id } label: {
-                                TaskRow(task: task).padding(.horizontal, 12)
+                                TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects)).padding(.horizontal, 12)
                                     .foregroundStyle(.primary)
                                     .background(selectedTask == task.id ? FridayTheme.surface : Color.clear, in: RoundedRectangle(cornerRadius: 10))
                             }.buttonStyle(.plain)
@@ -239,7 +259,7 @@ public struct FridayRootView: View {
                     }.padding(.horizontal, 10)
                 }
                 #else
-                List(localTasks.reversed()) { task in NavigationLink(value: task.id) { TaskRow(task: task) } }.refreshable { await store.refresh() }
+                List(localTasks.reversed()) { task in NavigationLink(value: task.id) { TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects)) } }.refreshable { await store.refresh() }
                 #endif
             }
         }
@@ -284,15 +304,21 @@ private struct FridaySidebarButtonBody: View {
 
 struct TaskRow: View {
     let task: WorkItem
+    let workspaceName: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 11) {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 6) {
+                FridaySymbolImage(systemName: "folder").font(.caption2)
+                Text(fridayString: workspaceName).lineLimit(1)
+                Spacer(minLength: 4)
+                Text(task.updatedAt.prefix(10)).font(.caption2).foregroundStyle(.tertiary)
+            }.font(.caption).foregroundStyle(.secondary)
             Text(task.title).font(.callout.weight(.medium)).lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack {
                 Text(task.agentName).font(.caption).foregroundStyle(.secondary)
                 StatusBadge(task: task)
                 Spacer(minLength: 4)
-                Text(task.createdAt.prefix(10)).font(.caption).foregroundStyle(.tertiary)
             }
         }.padding(.vertical, 10)
     }

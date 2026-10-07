@@ -34,7 +34,7 @@
 | 对话 | `ellipsis.message` | Draw On，整个符号（`.drawOn.wholeSymbol`） | Once，单次 |
 | 想法 | `scribble` | Draw On，整个符号（`.drawOn.wholeSymbol`） | Once，单次 |
 | 任务 | `checklist.unchecked` | Draw On，整个符号（`.drawOn.wholeSymbol`） | Once，单次 |
-| 项目 | `folder` | Draw On，整个符号（`.drawOn.wholeSymbol`） | Once，单次 |
+| Workspace | `folder` | Draw On，整个符号（`.drawOn.wholeSymbol`） | Once，单次 |
 | 记忆 | `sparkles` | Draw On，整个符号（`.drawOn.wholeSymbol`） | Once，单次 |
 | 设置 | `gear` | Rotate，顺时针、整个符号（`.rotate.clockwise.wholeSymbol`） | Once，点击时单次 |
 
@@ -50,6 +50,20 @@
 - 内容区域延伸到窗口顶部，顶部、右侧、底部边距统一为 **5 pt**；红绿灯下方为侧栏导航区域。
 
 ## 无障碍与兼容
+
+### 任务侧栏 Workspace 切换
+
+- 项目目录在产品界面统一称为 **Workspace**。目录选择和添加入口位于任务侧栏；聊天输入框不再放目录选择。
+- 默认展示全部 Workspace 的任务。每条任务同时标明所属 Workspace、执行 Agent（Codex／Claude Code）与状态。
+- 任务侧栏不显示“搜索任务”输入框，Workspace 选择紧接在任务标题栏下方。
+- Workspace 菜单、底部圆点、侧栏任务列表区域的双指横滑切换同一筛选范围。第一页为全部，其后每个 Workspace 一页，圆点数量随 Workspace 数量变化。
+- 底部分页区只保留圆点，不显示滑动提示文字，也不显示上方分隔线。
+- 横滑先判定方向；纵向手势继续滚动任务。横向页面随手指移动，松手达到阈值后以短弹簧过渡切换，否则回弹；边界有阻尼，不循环跳转，惯性不能连续翻页。
+- 圆点是分页状态标记，选中态使用大小和明暗区分；点击仍沿用单次 Draw On。只移动侧栏任务页面，不移动聊天内容或改变正在执行任务的目录。
+- “减少动态效果”开启或应用处于后台时，不执行跟手位移和弹簧动效，保留静态分页状态。切换 Workspace 保留各自的新任务文字草稿。
+- 侧栏信息结构参考 [T3 Code Sidebar 源码](https://github.com/pingdotgg/t3code/blob/main/apps/web/src/components/Sidebar.tsx) 的全部项目、项目筛选、任务元数据；横滑分页为 Friday 的原生 AppKit／SwiftUI 实现。
+
+### 通用兼容规则
 
 - 遵循系统“减少动态效果”设置，启用时保留清晰的静态图标和选中状态。
 - 应用处于后台时不触发交互动画；返回前台不补播已发生的反馈。
