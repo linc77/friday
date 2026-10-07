@@ -1,5 +1,6 @@
 export type TaskStatus = 'queued' | 'running' | 'waiting' | 'needs_project' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
-export type Idea = { id: string; text: string; createdAt: string; taskId: string | null };
+export type IdeaImage = { id: string; name: string; mediaType: string };
+export type Idea = { id: string; text: string; createdAt: string; taskId: string | null; title?: string; updatedAt?: string; images?: IdeaImage[]; lastEditId?: string };
 export type Project = { id: string; name: string; path: string; context: string };
 export type Memory = { id: string; text: string; updatedAt: string };
 export type Question = { id: string; header: string; question: string; options: { label: string; description: string }[] };

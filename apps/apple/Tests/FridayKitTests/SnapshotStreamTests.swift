@@ -12,6 +12,15 @@ struct SnapshotStreamTests {
         let snapshots = try lines.compactMap { try decoder.read($0) }
         precondition(snapshots.map(\.revision) == [1, 2], "Every snapshot must arrive without blank separators")
         precondition(snapshots[1].ideas[0].text == "line one\nline two", "Embedded newlines must survive SSE transport")
+        precondition(snapshots[1].ideas[0].images == nil, "Older notes without image metadata must decode")
+        let pending = try JSONDecoder().decode(OutboxIdea.self, from: Data(#"{"id":"offline","text":"以前的离线想法"}"#.utf8))
+        precondition(pending.note.text == "以前的离线想法" && pending.expectedUpdatedAt == nil, "Old offline captures must remain create operations")
+        let imageID = String(repeating: "a", count: 64)
+        let rich = OutboxIdea(id: "diary", text: "## 今天\n\n![照片](friday-image:\(imageID))\n\n[资料](https://example.com)", title: "日记", createdAt: "2026-10-07T08:56:00Z", images: [IdeaImage(id: imageID, name: "照片", mediaType: "image/png")], expectedUpdatedAt: "2026-10-07T09:00:00Z", editId: "edit")
+        let restored = try JSONDecoder().decode(OutboxIdea.self, from: JSONEncoder().encode(rich))
+        precondition(restored == rich && restored.note.displayTitle == "日记", "Offline edits retain title, images, capture time and conflict version")
+        precondition(!restored.note.preview.contains("friday-image:"), "Card previews must not expose attachment IDs")
+        precondition(!restored.note.preview.contains("](https:") && !restored.note.editableText.contains("friday-image:"), "Previews and editing show content without internal attachment references")
         let legacy = #"{"id":"old","title":"Old conversation","prompt":"Question","projectId":null,"cwd":"/tmp","agent":"codex","mode":"research","status":"completed","createdAt":"","updatedAt":"","durableId":1,"threadId":"thread","turnId":"turn","result":"Answer","error":null,"events":[],"approvals":[],"artifact":null}"#
         let oldTask = try JSONDecoder().decode(WorkItem.self, from: Data(legacy.utf8))
         precondition(oldTask.conversation.map(\.text) == ["Question", "Answer"], "Old saved tasks must still render")
