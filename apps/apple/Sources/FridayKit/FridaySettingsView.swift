@@ -5,7 +5,6 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
     case appearance = "外观"
     case model = "模型服务"
     case agents = "本地工具"
-    case connection = "主机连接"
     case devices = "设备管理"
 
     var id: String { rawValue }
@@ -15,7 +14,6 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
         case .appearance: "circle.lefthalf.filled"
         case .model: "sparkles"
         case .agents: "terminal"
-        case .connection: "network"
         case .devices: "laptopcomputer.and.iphone"
         }
     }
@@ -25,8 +23,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
         case .appearance: "外观 主题 系统 浅色 深色 语言 中文 英文 Appearance Theme System Light Dark Language Chinese English"
         case .model: "模型服务 DeepSeek API Key 密钥 验证 Model Provider"
         case .agents: "本地工具 Codex Claude Code Hermes Pi 编码 执行 Local Tools"
-        case .connection: "主机连接 地址 服务器 配对 重新连接 Host Connection Server Pair"
-        case .devices: "设备管理 iPhone Mac 配对码 访问 撤销 Devices Access"
+        case .devices: "设备管理 iPhone Mac 主机 连接 配对码 访问 撤销 重新连接 Devices Host Connection Access Reconnect"
         }
     }
 }
@@ -55,8 +52,7 @@ struct FridaySettingsView: View {
                         ModelSettingsView(store: store)
                     }
                 case .agents: AgentsView(store: store)
-                case .connection: ConnectionView(store: store, section: .host)
-                case .devices: ConnectionView(store: store, section: .devices)
+                case .devices: ConnectionView(store: store)
                 }
             }
             .id(selection)
@@ -95,7 +91,7 @@ struct FridaySettingsView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     navigationGroup("通用", sections: [.appearance])
                     navigationGroup("Friday", sections: [.model, .agents])
-                    navigationGroup("连接与同步", sections: [.connection, .devices])
+                    navigationGroup("连接与同步", sections: [.devices])
                     if filteredSections.isEmpty {
                         Text(friday: "没有匹配的设置")
                             .font(.caption).foregroundStyle(.secondary)
