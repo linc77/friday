@@ -13,6 +13,27 @@ struct NewConversationView: View {
     @FocusState private var focused: Bool
     private var canSend: Bool { !sending && store.connected && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     var body: some View {
+        #if os(iOS)
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    PageHeading(title: "想到什么，直接说。", subtitle: "一个想法，一件想推进的事。")
+                    if let error = error ?? store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
+                }
+                .padding(.horizontal, 24).padding(.top, geometry.safeAreaInsets.top + 24)
+                .frame(maxWidth: 660).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .ignoresSafeArea(.container, edges: .top)
+        }
+        .background(FridayTheme.canvas)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            FridayMobileDock {
+                FridayMobileComposer(message: $draft, placeholder: "告诉 Friday 你想做什么…", sending: sending, disabled: !canSend, send: send)
+            }
+        }
+        .onChange(of: draft) { _, _ in if !sending { requestId = UUID().uuidString } }
+        #else
         VStack {
             Spacer(minLength: 30)
             VStack(alignment: .leading, spacing: 24) {
@@ -37,6 +58,7 @@ struct NewConversationView: View {
         .background(FridayTheme.canvas)
         .onAppear { focused = true }
         .onChange(of: draft) { _, _ in if !sending { requestId = UUID().uuidString } }
+        #endif
     }
     private func send() {
         guard canSend else { return }

@@ -77,6 +77,7 @@ struct AgentTaskComposer: View {
     var task: WorkItem? = nil
     var projectPath: String? = nil
     var requiresProject = false
+    var embeddedInMobileDock = false
     @Binding var message: String
     let sending: Bool
     let send: (String, String, String) -> Void
@@ -99,7 +100,7 @@ struct AgentTaskComposer: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .bottom, spacing: 16) {
                 TextField(friday: active ? "补充任务要求…" : "这个任务要完成什么…", text: $message, axis: .vertical)
-                    .font(.body).lineLimit(2...6).textFieldStyle(.plain).focused($focused)
+                    .font(.body).lineLimit((embeddedInMobileDock ? 1 : 2)...6).textFieldStyle(.plain).focused($focused)
                     .disabled(sending || (requiresProject && projectPath == nil))
                     .accessibilityLabel(Text(friday: "任务要求"))
                     .onChatSubmit { if !disabled { send(provider, model, effort) } }
@@ -139,7 +140,10 @@ struct AgentTaskComposer: View {
                 Spacer(minLength: 0)
             }.font(.callout).foregroundStyle(.secondary)
         }
-        .padding(16).fridayCard(highlighted: focused)
+        .modifier(AgentTaskComposerSurface(embeddedInMobileDock: embeddedInMobileDock, focused: focused))
+        #if os(iOS)
+        .onDisappear { focused = false }
+        #endif
         .task(id: task?.id) { provider = task?.agent ?? "codex"; model = task?.model ?? ""; effort = task?.reasoningEffort ?? "" }
         .task(id: store.connected) {
             guard store.connected else { return }
@@ -148,6 +152,19 @@ struct AgentTaskComposer: View {
                 catch { if value == provider { self.error = error.localizedDescription } }
             }
             if task == nil && states[provider]?.connected != true && states["claude"]?.connected == true { provider = "claude"; model = ""; effort = ""; error = nil }
+        }
+    }
+}
+
+private struct AgentTaskComposerSurface: ViewModifier {
+    let embeddedInMobileDock: Bool
+    let focused: Bool
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if embeddedInMobileDock {
+            content.padding(8)
+        } else {
+            content.padding(16).fridayCard(highlighted: focused)
         }
     }
 }
