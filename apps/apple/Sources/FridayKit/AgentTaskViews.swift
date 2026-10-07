@@ -115,7 +115,7 @@ struct AgentTaskComposer: View {
             HStack(spacing: 12) {
                 Button { showModels.toggle() } label: {
                     HStack(spacing: 5) {
-                        FridaySymbolImage(systemName: provider == "claude" ? "sparkle" : "cpu").font(.caption)
+                        AgentProviderIcon(provider: provider, size: 14)
                         Text(selectedModel?.selectionName ?? (model.isEmpty ? providerName : model)).lineLimit(1)
                         FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9))
                     }
