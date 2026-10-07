@@ -24,10 +24,22 @@
 
 Mac app 为本机 ad-hoc 签名开发产物，尚未发布到 App Store。
 
-## Friday 自有 Agent 循环
+## 历史实现：Friday 自有 Agent 循环
 
 模型连接已切换为 DeepSeek API Key，使用 Pi Durable 原生模型/工具循环。沿用直接对话入口、想法一键交办和按需选目录，选好后在原 Friday 会话继续。普通请求不再委派 Codex；其作为需批准的可选编码工具保留，旧任务仍可续聊。新增状态、续聊、审批、恢复和凭据隔离测试；真实 DeepSeek 推理需要在主机连接页填入 API Key 后单独验收。
 
 合并验证：`pnpm check` 通过 20 项服务测试，`pnpm apple:check` 与 `pnpm mac:build` 通过。原生会话的选目录、等待时释放队列、重启后继续、文件写入审批和想法交办去重已通过 faux provider 集成测试。
 
 DeepSeek 接入已通过密钥验证与失败保留、HTTP 流式协议、工具调用往返及旧模型会话切换测试。Mac 连接页已在真实窗口检查；真实账户验证以“验证并保存”的结果为准。
+
+## 当前工作树：Friday 主会话与独立 Agent 任务
+
+2026-10-07 恢复明确的产品边界：主会话始终使用 Friday 的 Pi Durable 模型与工具循环，Providers 统一管理 Friday 的 API 密钥与本地 Agent；本地 Codex 只在任务内执行。Codex 配置面板位于 Providers，任务入口提供项目、模型与推理强度选择。同一任务可续聊、补充、停止与处理审批。Friday 委派创建单独的子任务，主会话继续拥有自己的 conversation。
+
+此前 4329 预览中的 Codex 主对话记录保留为本地任务历史，未改写或删除。正式服务未替换，本记录不表示已合并或安装。
+
+本次验证：pnpm check 通过 23 项服务测试；队列兼容调整后，typecheck 与 19 项受影响测试再次通过。Apple 数据兼容检查与 Mac release 构建通过。真实窗口验证了 Friday 模型页、本地任务的项目与推理选择，并发送 Codex 验收消息；独立任务返回“Codex 任务已连接。”，持久化 model=gpt-6.1-sol、effort=low 与独立 thread ID。
+
+当前隔离预览未配置 Friday 的 DeepSeek API Key，主对话的真实推理未在该预览复测。系统 Codex 0.160.0 的 account/read 返回 workspace routing discovery failed；隔离预览改用本机已安装的 0.160.1 后账号检测与真实任务回复均通过，账号目录和凭据未更改。
+
+成功委派回归随后通过 8 项助手定向测试，确认 Friday 在自己的会话中接收并汇报独立 Codex 子任务的结果。最终任务页 UI 调整通过 Mac 构建；任务面板此前已完成真实窗口验收，最终截图复查遇到 ScreenCaptureKit -3811 错误。

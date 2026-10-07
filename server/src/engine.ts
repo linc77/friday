@@ -13,6 +13,7 @@ import { CodexExecutor } from './codex.js';
 import { fileURLToPath } from 'node:url';
 import { WorkspaceDoc } from './state.js';
 import { ModelConnection } from './model.js';
+import { CodexConnection } from './codex-provider.js';
 import { FridayAssistant } from './assistant.js';
 
 const now = () => new Date().toISOString();
@@ -31,12 +32,14 @@ export class Engine extends EventEmitter {
   readonly executor: Executor;
   readonly modelConnection: ModelConnection;
   readonly assistant: FridayAssistant;
-  private readonly legacyDefault: boolean;
+  readonly codexConnection: CodexConnection;
+  private readonly customExecutor: boolean;
   constructor(readonly directory: string, executor?: Executor, readonly agentOptions?: { models: Models; model: ModelRef }) {
     super();
-    this.executor = executor ?? new CodexExecutor();
-    this.legacyDefault = executor !== undefined && agentOptions === undefined;
+    this.customExecutor = executor !== undefined;
     this.modelConnection = new ModelConnection(directory);
+    this.codexConnection = new CodexConnection(directory);
+    this.executor = executor ?? new CodexExecutor(undefined, this.codexConnection, () => this.snapshot());
     this.assistant = new FridayAssistant(this);
     this.response = this.createResponse();
     this.execution = defineTask<Input, Checkpoint, { status: string }, {}>({
@@ -163,6 +166,11 @@ export class Engine extends EventEmitter {
       this.root = await this.harness.root(context);
       await this.root.commit(async tx => { await tx.doc(WorkspaceDoc); }, context);
       await this.mutate(state => {
+        if (state.assistantQueueTail === undefined) {
+          // Upgrade the former shared queue without making a child depend on its parent.
+          const latest = (agent: string) => state.tasks.filter(t => t.agent === agent && t.durableId !== null).reduce<number | null>((id, t) => Math.max(id ?? 0, t.durableId!), null);
+          state.assistantQueueTail = latest('friday'); state.queueTail = latest('codex');
+        }
         for (const task of state.tasks) if (task.agent === 'friday') {
           for (const approval of task.approvals) if (approval.state === 'pending' && approval.method !== 'friday/requestUserInput') approval.state = 'expired';
         }
@@ -188,13 +196,16 @@ export class Engine extends EventEmitter {
       if (item.events.length > 120) item.events.splice(0, item.events.length - 120);
     });
   }
-  async createTask(input: { prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string }) {
+  async createTask(input: { prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; agent?: 'friday' | 'codex'; parentId?: string; model?: string; reasoningEffort?: string }) {
     if (['__proto__', 'constructor', 'prototype'].includes(input.requestId)) throw new Error('请求 ID 无效');
     const snapshot = await this.snapshot();
     if (Object.hasOwn(snapshot.requests, input.requestId)) return snapshot.requests[input.requestId];
     const previous = snapshot.tasks.find(t => t.id === input.continueId);
-    const native = previous ? previous.agent === 'friday' : !this.legacyDefault;
+    const native = (previous?.agent ?? input.agent ?? 'friday') === 'friday';
+    if (previous && input.agent && input.agent !== previous.agent) throw new Error('不能切换会话所属 Agent，请新建任务');
     if (native && !this.agentOptions) await this.modelConnection.ready();
+    if (!native && !this.customExecutor) await this.codexConnection.ready();
+    if (!native && input.mode === 'assistant') throw new Error('主对话由 Friday 处理，请从任务入口调用 Codex');
     const project = snapshot.projects.find(p => p.id === input.projectId);
     if (input.projectId && !project) throw new Error('项目不存在');
     if (input.mode === 'code' && !project) throw new Error('代码任务需要先选择一个项目目录');
@@ -213,7 +224,10 @@ export class Engine extends EventEmitter {
         work.projectId = project!.id; work.cwd = project!.path;
       }
       if (!work && workspace.tasks.length >= 300) throw new Error('第一版最多保留 300 个任务；当前数据已保留，需要增加归档能力后才能创建更多任务。');
-      const predecessor = workspace.queueTail ?? null;
+      const parent = input.parentId ? workspace.tasks.find(t => t.id === input.parentId && t.agent === 'friday') : undefined;
+      if (input.parentId && !parent) throw new Error('Friday 主会话不存在');
+      // Friday remains responsive while local tasks run; both lanes use Durable dependencies.
+      const predecessor = native ? workspace.assistantQueueTail ?? null : workspace.queueTail ?? null;
       const stamp = now();
       const task: WorkItem = work ?? {
         id: randomUUID(), title: input.prompt.slice(0, 64), prompt: input.prompt, projectId: input.projectId,
@@ -221,6 +235,9 @@ export class Engine extends EventEmitter {
         status: 'queued', createdAt: stamp, updatedAt: stamp, durableId: null, threadId: null, turnId: null,
         result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: input.requestId,
         messages: [], workspaceRequest: null,
+        ...(input.parentId ? { parentId: input.parentId } : {}),
+        ...(input.model !== undefined ? { model: input.model } : {}),
+        ...(input.reasoningEffort !== undefined ? { reasoningEffort: input.reasoningEffort } : {}),
       };
       if (!task.messages) {
         task.messages = [{ id: randomUUID(), role: 'user', text: task.prompt }];
@@ -229,9 +246,14 @@ export class Engine extends EventEmitter {
         task.messages.push({ id: randomUUID(), role: 'assistant', text: task.result });
       }
       task.messages.push({ id: randomUUID(), role: 'user', text: input.prompt });
+      if (!native) {
+        if (input.model !== undefined) task.model = input.model;
+        if (input.reasoningEffort !== undefined) task.reasoningEffort = input.reasoningEffort;
+      }
       task.mode = input.mode; task.result = ''; task.artifact = null; task.workspaceRequest = null;
       const effectiveProject = workspace.projects.find(p => p.id === task.projectId);
       const prompt = [
+        !native && !task.threadId && task.messages.length > 1 ? `Previous conversation (context only; do not replay past actions):\n${task.messages.slice(0, -1).map(m => `${m.role}: ${m.text}`).join('\n\n')}` : '',
         `Task: ${input.prompt}`,
         task.mode === 'auto'
           ? `Understand the user's intent and respond or act accordingly. ${effectiveProject ? 'The user selected the workspace below. Only modify files when requested; inspect and explain read-only requests without changing files.' : 'No workspace is selected. Answer questions and research normally. If a local workspace is needed, call friday_request_workspace and stop this turn. Never guess a working directory or attempt file changes before selection.'}`
@@ -253,7 +275,8 @@ export class Engine extends EventEmitter {
       const durableId = native
         ? await tx.createTask(this.response, { id: task.id, predecessor, prompt: input.prompt, requestId: input.requestId }, { ownership: { kind: 'conversation' } })
         : await tx.createTask(this.execution, { id: task.id, predecessor, prompt }, { ownership: { kind: 'conversation' } });
-      workspace.queueTail = durableId;
+      if (native) workspace.assistantQueueTail = durableId;
+      else workspace.queueTail = durableId;
       task.durableId = durableId; task.lastRequestId = input.requestId; task.status = 'queued'; task.error = null; task.turnId = null;
       task.updatedAt = stamp; task.events.push(event('user', input.prompt));
       if (!work) workspace.tasks.push(task);
@@ -267,17 +290,31 @@ export class Engine extends EventEmitter {
     return id;
   }
   async updateExecution(id: string, update: ExecutionUpdate) {
-    if (update.kind === 'idea') {
+    if (update.kind === 'note') {
+      const task = (await this.snapshot()).tasks.find(t => t.id === id);
+      if (!task || !activeStatuses.includes(task.status)) return;
+      if (!/^note-[a-zA-Z0-9-]{1,100}$/.test(update.id)) throw new Error('笔记 ID 无效');
+      const file = join(this.directory, 'artifacts', `${update.id}.md`); const content = `# ${update.title}\n\n${update.content}\n`;
+      try { await writeFile(file, content, { mode: 0o600, flag: 'wx' }); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || await readFile(file, 'utf8') !== content) throw error; }
+      await this.patchTask(id, item => { item.events.push(event('note', `笔记已保存：${file}`)); });
+      return;
+    }
+    if (update.kind === 'idea' || update.kind === 'memory') {
       await this.mutate(s => {
         const task = s.tasks.find(t => t.id === id);
         if (!task || !activeStatuses.includes(task.status)) return;
-        if (!s.ideas.some(i => i.id === update.id)) s.ideas.unshift({ id: update.id, text: update.text, createdAt: now(), taskId: null });
+        if (update.kind === 'idea' && !s.ideas.some(i => i.id === update.id)) s.ideas.unshift({ id: update.id, text: update.text, createdAt: now(), taskId: null });
+        if (update.kind === 'memory' && !s.memories.some(m => m.id === update.id)) {
+          if (s.memories.length >= 100) throw new Error('记忆已满，请先整理现有记忆');
+          s.memories.push({ id: update.id, text: update.text, updatedAt: now() });
+        }
       });
       return;
     }
     await this.patchTask(id, item => {
       if (!activeStatuses.includes(item.status)) return;
-      if (update.kind === 'session') item.threadId = update.threadId;
+      if (update.kind === 'session') { item.threadId = update.threadId; if (update.codexHome) item.codexHome = update.codexHome; if (update.model) item.model = update.model; if (update.reasoningEffort) item.reasoningEffort = update.reasoningEffort; }
       if (update.kind === 'turn') item.turnId = update.turnId;
       if (update.kind === 'output') item.result = update.text;
       if (update.kind === 'workspace' && !item.projectId) item.workspaceRequest = update.reason;
@@ -332,6 +369,6 @@ export class Engine extends EventEmitter {
   }
   async close() {
     if (this.closed) return; this.closed = true;
-    await this.modelConnection.close(); await this.harness.close(context); await this.watch?.stop(); this.lease.close(); this.removeAllListeners();
+    await this.modelConnection.close(); await this.codexConnection.close(); await this.harness.close(context); await this.watch?.stop(); this.lease.close(); this.removeAllListeners();
   }
 }

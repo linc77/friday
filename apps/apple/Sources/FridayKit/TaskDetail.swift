@@ -3,6 +3,7 @@ import SwiftUI
 struct TaskDetail: View {
     @ObservedObject var store: FridayStore
     let id: String
+    var onOpenTask: ((String) -> Void)? = nil
     @State private var message = ""
     @State private var messageId = UUID().uuidString
     @State private var showEvents = false
@@ -18,7 +19,8 @@ struct TaskDetail: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         executionHistory(task)
-                        ForEach(task.conversation) { message in conversationMessage(message) }
+                        delegatedTasks(task)
+                        ForEach(task.conversation) { message in conversationMessage(message, task: task) }
                         if task.status == "needs_project" { WorkspaceChoice(store: store, task: task).id(task.durableId) }
                         ForEach(task.approvals.filter { $0.state == "pending" }) { approval in
                             ApprovalCard(store: store, taskId: id, approval: approval)
@@ -44,17 +46,22 @@ struct TaskDetail: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                FloatingComposer(
-                    message: $message,
-                    active: task.active,
-                    sending: sending,
-                    disabled: sending || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task.status == "queued",
-                    error: store.error,
-                    send: sendMessage
-                )
-                .frame(maxWidth: FridayTheme.contentWidth)
-                .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
-                .frame(maxWidth: .infinity)
+                if task.localAgent {
+                    AgentTaskComposer(store: store, task: task, message: $message, sending: sending, send: sendAgentMessage)
+                        .frame(maxWidth: FridayTheme.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20).frame(maxWidth: .infinity)
+                } else {
+                    FloatingComposer(
+                        message: $message,
+                        active: task.active,
+                        sending: sending,
+                        disabled: sending || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task.status == "queued",
+                        error: store.error,
+                        send: sendMessage
+                    )
+                    .frame(maxWidth: FridayTheme.contentWidth)
+                    .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
+                    .frame(maxWidth: .infinity)
+                }
             }
             .onChange(of: id) { _, _ in
                 message = ""; messageId = UUID().uuidString; showEvents = false
@@ -65,12 +72,22 @@ struct TaskDetail: View {
     }
 
     private func header(_ task: WorkItem) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(task.title).font(.title3.weight(.semibold)).lineLimit(3).textSelection(.enabled)
+        HStack(alignment: task.localAgent ? .center : .top, spacing: 14) {
+            if task.localAgent {
+                Text(store.projects.first { $0.id == task.projectId }?.name ?? "Codex")
+                    .font(.callout).foregroundStyle(.secondary).lineLimit(1)
+                Text("/").foregroundStyle(.tertiary)
+                Text(task.title).font(.callout.weight(.medium)).lineLimit(1).textSelection(.enabled)
+                Spacer(minLength: 8)
                 StatusBadge(task: task)
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Friday").font(.caption).foregroundStyle(.secondary)
+                    Text(task.title).font(.title3.weight(.semibold)).lineLimit(3).textSelection(.enabled)
+                    StatusBadge(task: task)
+                }
+                Spacer(minLength: 8)
             }
-            Spacer(minLength: 8)
             if task.active || task.status == "needs_project" {
                 Button(friday: "停止", systemImage: "stop", role: .destructive) {
                     Task { _ = await store.perform("/api/tasks/\(id)/cancel") }
@@ -81,7 +98,7 @@ struct TaskDetail: View {
         .padding(.horizontal, 26).padding(.top, 24).padding(.bottom, 10)
     }
 
-    @ViewBuilder private func conversationMessage(_ message: ChatMessage) -> some View {
+    @ViewBuilder private func conversationMessage(_ message: ChatMessage, task: WorkItem) -> some View {
         if message.role == "user" {
             HStack {
                 Spacer(minLength: 36)
@@ -92,12 +109,14 @@ struct TaskDetail: View {
         } else {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 9) {
-                    FridayMark(size: 30)
-                    Text("Friday").font(.subheadline.weight(.semibold))
+                    if task.localAgent {
+                        FridaySymbolImage(systemName: "terminal").fridaySymbolFeedback().font(.subheadline).foregroundStyle(.secondary)
+                    } else { FridayMark(size: 30) }
+                    Text(task.agentName).font(.subheadline.weight(.semibold))
                 }
                 Text(.init(message.text)).font(.body).lineSpacing(6)
                     .frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
-            }.padding(24).fridayCard()
+            }.padding(task.localAgent ? 4 : 24).background(task.localAgent ? Color.clear : FridayTheme.surface, in: RoundedRectangle(cornerRadius: FridayTheme.cornerRadius))
         }
     }
 
@@ -108,7 +127,7 @@ struct TaskDetail: View {
                 .foregroundStyle(task.status == "waiting" ? .orange : FridayTheme.accent)
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 5) {
-                Text(fridayString: task.status == "queued" ? "已加入队列" : task.status == "waiting" ? "需要你的确认" : "Friday 正在处理")
+                Text(fridayString: task.status == "queued" ? "已加入队列" : task.status == "waiting" ? "需要你的确认" : task.localAgent ? "Codex 正在执行" : "Friday 正在处理")
                     .font(.callout.weight(.medium))
                 Text(fridayString: task.status == "queued" ? "前面的任务完成后开始。" : task.status == "waiting" ? "处理上方请求后，任务会继续推进。" : "你可以继续补充要求，关闭窗口也不影响执行。")
                     .font(.caption).foregroundStyle(.secondary)
@@ -169,13 +188,40 @@ struct TaskDetail: View {
         .animation(reduceMotion ? nil : FridayTheme.motion, value: showEvents)
     }
 
-    private func sendMessage() {
+    @ViewBuilder private func delegatedTasks(_ task: WorkItem) -> some View {
+        ForEach(store.tasks.filter { $0.parentId == task.id }) { child in
+            Button { onOpenTask?(child.id) } label: {
+                HStack(spacing: 12) {
+                    FridaySymbolImage(systemName: "terminal").fridaySymbolFeedback()
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(child.title).lineLimit(2)
+                        Text(child.agentName).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    StatusBadge(task: child)
+                    FridaySymbolImage(systemName: "chevron.right").fridaySymbolFeedback()
+                }.padding(16)
+            }.buttonStyle(FridayButtonStyle()).accessibilityLabel(Text(friday: "打开任务"))
+        }
+    }
+
+    private func sendAgentMessage(_ model: String, _ effort: String) {
+        sendMessage(model: model, effort: effort)
+    }
+
+    private func sendMessage() { sendMessage(model: nil, effort: nil) }
+
+    private func sendMessage(model: String?, effort: String?) {
         let taskId = id
         let submittedMessage = message
         let requestId = messageId
         sending = true
+        var body: [String: Any] = ["text": submittedMessage, "requestId": requestId]
+        if task?.active != true {
+            if let model { body["model"] = model }; if let effort { body["reasoningEffort"] = effort }
+        }
         Task {
-            if await store.perform("/api/tasks/\(taskId)/message", body: ["text": submittedMessage, "requestId": requestId]) {
+            if await store.perform("/api/tasks/\(taskId)/message", body: body) {
                 if message == submittedMessage { message = "" }
                 messageId = UUID().uuidString
             }

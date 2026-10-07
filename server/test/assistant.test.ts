@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createModels, fauxProvider, fauxAssistantMessage, fauxToolCall, type Credential } from '@earendil-works/pi-ai';
 import { Engine } from '../src/engine.js';
+import { defaultCodexSettings, saveCodexSettings } from '../src/codex-settings.js';
 import { ModelCredentials } from '../src/model.js';
 import { Auth } from '../src/auth.js';
 import { createAPI } from '../src/api.js';
@@ -135,9 +136,10 @@ test('Friday resumes a pending question after restart and cancels its own model 
   } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
-test('Credential storage stays private and paired devices cannot change the model key', async () => {
+test('Credential storage stays private and paired devices cannot change provider settings', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-oauth-')); const engine = await new Engine(directory).open(); const auth = new Auth(directory);
   try {
+    await saveCodexSettings(directory, { ...defaultCodexSettings, binaryPath: '/nonexistent/friday-test-codex' });
     const file = join(directory, 'test-auth.json'); const store = new ModelCredentials(file);
     const credential: Credential = { type: 'oauth', access: 'test-access', refresh: 'test-refresh', expires: 100 };
     await store.modify('openai', async () => credential);
@@ -149,7 +151,7 @@ test('Credential storage stays private and paired devices cannot change the mode
     const state = await (await app.request('/api/model', { headers })).json();
     assert.equal(state.connected, false); assert.equal(state.login, undefined);
     assert.equal((await app.request('/api/model/key', { method: 'PUT', headers, body: '{}' })).status, 403);
-    await assert.rejects(engine.createTask(input('no-login')), /DeepSeek API Key/);
+    await assert.rejects(engine.createTask(input('no-login')), /DeepSeek/);
   } finally { await engine.close(); auth.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
@@ -172,9 +174,12 @@ test('Interrupted delegated side effects are not replayed by the native loop', a
     const waiting = await until(engine, s => s.tasks[0]?.status === 'waiting');
     assert.equal(calls, 0);
     await engine.answer(id, waiting.tasks[0].approvals[0].id, 'accept', {});
-    await until(engine, s => s.tasks[0].threadId === 'persist-before-work');
+    await until(engine, s => s.tasks.some(t => t.parentId === id && t.threadId === 'persist-before-work'));
     await engine.close(); engine = await new Engine(directory, executor, options).open();
     await until(engine, s => s.tasks[0].status === 'completed');
+    const child = (await engine.snapshot()).tasks.find(t => t.parentId === id)!;
+    assert.equal(child.agent, 'codex'); assert.equal(child.status, 'interrupted');
+    assert.equal((await engine.snapshot()).tasks[0].threadId, null);
     assert.equal(calls, 1); assert.equal(await readFile(join(directory, 'side-effect'), 'utf8'), 'already done');
   } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
 });
@@ -193,5 +198,33 @@ test('A project edit made while approval is pending is preserved', async () => {
     await engine.answer(id, state.tasks[0].approvals[0].id, 'accept', {});
     await until(engine, s => s.tasks[0].status === 'completed');
     assert.equal(await readFile(file, 'utf8'), 'new user content');
+  } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
+test('Friday delegates to an independent task and reports its result through its own conversation', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-child-result-')); const { faux, options } = model();
+  let calls = 0;
+  const executor: Executor = { ...noCodex, run: async request => {
+    calls++; assert.equal(request.task.agent, 'codex'); assert.ok(request.task.parentId);
+    await request.update({ kind: 'session', threadId: 'child-thread' });
+    return 'Codex child result';
+  } };
+  faux.setResponses([
+    fauxAssistantMessage(fauxToolCall('delegate_codex', { task: 'Implement this change' }), { stopReason: 'toolUse' }),
+    ctx => { assert.match(JSON.stringify(ctx), /Codex child result/); return fauxAssistantMessage('Friday 已核对任务结果。'); },
+  ]);
+  const engine = await new Engine(directory, executor, options).open();
+  try {
+    await engine.mutate(s => { s.projects.push({ id: 'project', name: 'Project', path: directory, context: '' }); });
+    const id = await engine.createTask({ ...input('child-result'), mode: 'code', projectId: 'project' });
+    let state = await until(engine, s => s.tasks.find(t => t.id === id)?.status === 'waiting');
+    assert.equal(calls, 0); assert.equal(state.tasks.length, 1);
+    await engine.answer(id, state.tasks[0].approvals[0].id, 'accept', {});
+    state = await until(engine, s => s.tasks.find(t => t.id === id)?.status === 'completed');
+    const main = state.tasks.find(t => t.id === id)!; const child = state.tasks.find(t => t.parentId === id)!;
+    assert.equal(main.agent, 'friday'); assert.ok(main.conversationId); assert.equal(main.threadId, null);
+    assert.equal(main.result, 'Friday 已核对任务结果。');
+    assert.equal(child.agent, 'codex'); assert.equal(child.threadId, 'child-thread'); assert.equal(child.status, 'completed');
+    assert.equal(child.result, 'Codex child result'); assert.equal(child.conversationId, undefined); assert.equal(calls, 1);
   } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
 });

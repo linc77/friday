@@ -13,23 +13,27 @@ export type WorkItem = {
   durableId: number | null; threadId: string | null; turnId: string | null;
   result: string; error: string | null; events: TaskEvent[]; approvals: Approval[];
   conversationId?: number; messages?: ChatMessage[];
+  codexHome?: string;
+  parentId?: string; model?: string; reasoningEffort?: string;
   artifact: string | null; lastRequestId: string;
   workspaceRequest?: string | null;
 };
 export type Workspace = {
   revision: number; ideas: Idea[]; projects: Project[]; memories: Memory[];
-  tasks: WorkItem[]; requests: Record<string, string>; queueTail?: number | null;
+  tasks: WorkItem[]; requests: Record<string, string>; queueTail?: number | null; assistantQueueTail?: number | null;
 };
 export type AgentInfo = { id: string; name: string; installed: boolean; executable: string | null; executableSupported: boolean; description: string };
 export type ExecutionUpdate =
-  | { kind: 'session'; threadId: string }
+  | { kind: 'session'; threadId: string; codexHome?: string; model?: string; reasoningEffort?: string }
   | { kind: 'turn'; turnId: string }
   | { kind: 'output'; text: string }
   | { kind: 'event'; eventKind: string; text: string }
   | { kind: 'approval'; approval: Approval }
   | { kind: 'approvalResolved'; id: string }
   | { kind: 'workspace'; reason: string }
-  | { kind: 'idea'; id: string; text: string };
+  | { kind: 'idea'; id: string; text: string }
+  | { kind: 'memory'; id: string; text: string }
+  | { kind: 'note'; id: string; title: string; content: string };
 export type ExecutionRequest = { task: WorkItem; prompt: string; signal: AbortSignal; update: (update: ExecutionUpdate) => Promise<void> };
 export interface Executor {
   run(request: ExecutionRequest): Promise<string>;

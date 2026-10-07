@@ -94,9 +94,17 @@ export class FridayAssistant {
           const work = await this.work(api); if (!['auto', 'code'].includes(work.mode) || !work.projectId) throw new Error('仅已选项目的编码请求可调用 Codex');
           await this.approve(work, api, ctx, '调用 Codex 编码工具', args.task, false);
           ctx.abortSignal?.throwIfAborted();
-          const output = await engine.executor.run({ task: { ...work, mode: 'code', lastRequestId: api.callId }, prompt: args.task, signal: ctx.abortSignal ?? new AbortController().signal,
-            update: async update => { if (update.kind === 'output') { api.output(update.text); } else await engine.updateExecution(work.id, update); } });
-          return result(output);
+          const id = await engine.createTask({ prompt: args.task, projectId: work.projectId, mode: 'code', agent: 'codex', parentId: work.id, requestId: `delegate-${api.callId}` });
+          const child = (await engine.snapshot()).tasks.find(t => t.id === id)!;
+          const abort = () => { void engine.cancel(id).catch(() => {}); };
+          ctx.abortSignal?.addEventListener('abort', abort, { once: true });
+          try {
+            if (ctx.abortSignal?.aborted) { abort(); ctx.abortSignal.throwIfAborted(); }
+            await engine.harness.waitForTask(child.durableId! as import('@earendil-works/pi-durable').TaskId, ctx);
+            const completed = (await engine.snapshot()).tasks.find(t => t.id === id)!;
+            if (completed.status !== 'completed') throw new Error(`Codex task ${id}: ${completed.status}. ${completed.error ?? 'Check current results before repeating any operation.'}`);
+            return result({ taskId: id, agent: 'codex', output: completed.result });
+          } finally { ctx.abortSignal?.removeEventListener('abort', abort); }
         } }),
     ] });
   }
