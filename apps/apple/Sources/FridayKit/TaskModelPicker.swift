@@ -38,8 +38,8 @@ struct TaskModelPicker: View {
                 filterButton("all", title: "全部模型", symbol: "square.stack")
                 filterButton("favorites", title: "收藏", symbol: "star")
                 Divider().padding(.horizontal, 8)
-                if lockedProvider == nil || lockedProvider == "codex" { filterButton("codex", title: "Codex", symbol: "cpu") }
-                if lockedProvider == nil || lockedProvider == "claude" { filterButton("claude", title: "Claude", symbol: "sparkle") }
+                if lockedProvider == nil || lockedProvider == "codex" { filterButton("codex", title: "Codex") }
+                if lockedProvider == nil || lockedProvider == "claude" { filterButton("claude", title: "Claude") }
                 Spacer()
             }.padding(8).frame(width: 54)
             Divider()
@@ -70,12 +70,19 @@ struct TaskModelPicker: View {
         .task { searching = true }
     }
 
-    private func filterButton(_ value: String, title: LocalizedStringKey, symbol: String) -> some View {
+    private func filterButton(_ value: String, title: LocalizedStringKey, symbol: String? = nil) -> some View {
         Button { filter = value } label: {
-            FridaySymbolImage(systemName: symbol).font(.system(size: 17, weight: .regular))
+            Group {
+                if let symbol {
+                    FridaySymbolImage(systemName: symbol).font(.system(size: 17, weight: .regular))
+                } else {
+                    AgentProviderIcon(provider: value, size: 22).foregroundStyle(.primary)
+                }
+            }
                 .frame(width: 36, height: 36).foregroundStyle(filter == value ? FridayTheme.accent : .secondary)
                 .background(filter == value ? FridayTheme.accent.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 8))
         }.buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: title)).help(Text(friday: title))
+            .accessibilityAddTraits(filter == value ? .isSelected : [])
     }
 
     private func modelRow(_ choice: TaskModelChoice) -> some View {
@@ -87,6 +94,7 @@ struct TaskModelPicker: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(choice.model.selectionName).font(.callout).lineLimit(2)
                         HStack(spacing: 4) {
+                            AgentProviderIcon(provider: choice.provider, size: 12)
                             Text(choice.providerName)
                             if !available { Text("·"); Text(friday: "未连接") }
                         }.font(.caption).foregroundStyle(.secondary)
