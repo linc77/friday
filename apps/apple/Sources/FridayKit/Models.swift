@@ -27,10 +27,31 @@ struct CodexEnvironmentVariable: Codable, Identifiable, Equatable {
     var name: String; var value: String?; var hasValue: Bool?
     var id: String { name }
 }
+struct CustomProviderModel: Codable, Identifiable, Equatable {
+    var id: String; var name: String
+}
 struct CodexProviderSettings: Codable, Equatable {
     var enabled = true; var displayName = "Codex"; var binaryPath = "codex"
     var homePath = ""; var shadowHomePath = ""; var launchArgs = ""
     var model = ""; var reasoningEffort = ""; var environment: [CodexEnvironmentVariable] = []
+    var customModels: [CustomProviderModel] = []
+    init() {}
+    enum CodingKeys: String, CodingKey {
+        case enabled, displayName, binaryPath, homePath, shadowHomePath, launchArgs, model, reasoningEffort, environment, customModels
+    }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try values.decode(Bool.self, forKey: .enabled)
+        displayName = try values.decode(String.self, forKey: .displayName)
+        binaryPath = try values.decode(String.self, forKey: .binaryPath)
+        homePath = try values.decode(String.self, forKey: .homePath)
+        shadowHomePath = try values.decode(String.self, forKey: .shadowHomePath)
+        launchArgs = try values.decode(String.self, forKey: .launchArgs)
+        model = try values.decode(String.self, forKey: .model)
+        reasoningEffort = try values.decode(String.self, forKey: .reasoningEffort)
+        environment = try values.decode([CodexEnvironmentVariable].self, forKey: .environment)
+        customModels = try values.decodeIfPresent([CustomProviderModel].self, forKey: .customModels) ?? []
+    }
     var body: [String: Any] {
         var body = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(self))) as? [String: Any] ?? [:]
         body["environment"] = environment.map { ["name": $0.name, "value": $0.value as Any? ?? NSNull()] }
@@ -40,6 +61,8 @@ struct CodexProviderSettings: Codable, Equatable {
 struct CodexProviderModel: Decodable, Identifiable {
     let id: String; let name: String; let description: String; let isDefault: Bool
     let reasoningEfforts: [String]; let defaultReasoningEffort: String
+    var isCustom: Bool? = nil; var resolvedModel: String? = nil
+    var selectionName: String { resolvedModel != nil && resolvedModel != id ? "\(name) (\(id))" : name }
 }
 struct CodexAccount: Decodable { let type: String; let email: String?; let plan: String? }
 struct ModelConnectionState: Decodable { let provider: String; let model: String; let connected: Bool }
@@ -57,7 +80,7 @@ struct WorkItem: Codable, Identifiable {
     let workspaceRequest: String?; let messages: [ChatMessage]?
     let parentId: String?; let model: String?; let reasoningEffort: String?
     var localAgent: Bool { agent != "friday" }
-    var agentName: String { agent == "codex" ? "Codex" : "Friday" }
+    var agentName: String { agent == "codex" ? "Codex" : agent == "claude" ? "Claude" : "Friday" }
     var conversation: [ChatMessage] {
         var history = messages ?? [ChatMessage(id: "original-user", role: "user", text: prompt)]
         if !result.isEmpty && (history.last?.role != "assistant" || history.last?.text != result) { history.append(ChatMessage(id: "current-answer", role: "assistant", text: result)) }

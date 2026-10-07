@@ -285,3 +285,51 @@
 "本地连接" = "Local connection";
 "安装状态" = "Installation status";
 "可选任务执行工具；账号、模型与运行配置见「Providers → Codex」" = "Optional task executor. Manage its account, model, and runtime in Providers → Codex.";
+
+/* Provider model configuration. */
+"模型 · 本地" = "Models · Local";
+"已支持账号配置和模型检测；Claude 任务执行尚未接入。" = "Account configuration and model detection are available. Claude task execution is not connected yet.";
+"在主机运行 claude auth login，或添加 ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN 后重新检测。" = "Run claude auth login on the host, or add ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN and check again.";
+"当前服务使用的本地程序。" = "Local executable used by this service.";
+"读取已有的账号、模型和网关配置。" = "Read existing account, model, and gateway configuration.";
+"支持 --model、--effort 和 --setting-sources。" = "Supports --model, --effort, and --setting-sources.";
+"保存在当前主机。" = "Saved on the current host.";
+"工具默认" = "Provider default";
+"运行配置由主机管理，收藏、显示和排序保存在此设备。" = "Runtime configuration is managed on the host. Favorites, visibility, and ordering are saved on this device.";
+"模型列表" = "Model list";
+"模型管理" = "Model management";
+"收藏、显示和排序保存在此设备，自定义模型保存在主机。" = "Favorites, visibility, and ordering are saved on this device. Custom models are saved on the host.";
+"添加模型" = "Add model";
+"%lld 个模型" = "%lld models";
+"全部显示" = "Show all";
+"全部隐藏" = "Hide all";
+"尚未获取到模型，请连接账号后重新检测。" = "No models reported yet. Connect an account and check again.";
+"模型 ID" = "Model ID";
+"显示名称（可选）" = "Display name (optional)";
+"自定义 ID 需要当前账号或网关支持；添加不会验证可用性。" = "Custom IDs require support from your account or gateway. Adding one does not verify availability.";
+"模型 ID 已存在" = "Model ID already exists";
+"模型 ID 无效" = "Invalid model ID";
+"取消收藏" = "Remove favorite";
+"收藏模型" = "Favorite model";
+"自定义" = "Custom";
+"推理" = "Reasoning";
+"上移模型" = "Move model up";
+"下移模型" = "Move model down";
+"移除模型" = "Remove model";
+"显示模型" = "Show model";
+
+"选择模型，把任务交给 Claude 或 Codex。关闭窗口也不影响执行。" = "Choose a model and delegate to Claude or Codex. Tasks keep running when this window closes.";
+
+"这个任务要完成什么…" = "What should this task accomplish…";
+
+"全部模型" = "All models";
+
+"搜索模型…" = "Search models…";
+
+"没有匹配的模型" = "No matching models";
+
+"续聊保留当前 Agent 和会话。" = "Continue with the same agent and session.";
+
+"在任务输入框中选择 Claude 模型，即可执行任务或继续会话。" = "Choose a Claude model in the task composer to start or continue a task.";
+
+"Claude 正在执行" = "Claude is working";

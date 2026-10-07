@@ -102,7 +102,7 @@ final class FridayStore: ObservableObject {
     func createTask(prompt: String, ideaId: String? = nil, requestId: String, projectId: String? = nil, agent: String = "friday", model: String? = nil, reasoningEffort: String? = nil) async throws -> String {
         var body: [String: Any] = ["prompt": prompt, "requestId": requestId]
         body["agent"] = agent
-        if agent == "codex" { body["mode"] = "code" }
+        if agent == "codex" || agent == "claude" { body["mode"] = "code" }
         if let projectId { body["projectId"] = projectId }
         if let model { body["model"] = model }; if let reasoningEffort { body["reasoningEffort"] = reasoningEffort }
         if let ideaId { body["ideaId"] = ideaId }

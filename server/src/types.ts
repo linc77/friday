@@ -19,6 +19,7 @@ export type WorkItem = {
   result: string; error: string | null; events: TaskEvent[]; approvals: Approval[];
   conversationId?: number; messages?: ChatMessage[];
   codexHome?: string;
+  claudeHome?: string;
   parentId?: string; model?: string; reasoningEffort?: string;
   artifact: string | null; lastRequestId: string;
   workspaceRequest?: string | null;
@@ -29,7 +30,7 @@ export type Workspace = {
 };
 export type AgentInfo = { id: string; name: string; installed: boolean; executable: string | null; executableSupported: boolean; description: string };
 export type ExecutionUpdate =
-  | { kind: 'session'; threadId: string; codexHome?: string; model?: string; reasoningEffort?: string }
+  | { kind: 'session'; threadId: string; codexHome?: string; claudeHome?: string; model?: string; reasoningEffort?: string }
   | { kind: 'turn'; turnId: string }
   | { kind: 'output'; text: string }
   | { kind: 'event'; eventKind: string; text: string }

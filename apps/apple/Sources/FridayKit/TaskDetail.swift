@@ -122,7 +122,7 @@ struct TaskDetail: View {
     private func header(_ task: WorkItem) -> some View {
         HStack(alignment: task.localAgent ? .center : .top, spacing: 14) {
             if task.localAgent {
-                Text(store.projects.first { $0.id == task.projectId }?.name ?? "Codex")
+                Text(store.projects.first { $0.id == task.projectId }?.name ?? task.agentName)
                     .font(.callout).foregroundStyle(.secondary).lineLimit(1)
                 Text("/").foregroundStyle(.tertiary)
                 Text(task.title).font(.callout.weight(.medium)).lineLimit(1).textSelection(.enabled)
@@ -175,7 +175,7 @@ struct TaskDetail: View {
                 .foregroundStyle(task.status == "waiting" ? .orange : FridayTheme.accent)
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 5) {
-                Text(fridayString: task.status == "queued" ? "已加入队列" : task.status == "waiting" ? "需要你的确认" : task.localAgent ? "Codex 正在执行" : "Friday 正在处理")
+                Text(fridayString: task.status == "queued" ? "已加入队列" : task.status == "waiting" ? "需要你的确认" : task.agent == "claude" ? "Claude 正在执行" : task.localAgent ? "Codex 正在执行" : "Friday 正在处理")
                     .font(.callout.weight(.medium))
                 Text(fridayString: task.status == "queued" ? "前面的任务完成后开始。" : task.status == "waiting" ? "处理上方请求后，任务会继续推进。" : "你可以继续补充要求，关闭窗口也不影响执行。")
                     .font(.caption).foregroundStyle(.secondary)
@@ -253,7 +253,7 @@ struct TaskDetail: View {
         }
     }
 
-    private func sendAgentMessage(_ model: String, _ effort: String) {
+    private func sendAgentMessage(_ provider: String, _ model: String, _ effort: String) {
         sendMessage(model: model, effort: effort)
     }
 
