@@ -19,7 +19,9 @@ struct TaskDetail: View {
     var body: some View {
         if let task {
             VStack(spacing: 0) {
+                #if os(macOS)
                 header(task)
+                #endif
                 transcriptScroll(task)
             }
             .background(FridayTheme.canvas)
@@ -28,6 +30,22 @@ struct TaskDetail: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .safeAreaInset(edge: .bottom, spacing: 0) {
+                #if os(iOS)
+                FridayMobileDock {
+                    if task.localAgent {
+                        AgentTaskComposer(store: store, task: task, embeddedInMobileDock: true, message: $message, sending: sending, send: sendAgentMessage)
+                    } else {
+                        FridayMobileComposer(
+                            message: $message,
+                            placeholder: task.active ? "补充要求，或告诉 Friday 更多背景…" : "基于这个结果，接着做什么？",
+                            sending: sending,
+                            disabled: sending || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task.status == "queued",
+                            send: sendMessage
+                        )
+                        if let error = store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).lineLimit(2) }
+                    }
+                }
+                #else
                 if task.localAgent {
                     AgentTaskComposer(store: store, task: task, message: $message, sending: sending, send: sendAgentMessage)
                         .frame(maxWidth: FridayTheme.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
@@ -44,6 +62,7 @@ struct TaskDetail: View {
                     .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
                     .frame(maxWidth: .infinity)
                 }
+                #endif
             }
             .onChange(of: id) { _, _ in
                 message = ""; messageId = UUID().uuidString; showEvents = false
@@ -51,6 +70,9 @@ struct TaskDetail: View {
             }
         } else {
             EmptyPanel(icon: "checklist", title: "正在加载任务", subtitle: "连接主机后会显示最新进展。")
+                #if os(iOS)
+                .safeAreaInset(edge: .bottom, spacing: 0) { FridayMobileDock { EmptyView() } }
+                #endif
         }
     }
 
@@ -59,6 +81,9 @@ struct TaskDetail: View {
             GeometryReader { viewport in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
+                        #if os(iOS)
+                        header(task)
+                        #endif
                         if task.localAgent {
                             CodexTimeline(task: task, canOpenLocalFiles: store.deviceId == "owner")
                         } else {
@@ -83,13 +108,23 @@ struct TaskDetail: View {
                     }
                     // Animate only approval insertion/removal, never the streamed result.
                     .animation(reduceMotion ? nil : FridayTheme.motion, value: task.approvals.filter { $0.state == "pending" }.map(\.id))
-                    .padding(24).frame(maxWidth: FridayTheme.contentWidth + 48).frame(maxWidth: .infinity)
+                    .padding(.horizontal, 24).padding(.bottom, 24)
+                    #if os(iOS)
+                    .padding(.top, task.localAgent ? 24 : viewport.safeAreaInsets.top + 24)
+                    #else
+                    .padding(.top, 24)
+                    #endif
+                    .frame(maxWidth: FridayTheme.contentWidth + 48).frame(maxWidth: .infinity)
                     .background(GeometryReader { geometry in
                         let frame = geometry.frame(in: .named("task-transcript"))
                         Color.clear.preference(key: TranscriptScrollKey.self, value: TranscriptScrollMetrics(top: frame.minY, bottom: frame.maxY, viewportHeight: viewport.size.height))
                     })
                 }
                 .coordinateSpace(name: "task-transcript")
+                #if os(iOS)
+                .scrollDismissesKeyboard(.interactively)
+                .ignoresSafeArea(.container, edges: task.localAgent ? [] : .top)
+                #endif
                 .modifier(TranscriptScrollObserver { metrics in
                     guard metrics.bottom > 0 else { return }
                     if let previousScrollTop, metrics.top > previousScrollTop + 3 { followingEnd = false }
@@ -142,7 +177,11 @@ struct TaskDetail: View {
                 .buttonStyle(FridayButtonStyle(compact: true)).disabled(!store.connected)
             }
         }
+        #if os(iOS)
+        .padding(.bottom, 8)
+        #else
         .padding(.horizontal, 26).padding(.top, 24).padding(.bottom, 10)
+        #endif
     }
 
     @ViewBuilder private func conversationMessage(_ message: ChatMessage, task: WorkItem) -> some View {

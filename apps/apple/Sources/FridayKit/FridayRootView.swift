@@ -1,6 +1,8 @@
 import SwiftUI
 #if os(macOS)
 import AppKit
+#else
+import UIKit
 #endif
 
 enum FridaySection: String, CaseIterable, Identifiable {
@@ -74,17 +76,21 @@ public struct FridayRootView: View {
             .toolbarBackground(.hidden, for: .windowToolbar)
             .frame(minWidth: 980, minHeight: 640)
             #else
-            TabView(selection: $mobileTab) {
+            ZStack {
                 NavigationStack {
-                    VStack(spacing: 0) { if let error = store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).padding(8) }; conversation }
-                        .navigationTitle("Friday").toolbar { Button { newTask() } label: { FridaySymbolLabel(friday: "新对话", systemImage: "square.and.pencil") } }
-                }.tabItem { Label(friday: "对话", systemImage: FridaySymbols.chat) }.tag(0)
-                NavigationStack { inbox.navigationTitle(Text(friday: "想法")) }.tabItem { Label(friday: "想法", systemImage: "scribble") }.tag(1)
+                    conversation
+                        .toolbar(.hidden, for: .navigationBar)
+                        .overlay(alignment: .top) { FridayMobileTopFade() }
+                }.fridayMobilePage(isSelected: mobileTab == 0)
+                NavigationStack { inbox.navigationTitle(Text(friday: "想法")) }
+                    .fridayMobilePage(isSelected: mobileTab == 1)
                 NavigationStack(path: $mobileTaskPath) {
                     tasksList.navigationTitle(Text(friday: "任务"))
                         .navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id, onOpenTask: openLocalTask) }
                         .toolbar {
-                            Button { choosingMobileWorkspace = true } label: { FridaySymbolLabel(friday: "新任务", systemImage: "square.and.pencil") }
+                            if mobileTab == 2 {
+                                Button { choosingMobileWorkspace = true } label: { FridaySymbolLabel(friday: "新任务", systemImage: "square.and.pencil") }
+                            }
                         }
                         .sheet(isPresented: $choosingMobileWorkspace) {
                             NavigationStack {
@@ -103,7 +109,7 @@ public struct FridayRootView: View {
                                     .toolbar { Button(friday: "取消") { choosingMobileWorkspace = false } }
                             }
                         }
-                }.tabItem { Label(friday: "任务", systemImage: "checklist.unchecked") }.tag(2)
+                }.fridayMobilePage(isSelected: mobileTab == 2)
                 NavigationStack {
                     List {
                         connectionStatus
@@ -114,7 +120,18 @@ public struct FridayRootView: View {
                         NavigationLink(friday: "外观") { AppearanceSettingsView() }
                         NavigationLink(friday: "连接与设备") { ConnectionView(store: store) }
                     }.navigationTitle(Text(friday: "我的 Friday"))
-                }.tabItem { Label(friday: "设置", systemImage: "gear") }.tag(3)
+                }.fridayMobilePage(isSelected: mobileTab == 3)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                // Conversation screens keep their composer and navigation on one surface.
+                if mobileTab == 1 || mobileTab == 3 || (mobileTab == 2 && mobileTaskPath.isEmpty) {
+                    FridayMobileDock { EmptyView() }
+                }
+            }
+            .environment(\.fridayMobileTabSelection, $mobileTab)
+            .environment(\.fridayMobileNewConversation, newTask)
+            .onChange(of: mobileTab) { _, _ in
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
             #endif
         }
