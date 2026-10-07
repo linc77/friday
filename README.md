@@ -6,6 +6,14 @@ Friday 是你的个人 Agent：随手收集想法、关联项目、布置任务�
 
 目前是可运行的 **0.1 开发版**：独立 TypeScript 常驻服务、Pi Durable + SQLite 持久化、原生 SwiftUI Mac 客户端、iOS 客户端与分享扩展源码。Friday 通过 DeepSeek API 直连模型，使用 Pi Durable 的模型与工具循环。主会话始终是 Friday。Codex 是任务中的可选执行工具，Friday 委派前需单独批准；Claude Code、Hermes、Pi Coding Agent 目前只检测安装状态。
 
+## macOS 个人测试版
+
+[下载 Friday 0.1.0-beta.1（DMG）](https://github.com/linc77/friday/releases/download/v0.1.0-beta.1/Friday-0.1.0-beta.1-macOS-arm64.dmg) · [版本说明](https://github.com/linc77/friday/releases/tag/v0.1.0-beta.1)
+
+适用于 Apple Silicon Mac，要求 macOS 14 或更新版本。打开 DMG，将 Friday 拖入“应用程序”后启动；已内置 Node.js 和常驻服务，无需安装开发工具。后续版本可在 Friday 菜单中点击“检查更新…”。
+
+这是尚未经过 Apple 公证的个人测试版，首次打开可能需要在“系统设置 → 隐私与安全性”中允许打开。安装、后台服务和后续发版步骤见 [macOS 发布指南](docs/macos-release.md)。
+
 ## 本机运行
 
 需要 Node.js 22.19+、pnpm、macOS 14+、Swift 5.10+，以及DeepSeek API Key。只有调用可选编码工具时才需要安装并登录 Codex CLI。当前已在 Node 26.10 / Swift 6.2.3 / Apple Silicon 上验证。

@@ -38,7 +38,7 @@ git('push', 'origin', 'HEAD:refs/heads/main');
 const existing = JSON.parse(gh('api', `repos/${repository}/releases`)).find(item => item.tag_name === tag);
 if (existing) throw new Error(`${tag} already exists. Inspect that release before retrying.`);
 const notes = `release/${build.version}.md`; await stat(notes);
-const url = gh('release', 'create', tag, '--repo', repository, '--target', build.commit, '--draft', '--prerelease', '--title', `Friday ${build.version}`, '--notes-file', notes, ...assets.map(name => 'dist/releases/' + name));
+gh('release', 'create', tag, '--repo', repository, '--target', build.commit, '--draft', '--prerelease', '--title', `Friday ${build.version}`, '--notes-file', notes, ...assets.map(name => 'dist/releases/' + name));
 const release = JSON.parse(gh('api', `repos/${repository}/releases`)).find(item => item.tag_name === tag);
 for (const name of assets) {
   if (release?.assets.find(asset => asset.name === name)?.size !== (await stat('dist/releases/' + name)).size) throw new Error('Uploaded asset verification failed: ' + name);
@@ -59,4 +59,5 @@ try {
   execFileSync('git', ['-C', stage, 'commit', '-m', `Publish Friday ${build.version} update feed`], { stdio: 'inherit' });
   execFileSync('git', ['-C', stage, 'push', 'origin', 'updates'], { stdio: 'inherit' });
 } finally { await rm(stage, { recursive: true, force: true }); }
+const url = gh('release', 'view', tag, '--repo', repository, '--json', 'url', '--jq', '.url');
 console.log(`Published ${url}\nUpdate feed: ${build.feedURL}`);
