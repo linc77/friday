@@ -12,8 +12,18 @@ struct InboxView: View {
     @State private var creating = false
     @State private var search = ""
     @State private var deleting: Idea?
+    @State private var pullDistance: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("friday.ideaDraft") private var legacyDraft = ""
     @AppStorage("friday.noteDraft.new") private var newDraft = Data()
+    #if os(macOS)
+    @StateObject private var composer = NoteComposerWindow()
+    #endif
+    private var hasDraft: Bool { !newDraft.isEmpty || !legacyDraft.isEmpty }
+    private var pullReady: Bool { pullDistance >= NotePullGesture.threshold }
+    private var pullReveal: Double { min(104, pullDistance * 0.6) }
+    private var motion: Animation? { reduceMotion || scenePhase != .active ? nil : FridayTheme.motion }
     private var filtered: [Idea] {
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
         return store.notes.filter { query.isEmpty || $0.displayTitle.localizedStandardContains(query) || $0.text.localizedStandardContains(query) }
@@ -29,6 +39,9 @@ struct InboxView: View {
             } else { gallery }
         }
         .background(FridayTheme.canvas)
+        #if os(macOS)
+        .onDisappear { composer.close() }
+        #endif
         .confirmationDialog(Text(friday: "删除这篇笔记？"), isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
             Button(friday: "删除", role: .destructive) { if let idea = deleting { Task { _ = await store.deleteNote(idea); deleting = nil } } }
             Button(friday: "取消", role: .cancel) { deleting = nil }
@@ -38,19 +51,20 @@ struct InboxView: View {
     private var gallery: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
-                HStack(alignment: .center, spacing: 20) {
-                    PageHeading(title: "把想法放在这里", subtitle: "想法、日记和资料，都有一个自己的位置。")
-                    Button { creating = true } label: { FridaySymbolLabel(friday: newDraft.isEmpty && legacyDraft.isEmpty ? "新建笔记" : "继续草稿", systemImage: "square.and.pencil") }
+                PageHeading(title: "把想法放在这里", subtitle: "想法、日记和资料，都有一个自己的位置。")
+                HStack(spacing: 16) {
+                    Button(action: newNote) { FridaySymbolLabel(friday: hasDraft ? "继续草稿" : "新建笔记", systemImage: "square.and.pencil") }
                         .buttonStyle(FridayButtonStyle(prominent: true)).fixedSize()
+                    Spacer(minLength: 0)
+                    HStack(spacing: 10) {
+                        FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
+                        TextField(friday: "搜索笔记", text: $search).textFieldStyle(.plain)
+                        if !search.isEmpty {
+                            Button { search = "" } label: { FridaySymbolImage(systemName: "xmark.circle.fill") }
+                                .buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: "清除搜索"))
+                        }
+                    }.padding(12).fridayCard(radius: 12).frame(maxWidth: 380)
                 }
-                HStack(spacing: 10) {
-                    FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
-                    TextField(friday: "搜索笔记", text: $search).textFieldStyle(.plain)
-                    if !search.isEmpty {
-                        Button { search = "" } label: { FridaySymbolImage(systemName: "xmark.circle.fill") }
-                            .buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: "清除搜索"))
-                    }
-                }.padding(12).fridayCard(radius: 12).frame(maxWidth: 380)
                 HStack {
                     Text(friday: "所有笔记").font(.subheadline.weight(.semibold))
                     Text("\(filtered.count)").font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
@@ -74,8 +88,59 @@ struct InboxView: View {
                 }
             }
             .padding(28).frame(maxWidth: 1140).frame(maxWidth: .infinity)
+            #if os(macOS)
+            .background(NotePullScrollGesture { distance in
+                if distance == 0 { withAnimation(motion) { pullDistance = 0 } }
+                else { pullDistance = distance }
+            } create: {
+                pullDistance = 0
+                newNote()
+            })
+            #endif
         }
+        #if os(macOS)
+        .offset(y: reduceMotion ? 0 : pullReveal)
+        .overlay(alignment: .top) { pullHint }
+        .clipped()
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { pullDistance = 0 }
+        }
+        .onDisappear { pullDistance = 0 }
+        #endif
     }
+
+    private func newNote() {
+        #if os(macOS)
+        composer.show(store: store, delegate: delegate)
+        #else
+        creating = true
+        #endif
+    }
+
+    #if os(macOS)
+    private var pullHint: some View {
+        VStack(spacing: 6) {
+            FridaySymbolLabel(friday: pullReady
+                              ? (hasDraft ? "松开继续草稿" : "松开新建笔记")
+                              : (hasDraft ? "下拉继续草稿" : "下拉新建笔记"), systemImage: "square.and.pencil")
+                .font(.callout.weight(.medium))
+                .fridaySymbolFeedback(value: pullReady)
+            if !reduceMotion {
+                Capsule().fill(.primary.opacity(0.08)).frame(width: 96, height: 2)
+                    .overlay(alignment: .leading) {
+                        Capsule().fill(.primary.opacity(pullReady ? 0.7 : 0.3))
+                            .frame(width: 96 * min(1, pullDistance / NotePullGesture.threshold), height: 2)
+                    }
+            }
+        }
+        .foregroundStyle(pullReady ? .primary : .secondary)
+        .frame(maxWidth: .infinity).frame(height: reduceMotion ? 44 : 64)
+        .background(FridayTheme.canvas)
+        .opacity(reduceMotion ? (pullDistance > 0 ? 1 : 0) : min(1, pullDistance / 64))
+        .frame(height: reduceMotion ? (pullDistance > 0 ? 44 : 0) : pullReveal, alignment: .bottom)
+        .clipped().allowsHitTesting(false).accessibilityHidden(pullDistance == 0)
+    }
+    #endif
 }
 
 private struct IdeaCardView: View {
@@ -123,16 +188,20 @@ private struct IdeaDraft: Codable, Equatable {
     }
 }
 
-private struct IdeaDetailView: View {
+struct IdeaDetailView: View {
     @ObservedObject var store: FridayStore
     let initial: Idea?
     let delegate: (Idea) -> Void
     let close: () -> Void
+    let isFullScreen: Bool
+    let fullScreenTransitioning: Bool
+    let toggleFullScreen: (() -> Void)?
     @State private var draft: IdeaDraft
     @State private var baseline: IdeaDraft
     @State private var savedID: String?
     @Environment(\.scenePhase) private var scenePhase
     @State private var localError: String?
+    @FocusState private var titleFocused: Bool
     private var draftKey: String { "friday.noteDraft." + (initial?.id ?? "new") }
     private var current: Idea? { store.notes.first { $0.id == (savedID ?? initial?.id) } ?? initial }
     private var hasContent: Bool { !draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.images.isEmpty }
@@ -144,8 +213,11 @@ private struct IdeaDetailView: View {
         return version != (remote.updatedAt ?? remote.createdAt)
     }
 
-    init(store: FridayStore, initial: Idea?, delegate: @escaping (Idea) -> Void, close: @escaping () -> Void) {
+    init(store: FridayStore, initial: Idea?, isFullScreen: Bool = false, fullScreenTransitioning: Bool = false,
+         toggleFullScreen: (() -> Void)? = nil, delegate: @escaping (Idea) -> Void, close: @escaping () -> Void) {
         self.store = store; self.initial = initial; self.delegate = delegate; self.close = close
+        self.isFullScreen = isFullScreen; self.fullScreenTransitioning = fullScreenTransitioning
+        self.toggleFullScreen = toggleFullScreen
         let key = "friday.noteDraft." + (initial?.id ?? "new")
         let recovered = UserDefaults.standard.data(forKey: key).flatMap { try? JSONDecoder().decode(IdeaDraft.self, from: $0) }
         var value = recovered ?? IdeaDraft(initial)
@@ -170,7 +242,10 @@ private struct IdeaDetailView: View {
             if let localError { Text(localError).font(.caption).foregroundStyle(.orange).padding(12).textSelection(.enabled) }
             editor
         }
-        .onAppear { _ = autosave() }
+        .onAppear {
+            _ = autosave()
+            if initial == nil { titleFocused = true }
+        }
         .onDisappear { _ = autosave(immediately: true) }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { _ = autosave(immediately: true) }
@@ -184,8 +259,12 @@ private struct IdeaDetailView: View {
 
     private var toolbar: some View {
         HStack(spacing: 12) {
-            Button { _ = autosave(immediately: true); close() } label: { FridaySymbolLabel(friday: "所有笔记", systemImage: "chevron.left") }
-                .buttonStyle(FridayButtonStyle(compact: true))
+            if toggleFullScreen != nil {
+                Text(friday: "新建笔记").font(.headline)
+            } else {
+                Button { _ = autosave(immediately: true); close() } label: { FridaySymbolLabel(friday: "所有笔记", systemImage: "chevron.left") }
+                    .buttonStyle(FridayButtonStyle(compact: true))
+            }
             Spacer()
             if let current {
                 Button {
@@ -197,8 +276,25 @@ private struct IdeaDetailView: View {
                 } label: { FridaySymbolLabel(friday: current.taskId == nil ? "交给 Friday" : "打开对话", systemImage: current.taskId == nil ? "arrow.up.right" : FridaySymbols.chat) }
                     .buttonStyle(FridayButtonStyle(compact: true)).disabled(pending || (!store.connected && current.taskId == nil) || store.delegatingIdeas.contains(current.id))
             }
-            Text(friday: hasChanges || pending ? "已保存在本机，待同步" : hasContent ? "已自动保存" : "自动保存")
-                .font(.caption).foregroundStyle(.secondary)
+            if hasChanges || pending {
+                Text(friday: "已保存在本机，待同步")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if let toggleFullScreen {
+                Button(action: toggleFullScreen) {
+                    FridaySymbolImage(systemName: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 16)).frame(width: 32, height: 32).contentShape(Rectangle())
+                }.buttonStyle(FridaySymbolButtonStyle())
+                    .help(Text(fridayString: isFullScreen ? "退出全屏" : "全屏编辑"))
+                    .accessibilityLabel(Text(fridayString: isFullScreen ? "退出全屏" : "全屏编辑"))
+                    .disabled(fullScreenTransitioning)
+                Button { _ = autosave(immediately: true); close() } label: {
+                    FridaySymbolImage(systemName: "xmark")
+                        .font(.system(size: 16)).frame(width: 32, height: 32).contentShape(Rectangle())
+                }.buttonStyle(FridaySymbolButtonStyle())
+                    .help(Text(friday: "关闭笔记"))
+                    .accessibilityLabel(Text(friday: "关闭笔记"))
+            }
         }
     }
 
@@ -206,6 +302,7 @@ private struct IdeaDetailView: View {
         VStack(alignment: .leading, spacing: 16) {
             TextField(friday: "标题", text: draftBinding(\.title), axis: .vertical).textFieldStyle(.plain).font(.largeTitle.weight(.semibold))
                 .accessibilityLabel(Text(friday: "笔记标题"))
+                .focused($titleFocused)
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(friday: "创建时间").foregroundStyle(.tertiary)

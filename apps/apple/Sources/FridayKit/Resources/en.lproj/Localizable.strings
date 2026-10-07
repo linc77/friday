@@ -372,6 +372,13 @@
 "自动保存" = "Autosave";
 "已自动保存" = "Saved automatically";
 "已保存在本机，待同步" = "Saved on this device, pending sync";
+"下拉新建笔记" = "Pull to create a note";
+"松开新建笔记" = "Release to create a note";
+"下拉继续草稿" = "Pull to continue your draft";
+"松开继续草稿" = "Release to continue your draft";
+"全屏编辑" = "Edit full screen";
+"退出全屏" = "Exit full screen";
+"关闭笔记" = "Close note";
 
 // Task Workspaces
 "Workspace" = "Workspace";
