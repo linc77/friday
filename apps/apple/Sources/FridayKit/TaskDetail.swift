@@ -102,7 +102,7 @@ struct TaskDetail: View {
                                 .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
                                 .padding(18).frame(maxWidth: .infinity, alignment: .leading).fridayCard()
                         }
-                        if task.active { progressCard(task) }
+                        if task.active && !task.localAgent { progressCard(task) }
                         if task.artifact != nil && !task.localAgent { artifactCard(task) }
                         Color.clear.frame(height: 1).id("transcript-end")
                     }
@@ -170,7 +170,7 @@ struct TaskDetail: View {
                 }
                 Spacer(minLength: 8)
             }
-            if task.active || task.status == "needs_project" {
+            if !task.localAgent && (task.active || task.status == "needs_project") {
                 Button(friday: "停止", systemImage: "stop", role: .destructive) {
                     Task { _ = await store.perform("/api/tasks/\(id)/cancel") }
                 }
@@ -213,7 +213,7 @@ struct TaskDetail: View {
                 .foregroundStyle(task.status == "waiting" ? .orange : FridayTheme.accent)
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 5) {
-                Text(fridayString: task.status == "queued" ? "已加入队列" : task.status == "waiting" ? "需要你的确认" : task.agent == "claude" ? "Claude 正在执行" : task.localAgent ? "Codex 正在执行" : "Friday 正在处理")
+                Text(fridayString: task.status == "queued" ? "已加入队列" : task.status == "waiting" ? "需要你的确认" : "Friday 正在处理")
                     .font(.callout.weight(.medium))
                 Text(fridayString: task.status == "queued" ? "前面的任务完成后开始。" : task.status == "waiting" ? "处理上方请求后，任务会继续推进。" : "你可以继续补充要求，关闭窗口也不影响执行。")
                     .font(.caption).foregroundStyle(.secondary)

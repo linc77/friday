@@ -30,6 +30,8 @@
 "保存前发送一次简短测试请求，会产生少量 API 用量。" = "A brief test request runs before saving and uses a small amount of API usage.";
 "保存项目" = "Save project";
 "停止" = "Stop";
+"正在停止" = "Stopping";
+"补充任务要求" = "Steer message";
 "允许本次" = "Allow once";
 "先关联一个项目" = "Connect a project first";
 "先记下来，准备好了再交给 Friday。" = "Save it now. Hand it to Friday when you are ready.";

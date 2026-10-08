@@ -107,13 +107,16 @@ struct AgentTaskComposer: View {
     @State private var effort = ""
     @State private var error: String?
     @State private var switchingBranch = false
+    @State private var stoppingTaskId: String?
     @FocusState private var focused: Bool
     @Environment(\.locale) private var locale
     private var state: CodexConnectionState? { states[provider] }
     private var providerName: String { provider == "claude" ? "Claude" : "Codex" }
     private var connectionError: String? { error ?? (state?.enabled == false ? "已停用" : state?.error) }
     private var active: Bool { task?.active == true }
-    private var disabled: Bool { sending || switchingBranch || task?.branchChange?.active == true || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task?.status == "queued" || (requiresProject && projectPath == nil) || !workspaceReady || (!active && state?.connected != true) }
+    private var stopping: Bool { stoppingTaskId != nil && stoppingTaskId == task?.id }
+    private var showsStop: Bool { active && message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var disabled: Bool { sending || stopping || switchingBranch || task?.branchChange?.active == true || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task?.status == "queued" || (requiresProject && projectPath == nil) || !workspaceReady || (!active && state?.connected != true) }
     private var selectedModel: CodexProviderModel? { state?.models.first { $0.id == (model.isEmpty ? state?.model : model) } }
     private var showsBranchControl: Bool {
         if let task { return task.git?.status == "repository" }
@@ -129,11 +132,22 @@ struct AgentTaskComposer: View {
                     .disabled(sending || (requiresProject && projectPath == nil))
                     .accessibilityLabel(Text(friday: "任务要求"))
                     .onChatSubmit { if !disabled { send(provider, model, effort) } }
-                Button { send(provider, model, effort) } label: {
-                    FridaySymbolImage(systemName: "arrow.up").fridaySymbolFeedback()
-                }.buttonStyle(FridayButtonStyle(prominent: true, compact: true))
-                    .accessibilityLabel(Text(friday: sending ? "发送中" : "发送"))
-                    .keyboardShortcut(.return, modifiers: .command).disabled(disabled)
+                if showsStop {
+                    Button(action: stop) {
+                        FridaySymbolImage(systemName: "stop.fill").font(.system(size: 8, weight: .medium))
+                    }.buttonStyle(AgentTaskActionButtonStyle(destructive: true))
+                        .accessibilityLabel(Text(friday: stopping ? "正在停止" : "停止"))
+                        .help(Text(friday: "停止"))
+                        .disabled(stopping || !store.connected)
+                } else {
+                    Button { send(provider, model, effort) } label: {
+                        FridaySymbolImage(systemName: active ? "arrow.turn.up.right" : "arrow.up")
+                            .font(.system(size: 14, weight: .semibold))
+                    }.buttonStyle(AgentTaskActionButtonStyle())
+                        .accessibilityLabel(Text(friday: sending ? "发送中" : active ? "补充任务要求" : "发送"))
+                        .help(Text(friday: active ? "补充任务要求" : "发送"))
+                        .keyboardShortcut(.return, modifiers: .command).disabled(disabled)
+                }
             }
             if let connectionError { Text(fridayString: connectionError).font(.caption).foregroundStyle(.orange).lineLimit(2) }
             HStack(spacing: 12) {
@@ -149,7 +163,10 @@ struct AgentTaskComposer: View {
         #if os(iOS)
         .onDisappear { focused = false }
         #endif
-        .task(id: task?.id) { provider = task?.agent ?? "codex"; model = task?.model ?? ""; effort = task?.reasoningEffort ?? "" }
+        .task(id: task?.id) {
+            stoppingTaskId = nil; error = nil
+            provider = task?.agent ?? "codex"; model = task?.model ?? ""; effort = task?.reasoningEffort ?? ""
+        }
         .task(id: store.connected) {
             guard store.connected else { return }
             for value in ["codex", "claude"] {
@@ -187,6 +204,51 @@ struct AgentTaskComposer: View {
             NewTaskBranchControl(store: store, state: workspaceState, projectId: projectId, selection: workspace)
                 .id(projectId).disabled(sending || !store.connected)
         }
+    }
+
+    private func stop() {
+        guard let task, task.active, !stopping, store.connected else { return }
+        let taskId = task.id
+        stoppingTaskId = taskId
+        Task {
+            let succeeded = await store.perform("/api/tasks/\(taskId)/cancel")
+            // A different task can be selected while this request is in flight.
+            if stoppingTaskId == taskId {
+                stoppingTaskId = nil
+                if !succeeded { error = store.error }
+            }
+        }
+    }
+}
+
+private struct AgentTaskActionButtonStyle: ButtonStyle {
+    var destructive = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        AgentTaskActionButtonBody(configuration: configuration, destructive: destructive)
+    }
+}
+
+private struct AgentTaskActionButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    let destructive: Bool
+    @State private var hovering = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    private var background: Color { destructive ? Color(red: 239 / 255, green: 68 / 255, blue: 68 / 255) : FridayTheme.accent }
+
+    var body: some View {
+        configuration.label
+            .foregroundStyle(destructive ? Color.white : FridayTheme.onAccent)
+            .frame(width: 32, height: 32)
+            .background(background.opacity(destructive && !hovering ? 0.9 : 1), in: Circle())
+            .overlay(Circle().strokeBorder(Color.white.opacity(isEnabled ? 0.12 : 0), lineWidth: 1))
+            .shadow(color: background.opacity(isEnabled && !configuration.isPressed ? 0.24 : 0), radius: 1, y: 1)
+            .opacity(isEnabled ? 1 : 0.64)
+            .contentShape(Circle())
+            .fridaySymbolFeedback(active: configuration.isPressed)
+            .fridayInteractiveCursor()
+            .onHover { hovering = $0 }
     }
 }
 
