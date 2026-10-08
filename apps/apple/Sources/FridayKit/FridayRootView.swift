@@ -222,14 +222,18 @@ public struct FridayRootView: View {
             #if os(macOS)
             HStack(spacing: 0) {
                 TaskWorkspaceSidebar(store: store, scope: $workspaceScope, draftProjectId: $draftProjectId, selectedTask: $selectedTask) {
-                    if let workspaceScope { draftProjectId = workspaceScope }
+                    draftProjectId = workspaceScope
                     selectedTask = nil
                 }
                 .frame(width: 250)
                 .frame(maxHeight: .infinity)
                 Divider()
                 if let selectedTask { TaskDetail(store: store, id: selectedTask, onOpenTask: openLocalTask).id(selectedTask).frame(minWidth: 420) }
-                else { NewAgentTaskView(store: store, project: store.projects.first { $0.id == draftProjectId }, onCreated: openLocalTask, drafts: $taskDrafts) }
+                else {
+                    NewAgentTaskView(store: store, project: store.projects.first { $0.id == draftProjectId }, onSelectProject: { project in
+                        draftProjectId = project.id
+                    }, onCreated: openLocalTask, drafts: $taskDrafts)
+                }
             }
             #else
             tasksList

@@ -205,7 +205,7 @@ struct TaskWorkspaceSidebar: View {
 
     private func select(_ id: String?) {
         withAnimation(motion) { scope = id; drag = 0 }
-        if let id { draftProjectId = id }
+        draftProjectId = id
     }
 
     private func reconcileWorkspaces() {

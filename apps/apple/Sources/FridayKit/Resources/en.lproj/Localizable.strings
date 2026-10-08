@@ -404,6 +404,11 @@
 "选择模型，把任务交给 Claude Code 或 Codex。" = "Choose a model and delegate to Claude Code or Codex.";
 "从一个 Workspace 开始" = "Start with a Workspace";
 "在任务侧栏选择 Workspace，再把任务交给 Agent。" = "Choose a Workspace in the task sidebar, then give your task to an agent.";
+"选择下方的 Workspace，再把任务交给 Agent。" = "Choose a Workspace below, then give your task to an agent.";
+"先添加一个 Workspace，再把任务交给 Agent。" = "Add a Workspace, then give your task to an agent.";
+"在此 Workspace 中开始新任务" = "Start a new task in this Workspace";
+"先选择上方的 Workspace…" = "Choose a Workspace above first…";
+"先添加一个 Workspace…" = "Add a Workspace first…";
 "管理工作目录，以及 Agent 需要了解的背景。" = "Manage working directories and context for your agents.";
 "先添加一个 Workspace" = "Add your first Workspace";
 "添加 Workspace 背景，让 Friday 更了解这件事。" = "Add context to help Friday understand this Workspace.";
