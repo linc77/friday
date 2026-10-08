@@ -1,5 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { activeStatuses, type Workspace } from './types.js';
+import { switchingBranch } from './branch-switch.js';
 
 /** A short owner-held write barrier; process death or expiry releases it. */
 export class ServiceMaintenance {
@@ -22,7 +23,7 @@ export class ServiceMaintenance {
         await delay(10);
       }
       const state = await this.snapshot();
-      if (state.tasks.some(task => activeStatuses.includes(task.status))) throw new Error('仍有任务正在执行或等待处理。请完成或停止任务后再安装更新。');
+      if (state.tasks.some(task => activeStatuses.includes(task.status) || switchingBranch(task.branchChange))) throw new Error('仍有任务正在执行或等待处理。请完成或停止任务后再安装更新。');
       if (!this.preparing) throw new Error('更新准备已超时，请重试。');
     } catch (error) { this.cancel(); throw error; }
   }

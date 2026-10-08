@@ -36,6 +36,23 @@ test('abandoned update leases expire without requiring a service restart', async
   assert.equal(gate.preparing, false); gate.enterWrite()();
 });
 
+test('branch switches prevent updates until the checkout operation finishes', async () => {
+  for (const status of ['queued', 'running', 'completed', 'failed', 'interrupted'] as const) {
+    const workspace = state('completed');
+    workspace.tasks[0].branchChange = { requestId: 'switch', branch: 'main', root: '/tmp/workspace', status };
+    const gate = new ServiceMaintenance(async () => workspace);
+    if (status === 'queued' || status === 'running') {
+      await assert.rejects(gate.prepare(), /仍有任务/);
+      assert.equal(gate.preparing, false);
+      gate.enterWrite()();
+    } else {
+      await gate.prepare();
+      assert.equal(gate.preparing, true);
+    }
+    gate.cancel();
+  }
+});
+
 test('only the owner can prepare or cancel an update; paired clients cannot release the barrier', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-update-api-'));
   const engine = await new Engine(directory).open(); const auth = new Auth(directory);

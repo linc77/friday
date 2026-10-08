@@ -281,6 +281,7 @@ private struct FridayToolbarButtonBody: View {
             .contentShape(RoundedRectangle(cornerRadius: 6))
             .onHover { hovering = $0 }
             .fridaySymbolFeedback(active: configuration.isPressed)
+            .fridayInteractiveCursor()
     }
 }
 #endif
@@ -323,6 +324,7 @@ private struct FridayButtonBody: View {
             .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)
             .onHover { hovering = $0 }
             .fridaySymbolFeedback(active: configuration.isPressed)
+            .fridayInteractiveCursor()
     }
 }
 

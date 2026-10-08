@@ -10,8 +10,21 @@ struct NewAgentTaskView: View {
     @Binding var drafts: [String: AgentTaskDraft]
     @State private var sending = false
     @State private var error: String?
+    @StateObject private var workspaceState = TaskWorkspaceState()
 
     private var draftKey: String { project?.id ?? "" }
+    private var gitPath: String { "/api/projects/\(draftKey)/git" }
+    private var workspaceReady: Bool {
+        workspaceState.isReady(for: gitPath) && workspaceState.options(for: gitPath).map { workspace.wrappedValue.isValid(in: $0) } == true
+    }
+    private var workspace: Binding<TaskWorkspaceSelection> {
+        Binding(get: {
+            (drafts[draftKey]?.workspace ?? TaskWorkspaceSelection()).resolved(in: workspaceState.options(for: gitPath))
+        }, set: { value in
+            if drafts[draftKey] == nil { drafts[draftKey] = AgentTaskDraft() }
+            drafts[draftKey]?.workspace = value
+        })
+    }
     private var message: Binding<String> {
         Binding(get: { drafts[draftKey]?.message ?? "" }, set: { value in
             if drafts[draftKey] == nil { drafts[draftKey] = AgentTaskDraft() }
@@ -20,46 +33,47 @@ struct NewAgentTaskView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            #if !os(macOS)
-            HStack {
+        VStack(spacing: 28) {
+            VStack(spacing: 12) {
                 if let project {
-                    Text(project.name).font(.callout).foregroundStyle(.secondary).lineLimit(1)
-                    Text("/").foregroundStyle(.tertiary)
-                }
-                Text(friday: "新任务").font(.title3.weight(.semibold))
-                Spacer()
-            }
-            #endif
-            if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
-            Spacer(minLength: 20)
-            VStack(spacing: 10) {
-                if let project {
-                    Text(friday: "在 \(project.name) 中开始新任务").font(.title2.weight(.medium))
+                    Text(friday: "在 \(project.name) 中开始新任务").font(.system(size: 28, weight: .medium))
                     Text(friday: "选择模型，把任务交给 Claude Code 或 Codex。")
                         .font(.callout).foregroundStyle(.secondary)
+                    if let options = workspaceState.options(for: gitPath), options.git.status == "repository" {
+                        TaskExecutionLocationPicker(selection: workspace, options: options)
+                            .padding(.top, 6).disabled(sending || !store.connected)
+                    }
                 } else {
-                    Text(friday: "从一个 Workspace 开始").font(.title2.weight(.medium))
+                    Text(friday: "从一个 Workspace 开始").font(.system(size: 28, weight: .medium))
                     Text(friday: "在任务侧栏选择 Workspace，再把任务交给 Agent。")
                         .font(.callout).foregroundStyle(.secondary)
                 }
-            }.frame(maxWidth: .infinity)
-            Spacer(minLength: 20)
-            AgentTaskComposer(store: store, projectPath: project?.path, requiresProject: true, message: message, sending: sending, send: send)
+            }.multilineTextAlignment(.center).frame(maxWidth: .infinity)
+            if let error = error ?? workspaceState.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
+            else if let options = workspaceState.options(for: gitPath), !workspace.wrappedValue.isValid(in: options) {
+                Text(friday: "所选分支不可用，请重新选择。").font(.caption).foregroundStyle(.orange)
+            }
+            AgentTaskComposer(store: store, projectPath: project?.path, projectId: project?.id, workspace: workspace,
+                workspaceState: workspaceState, workspaceReady: workspaceReady, requiresProject: true, message: message, sending: sending, send: send)
         }
         .padding(28).frame(maxWidth: FridayTheme.contentWidth + 56).frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FridayTheme.canvas)
+        .task(id: "\(draftKey):\(store.connected)") {
+            guard project != nil else { return }
+            await workspaceState.refresh(store: store, path: gitPath)
+        }
     }
 
     private func send(_ provider: String, _ model: String, _ effort: String) {
         guard let project, !sending else { return }
         let draft = drafts[project.id] ?? AgentTaskDraft()
         guard !draft.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let executionWorkspace = workspace.wrappedValue
         drafts[project.id] = draft
         sending = true; error = nil
         Task {
             do {
-                let id = try await store.createTask(prompt: draft.message, requestId: draft.requestId, projectId: project.id, agent: provider, model: model, reasoningEffort: effort)
+                let id = try await store.createTask(prompt: draft.message, requestId: draft.requestId, projectId: project.id, agent: provider, model: model, reasoningEffort: effort, workspace: executionWorkspace)
                 drafts[project.id] = nil; onCreated(id)
             } catch { self.error = error.localizedDescription }
             sending = false
@@ -69,6 +83,7 @@ struct NewAgentTaskView: View {
 
 struct AgentTaskDraft {
     var message = ""
+    var workspace = TaskWorkspaceSelection()
     let requestId = UUID().uuidString
 }
 
@@ -76,6 +91,10 @@ struct AgentTaskComposer: View {
     @ObservedObject var store: FridayStore
     var task: WorkItem? = nil
     var projectPath: String? = nil
+    var projectId: String? = nil
+    var workspace: Binding<TaskWorkspaceSelection>? = nil
+    var workspaceState: TaskWorkspaceState? = nil
+    var workspaceReady = true
     var requiresProject = false
     var embeddedInMobileDock = false
     @Binding var message: String
@@ -87,20 +106,26 @@ struct AgentTaskComposer: View {
     @State private var model = ""
     @State private var effort = ""
     @State private var error: String?
+    @State private var switchingBranch = false
     @FocusState private var focused: Bool
     @Environment(\.locale) private var locale
     private var state: CodexConnectionState? { states[provider] }
     private var providerName: String { provider == "claude" ? "Claude" : "Codex" }
     private var connectionError: String? { error ?? (state?.enabled == false ? "已停用" : state?.error) }
     private var active: Bool { task?.active == true }
-    private var disabled: Bool { sending || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task?.status == "queued" || (requiresProject && projectPath == nil) || (!active && state?.connected != true) }
+    private var disabled: Bool { sending || switchingBranch || task?.branchChange?.active == true || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task?.status == "queued" || (requiresProject && projectPath == nil) || !workspaceReady || (!active && state?.connected != true) }
     private var selectedModel: CodexProviderModel? { state?.models.first { $0.id == (model.isEmpty ? state?.model : model) } }
+    private var showsBranchControl: Bool {
+        if let task { return task.git?.status == "repository" }
+        guard let projectId else { return false }
+        return workspaceState?.options(for: "/api/projects/\(projectId)/git")?.git.status == "repository"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .bottom, spacing: 16) {
                 TextField(friday: active ? "补充任务要求…" : "这个任务要完成什么…", text: $message, axis: .vertical)
-                    .font(.body).lineLimit((embeddedInMobileDock ? 1 : 2)...6).textFieldStyle(.plain).focused($focused)
+                    .font(.body).lineLimit((embeddedInMobileDock ? 1 : (task == nil ? 3 : 2))...6).textFieldStyle(.plain).focused($focused)
                     .disabled(sending || (requiresProject && projectPath == nil))
                     .accessibilityLabel(Text(friday: "任务要求"))
                     .onChatSubmit { if !disabled { send(provider, model, effort) } }
@@ -112,31 +137,11 @@ struct AgentTaskComposer: View {
             }
             if let connectionError { Text(fridayString: connectionError).font(.caption).foregroundStyle(.orange).lineLimit(2) }
             HStack(spacing: 12) {
-                Button { showModels.toggle() } label: {
-                    HStack(spacing: 5) {
-                        AgentProviderIcon(provider: provider, size: 14)
-                        Text(selectedModel?.selectionName ?? (model.isEmpty ? providerName : model)).lineLimit(1)
-                        FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9))
-                    }
-                }.buttonStyle(FridaySymbolButtonStyle()).disabled(active || sending).accessibilityLabel(Text(friday: "任务模型"))
-                    .popover(isPresented: $showModels) {
-                        TaskModelPicker(server: store.connection.server, states: states, lockedProvider: task?.agent, provider: provider, model: selectedModel?.id ?? model) { choice in
-                            provider = choice.provider; model = choice.model.id; effort = ""; showModels = false
-                        }.environment(\.locale, locale)
-                    }
+                modelControls
                 Divider().frame(height: 16)
-                Menu {
-                    Button(friday: "模型默认") { effort = "" }
-                    ForEach(selectedModel?.reasoningEfforts ?? [], id: \.self) { value in Button(value.capitalized) { effort = value } }
-                } label: {
-                    HStack(spacing: 5) {
-                        Text(effort.isEmpty ? selectedModel?.defaultReasoningEffort.capitalized ?? "Default" : effort.capitalized)
-                        FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9))
-                    }
-                }.disabled(active || sending || (selectedModel?.reasoningEfforts.isEmpty ?? true)).accessibilityLabel(Text(friday: "推理强度"))
-                #if os(macOS)
-                .menuStyle(.borderlessButton).menuIndicator(.hidden)
-                #endif
+                TaskReasoningEffortControl(selection: $effort, efforts: selectedModel?.reasoningEfforts ?? [],
+                    defaultEffort: selectedModel?.defaultReasoningEffort ?? "")
+                    .disabled(active || sending)
                 Spacer(minLength: 0)
             }.font(.callout).foregroundStyle(.secondary)
         }
@@ -152,6 +157,35 @@ struct AgentTaskComposer: View {
                 catch { if value == provider { self.error = error.localizedDescription } }
             }
             if task == nil && states[provider]?.connected != true && states["claude"]?.connected == true { provider = "claude"; model = ""; effort = ""; error = nil }
+        }
+    }
+
+    private var modelControls: some View {
+        HStack(spacing: 12) {
+            if showsBranchControl {
+                branchControl
+                Divider().frame(height: 16)
+            }
+            Button { showModels.toggle() } label: {
+                HStack(spacing: 5) {
+                    AgentProviderIcon(provider: provider, size: 14)
+                    Text(selectedModel?.selectionName ?? (model.isEmpty ? providerName : model)).lineLimit(1)
+                }
+            }.buttonStyle(FridaySymbolButtonStyle()).disabled(active || sending).accessibilityLabel(Text(friday: "任务模型"))
+                .popover(isPresented: $showModels) {
+                    TaskModelPicker(server: store.connection.server, states: states, lockedProvider: task?.agent, provider: provider, model: selectedModel?.id ?? model) { choice in
+                        provider = choice.provider; model = choice.model.id; effort = ""; showModels = false
+                    }.environment(\.locale, locale)
+                }
+        }
+    }
+
+    @ViewBuilder private var branchControl: some View {
+        if let task {
+            ExistingTaskBranchControl(store: store, task: task, submitting: $switchingBranch).id(task.id).disabled(sending)
+        } else if let projectId, let workspace, let workspaceState {
+            NewTaskBranchControl(store: store, state: workspaceState, projectId: projectId, selection: workspace)
+                .id(projectId).disabled(sending || !store.connected)
         }
     }
 }

@@ -119,6 +119,7 @@ private struct NoteComposerContent: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(FridayTheme.canvas)
             .tint(FridayTheme.accent)
+            .buttonStyle(FridayDefaultButtonStyle())
             .environment(\.locale, language.locale)
             .environment(\.scenePhase, composer.scenePhase)
             .preferredColorScheme(appearance.colorScheme)

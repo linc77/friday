@@ -1,13 +1,13 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile, readFile, chmod } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, relative, isAbsolute } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import type { Models } from '@earendil-works/pi-ai/models';
 import { Harness, configure, createRegistry, defineExtension, defineTask, type Conversation, type ConversationId, type ModelRef, type TaskId, type DocumentWatch } from '@earendil-works/pi-durable';
 import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node';
-import type { Executor, ExecutionUpdate, Workspace, WorkItem, TaskMode } from './types.js';
+import type { Executor, ExecutionUpdate, Workspace, WorkItem, TaskMode, TaskWorkspaceSelection } from './types.js';
 import { activeStatuses } from './types.js';
 import { CodexExecutor } from './codex.js';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +18,8 @@ import { ClaudeConnection } from './claude-provider.js';
 import { ClaudeExecutor } from './claude.js';
 import { LocalAgentExecutor } from './local-agents.js';
 import { FridayAssistant } from './assistant.js';
+import { planWorkspace, prepareWorkspace } from './task-workspace.js';
+import { defineBranchSwitch, assertCheckoutIdle, branchBlocksTask } from './branch-switch.js';
 
 const now = () => new Date().toISOString();
 const event = (kind: string, text: string) => ({ id: randomUUID(), kind, text, at: now() });
@@ -38,6 +40,7 @@ export class Engine extends EventEmitter {
   private closed = false;
   readonly execution;
   readonly response;
+  readonly branchSwitch;
   readonly executor: Executor;
   readonly modelConnection: ModelConnection;
   readonly assistant: FridayAssistant;
@@ -53,6 +56,7 @@ export class Engine extends EventEmitter {
     this.executor = executor ?? new LocalAgentExecutor({ codex: new CodexExecutor(undefined, this.codexConnection, () => this.snapshot()), claude: new ClaudeExecutor(this.claudeConnection) });
     this.assistant = new FridayAssistant(this);
     this.response = this.createResponse();
+    this.branchSwitch = defineBranchSwitch(this);
     this.execution = defineTask<Input, Checkpoint, { status: string }, {}>({
       name: 'friday.execute', version: 1,
       initial: () => ({ phase: 'queued' }),
@@ -80,7 +84,20 @@ export class Engine extends EventEmitter {
           await runtime.memo('external-started', true, ctx);
           await this.patchTask(task.input.id, item => { item.status = 'running'; item.error = null; item.events.push(event('status', item.agent === 'claude' ? '正在连接本地 Claude' : '正在连接本地 Codex')); });
           try {
-            const work = (await this.snapshot()).tasks.find(t => t.id === task.input.id)!;
+            let work = (await this.snapshot()).tasks.find(t => t.id === task.input.id)!;
+            if (work.executionWorkspace && work.executionWorkspace.state !== 'ready') {
+              const plan = work.executionWorkspace;
+              await prepareWorkspace(plan, async () => {
+                if (plan.mode === 'checkout' && (await this.snapshot()).tasks.some(other => {
+                  const path = relative(plan.root, other.cwd);
+                  return other.id !== work.id && ['running', 'waiting'].includes(other.status)
+                    && path !== '..' && !path.startsWith('../') && !isAbsolute(path);
+                })) throw new Error('当前工作区有正在执行的任务，请等待完成或选择 New Worktree。');
+                await this.patchTask(work.id, item => { item.executionWorkspace!.state = 'preparing'; });
+              }, runtime.signal);
+              await this.patchTask(work.id, item => { item.executionWorkspace!.state = 'ready'; item.cwd = item.executionWorkspace!.cwd; });
+              work = (await this.snapshot()).tasks.find(t => t.id === task.input.id)!;
+            }
             const result = await this.executor.run({ task: work, prompt: task.input.prompt, signal: runtime.signal, update: update => this.updateExecution(work.id, update) });
             const needsProject = !!(await this.snapshot()).tasks.find(t => t.id === work.id)?.workspaceRequest;
             if (needsProject) {
@@ -170,7 +187,7 @@ export class Engine extends EventEmitter {
     catch { this.lease.close(); throw new Error('已有 Friday 服务正在使用这个数据目录。'); }
     try {
       const registry = createRegistry();
-      registry.install(defineExtension({ name: 'friday', tasks: [this.execution, this.response] }));
+      registry.install(defineExtension({ name: 'friday', tasks: [this.execution, this.response, this.branchSwitch] }));
       registry.install(this.assistant.extension);
       this.harness = await Harness.open(await openNodeSqliteStorage(join(this.directory, 'friday.sqlite')), {
         models: this.agentOptions?.models ?? this.modelConnection.models, registry,
@@ -212,7 +229,38 @@ export class Engine extends EventEmitter {
       if (item.events.length > 600) item.events.splice(0, item.events.length - 600);
     });
   }
-  async createTask(input: { prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; agent?: 'friday' | 'codex' | 'claude'; parentId?: string; model?: string; reasoningEffort?: string }) {
+  async switchTaskBranch(id: string, branch: string, requestId: string) {
+    if (['__proto__', 'constructor', 'prototype'].includes(requestId)) throw new Error('请求 ID 无效');
+    const snapshot = await this.snapshot();
+    const receipt = snapshot.branchRequests && Object.hasOwn(snapshot.branchRequests, requestId) ? snapshot.branchRequests[requestId] : undefined;
+    if (receipt) {
+      if (receipt.taskId !== id || receipt.branch !== branch) throw new Error('请求 ID 已被其他分支操作使用');
+      return id;
+    }
+    const work = snapshot.tasks.find(task => task.id === id);
+    if (!work || work.agent === 'friday') throw new Error('本地任务不存在');
+    if (work.executionWorkspace && work.executionWorkspace.state !== 'ready') throw new Error('请先完成任务工作区准备');
+    const plan = await planWorkspace({ mode: 'checkout', branch }, work.cwd, this.directory, id);
+    await this.root.commit(async tx => {
+      const state = await tx.doc(WorkspaceDoc);
+      if (state.branchRequests && Object.hasOwn(state.branchRequests, requestId)) {
+        if (state.branchRequests[requestId].taskId !== id || state.branchRequests[requestId].branch !== branch) throw new Error('请求 ID 已被其他分支操作使用');
+        return;
+      }
+      const task = state.tasks.find(task => task.id === id)!;
+      assertCheckoutIdle(state, plan.root);
+      if (branchBlocksTask(state, task.cwd)) throw new Error('当前工作区正在切换分支，请稍后重试');
+      const durableId = await tx.createTask(this.branchSwitch, { id, requestId, plan, predecessor: state.queueTail ?? null }, { ownership: { kind: 'conversation' } });
+      task.branchChange = { requestId, branch, root: plan.root, status: 'queued' };
+      state.branchRequests ??= {};
+      state.branchRequests[requestId] = { taskId: id, branch };
+      state.queueTail = durableId; state.revision++;
+    }, context);
+    this.harness.resume();
+    return id;
+  }
+
+  async createTask(input: { prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; agent?: 'friday' | 'codex' | 'claude'; parentId?: string; model?: string; reasoningEffort?: string; workspace?: TaskWorkspaceSelection }) {
     if (['__proto__', 'constructor', 'prototype'].includes(input.requestId)) throw new Error('请求 ID 无效');
     const snapshot = await this.snapshot();
     if (Object.hasOwn(snapshot.requests, input.requestId)) return snapshot.requests[input.requestId];
@@ -226,6 +274,9 @@ export class Engine extends EventEmitter {
     const project = snapshot.projects.find(p => p.id === input.projectId);
     if (input.projectId && !project) throw new Error('项目不存在');
     if (input.mode === 'code' && !project) throw new Error('代码任务需要先选择一个项目目录');
+    if (input.workspace && (native || input.continueId || !project)) throw new Error('执行位置只能用于已选择 Workspace 的新本地任务');
+    const taskId = randomUUID();
+    const executionWorkspace = input.workspace ? await planWorkspace(input.workspace, project!.path, this.directory, taskId) : undefined;
     const skill = await readFile(fileURLToPath(new URL(`../../skills/${input.mode === 'auto' ? 'personal-assistant' : input.mode === 'code' ? 'code-validation' : 'project-research'}/SKILL.md`, import.meta.url)), 'utf8');
     const id = await this.root.commit(async tx => {
       const workspace = await tx.doc(WorkspaceDoc);
@@ -234,6 +285,7 @@ export class Engine extends EventEmitter {
       if (input.ideaId && !sourceIdea) throw new Error('想法不存在');
       if (sourceIdea?.taskId) return sourceIdea.taskId;
       let work = input.continueId ? workspace.tasks.find(t => t.id === input.continueId) : undefined;
+      if (branchBlocksTask(workspace, executionWorkspace?.cwd ?? work?.cwd ?? project?.path ?? join(this.directory, 'artifacts'))) throw new Error('当前工作区正在切换分支，请完成后再发送任务');
       if (input.continueId && !work) throw new Error('任务不存在');
       if (work && activeStatuses.includes(work.status)) throw new Error('任务正在运行，请使用补充要求');
       if (work && input.projectId && work.projectId !== input.projectId) {
@@ -247,11 +299,12 @@ export class Engine extends EventEmitter {
       const predecessor = native ? workspace.assistantQueueTail ?? null : workspace.queueTail ?? null;
       const stamp = now();
       const task: WorkItem = work ?? {
-        id: randomUUID(), title: input.prompt.slice(0, 64), prompt: input.prompt, projectId: input.projectId,
-        cwd: project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent,
+        id: taskId, title: input.prompt.slice(0, 64), prompt: input.prompt, projectId: input.projectId,
+        cwd: executionWorkspace?.cwd ?? project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent,
         status: 'queued', createdAt: stamp, updatedAt: stamp, durableId: null, threadId: null, turnId: null,
         result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: input.requestId,
         messages: [], workspaceRequest: null,
+        ...(executionWorkspace ? { executionWorkspace } : {}),
         ...(input.parentId ? { parentId: input.parentId } : {}),
         ...(input.model !== undefined ? { model: input.model } : {}),
         ...(input.reasoningEffort !== undefined ? { reasoningEffort: input.reasoningEffort } : {}),

@@ -138,6 +138,7 @@ struct FridaySymbolButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .fridaySymbolFeedback(active: configuration.isPressed)
+            .fridayInteractiveCursor()
     }
 }
 

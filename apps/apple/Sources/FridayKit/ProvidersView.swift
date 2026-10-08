@@ -104,5 +104,6 @@ private struct ProviderRowStyle: ButtonStyle {
             .background(.primary.opacity(selected ? 0.055 : configuration.isPressed ? 0.03 : 0),
                         in: RoundedRectangle(cornerRadius: 9))
             .fridaySymbolFeedback(active: configuration.isPressed)
+            .fridayInteractiveCursor()
     }
 }

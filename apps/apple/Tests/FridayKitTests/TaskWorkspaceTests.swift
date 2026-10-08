@@ -122,5 +122,45 @@ struct TaskWorkspaceTests {
         print("Workspace grouping, Artifacts deduplication, activity ordering, Worktree ownership and same-name directory isolation passed")
         print("Sidebar relative time, continuation timing, Git branches, Worktrees, detached HEAD and older services passed")
         print("Workspace appearance decoding, persistence, rename stability, fallbacks and name validation passed")
+
+        let choices = try JSONDecoder().decode(TaskWorkspaceOptions.self, from: Data(#"{"git":{"status":"repository","branch":"main","isWorktree":false},"hasCommit":true,"branches":[{"ref":"refs/heads/main","name":"main","remote":false},{"ref":"refs/remotes/origin/main","name":"origin/main","remote":true}]}"#.utf8))
+        var selection = TaskWorkspaceSelection()
+        precondition(selection.isValid(in: choices) && selection.branchName(in: choices) == "main")
+        precondition(selection.body["branch"] == nil && selection.body["mode"] as? String == "checkout")
+        selection.branch = "refs/remotes/origin/main"
+        precondition(!selection.isValid(in: choices), "Remote branches cannot be switched into the current checkout")
+        selection.mode = "worktree"
+        precondition(selection.isValid(in: choices) && selection.branchName(in: choices) == "origin/main")
+        precondition(selection.body["branch"] as? String == "refs/remotes/origin/main")
+        selection.selectMode("checkout")
+        precondition(selection.branch == nil && selection.isValid(in: choices), "Moving execution location out of a Worktree clears a remote-only starting branch")
+        selection.branch = "refs/heads/main"
+        selection.selectMode("worktree")
+        precondition(selection.branch == "refs/heads/main", "Changing execution location preserves a usable starting branch")
+        selection.branch = "refs/heads/deleted"
+        precondition(!selection.isValid(in: choices), "A deleted branch cannot silently fall back to HEAD")
+        let unbornOptions = try JSONDecoder().decode(TaskWorkspaceOptions.self, from: Data(#"{"git":{"status":"repository","branch":"new","isWorktree":false},"hasCommit":false,"branches":[]}"#.utf8))
+        selection.branch = nil
+        precondition(!selection.isValid(in: unbornOptions))
+        selection.mode = "checkout"
+        precondition(selection.isValid(in: unbornOptions))
+        let plainOptions = try JSONDecoder().decode(TaskWorkspaceOptions.self, from: Data(#"{"git":{"status":"not_repository"},"hasCommit":false,"branches":[]}"#.utf8))
+        precondition(selection.isValid(in: plainOptions))
+        selection.mode = "worktree"
+        precondition(!selection.isValid(in: plainOptions))
+        selection.branch = "refs/remotes/origin/main"
+        let plainSelection = selection.resolved(in: plainOptions)
+        precondition(plainSelection.isValid(in: plainOptions) && plainSelection.body["mode"] as? String == "checkout" && plainSelection.body["branch"] == nil,
+            "A non-Git directory uses its current location even when a saved draft previously selected a Worktree and branch")
+        precondition(selection.resolved(in: choices) == selection && selection.resolved(in: nil) == selection,
+            "Keep Git draft choices while loading and when the directory remains a repository")
+        print("Execution workspace selection, API payload, deleted/remote branches and unborn/non-Git validation passed")
+        precondition(completed.branchChange == nil, "Older task records need no branch-change metadata")
+        let switching = try rowTask(["branchChange": ["requestId": "change", "branch": "refs/heads/feature", "status": "queued"]])
+        precondition(switching.branchChange?.active == true && !switching.active, "Switching reserves the checkout without pretending the agent is running")
+        let switchFailed = try rowTask(["branchChange": ["requestId": "change", "branch": "refs/heads/feature", "status": "failed", "error": "Uncommitted changes"]])
+        precondition(switchFailed.branchChange?.active == false && switchFailed.branchChange?.error == "Uncommitted changes")
+        precondition(switchFailed.status == "completed", "A refused switch preserves the completed conversation")
+        print("Existing conversation branch-change state and legacy task compatibility passed")
     }
 }

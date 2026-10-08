@@ -7,6 +7,17 @@ export type Question = { id: string; header: string; question: string; options: 
 export type Approval = { id: string; method: string; title: string; detail: string; questions: Question[]; state: 'pending' | 'answered' | 'expired'; decision?: 'accept' | 'decline'; answers?: Record<string, string[]> };
 export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; at?: string; turnId?: string };
 export type TaskMode = 'auto' | 'assistant' | 'research' | 'code';
+export type TaskWorkspaceSelection = { mode: 'checkout' | 'worktree'; branch?: string };
+export type TaskWorkspacePlan = {
+  mode: 'checkout' | 'worktree'; sourcePath: string; root: string; cwd: string;
+  branch: string | null; commit: string | null; targetBranch?: string;
+  state: 'pending' | 'preparing' | 'ready';
+};
+export type TaskBranchChange = {
+  requestId: string; branch: string; root: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted';
+  error?: string;
+};
 export type TaskGitContext =
   | { status: 'repository'; branch: string | null; head: string | null; isWorktree: boolean }
   | { status: 'not_repository' | 'unavailable' };
@@ -28,10 +39,13 @@ export type WorkItem = {
   artifact: string | null; lastRequestId: string;
   workspaceRequest?: string | null;
   git?: TaskGitContext; // Read-only API metadata; not persisted by the engine.
+  executionWorkspace?: TaskWorkspacePlan;
+  branchChange?: TaskBranchChange;
 };
 export type Workspace = {
   revision: number; ideas: Idea[]; projects: Project[]; memories: Memory[];
   tasks: WorkItem[]; requests: Record<string, string>; queueTail?: number | null; assistantQueueTail?: number | null;
+  branchRequests?: Record<string, { taskId: string; branch: string }>;
 };
 export type AgentInfo = { id: string; name: string; installed: boolean; executable: string | null; executableSupported: boolean; description: string };
 export type ExecutionUpdate =

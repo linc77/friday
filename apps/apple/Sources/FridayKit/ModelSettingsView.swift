@@ -72,6 +72,7 @@ struct ModelSettingsView: View {
                         .font(.system(size: 12))
                         .fridaySymbolFeedback()
                 }
+                .fridayInteractiveCursor()
             } else if state != nil {
                 Text(friday: "请在主机上配置 DeepSeek API Key，所有已连接设备会共用 Friday。")
                     .font(.system(size: 12)).foregroundStyle(.secondary)

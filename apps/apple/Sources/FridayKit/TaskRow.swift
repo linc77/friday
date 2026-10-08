@@ -1,7 +1,4 @@
 import SwiftUI
-#if os(macOS)
-import AppKit
-#endif
 
 enum TaskSidebarLayout {
     static let listInset: CGFloat = 6
@@ -38,16 +35,18 @@ struct TaskRow: View {
             }.frame(maxWidth: .infinity, alignment: .leading).frame(minHeight: 16)
 
             HStack(spacing: TaskSidebarLayout.iconSpacing) {
-                if task.git?.isWorktree == true {
-                    Image(systemName: "arrow.triangle.branch")
+                if task.git?.status == "repository" {
+                    if task.git?.isWorktree == true {
+                        Image(systemName: "arrow.triangle.branch")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                            .fridaySymbolFeedback(value: task.git?.isWorktree)
+                            .accessibilityLabel("Git Worktree").help("Git Worktree")
+                    }
+                    Text(fridayString: TaskRowPresentation.branch(task.git))
                         .font(.system(size: 11)).foregroundStyle(.secondary)
-                        .fridaySymbolFeedback(value: task.git?.isWorktree)
-                        .accessibilityLabel("Git Worktree").help("Git Worktree")
+                        .lineLimit(1).truncationMode(.middle)
+                        .help(TaskRowPresentation.branch(task.git))
                 }
-                Text(fridayString: TaskRowPresentation.branch(task.git))
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
-                    .lineLimit(1).truncationMode(.middle)
-                    .help(TaskRowPresentation.branch(task.git))
                 Spacer(minLength: 6)
                 TaskRowActivity(task: task).foregroundStyle(.secondary)
             }
@@ -175,7 +174,7 @@ private struct SidebarRowButtonBody: View {
                             radius: configuration.isPressed ? 2 : 5, x: 0, y: configuration.isPressed ? 1 : 2)
             }
             .contentShape(RoundedRectangle(cornerRadius: 10))
-            .modifier(SidebarRowPointer())
+            .fridayInteractiveCursor()
             .onHover { hovering = $0 }
             .onChange(of: scenePhase) { _, phase in
                 if phase != .active { hovering = false }
@@ -183,53 +182,6 @@ private struct SidebarRowButtonBody: View {
             .onDisappear { hovering = false }
     }
 }
-
-private struct SidebarRowPointer: ViewModifier {
-    @Environment(\.isEnabled) private var isEnabled
-
-    @ViewBuilder func body(content: Content) -> some View {
-        #if os(macOS)
-        if #available(macOS 15.0, *) {
-            content.pointerStyle(isEnabled ? .link : nil)
-        } else {
-            content.background(TaskRowCursorRegion(enabled: isEnabled))
-        }
-        #else
-        content
-        #endif
-    }
-}
-
-#if os(macOS)
-/// AppKit owns the cursor's lifetime on macOS 14, including scrolling a row
-/// out of view or removing it when a Workspace is collapsed.
-private struct TaskRowCursorRegion: NSViewRepresentable {
-    let enabled: Bool
-
-    func makeNSView(context: Context) -> TaskRowCursorView { TaskRowCursorView() }
-
-    func updateNSView(_ view: TaskRowCursorView, context: Context) {
-        view.enabled = enabled
-        view.window?.invalidateCursorRects(for: view)
-    }
-}
-
-private final class TaskRowCursorView: NSView {
-    var enabled = true
-
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        if enabled { addCursorRect(visibleRect, cursor: .pointingHand) }
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        window?.invalidateCursorRects(for: self)
-    }
-}
-#endif
 
 private struct TaskRowActivity: View {
     let task: WorkItem

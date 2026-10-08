@@ -139,6 +139,7 @@ private struct SettingsNavigationStyle: ButtonStyle {
             .background(.primary.opacity(selected ? 0.065 : configuration.isPressed ? 0.035 : 0),
                         in: RoundedRectangle(cornerRadius: 7))
             .fridaySymbolFeedback(active: configuration.isPressed)
+            .fridayInteractiveCursor()
     }
 }
 #endif
