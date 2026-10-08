@@ -202,7 +202,9 @@ private struct TaskRowActivity: View {
 
     var body: some View {
         Group {
-            if task.status == "completed" {
+            if task.localAgent {
+                AgentTaskSidebarActivity(task: task)
+            } else if task.status == "completed" {
                 TimelineView(.periodic(from: .now, by: 60)) { context in
                     Text(TaskRowPresentation.age(task, now: context.date))
                 }

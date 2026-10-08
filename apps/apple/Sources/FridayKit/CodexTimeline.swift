@@ -4,7 +4,15 @@ struct CodexTimeline: View {
     let task: WorkItem
     var canOpenLocalFiles = false
     var body: some View {
-        ForEach(CodexTranscript.rows(task)) { row in
+        let rows = CodexTranscript.rows(task)
+        let currentWorkId = rows.first { row in
+            if task.status != "queued", case .work(let events) = row.content {
+                return events.contains { $0.turnId != nil && $0.turnId == task.turnId }
+            }
+            return false
+        }?.id
+        ForEach(rows) { row in
+            if task.active && row.id == currentWorkId { AgentTaskWorkingLine(task: task) }
             switch row.content {
             case .user(let text):
                 HStack {
@@ -19,6 +27,7 @@ struct CodexTimeline: View {
                 CodexWorkLog(events: events, task: task, canOpenLocalFiles: canOpenLocalFiles).id(row.id)
             }
         }
+        if task.active && currentWorkId == nil { AgentTaskWorkingLine(task: task) }
     }
 }
 
@@ -42,13 +51,12 @@ private struct CodexWorkLog: View {
     let canOpenLocalFiles: Bool
     @State private var expanded: Bool? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private var active: Bool { task.active && events.contains { $0.turnId == task.turnId && $0.turnId != nil } }
+    private var active: Bool { task.active && task.status != "queued" && events.contains { $0.turnId == task.turnId && $0.turnId != nil } }
     private var open: Bool { expanded ?? active }
     private var failed: Bool { events.contains { ["failed", "declined", "interrupted"].contains($0.status ?? "") } }
     private var commandCount: Int { events.filter { $0.kind == "command" }.count }
     private var fileCount: Int { events.filter { $0.kind == "files" }.count }
     private var title: LocalizedStringKey {
-        if active { return task.status == "waiting" ? "等待你的确认" : "正在处理" }
         if let seconds = CodexTranscript.duration(events, task: task) {
             return seconds < 60 ? "处理了 \(seconds) 秒" : "处理了 \(seconds / 60) 分 \(seconds % 60) 秒"
         }
@@ -57,19 +65,21 @@ private struct CodexWorkLog: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Button { expanded = !open } label: {
-                HStack(spacing: 9) {
-                    Text(friday: title)
-                    FridaySymbolImage(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 10, weight: .medium))
-                    Spacer(minLength: 8)
-                    if commandCount > 0 { Text(friday: "\(commandCount) 个命令").font(.caption) }
-                    if fileCount > 0 { Text(friday: "\(fileCount) 次文件改动").font(.caption) }
-                    if failed { FridaySymbolImage(systemName: "exclamationmark.circle").foregroundStyle(.orange) }
-                }.contentShape(Rectangle())
-            }.buttonStyle(FridaySymbolButtonStyle()).font(.callout).foregroundStyle(.secondary)
-                .accessibilityLabel(Text(friday: open ? "收起处理过程" : "展开处理过程"))
-                .accessibilityValue(Text(friday: open ? "已展开" : "已收起"))
-            if open {
+            if !active {
+                Button { expanded = !open } label: {
+                    HStack(spacing: 9) {
+                        Text(friday: title)
+                        FridaySymbolImage(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 10, weight: .medium))
+                        Spacer(minLength: 8)
+                        if commandCount > 0 { Text(friday: "\(commandCount) 个命令").font(.caption) }
+                        if fileCount > 0 { Text(friday: "\(fileCount) 次文件改动").font(.caption) }
+                        if failed { FridaySymbolImage(systemName: "exclamationmark.circle").foregroundStyle(.orange) }
+                    }.contentShape(Rectangle())
+                }.buttonStyle(FridaySymbolButtonStyle()).font(.callout).foregroundStyle(.secondary)
+                    .accessibilityLabel(Text(friday: open ? "收起处理过程" : "展开处理过程"))
+                    .accessibilityValue(Text(friday: open ? "已展开" : "已收起"))
+            }
+            if active || open {
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(events) { event in
                         if event.kind == "message" {
@@ -78,7 +88,7 @@ private struct CodexWorkLog: View {
                     }
                 }.padding(.leading, 4)
             }
-            Divider()
+            if !active { Divider() }
         }
         // Only the fold animates. Streaming text never animates its layout.
         .animation(reduceMotion ? nil : FridayTheme.motion, value: open)
