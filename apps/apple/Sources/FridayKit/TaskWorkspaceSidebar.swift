@@ -124,13 +124,15 @@ struct TaskWorkspaceSidebar: View {
                     }.multilineTextAlignment(.center).padding(.horizontal, 20).padding(.top, 44)
                 }
                 if scope == nil {
-                    ForEach(TaskWorkspaces.groups(store.tasks, projects: store.projects)) { group in
+                    let groups = TaskWorkspaces.groups(store.tasks, projects: store.projects)
+                    ForEach(groups) { group in
                         Section {
                             if !collapsed.contains(group.id) {
                                 ForEach(group.tasks) { task in taskButton(task) }
                             }
                         } header: {
                             workspaceGroupHeader(group, collapsed: collapsed.contains(group.id))
+                                .padding(.top, group.id == groups.first?.id ? 0 : 4)
                         }
                     }
                 } else {

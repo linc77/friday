@@ -15,8 +15,10 @@ struct TaskRow: View {
     var selected = false
     var showsWorkspace = true
 
+    private var showsGitMetadata: Bool { task.git?.status == "repository" }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 3) {
             if showsWorkspace {
                 HStack(spacing: TaskSidebarLayout.iconSpacing) {
                     WorkspaceIcon(name: workspaceName, icon: workspace?.icon, color: workspace?.color, size: TaskSidebarLayout.iconSize)
@@ -32,10 +34,13 @@ struct TaskRow: View {
                     .foregroundStyle(.secondary)
                     .help(task.agentName)
                 title
+                if !showsGitMetadata {
+                    TaskRowActivity(task: task).foregroundStyle(.secondary)
+                }
             }.frame(maxWidth: .infinity, alignment: .leading).frame(minHeight: 16)
 
-            HStack(spacing: TaskSidebarLayout.iconSpacing) {
-                if task.git?.status == "repository" {
+            if showsGitMetadata {
+                HStack(spacing: TaskSidebarLayout.iconSpacing) {
                     if task.git?.isWorktree == true {
                         Image(systemName: "arrow.triangle.branch")
                             .font(.system(size: 11)).foregroundStyle(.secondary)
@@ -46,14 +51,14 @@ struct TaskRow: View {
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                         .lineLimit(1).truncationMode(.middle)
                         .help(TaskRowPresentation.branch(task.git))
+                    Spacer(minLength: 6)
+                    TaskRowActivity(task: task).foregroundStyle(.secondary)
                 }
-                Spacer(minLength: 6)
-                TaskRowActivity(task: task).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading).frame(height: 16)
+                .padding(.leading, TaskSidebarLayout.titleInset)
             }
-            .frame(maxWidth: .infinity, alignment: .leading).frame(height: 16)
-            .padding(.leading, TaskSidebarLayout.titleInset)
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 6)
         .accessibilityElement(children: .combine)
         .accessibilityValue(Text(task.agentName) + Text("，") + Text(fridayString: task.statusText))
     }
