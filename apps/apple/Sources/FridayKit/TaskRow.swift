@@ -42,9 +42,8 @@ struct TaskRow: View {
             if showsGitMetadata {
                 HStack(spacing: TaskSidebarLayout.iconSpacing) {
                     if task.git?.isWorktree == true {
-                        Image(systemName: "arrow.triangle.branch")
-                            .font(.system(size: 11)).foregroundStyle(.secondary)
-                            .fridaySymbolFeedback(value: task.git?.isWorktree)
+                        WorktreeIcon(size: 11)
+                            .foregroundStyle(.secondary)
                             .accessibilityLabel("Git Worktree").help("Git Worktree")
                     }
                     Text(fridayString: TaskRowPresentation.branch(task.git))

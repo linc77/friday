@@ -4,7 +4,6 @@ struct TaskWorkspaceSelection: Equatable {
     var mode = "checkout"
     var branch: String? = nil
     var title: String { mode == "worktree" ? "New Worktree" : "当前工作区" }
-    var symbol: String { mode == "worktree" ? "arrow.triangle.branch" : "folder" }
     mutating func selectMode(_ value: String) {
         mode = value
         if value == "checkout", branch?.hasPrefix("refs/remotes/") == true { branch = nil }

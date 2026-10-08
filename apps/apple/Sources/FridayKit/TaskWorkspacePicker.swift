@@ -35,8 +35,8 @@ struct TaskExecutionLocationPicker: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            choice("checkout", title: "当前工作区", symbol: "folder")
-            choice("worktree", title: "New Worktree", symbol: "arrow.triangle.branch")
+            choice("checkout", title: "当前工作区")
+            choice("worktree", title: "New Worktree")
         }
         .padding(5).background(FridayTheme.surface, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.10), lineWidth: 1))
@@ -44,10 +44,14 @@ struct TaskExecutionLocationPicker: View {
         .accessibilityElement(children: .contain).accessibilityLabel(Text(friday: "执行位置"))
     }
 
-    private func choice(_ mode: String, title: String, symbol: String) -> some View {
+    private func choice(_ mode: String, title: String) -> some View {
         Button { selection.selectMode(mode) } label: {
             HStack(spacing: 8) {
-                FridaySymbolImage(systemName: symbol)
+                if mode == "worktree" {
+                    WorktreeIcon().accessibilityHidden(true)
+                } else {
+                    FridaySymbolImage(systemName: "folder")
+                }
                 Text(fridayString: title).lineLimit(1)
             }
             .font(.callout.weight(.medium)).frame(maxWidth: .infinity).padding(.vertical, 11)
