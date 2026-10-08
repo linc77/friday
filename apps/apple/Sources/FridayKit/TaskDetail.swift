@@ -12,6 +12,13 @@ struct TaskDetail: View {
     @State private var atEnd = true
     @State private var previousScrollTop: CGFloat?
     @State private var scrollRequest = 0
+    #if os(macOS)
+    @State private var composerHeight: CGFloat = 136
+    @State private var composerCollapseRequest = 0
+    @State private var composerExpandRequest = 0
+    @State private var composerNeedsRestore = false
+    @State private var composerAtBottom = true
+    #endif
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var task: WorkItem? { store.tasks.first { $0.id == id } }
@@ -46,10 +53,7 @@ struct TaskDetail: View {
                     }
                 }
                 #else
-                if task.localAgent {
-                    AgentTaskComposer(store: store, task: task, message: $message, sending: sending, send: sendAgentMessage)
-                        .frame(maxWidth: FridayTheme.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
-                } else {
+                if !task.localAgent {
                     FloatingComposer(
                         message: $message,
                         active: task.active,
@@ -64,9 +68,30 @@ struct TaskDetail: View {
                 }
                 #endif
             }
+            #if os(macOS)
+            .overlay(alignment: .bottom) {
+                if task.localAgent {
+                    AgentTaskComposer(store: store, task: task, collapseRequest: composerCollapseRequest, expandRequest: composerExpandRequest,
+                        message: $message, sending: sending, send: sendAgentMessage)
+                        .frame(maxWidth: FridayTheme.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
+                        .background(GeometryReader { geometry in
+                            Color.clear.preference(key: TaskComposerHeightKey.self, value: geometry.size.height)
+                        })
+                }
+            }
+            .onPreferenceChange(TaskComposerHeightKey.self) { height in
+                guard height > 0, abs(height - composerHeight) > 0.5 else { return }
+                composerHeight = height
+                if followingEnd { scrollRequest += 1 }
+            }
+            #endif
             .onChange(of: id) { _, _ in
                 message = ""; messageId = UUID().uuidString; showEvents = false
                 followingEnd = true; atEnd = true; previousScrollTop = nil
+                #if os(macOS)
+                composerNeedsRestore = false
+                composerAtBottom = true
+                #endif
             }
         } else {
             EmptyPanel(icon: "checklist", title: "正在加载任务", subtitle: "连接主机后会显示最新进展。")
@@ -104,14 +129,22 @@ struct TaskDetail: View {
                         }
                         if task.active { progressCard(task) }
                         if task.artifact != nil && !task.localAgent { artifactCard(task) }
+                        #if os(macOS)
+                        // The end anchor includes the floating composer's space so
+                        // following a reply never places it underneath the input.
+                        Color.clear.frame(height: task.localAgent ? composerHeight + 24 : 1).id("transcript-end")
+                        #else
                         Color.clear.frame(height: 1).id("transcript-end")
+                        #endif
                     }
                     // Animate only approval insertion/removal, never the streamed result.
                     .animation(reduceMotion ? nil : FridayTheme.motion, value: task.approvals.filter { $0.state == "pending" }.map(\.id))
-                    .padding(.horizontal, 24).padding(.bottom, 24)
+                    .padding(.horizontal, 24)
                     #if os(iOS)
+                    .padding(.bottom, 24)
                     .padding(.top, task.localAgent ? 24 : viewport.safeAreaInsets.top + 24)
                     #else
+                    .padding(.bottom, task.localAgent ? 0 : 24)
                     .padding(.top, 24)
                     #endif
                     .frame(maxWidth: FridayTheme.contentWidth + 48).frame(maxWidth: .infinity)
@@ -119,6 +152,19 @@ struct TaskDetail: View {
                         let frame = geometry.frame(in: .named("task-transcript"))
                         Color.clear.preference(key: TranscriptScrollKey.self, value: TranscriptScrollMetrics(top: frame.minY, bottom: frame.maxY, viewportHeight: viewport.size.height))
                     })
+                    #if os(macOS)
+                    .background {
+                        if task.localAgent {
+                            TranscriptHistoryScrollGesture(composerHeight: composerHeight) {
+                                followingEnd = false
+                                composerNeedsRestore = true
+                                composerCollapseRequest += 1
+                            } scrolledDown: {
+                                if composerAtBottom { restoreComposer() }
+                            }
+                        }
+                    }
+                    #endif
                 }
                 .coordinateSpace(name: "task-transcript")
                 #if os(iOS)
@@ -128,6 +174,17 @@ struct TaskDetail: View {
                 .modifier(TranscriptScrollObserver { metrics in
                     guard metrics.bottom > 0 else { return }
                     if let previousScrollTop, metrics.top > previousScrollTop + 3 { followingEnd = false }
+                    #if os(macOS)
+                    // Wait for downward movement to the actual bottom. Shrinking
+                    // the composer also changes the bottom inset; that alone
+                    // must not immediately undo the user's upward-scroll fold.
+                    composerAtBottom = metrics.bottom <= metrics.viewportHeight + 2
+                    if task.localAgent, composerNeedsRestore,
+                       let previousScrollTop, metrics.top < previousScrollTop,
+                       composerAtBottom {
+                        restoreComposer()
+                    }
+                    #endif
                     previousScrollTop = metrics.top
                     atEnd = metrics.bottom <= metrics.viewportHeight + 48
                     if atEnd { followingEnd = true }
@@ -136,9 +193,17 @@ struct TaskDetail: View {
                     if !atEnd {
                         Button {
                             followingEnd = true
+                            #if os(macOS)
+                            if task.localAgent { restoreComposer() }
+                            #endif
                             withAnimation(reduceMotion ? nil : FridayTheme.motion) { proxy.scrollTo("transcript-end", anchor: .bottom) }
                         } label: { FridaySymbolLabel(friday: "回到最新", systemImage: "arrow.down") }
-                            .buttonStyle(FridayButtonStyle(compact: true)).font(.caption).padding(.bottom, 10)
+                            .buttonStyle(FridayButtonStyle(compact: true)).font(.caption)
+                            #if os(macOS)
+                            .padding(.bottom, task.localAgent ? composerHeight + 10 : 10)
+                            #else
+                            .padding(.bottom, 10)
+                            #endif
                     }
                 }
                 .task(id: id) {
@@ -295,6 +360,15 @@ struct TaskDetail: View {
         sendMessage(model: model, effort: effort)
     }
 
+    #if os(macOS)
+    private func restoreComposer() {
+        guard composerNeedsRestore else { return }
+        composerNeedsRestore = false
+        followingEnd = true
+        composerExpandRequest += 1
+    }
+    #endif
+
     private func sendMessage() { sendMessage(model: nil, effort: nil) }
 
     private func sendMessage(model: String?, effort: String?) {
@@ -316,6 +390,13 @@ struct TaskDetail: View {
         }
     }
 }
+
+#if os(macOS)
+private struct TaskComposerHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+#endif
 
 private struct TranscriptScrollMetrics: Equatable { var top: CGFloat = 0; var bottom: CGFloat = 0; var viewportHeight: CGFloat = 0 }
 private struct TranscriptScrollKey: PreferenceKey {

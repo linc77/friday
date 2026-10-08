@@ -97,6 +97,8 @@ struct AgentTaskComposer: View {
     var workspaceReady = true
     var requiresProject = false
     var embeddedInMobileDock = false
+    var collapseRequest = 0
+    var expandRequest = 0
     @Binding var message: String
     let sending: Bool
     let send: (String, String, String) -> Void
@@ -107,14 +109,27 @@ struct AgentTaskComposer: View {
     @State private var effort = ""
     @State private var error: String?
     @State private var switchingBranch = false
+    @State private var expanded = true
+    #if os(macOS)
+    @State private var expandedHeight: CGFloat = 112
+    @State private var focusRequest = 0
+    #endif
     @FocusState private var focused: Bool
     @Environment(\.locale) private var locale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var state: CodexConnectionState? { states[provider] }
     private var providerName: String { provider == "claude" ? "Claude" : "Codex" }
     private var connectionError: String? { error ?? (state?.enabled == false ? "已停用" : state?.error) }
     private var active: Bool { task?.active == true }
     private var disabled: Bool { sending || switchingBranch || task?.branchChange?.active == true || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task?.status == "queued" || (requiresProject && projectPath == nil) || !workspaceReady || (!active && state?.connected != true) }
     private var selectedModel: CodexProviderModel? { state?.models.first { $0.id == (model.isEmpty ? state?.model : model) } }
+    private var compact: Bool {
+        #if os(macOS)
+        !expanded
+        #else
+        false
+        #endif
+    }
     private var showsBranchControl: Bool {
         if let task { return task.git?.status == "repository" }
         guard let projectId else { return false }
@@ -122,30 +137,21 @@ struct AgentTaskComposer: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .bottom, spacing: 16) {
-                TextField(friday: active ? "补充任务要求…" : "这个任务要完成什么…", text: $message, axis: .vertical)
-                    .font(.body).lineLimit((embeddedInMobileDock ? 1 : (task == nil ? 3 : 2))...6).textFieldStyle(.plain).focused($focused)
-                    .disabled(sending || (requiresProject && projectPath == nil))
-                    .accessibilityLabel(Text(friday: "任务要求"))
-                    .onChatSubmit { if !disabled { send(provider, model, effort) } }
-                Button { send(provider, model, effort) } label: {
-                    FridaySymbolImage(systemName: "arrow.up").fridaySymbolFeedback()
-                }.buttonStyle(FridayButtonStyle(prominent: true, compact: true))
-                    .accessibilityLabel(Text(friday: sending ? "发送中" : "发送"))
-                    .keyboardShortcut(.return, modifiers: .command).disabled(disabled)
-            }
-            if let connectionError { Text(fridayString: connectionError).font(.caption).foregroundStyle(.orange).lineLimit(2) }
-            HStack(spacing: 12) {
-                modelControls
-                Divider().frame(height: 16)
-                TaskReasoningEffortControl(selection: $effort, efforts: selectedModel?.reasoningEfforts ?? [],
-                    defaultEffort: selectedModel?.defaultReasoningEffort ?? "")
-                    .disabled(active || sending)
-                Spacer(minLength: 0)
-            }.font(.callout).foregroundStyle(.secondary)
+        composerSurface
+        #if os(macOS)
+        .task(id: focusRequest) {
+            guard focusRequest > 0, expanded else { return }
+            await Task.yield()
+            guard expanded, !Task.isCancelled else { return }
+            focused = true
         }
-        .modifier(AgentTaskComposerSurface(embeddedInMobileDock: embeddedInMobileDock, focused: focused))
+        .onChange(of: focused) { _, focused in if focused { setExpanded(true) } }
+        .onChange(of: collapseRequest) { _, _ in setExpanded(false) }
+        .onChange(of: expandRequest) { _, _ in setExpanded(true) }
+        .onChange(of: task?.id ?? projectId) { _, _ in
+            focused = false; expanded = true; showModels = false; focusRequest = 0
+        }
+        #endif
         #if os(iOS)
         .onDisappear { focused = false }
         #endif
@@ -159,6 +165,77 @@ struct AgentTaskComposer: View {
             if task == nil && states[provider]?.connected != true && states["claude"]?.connected == true { provider = "claude"; model = ""; effort = ""; error = nil }
         }
     }
+
+    @ViewBuilder private var composerSurface: some View {
+        #if os(macOS)
+        // Keep the editor and toolbar mounted at their natural height. Animate
+        // one numeric outer height instead of switching between zero and nil.
+        expandedContent.padding(16).fixedSize(horizontal: false, vertical: true)
+            .background(GeometryReader { geometry in
+                Color.clear.preference(key: AgentComposerExpandedHeightKey.self, value: geometry.size.height)
+            })
+            .frame(height: compact ? 44 : expandedHeight, alignment: .bottom)
+            .clipped().opacity(compact ? 0 : 1)
+            .disabled(compact).allowsHitTesting(!compact).accessibilityHidden(compact)
+            .modifier(AgentTaskComposerSurface(embeddedInMobileDock: false, focused: focused))
+            .overlay {
+                if compact {
+                    Button { setExpanded(true); focusRequest += 1 } label: {
+                        Color.clear.frame(height: 44).frame(maxWidth: .infinity).contentShape(Rectangle())
+                    }
+                    .buttonStyle(FridaySymbolButtonStyle())
+                    .disabled(sending || (requiresProject && projectPath == nil))
+                    .accessibilityLabel(Text(friday: "任务要求"))
+                    .accessibilityValue(Text(friday: "已收起"))
+                }
+            }
+            .animation(composerAnimation, value: expanded)
+            .animation(composerAnimation, value: expandedHeight)
+            .onPreferenceChange(AgentComposerExpandedHeightKey.self) { height in
+                if height > 44, abs(height - expandedHeight) > 0.5 { expandedHeight = height }
+            }
+        #else
+        expandedContent.modifier(AgentTaskComposerSurface(embeddedInMobileDock: embeddedInMobileDock, focused: focused))
+        #endif
+    }
+
+    private var expandedContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .bottom, spacing: 16) {
+                TextField(friday: active ? "补充任务要求…" : "这个任务要完成什么…", text: $message, axis: .vertical)
+                    .font(.body).lineLimit((embeddedInMobileDock ? 1 : (task == nil ? 3 : 2))...6).textFieldStyle(.plain).focused($focused)
+                    .disabled(compact || sending || (requiresProject && projectPath == nil))
+                    .accessibilityLabel(Text(friday: "任务要求"))
+                    .onChatSubmit { if !disabled { send(provider, model, effort) } }
+                Button { send(provider, model, effort) } label: {
+                    FridaySymbolImage(systemName: "arrow.up").fridaySymbolFeedback()
+                }.buttonStyle(FridayButtonStyle(prominent: true, compact: true))
+                    .accessibilityLabel(Text(friday: sending ? "发送中" : "发送"))
+                    .keyboardShortcut(.return, modifiers: .command).disabled(disabled || compact)
+            }
+            if let connectionError { Text(fridayString: connectionError).font(.caption).foregroundStyle(.orange).lineLimit(2) }
+            HStack(spacing: 12) {
+                modelControls
+                Divider().frame(height: 16)
+                TaskReasoningEffortControl(selection: $effort, efforts: selectedModel?.reasoningEfforts ?? [],
+                    defaultEffort: selectedModel?.defaultReasoningEffort ?? "")
+                    .disabled(active || sending)
+                Spacer(minLength: 0)
+            }.font(.callout).foregroundStyle(.secondary)
+        }
+    }
+
+    #if os(macOS)
+    private var composerAnimation: Animation? {
+        reduceMotion || !NSApp.isActive ? nil : .smooth(duration: 0.36)
+    }
+
+    private func setExpanded(_ value: Bool) {
+        guard expanded != value else { return }
+        if !value { focused = false; showModels = false }
+        withAnimation(composerAnimation) { expanded = value }
+    }
+    #endif
 
     private var modelControls: some View {
         HStack(spacing: 12) {
@@ -190,15 +267,58 @@ struct AgentTaskComposer: View {
     }
 }
 
+#if os(macOS)
+private struct AgentComposerExpandedHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+#endif
+
 private struct AgentTaskComposerSurface: ViewModifier {
     let embeddedInMobileDock: Bool
     let focused: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Namespace private var glassNamespace
 
     @ViewBuilder func body(content: Content) -> some View {
         if embeddedInMobileDock {
             content.padding(8)
         } else {
+            #if os(macOS)
+            if reduceTransparency || contrast == .increased {
+                content.fridayCard(radius: 22, highlighted: focused)
+            } else {
+                #if compiler(>=6.2)
+                if #available(macOS 26.0, *) {
+                    GlassEffectContainer(spacing: 0) {
+                        content
+                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22))
+                            .glassEffectID("task-composer", in: glassNamespace)
+                    }
+                } else {
+                    materialSurface(content)
+                }
+                #else
+                materialSurface(content)
+                #endif
+            }
+            #else
             content.padding(16).fridayCard(highlighted: focused)
+            #endif
         }
     }
+
+    #if os(macOS)
+    private func materialSurface(_ content: Content) -> some View {
+        content
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22))
+            .overlay {
+                RoundedRectangle(cornerRadius: 22)
+                    .strokeBorder(focused ? FridayTheme.accent.opacity(0.35) : .primary.opacity(0.07))
+                    .allowsHitTesting(false)
+            }
+            .shadow(color: .black.opacity(0.035), radius: 12, x: 0, y: 4)
+    }
+    #endif
 }
