@@ -38,7 +38,7 @@ final class NoteComposerWindow: NSObject, ObservableObject, NSWindowDelegate {
         let composer = NoteComposerNativeWindow(contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         composer.identifier = NSUserInterfaceItemIdentifier("friday.note-composer")
-        composer.title = "Friday · Note"
+        composer.title = "\(FridayAppName.displayName) · Note"
         composer.titleVisibility = .hidden
         composer.titlebarAppearsTransparent = true
         composer.isReleasedWhenClosed = false
