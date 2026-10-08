@@ -180,13 +180,14 @@ final class FridayStore: ObservableObject {
         do { _ = try await connection.data(path, method: method, body: method == "DELETE" ? nil : body); await refresh(); return true }
         catch { self.error = error.localizedDescription; return false }
     }
-    func createTask(prompt: String, ideaId: String? = nil, requestId: String, projectId: String? = nil, agent: String = "friday", model: String? = nil, reasoningEffort: String? = nil) async throws -> String {
+    func createTask(prompt: String, ideaId: String? = nil, requestId: String, projectId: String? = nil, agent: String = "friday", model: String? = nil, reasoningEffort: String? = nil, workspace: TaskWorkspaceSelection? = nil) async throws -> String {
         var body: [String: Any] = ["prompt": prompt, "requestId": requestId]
         body["agent"] = agent
         if agent == "codex" || agent == "claude" { body["mode"] = "code" }
         if let projectId { body["projectId"] = projectId }
         if let model { body["model"] = model }; if let reasoningEffort { body["reasoningEffort"] = reasoningEffort }
         if let ideaId { body["ideaId"] = ideaId }
+        if let workspace { body["workspace"] = workspace.body }
         let response = try await connection.decode(IDResponse.self, "/api/tasks", method: "POST", body: body)
         await refresh(); return response.id
     }

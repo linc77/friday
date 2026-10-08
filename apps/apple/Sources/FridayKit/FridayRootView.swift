@@ -119,6 +119,9 @@ public struct FridayRootView: View {
             #endif
         }
         .tint(FridayTheme.accent)
+        #if os(macOS)
+        .buttonStyle(FridayDefaultButtonStyle())
+        #endif
         .accentColor(FridayTheme.accent)
         .symbolRenderingMode(.monochrome)
         .environment(\.locale, language.locale)
@@ -299,6 +302,7 @@ private struct FridaySidebarButtonBody: View {
             .contentShape(RoundedRectangle(cornerRadius: FridayTheme.sidebarCornerRadius))
             .onHover { hovering = $0 }
             .fridaySymbolFeedback(active: configuration.isPressed)
+            .fridayInteractiveCursor()
     }
 }
 #endif

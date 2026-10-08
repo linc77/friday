@@ -34,7 +34,7 @@ export async function readGitContext(cwd: string): Promise<TaskGitContext> {
 // Live presentation metadata, never written to the durable task record. Cache
 // and share in-flight reads across tasks/clients, and bound process concurrency.
 export class TaskGitContexts {
-  private cache = new Map<string, { expires: number; value: Promise<TaskGitContext> }>();
+  private cache = new Map<string, { expires: number; version: string; value: Promise<TaskGitContext> }>();
   private active = 0;
   private waiting: (() => void)[] = [];
   constructor(private read = readGitContext, private now = Date.now) {}
@@ -54,9 +54,10 @@ export class TaskGitContexts {
     const paths = new Set(state.tasks.map(task => task.cwd));
     for (const path of this.cache.keys()) if (!paths.has(path)) this.cache.delete(path);
     const contexts = new Map(await Promise.all([...paths].map(async path => {
+      const version = state.tasks.filter(task => task.cwd === path && task.branchChange).map(task => `${task.branchChange!.requestId}:${task.branchChange!.status}`).join('|');
       let cached = this.cache.get(path);
-      if (!cached || cached.expires <= this.now()) {
-        const entry = { expires: Infinity, value: this.inspect(path) };
+      if (!cached || cached.version !== version || cached.expires <= this.now()) {
+        const entry = { expires: Infinity, version, value: this.inspect(path) };
         entry.value = entry.value.then(value => { entry.expires = this.now() + gitRefreshInterval; return value; });
         this.cache.set(path, entry); cached = entry;
       }

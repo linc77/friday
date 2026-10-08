@@ -220,6 +220,8 @@
 "用于新对话和后续消息。" = "Used for new conversations and follow-up messages.";
 "Codex 默认" = "Codex default";
 "推理强度" = "Reasoning effort";
+"默认" = "Default";
+"模型默认" = "Model default";
 "按当前模型提供的选项设置。" = "Choose from the options supported by the current model.";
 "有未保存的修改" = "Unsaved changes";
 "配置保存在当前主机" = "Configuration is stored on this host";
@@ -448,3 +450,28 @@
 "分支不可用" = "Branch unavailable";
 "展开任务" = "Expand tasks";
 "收起任务" = "Collapse tasks";
+
+/* Task execution workspace */
+"当前工作区" = "Current checkout";
+"New Worktree" = "New Worktree";
+"执行位置与分支" = "Execution location and branch";
+"选择当前工作区或 New Worktree，以及起始分支" = "Choose the current checkout or a new worktree and its starting branch";
+"读取分支…" = "Loading branches…";
+"刷新分支" = "Refresh branches";
+"从所选分支创建独立工作区，不包含未提交改动。" = "Create an isolated worktree from the selected branch, without uncommitted changes.";
+"在当前目录执行，发送任务后切换到所选分支。" = "Run in the current directory, switching to the selected branch when the task starts.";
+"非 Git 工作区，将在当前目录执行。" = "This is not a Git repository. The task will run in the current directory.";
+"无法读取分支，请刷新后重试。" = "Could not read branches. Refresh to try again.";
+"搜索分支…" = "Search branches…";
+"搜索分支" = "Search branches";
+"当前检出" = "Current checkout";
+"远程分支" = "Remote branch";
+"本地分支" = "Local branch";
+"所选分支不可用，请重新选择。" = "The selected branch is unavailable. Choose another branch.";
+"首次提交后可创建 New Worktree。" = "Create a worktree after the first commit.";
+"执行位置" = "Execution location";
+"切换分支" = "Switch branch";
+"正在切换分支…" = "Switching branch…";
+"任务执行完成后可以切换分支。" = "You can switch branches after the task finishes.";
+"切换当前目录的分支，继续使用这个会话。" = "Switch branches in this directory and continue this conversation.";
+"没有匹配的分支" = "No matching branches";

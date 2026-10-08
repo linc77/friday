@@ -12,6 +12,7 @@ import { IdeaImages, ideaContent, maxImageBytes } from './ideas.js';
 import type { Idea } from './types.js';
 import { projectChanges } from './projects.js';
 import { TaskGitContexts, gitRefreshInterval } from './git-context.js';
+import { workspaceOptions, workspaceSelection } from './task-workspace.js';
 
 function text(value: unknown, name: string, max = 12_000): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error(`${name}不能为空，且长度不能超过 ${max}`);
@@ -157,6 +158,11 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     await engine.mutate(s => { const p = s.projects.find(p => p.id === c.req.param('id')); if (!p) throw new Error('项目不存在'); Object.assign(p, changes); });
     return c.json({ ok: true });
   });
+  app.get('/api/projects/:id/git', async c => {
+    const project = (await engine.snapshot()).projects.find(p => p.id === c.req.param('id'));
+    if (!project) return c.json({ error: '项目不存在' }, 404);
+    return c.json(await workspaceOptions(project.path));
+  });
   app.post('/api/memories', async c => {
     const body = await c.req.json(); const memory = { id: typeof body.id === 'string' ? body.id : randomUUID(), text: text(body.text, '记忆', 4000), updatedAt: new Date().toISOString() };
     await engine.mutate(s => { const index = s.memories.findIndex(m => m.id === memory.id); if (index >= 0) s.memories[index] = memory; else if (s.memories.length < 100) s.memories.push(memory); else throw new Error('第一版最多支持 100 条显式记忆'); }); return c.json(memory);
@@ -167,7 +173,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     if (body.agent && !['friday', 'codex', 'claude'].includes(body.agent)) throw new Error('当前支持 Claude 和 Codex 本地执行，其他 Agent 尚未接入');
     const mode = body.mode ?? 'auto';
     if (!['auto', 'assistant', 'research', 'code'].includes(mode)) throw new Error('任务类型无效');
-    const id = await engine.createTask({ prompt: text(body.prompt, '任务要求'), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode, agent: body.agent ?? 'friday', model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined });
+    const id = await engine.createTask({ prompt: text(body.prompt, '任务要求'), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode, agent: body.agent ?? 'friday', model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined, workspace: workspaceSelection(body.workspace) });
     return c.json({ id }, 201);
   });
   app.post('/api/tasks/:id/workspace', async c => {
@@ -193,6 +199,17 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     }
     await engine.createTask({ continueId: id, prompt: '就在我选择的这个工作目录里，继续刚才的请求。', projectId, mode: 'auto', requestId });
     return c.json({ id });
+  });
+  app.get('/api/tasks/:id/git', async c => {
+    const task = (await engine.snapshot()).tasks.find(t => t.id === c.req.param('id'));
+    if (!task || task.agent === 'friday') return c.json({ error: '本地任务不存在' }, 404);
+    return c.json(await workspaceOptions(task.cwd));
+  });
+  app.post('/api/tasks/:id/branch', async c => {
+    const body = await c.req.json();
+    const branch = workspaceSelection({ mode: 'checkout', branch: text(body.branch, '分支', 1024) })!.branch!;
+    const id = await engine.switchTaskBranch(c.req.param('id'), branch, text(body.requestId, '请求 ID', 100));
+    return c.json({ id }, 202);
   });
   app.post('/api/tasks/:id/cancel', async c => { await engine.cancel(c.req.param('id')); return c.json({ ok: true }); });
   app.post('/api/tasks/:id/message', async c => {

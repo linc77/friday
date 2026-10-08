@@ -58,6 +58,7 @@ private struct ProjectCardStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.985 : 1)
             .animation(reduceMotion ? nil : FridayTheme.motion, value: configuration.isPressed)
             .fridaySymbolFeedback(active: configuration.isPressed)
+            .fridayInteractiveCursor()
     }
 }
 
@@ -124,6 +125,7 @@ struct MemoriesView: View {
                         Text(memory.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                         Menu { Button(friday: "编辑") { draft = memory.text; editingId = memory.id }; Button(friday: "删除", role: .destructive) { Task { _ = await store.perform("/api/memories/\(memory.id)", method: "DELETE") } } } label: { FridaySymbolImage(systemName: "ellipsis") }
                             .buttonStyle(FridaySymbolButtonStyle())
+                            .fridayInteractiveCursor()
                     }.padding(20).fridayCard()
                 }
             }.padding(28).frame(maxWidth: FridayTheme.contentWidth + 56).frame(maxWidth: .infinity)

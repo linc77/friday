@@ -89,6 +89,7 @@ struct CodexSettingsView: View {
                 if let version = state?.version { Text("v\(version)").font(.system(size: 11, design: .monospaced)).foregroundStyle(.tertiary) }
                 if owner {
                     Toggle(isOn: $draft.enabled) { Text(providerName) }.labelsHidden().toggleStyle(.switch).controlSize(.mini)
+                        .fridayInteractiveCursor()
                         .disabled(busy || !store.connected)
                 }
             }
@@ -138,7 +139,7 @@ struct CodexSettingsView: View {
                                 Text(friday: "规划模式").tag("plan")
                             }
                         } label: { Text(friday: "权限模式") }
-                            .labelsHidden().frame(maxWidth: 210).disabled(busy)
+                            .labelsHidden().frame(maxWidth: 210).fridayInteractiveCursor().disabled(busy)
                     }
                     SettingsDivider()
                     Text(friday: "Auto 使用工具自带的自动审批；需要补充信息时仍会询问。")
@@ -151,14 +152,14 @@ struct CodexSettingsView: View {
                         Text(friday: "工具默认").tag("")
                         ForEach(preferences.sorted(models, includeHidden: false)) { model in Text(model.selectionName).tag(model.id) }
                         if !draft.model.isEmpty && !(preferences.sorted(models, includeHidden: false).contains { $0.id == draft.model }) { Text(selectedModel?.selectionName ?? draft.model).tag(draft.model) }
-                    } label: { Text(friday: "默认模型") }.labelsHidden().frame(maxWidth: 210).disabled(!owner || busy)
+                    } label: { Text(friday: "默认模型") }.labelsHidden().frame(maxWidth: 210).fridayInteractiveCursor().disabled(!owner || busy)
                 }
                 SettingsDivider()
                 SettingsRow("推理强度", detail: "按当前模型提供的选项设置。") {
                     Picker(selection: $draft.reasoningEffort) {
                         Text(friday: "模型默认").tag("")
                         ForEach(selectedModel?.reasoningEfforts ?? [], id: \.self) { Text($0.capitalized).tag($0) }
-                    } label: { Text(friday: "推理强度") }.labelsHidden().frame(maxWidth: 210).disabled(!owner || busy)
+                    } label: { Text(friday: "推理强度") }.labelsHidden().frame(maxWidth: 210).fridayInteractiveCursor().disabled(!owner || busy)
                 }
             }
             modelCatalog
@@ -273,6 +274,7 @@ struct CodexSettingsView: View {
                     if !visible { value.hidden.append(model.id) }
                 }
             })) { Text(friday: "显示模型") }.labelsHidden().toggleStyle(.switch).controlSize(.mini)
+                .fridayInteractiveCursor()
                 .accessibilityLabel(Text(friday: "显示模型") + Text(" " + model.name))
         }.padding(14)
     }

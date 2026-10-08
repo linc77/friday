@@ -109,6 +109,13 @@ struct TaskGitContext: Codable {
     var head: String? = nil
     var isWorktree: Bool? = nil
 }
+struct TaskBranchChange: Codable {
+    let requestId: String
+    let branch: String
+    let status: String
+    var error: String? = nil
+    var active: Bool { status == "queued" || status == "running" }
+}
 struct WorkItem: Codable, Identifiable {
     let id: String; let title: String; let prompt: String; let projectId: String?; let cwd: String
     let agent: String; let mode: String; let status: String; let createdAt: String; let updatedAt: String
@@ -117,6 +124,7 @@ struct WorkItem: Codable, Identifiable {
     let workspaceRequest: String?; let messages: [ChatMessage]?
     let parentId: String?; let model: String?; let reasoningEffort: String?
     var git: TaskGitContext? = nil
+    var branchChange: TaskBranchChange? = nil
     var localAgent: Bool { agent != "friday" }
     var agentName: String { agent == "codex" ? "Codex" : agent == "claude" ? "Claude Code" : "Friday" }
     var conversation: [ChatMessage] {

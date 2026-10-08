@@ -8,6 +8,7 @@ swiftc -parse-as-library \
   apps/apple/Sources/FridayKit/CodexTranscript.swift \
   apps/apple/Sources/FridayKit/TaskRowPresentation.swift \
   apps/apple/Sources/FridayKit/TaskWorkspaces.swift \
+  apps/apple/Sources/FridayKit/TaskExecutionWorkspace.swift \
   apps/apple/Sources/FridayKit/WorkspaceStyle.swift \
   apps/apple/Tests/FridayKitTests/TaskWorkspaceTests.swift \
   -o "$FRIDAY_WORKSPACE_CHECK_DIR/check"

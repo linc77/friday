@@ -56,6 +56,7 @@ struct AppearanceSettingsView: View {
                     .labelsHidden()
                     .pickerStyle(.menu)
                     .fixedSize()
+                    .fridayInteractiveCursor()
                 }
             }
         }
