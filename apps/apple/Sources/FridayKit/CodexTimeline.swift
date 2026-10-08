@@ -53,9 +53,6 @@ private struct CodexWorkLog: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var active: Bool { task.active && task.status != "queued" && events.contains { $0.turnId == task.turnId && $0.turnId != nil } }
     private var open: Bool { expanded ?? active }
-    private var failed: Bool { events.contains { ["failed", "declined", "interrupted"].contains($0.status ?? "") } }
-    private var commandCount: Int { events.filter { $0.kind == "command" }.count }
-    private var fileCount: Int { events.filter { $0.kind == "files" }.count }
     private var title: LocalizedStringKey {
         if let seconds = CodexTranscript.duration(events, task: task) {
             return seconds < 60 ? "处理了 \(seconds) 秒" : "处理了 \(seconds / 60) 分 \(seconds % 60) 秒"
@@ -71,9 +68,6 @@ private struct CodexWorkLog: View {
                         Text(friday: title)
                         FridaySymbolImage(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 10, weight: .medium))
                         Spacer(minLength: 8)
-                        if commandCount > 0 { Text(friday: "\(commandCount) 个命令").font(.caption) }
-                        if fileCount > 0 { Text(friday: "\(fileCount) 次文件改动").font(.caption) }
-                        if failed { FridaySymbolImage(systemName: "exclamationmark.circle").foregroundStyle(.orange) }
                     }.contentShape(Rectangle())
                 }.buttonStyle(FridaySymbolButtonStyle()).font(.callout).foregroundStyle(.secondary)
                     .accessibilityLabel(Text(friday: open ? "收起处理过程" : "展开处理过程"))
@@ -88,7 +82,6 @@ private struct CodexWorkLog: View {
                     }
                 }.padding(.leading, 4)
             }
-            if !active { Divider() }
         }
         // Only the fold animates. Streaming text never animates its layout.
         .animation(reduceMotion ? nil : FridayTheme.motion, value: open)
@@ -127,15 +120,6 @@ private struct CodexToolRow: View {
         }
         return event.detail?.isEmpty == false ? event.detail! : event.text
     }
-    private var status: String {
-        switch event.status {
-        case "running": "进行中"
-        case "failed": "失败"
-        case "declined": "已拒绝"
-        case "interrupted": "已中断"
-        default: ""
-        }
-    }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Button { expanded.toggle() } label: {
@@ -144,11 +128,10 @@ private struct CodexToolRow: View {
                     Text(fridayString: title).font(event.kind == "command" ? .system(.callout, design: .monospaced) : .callout)
                         .lineLimit(1).truncationMode(.middle)
                     Spacer(minLength: 4)
-                    if !status.isEmpty { Text(fridayString: status).font(.caption).foregroundStyle(event.status == "running" ? Color.secondary : .orange) }
-                    FridaySymbolImage(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 10))
                 }.contentShape(Rectangle())
             }.buttonStyle(FridaySymbolButtonStyle()).foregroundStyle(.secondary)
                 .accessibilityLabel(Text(friday: expanded ? "收起执行项" : "展开执行项") + Text(verbatim: "，" + title))
+                .accessibilityValue(Text(friday: expanded ? "已展开" : "已收起"))
             if expanded {
                 if ["command", "files"].contains(event.kind) { AgentCodeBlock(language: event.kind == "command" ? "Terminal" : "Diff", text: detail) }
                 else { AgentMarkdown(text: detail, compact: true) }
