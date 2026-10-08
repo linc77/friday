@@ -185,6 +185,8 @@ private final class FridayWindowEffectView: NSVisualEffectView {
         super.viewDidMoveToWindow()
         guard let window else { return }
         window.styleMask.insert(.fullSizeContentView)
+        // Keep the workspace name in the window list without adding a title to the custom rail.
+        window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .none
         window.backgroundColor = .clear

@@ -12,7 +12,7 @@ public struct FridayDesktopScene: Scene {
     public init() {}
 
     public var body: some Scene {
-        Window("Friday", id: "main") {
+        Window(Text(FridayAppName.displayName), id: "main") {
             FridayRootView(store: store, navigation: navigation)
         }
         .defaultSize(width: 1180, height: 780)

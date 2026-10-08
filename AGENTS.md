@@ -24,3 +24,9 @@ Friday is a personal agent with a resident TypeScript service and native Swift c
 
 - UI 改动完成后只做差异检查、编译并打开当前工作区构建的应用，由用户亲自检查效果。
 - 不主动采集窗口、截图、读取无障碍树或执行自动界面复核；只有用户明确要求时才进行。此约定优先于此前的一次真实窗口检查要求。
+
+## 开发构建命名
+
+- 用户经常在多个 worktree 中并行改动和查看应用，macOS 开发构建必须在应用名及窗口标题中标明工作区：主检出为 `Friday · main`，Codex worktree 例如 `Friday · 449d`，其他 worktree 使用目录名。标识基于目录，不随分支切换或提交变化。
+- 使用 `pnpm mac:build` 和 `pnpm mac:open` 构建并打开当前工作区；它们通过 `scripts/mac-app-identity.mjs` 统一解析名称、应用包路径和工作区独立的 Bundle Identifier。不要用固定的 `dist/Friday.app` 打开开发构建。
+- `--standalone` 发布构建继续使用 `Friday.app` 和 `dev.friday.mac`。

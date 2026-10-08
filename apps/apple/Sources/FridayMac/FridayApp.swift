@@ -48,7 +48,7 @@ struct FridayApp: App {
                     Button("软件更新与后台服务…") { openWindow(id: "service-settings") }
                 }
             }
-        Window("软件更新与后台服务", id: "service-settings") { ServiceSettings() }
+        Window(Text("\(FridayAppName.displayName) · 软件更新与后台服务"), id: "service-settings") { ServiceSettings() }
             .windowResizability(.contentSize)
     }
 }

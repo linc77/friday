@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import Sparkle
 import SwiftUI
+import FridayKit
 
 @MainActor
 final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
@@ -39,7 +40,7 @@ struct ServiceSettings: View {
     var body: some View {
         Form {
             Section("软件更新") {
-                Text("Friday \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版")")
+                Text("\(FridayAppName.displayName) \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版")")
                 Toggle("自动检查新版本", isOn: $updater.automaticChecks)
                 Button("检查更新…") { updater.check() }.disabled(!updater.canCheck)
             }
