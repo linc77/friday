@@ -1,0 +1,9 @@
+Worktree icon: Microsoft VS Code Codicons
+Copyright Microsoft Corporation and contributors.
+
+Source: https://github.com/microsoft/vscode-codicons/blob/main/src/icons/worktree.svg
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+The original SVG path is unchanged. Friday converts it to a transparent
+128 x 128 PNG and displays it as a monochrome template image.
