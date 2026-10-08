@@ -50,6 +50,7 @@
 		A00000000000000000000034 /* Friday/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Friday/Assets.xcassets; sourceTree = "<group>"; };
 		A00000000000000000000041 /* FridayPersonal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FridayPersonal.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000050 /* Friday/Info-personal.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Friday/Info-personal.plist"; sourceTree = "<group>"; };
+		A00000000000000000000053 /* FridayPersonal.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = FridayPersonal.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -87,6 +88,7 @@
 				A00000000000000000000009 /* Friday.entitlements */,
 				A00000000000000000000034 /* Friday/Assets.xcassets */,
 				A00000000000000000000050 /* Friday/Info-personal.plist */,
+				A00000000000000000000053 /* FridayPersonal.xcconfig */,
 				A00000000000000000000006 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -338,6 +340,7 @@
 		};
 		A00000000000000000000043 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A00000000000000000000053 /* FridayPersonal.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "";
@@ -353,6 +356,7 @@
 		};
 		A00000000000000000000044 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A00000000000000000000053 /* FridayPersonal.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "";

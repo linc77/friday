@@ -75,6 +75,8 @@ pnpm service:stop
 
 只有普通 Apple 账号时，选择 **FridayPersonal** scheme，并仅为 FridayPersonal target 选择自己的 Personal Team 和可用的 Bundle Identifier。这个 target 不包含分享扩展，也不申请 App Group；对话、想法、任务和主机配对使用同一套 FridayKit。普通账号的个人安装需要按 Apple 的签名期限重新安装。
 
+也可以在 `apps/ios/FridayPersonal.local.xcconfig` 保存本机的签名配置，FridayPersonal 的 Debug / Release 会自动读取；这个文件已被 Git 忽略。设置 `DEVELOPMENT_TEAM = 你的团队ID` 和 `FRIDAY_BUNDLE_PREFIX = 你的应用标识前缀`，实际 Bundle Identifier 为此前缀加 `.standalone`。更新已安装的版本时，沿用原来的团队与 Bundle Identifier，在 Xcode 中选择 FridayPersonal 和自己的 iPhone，按 ⌘R 编译并覆盖安装，无需先删除 App。服务端代码更新后手机重新连接即可使用；客户端代码更新需要重新安装。
+
 FridayPersonal 已使用 Xcode 27.0 和 iOS 27.0 SDK 完成签名编译、iPhone 真机安装、主机配对和双向想法同步验收；其中主机到手机的前台 SSE 更新已通过真实设备验证。首次启动需要在手机上信任开发者。包含分享扩展的 Friday scheme 尚未完成 iOS 编译或真机验收。
 
 1. 为服务准备设备可访问的 HTTPS 地址。个人使用可用 Tailscale Serve，将私有 HTTPS 入口转发到 `127.0.0.1:4317`；客户端和主机加入同一 tailnet。iOS 上两个独立 VPN 客户端不能同时连接；支持内置 Tailscale 的 Shadowrocket 可以在同一个 VPN 隧道中处理代理和私网流量，此方案已完成 Friday 真机同步验收。手机使用 Shadowrocket 的 Tailscale 模块和入网认证密钥，控制服务器使用默认值，出口节点留空，官方 Tailscale App 保持断开。没有内置模块时，也可在确认公网访问范围后改用 Tailscale Funnel，手机通过普通 HTTPS 连接，主机仍运行 Tailscale。Funnel 会让服务公网可达，Friday 的数据访问仍要求配对后的设备凭证。

@@ -1,0 +1,2 @@
+// Personal signing settings stay on this Mac and are not committed.
+#include? "FridayPersonal.local.xcconfig"
