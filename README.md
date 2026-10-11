@@ -8,7 +8,7 @@ Friday 是你的个人 Agent：随手收集想法、关联项目、布置任务�
 
 ## macOS 个人测试版
 
-[下载 Friday 0.1.0-beta.1（DMG）](https://github.com/linc77/friday/releases/download/v0.1.0-beta.1/Friday-0.1.0-beta.1-macOS-arm64.dmg) · [版本说明](https://github.com/linc77/friday/releases/tag/v0.1.0-beta.1)
+[下载 Friday 0.1.0-beta.2（DMG）](https://github.com/linc77/friday/releases/download/v0.1.0-beta.2/Friday-0.1.0-beta.2-macOS-arm64.dmg) · [版本说明](https://github.com/linc77/friday/releases/tag/v0.1.0-beta.2)
 
 适用于 Apple Silicon Mac，要求 macOS 14 或更新版本。打开 DMG，将 Friday 拖入“应用程序”后启动；已内置 Node.js 和常驻服务，无需安装开发工具。后续版本可在 Friday 菜单中点击“检查更新…”。
 
