@@ -13,4 +13,8 @@ try {
 } catch {
   execFileSync(process.execPath, [join(root, 'scripts/build-mac.mjs'), ...(standalone ? ['--standalone'] : [])], { stdio: 'inherit' });
 }
-execFileSync('/usr/bin/open', [identity.appPath], { stdio: 'inherit' });
+const environment = standalone ? [] : ['FRIDAY_SERVER_URL', 'FRIDAY_DATA_DIR']
+  .filter(key => process.env[key] !== undefined)
+  .flatMap(key => ['--env', `${key}=${process.env[key]}`]);
+// LaunchServices does not propagate the caller's environment by itself.
+execFileSync('/usr/bin/open', [...(environment.length ? ['-n'] : []), identity.appPath, ...environment], { stdio: 'inherit' });

@@ -1,4 +1,4 @@
-import type { Executor, ExecutionRequest } from './types.js';
+import type { Executor, ExecutionRequest, ExecutionImage } from './types.js';
 
 /** Route both task execution and its live controls to the task's persisted agent. */
 export class LocalAgentExecutor implements Executor {
@@ -17,5 +17,5 @@ export class LocalAgentExecutor implements Executor {
     return executor;
   }
   async answer(id: string, approvalId: string, decision: 'accept' | 'decline', answers: Record<string, string[]>) { await this.current(id).answer(id, approvalId, decision, answers); }
-  async steer(id: string, text: string, requestId: string) { await this.current(id).steer(id, text, requestId); }
+  async steer(id: string, text: string, requestId: string, images?: ExecutionImage[]) { await this.current(id).steer(id, text, requestId, images); }
 }

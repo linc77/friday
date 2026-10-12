@@ -143,7 +143,13 @@ public struct FridayRootView: View {
         .symbolRenderingMode(.monochrome)
         .environment(\.locale, language.locale)
         .preferredColorScheme(appearance.colorScheme)
-        .task { await store.importSharedIdeas(); await store.connect() }
+        .task(id: store.connection.server) {
+            taskDrafts = TaskDraftCache.load([String: AgentTaskDraft].self, server: store.connection.server, context: "new-tasks") ?? [:]
+            await store.importSharedIdeas(); await store.connect()
+        }
+        .onChange(of: taskDrafts) { _, drafts in
+            TaskDraftCache.save(drafts.isEmpty ? nil : drafts, server: store.connection.server, context: "new-tasks")
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await store.importSharedIdeas(); await store.connect() } }
         }

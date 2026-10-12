@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CodexTimeline: View {
+    @ObservedObject var store: FridayStore
     let task: WorkItem
     var canOpenLocalFiles = false
     var body: some View {
@@ -15,12 +16,7 @@ struct CodexTimeline: View {
             if task.active && row.id == currentWorkId { AgentTaskWorkingLine(task: task) }
             switch row.content {
             case .user(let text):
-                HStack {
-                    Spacer(minLength: 48)
-                    Text(verbatim: text).font(.body).lineSpacing(5).textSelection(.enabled)
-                        .padding(.horizontal, 18).padding(.vertical, 14)
-                        .background(.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 16))
-                }.id(row.id)
+                CodexUserMessage(store: store, text: text, message: task.messages?.first { $0.id == row.id }).id(row.id)
             case .reply(let text):
                 CodexReply(text: text, canOpenLocalFiles: canOpenLocalFiles).id(row.id)
             case .work(let events):
@@ -28,6 +24,39 @@ struct CodexTimeline: View {
             }
         }
         if task.active && currentWorkId == nil { AgentTaskWorkingLine(task: task) }
+    }
+}
+
+private struct CodexUserMessage: View {
+    @ObservedObject var store: FridayStore
+    let text: String
+    let message: ChatMessage?
+    @State private var copied = false
+    var body: some View {
+        HStack {
+            Spacer(minLength: 48)
+            VStack(alignment: .trailing, spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let images = message?.images, !images.isEmpty {
+                        TaskImageRail(store: store, images: images, wraps: true).frame(maxWidth: 210)
+                    }
+                    if !text.isEmpty { Text(verbatim: text).font(.body).lineSpacing(5).textSelection(.enabled) }
+                }.padding(.horizontal, 18).padding(.vertical, 14)
+                    .background(.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 16))
+                HStack(spacing: 10) {
+                    if message?.delivery == "uncertain" || message?.delivery == "sending" {
+                        Text(friday: message?.delivery == "uncertain" ? "发送结果待确认" : "发送中").foregroundStyle(.orange)
+                    }
+                    if let date = CodexTranscript.date(message?.at) { Text(date, style: .time).foregroundStyle(.secondary) }
+                    if !text.isEmpty {
+                        Button { copyAgentText(text); copied = true } label: {
+                            FridaySymbolImage(systemName: copied ? "checkmark" : "doc.on.doc")
+                        }.buttonStyle(FridaySymbolButtonStyle()).foregroundStyle(.secondary)
+                            .accessibilityLabel(Text(friday: copied ? "已复制" : "复制消息"))
+                    }
+                }.font(.system(size: 11))
+            }
+        }.onChange(of: text) { _, _ in copied = false }
     }
 }
 

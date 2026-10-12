@@ -28,15 +28,27 @@ enum ConnectionError: LocalizedError {
 final class Connection {
     var server: String
     var token: String
-    init() {
-        server = UserDefaults.standard.string(forKey: "friday.server") ?? "http://127.0.0.1:4317"
+    init(defaults: UserDefaults = .standard,
+         environment: [String: String] = ProcessInfo.processInfo.environment,
+         development: Bool = Bundle.main.bundleIdentifier?.hasPrefix("dev.friday.mac.workspace.") == true) {
+        server = defaults.string(forKey: "friday.server") ?? "http://127.0.0.1:4317"
         token = SecureToken.read(for: server) ?? ""
         #if os(macOS)
-        if let previewServer = ProcessInfo.processInfo.environment["FRIDAY_SERVER_URL"] {
+        if let previewServer = environment["FRIDAY_SERVER_URL"] {
             server = previewServer; token = ""
+            // Finder and the Dock do not retain `open --env` launch overrides.
+            // Save the preview address in this workspace's own preferences.
+            if development {
+                defaults.set(server, forKey: "friday.server")
+                if let directory = environment["FRIDAY_DATA_DIR"] {
+                    defaults.set(["server": server, "directory": directory], forKey: "friday.developmentConnection")
+                }
+            }
         }
         if token.isEmpty && ["127.0.0.1", "localhost"].contains(URL(string: server)?.host ?? "") {
-            let directory = ProcessInfo.processInfo.environment["FRIDAY_DATA_DIR"] ?? NSHomeDirectory() + "/Library/Application Support/Friday"
+            let saved = development ? defaults.dictionary(forKey: "friday.developmentConnection") : nil
+            let savedDirectory = saved?["server"] as? String == server ? saved?["directory"] as? String : nil
+            let directory = environment["FRIDAY_DATA_DIR"] ?? savedDirectory ?? NSHomeDirectory() + "/Library/Application Support/Friday"
             token = (try? String(contentsOfFile: directory + "/owner-token", encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)) ?? ""
         }
         #endif

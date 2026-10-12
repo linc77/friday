@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { IdeaImage } from './types.js';
+import type { IdeaImage, ExecutionImage } from './types.js';
 
 export const maxIdeaLength = 100_000;
 export const maxImageBytes = 8 * 1024 * 1024;
@@ -48,13 +48,17 @@ export class IdeaImages {
   }
   async validate(value: unknown): Promise<IdeaImage[]> {
     if (value === undefined) return [];
-    if (!Array.isArray(value) || value.length > 20) throw new Error('一篇笔记最多添加 20 张图片');
+    if (!Array.isArray(value) || value.length > 20) throw new Error('最多添加 20 张图片');
     const images: IdeaImage[] = [];
     for (const image of value) {
       if (!image || typeof image.id !== 'string' || typeof image.name !== 'string' || image.name.length > 200 || !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(image.mediaType)) throw new Error('图片信息无效');
       await access(this.path(image.id)).catch(() => { throw new Error('图片尚未上传，请重试保存'); });
-      if (!images.some(i => i.id === image.id)) images.push({ id: image.id, name: image.name, mediaType: image.mediaType });
+      const stored = await this.read(image.id);
+      if (!images.some(i => i.id === image.id)) images.push({ id: image.id, name: image.name, mediaType: stored.mediaType });
     }
     return images;
+  }
+  async resolve(images: IdeaImage[] = []): Promise<ExecutionImage[]> {
+    return (await this.validate(images)).map(image => ({ ...image, path: this.path(image.id) }));
   }
 }
