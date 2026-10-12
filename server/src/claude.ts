@@ -1,7 +1,8 @@
+import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { query, type Query, type SDKUserMessage, type PermissionResult, type EffortLevel, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { ClaudeConnection } from './claude-provider.js';
-import type { Executor, ExecutionRequest, Approval } from './types.js';
+import type { Executor, ExecutionRequest, Approval, ExecutionImage } from './types.js';
 import { ClaudeEvents } from './claude-events.js';
 
 class PromptQueue implements AsyncIterable<SDKUserMessage> {
@@ -19,12 +20,18 @@ class PromptQueue implements AsyncIterable<SDKUserMessage> {
 }
 type PendingApproval = { input: Record<string, unknown>; questions: Approval['questions']; resolve: (value: PermissionResult) => void };
 type LiveRun = { query?: Query; prompts: PromptQueue; sessionId: string; accepting: boolean; pendingMessages: Set<string>; approvals: Map<string, PendingApproval> };
-const userMessage = (sessionId: string, text: string, uuid: ReturnType<typeof randomUUID>): SDKUserMessage => ({ type: 'user', session_id: sessionId, uuid, parent_tool_use_id: null, message: { role: 'user', content: text } });
+async function userMessage(sessionId: string, text: string, uuid: ReturnType<typeof randomUUID>, images: ExecutionImage[] = []): Promise<SDKUserMessage> {
+  const content: SDKUserMessage['message']['content'] = images.length ? [
+    { type: 'text', text },
+    ...await Promise.all(images.map(async image => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: image.mediaType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp', data: (await readFile(image.path)).toString('base64') } }))),
+  ] : text;
+  return { type: 'user', session_id: sessionId, uuid, parent_tool_use_id: null, message: { role: 'user', content } };
+}
 
 export class ClaudeExecutor implements Executor {
   private live = new Map<string, LiveRun>();
   constructor(private connection: ClaudeConnection) {}
-  async run({ task, prompt, signal, update }: ExecutionRequest): Promise<string> {
+  async run({ task, prompt, images = [], signal, update }: ExecutionRequest): Promise<string> {
     const configured = await this.connection.runtime(task);
     if (signal.aborted) throw new Error('任务已中止');
     if (task.threadId && task.claudeHome && task.claudeHome !== configured.home) throw new Error('此对话使用另一个 Claude 配置目录，请恢复原目录后续聊，或开始新任务。');
@@ -68,7 +75,7 @@ export class ClaudeExecutor implements Executor {
       await run.query.initializationResult();
       if (signal.aborted) throw new Error('任务已中止');
       run.accepting = true;
-      run.prompts.push(userMessage(sessionId, prompt, randomUUID()));
+      run.prompts.push(await userMessage(sessionId, prompt, randomUUID(), images));
       for await (const message of run.query) {
         if ('session_id' in message && message.session_id && message.session_id !== sessionId) throw new Error('Claude 返回了不同的会话 ID，已停止执行。');
         // Current CLIs echo consumed client message IDs, including inputs folded into a turn.
@@ -106,10 +113,11 @@ export class ClaudeExecutor implements Executor {
     approval.resolve(decision === 'accept' ? { behavior: 'allow', updatedInput } : { behavior: 'deny', message: '用户拒绝了本次操作。' });
     run!.approvals.delete(approvalId);
   }
-  async steer(taskId: string, text: string, requestId: string) {
+  async steer(taskId: string, text: string, requestId: string, images: ExecutionImage[] = []) {
     const run = this.live.get(taskId);
     if (!run?.accepting) throw new Error('任务尚未进入可补充要求的阶段。');
-    const uuid = randomUUID(); run.pendingMessages.add(uuid);
-    run.prompts.push(userMessage(run.sessionId, text, uuid));
+    const uuid = randomUUID();
+    const message = await userMessage(run.sessionId, text, uuid, images);
+    run.pendingMessages.add(uuid); run.prompts.push(message);
   }
 }

@@ -482,3 +482,14 @@
 "任务执行完成后可以切换分支。" = "You can switch branches after the task finishes.";
 "切换当前目录的分支，继续使用这个会话。" = "Switch branches in this directory and continue this conversation.";
 "没有匹配的分支" = "No matching branches";
+"添加图片，也可以粘贴或拖入" = "Attach images, paste or drop";
+"正在添加图片" = "Adding images";
+"预览图片" = "Preview image";
+"复制消息" = "Copy message";
+"发送结果待确认" = "Delivery unconfirmed";
+"上一张" = "Previous image";
+"下一张" = "Next image";
+"照片图库" = "Photo library";
+"选择图片文件" = "Choose image files";
+"缩小图片" = "Zoom out";
+"放大图片" = "Zoom in";
