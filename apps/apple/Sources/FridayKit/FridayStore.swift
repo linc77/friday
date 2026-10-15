@@ -185,8 +185,24 @@ final class FridayStore: ObservableObject {
         do { _ = try await connection.data(path, method: method, body: method == "DELETE" ? nil : body); await refresh(); return true }
         catch { self.error = error.localizedDescription; return false }
     }
-    func createTask(prompt: String, ideaId: String? = nil, requestId: String, projectId: String? = nil, agent: String = "friday", model: String? = nil, reasoningEffort: String? = nil, workspace: TaskWorkspaceSelection? = nil) async throws -> String {
+    func uploadTaskImages(_ images: [IdeaImage]) async throws {
+        for image in images {
+            guard let data = IdeaImageCache.localData(image.id) else { throw ConnectionError.message("图片缓存缺失，请移除后重新添加。") }
+            _ = try await connection.data("/api/idea-images", method: "POST", body: ["id": image.id, "name": image.name, "data": data.base64EncodedString()])
+        }
+    }
+    func sendTaskMessage(taskId: String, text: String, requestId: String, images: [IdeaImage], model: String?, effort: String?) async throws {
+        try await uploadTaskImages(images)
+        var body: [String: Any] = ["text": text, "requestId": requestId]
+        if !images.isEmpty { body["images"] = images.map { ["id": $0.id, "name": $0.name, "mediaType": $0.mediaType] } }
+        if let model { body["model"] = model }; if let effort { body["reasoningEffort"] = effort }
+        _ = try await connection.data("/api/tasks/\(taskId)/message", method: "POST", body: body)
+        await refresh()
+    }
+    func createTask(prompt: String, ideaId: String? = nil, requestId: String, projectId: String? = nil, agent: String = "friday", model: String? = nil, reasoningEffort: String? = nil, workspace: TaskWorkspaceSelection? = nil, images: [IdeaImage] = []) async throws -> String {
+        try await uploadTaskImages(images)
         var body: [String: Any] = ["prompt": prompt, "requestId": requestId]
+        if !images.isEmpty { body["images"] = images.map { ["id": $0.id, "name": $0.name, "mediaType": $0.mediaType] } }
         body["agent"] = agent
         if agent == "codex" || agent == "claude" { body["mode"] = "code" }
         if let projectId { body["projectId"] = projectId }

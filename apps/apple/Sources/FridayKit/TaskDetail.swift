@@ -5,8 +5,10 @@ struct TaskDetail: View {
     let id: String
     var onOpenTask: ((String) -> Void)? = nil
     @State private var message = ""
+    @State private var images: [IdeaImage] = []
+    @State private var sendError: String?
+    @State private var draftLoaded = false
     @State private var messageId = UUID().uuidString
-    @State private var showEvents = false
     @State private var sending = false
     @State private var followingEnd = true
     @State private var atEnd = true
@@ -20,6 +22,19 @@ struct TaskDetail: View {
     @State private var composerAtBottom = true
     #endif
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var draftMessage: Binding<String> {
+        Binding(get: { message }, set: { value in
+            message = value
+            if !sending { messageId = UUID().uuidString; sendError = nil }
+        })
+    }
+    private var draftImages: Binding<[IdeaImage]> {
+        Binding(get: { images }, set: { value in
+            images = value
+            if !sending { messageId = UUID().uuidString; sendError = nil }
+        })
+    }
 
     private var task: WorkItem? { store.tasks.first { $0.id == id } }
 
@@ -40,7 +55,7 @@ struct TaskDetail: View {
                 #if os(iOS)
                 FridayMobileDock {
                     if task.localAgent {
-                        AgentTaskComposer(store: store, task: task, embeddedInMobileDock: true, message: $message, sending: sending, send: sendAgentMessage)
+                        AgentTaskComposer(store: store, task: task, embeddedInMobileDock: true, submissionError: sendError, message: draftMessage, images: draftImages, sending: sending, send: sendAgentMessage)
                     } else {
                         FridayMobileComposer(
                             message: $message,
@@ -71,8 +86,8 @@ struct TaskDetail: View {
             #if os(macOS)
             .overlay(alignment: .bottom) {
                 if task.localAgent {
-                    AgentTaskComposer(store: store, task: task, collapseRequest: composerCollapseRequest, expandRequest: composerExpandRequest,
-                        message: $message, sending: sending, send: sendAgentMessage)
+                    AgentTaskComposer(store: store, task: task, collapseRequest: composerCollapseRequest, expandRequest: composerExpandRequest, submissionError: sendError,
+                        message: draftMessage, images: draftImages, sending: sending, send: sendAgentMessage)
                         .frame(maxWidth: FridayTheme.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
                         .background(GeometryReader { geometry in
                             Color.clear.preference(key: TaskComposerHeightKey.self, value: geometry.size.height)
@@ -85,8 +100,13 @@ struct TaskDetail: View {
                 if followingEnd { scrollRequest += 1 }
             }
             #endif
+            .onChange(of: message) { _, _ in if !task.localAgent && !sending { messageId = UUID().uuidString; sendError = nil }; saveDraft() }
+            .onChange(of: images) { _, _ in if !task.localAgent && !sending { messageId = UUID().uuidString; sendError = nil }; saveDraft() }
+            .onAppear { restoreDraft() }
+            .onDisappear { saveDraft() }
             .onChange(of: id) { _, _ in
-                message = ""; messageId = UUID().uuidString; showEvents = false
+                draftLoaded = false; message = ""; images = []; sendError = nil; messageId = UUID().uuidString
+                restoreDraft()
                 followingEnd = true; atEnd = true; previousScrollTop = nil
                 #if os(macOS)
                 composerNeedsRestore = false
@@ -110,9 +130,8 @@ struct TaskDetail: View {
                         header(task)
                         #endif
                         if task.localAgent {
-                            CodexTimeline(task: task, canOpenLocalFiles: store.deviceId == "owner")
+                            CodexTimeline(store: store, task: task, canOpenLocalFiles: store.deviceId == "owner")
                         } else {
-                            executionHistory(task)
                             ForEach(task.conversation) { message in conversationMessage(message, task: task) }
                         }
                         delegatedTasks(task)
@@ -127,8 +146,6 @@ struct TaskDetail: View {
                                 .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
                                 .padding(18).frame(maxWidth: .infinity, alignment: .leading).fridayCard()
                         }
-                        if task.active && !task.localAgent { progressCard(task) }
-                        if task.artifact != nil && !task.localAgent { artifactCard(task) }
                         #if os(macOS)
                         // The end anchor includes the floating composer's space so
                         // following a reply never places it underneath the input.
@@ -231,15 +248,8 @@ struct TaskDetail: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Friday").font(.caption).foregroundStyle(.secondary)
                     Text(task.title).font(.title3.weight(.semibold)).lineLimit(3).textSelection(.enabled)
-                    StatusBadge(task: task)
                 }
                 Spacer(minLength: 8)
-            }
-            if !task.localAgent && (task.active || task.status == "needs_project") {
-                Button(friday: "停止", systemImage: "stop", role: .destructive) {
-                    Task { _ = await store.perform("/api/tasks/\(id)/cancel") }
-                }
-                .buttonStyle(FridayButtonStyle(compact: true)).disabled(!store.connected)
             }
         }
         #if os(iOS)
@@ -271,74 +281,6 @@ struct TaskDetail: View {
         }
     }
 
-    private func progressCard(_ task: WorkItem) -> some View {
-        HStack(alignment: .center, spacing: 14) {
-            FridayTaskStatusIcon(status: task.status)
-                .font(.system(size: 20, weight: .light))
-                .foregroundStyle(task.status == "waiting" ? .orange : FridayTheme.accent)
-                .frame(width: 26)
-            VStack(alignment: .leading, spacing: 5) {
-                Text(fridayString: task.status == "queued" ? "已加入队列" : task.status == "waiting" ? "需要你的确认" : "Friday 正在处理")
-                    .font(.callout.weight(.medium))
-                Text(fridayString: task.status == "queued" ? "前面的任务完成后开始。" : task.status == "waiting" ? "处理上方请求后，任务会继续推进。" : "你可以继续补充要求，关闭窗口也不影响执行。")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(18)
-        .background(FridayTheme.accent.opacity(0.055), in: RoundedRectangle(cornerRadius: 16))
-    }
-
-    private func artifactCard(_ task: WorkItem) -> some View {
-        HStack(spacing: 12) {
-            FridaySymbolImage(systemName: "doc.text").font(.title3).foregroundStyle(FridayTheme.accent).fridaySymbolFeedback()
-            VStack(alignment: .leading, spacing: 3) {
-                Text(friday: "任务成果").font(.callout.weight(.medium))
-                Text(friday: "已保存在主机，可随时导出").font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer()
-            ShareLink(item: task.result) { FridaySymbolImage(systemName: "square.and.arrow.up").accessibilityLabel(Text(friday: "导出结果")) }
-                .buttonStyle(FridayButtonStyle(compact: true)).help(Text(friday: "导出结果"))
-        }
-        .padding(18).fridayCard()
-    }
-
-    private func executionHistory(_ task: WorkItem) -> some View {
-        DisclosureGroup(isExpanded: $showEvents) {
-            LazyVStack(alignment: .leading, spacing: 18) {
-                Text(friday: "执行工具：\(task.agent.capitalized)").font(.caption).foregroundStyle(.secondary)
-                if task.projectId != nil {
-                    Text(friday: "工作目录：\(task.cwd)").font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                }
-                if let thread = task.threadId {
-                    Text(friday: "会话 \(thread)").font(.caption2.monospaced()).foregroundStyle(.tertiary).textSelection(.enabled)
-                }
-                ForEach(task.events) { event in
-                    HStack(alignment: .top, spacing: 12) {
-                        FridaySymbolImage(systemName: "circle.fill").font(.system(size: 5))
-                            .foregroundStyle(.tertiary).padding(.top, 5).accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("\(event.at.dropFirst(11).prefix(8)) · \(event.kind)")
-                                .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
-                            Text(event.text)
-                                .font(.system(.caption, design: event.kind == "command" || event.kind == "files" ? .monospaced : .default))
-                                .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                }
-            }.padding(.top, 16)
-        } label: {
-            HStack {
-                FridaySymbolLabel(friday: "执行详情", systemImage: "clock.arrow.circlepath")
-                    .fridaySymbolFeedback(value: showEvents)
-                Spacer()
-                Text("\(task.events.count)").monospacedDigit()
-            }.font(.caption).foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 4)
-        .animation(reduceMotion ? nil : FridayTheme.motion, value: showEvents)
-    }
-
     @ViewBuilder private func delegatedTasks(_ task: WorkItem) -> some View {
         ForEach(store.tasks.filter { $0.parentId == task.id }) { child in
             Button { onOpenTask?(child.id) } label: {
@@ -354,6 +296,19 @@ struct TaskDetail: View {
                 }.padding(16)
             }.buttonStyle(FridayButtonStyle()).accessibilityLabel(Text(friday: "打开任务"))
         }
+    }
+
+    private func restoreDraft() {
+        guard !draftLoaded else { return }
+        if task?.localAgent == true, let saved = TaskDraftCache.load(TaskMessageDraft.self, server: store.connection.server, context: "task:" + id) {
+            message = saved.message; images = saved.images; messageId = saved.requestId
+        }
+        draftLoaded = true
+    }
+    private func saveDraft() {
+        guard draftLoaded, task?.localAgent == true else { return }
+        let draft = TaskMessageDraft(message: message, images: images, requestId: messageId)
+        TaskDraftCache.save(message.isEmpty && images.isEmpty ? nil : draft, server: store.connection.server, context: "task:" + id)
     }
 
     private func sendAgentMessage(_ provider: String, _ model: String, _ effort: String) {
@@ -372,19 +327,25 @@ struct TaskDetail: View {
     private func sendMessage() { sendMessage(model: nil, effort: nil) }
 
     private func sendMessage(model: String?, effort: String?) {
-        let taskId = id
-        let submittedMessage = message
-        let requestId = messageId
-        sending = true
-        var body: [String: Any] = ["text": submittedMessage, "requestId": requestId]
-        if task?.active != true {
-            if let model { body["model"] = model }; if let effort { body["reasoningEffort"] = effort }
-        }
+        guard !sending, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty else { return }
+        let taskId = id; let submittedMessage = message; let submittedImages = images; let requestId = messageId
+        let active = task?.active == true
+        let server = store.connection.server
+        sending = true; sendError = nil
         Task {
-            if await store.perform("/api/tasks/\(taskId)/message", body: body) {
-                if message == submittedMessage { message = "" }
-                messageId = UUID().uuidString
-                followingEnd = true; scrollRequest += 1
+            do {
+                try await store.sendTaskMessage(taskId: taskId, text: submittedMessage, requestId: requestId,
+                    images: submittedImages, model: active ? nil : model, effort: active ? nil : effort)
+                if let saved = TaskDraftCache.load(TaskMessageDraft.self, server: server, context: "task:" + taskId), saved.requestId == requestId {
+                    TaskDraftCache.save(Optional<TaskMessageDraft>.none, server: server, context: "task:" + taskId)
+                }
+                if id == taskId {
+                    if message == submittedMessage { message = "" }
+                    images.removeAll { image in submittedImages.contains { $0.id == image.id } }
+                    messageId = UUID().uuidString; followingEnd = true; scrollRequest += 1
+                }
+            } catch {
+                if id == taskId { sendError = error.localizedDescription; store.error = error.localizedDescription }
             }
             sending = false
         }

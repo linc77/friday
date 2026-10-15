@@ -46,6 +46,7 @@ struct IdeaImageView: View {
     @ObservedObject var store: FridayStore
     let image: IdeaImage
     var thumbnail = false
+    var maximumHeight: CGFloat = 700
     @State private var rendered: Image?
     @State private var failed = false
     @State private var retry = 0
@@ -53,7 +54,7 @@ struct IdeaImageView: View {
         Group {
             if let rendered {
                 if thumbnail { rendered.resizable().scaledToFill().frame(height: 120).clipped() }
-                else { rendered.resizable().scaledToFit().frame(maxHeight: 700) }
+                else { rendered.resizable().scaledToFit().frame(maxHeight: maximumHeight) }
             } else if failed {
                 Button { retry += 1 } label: { FridaySymbolLabel(friday: "重新加载图片", systemImage: "arrow.clockwise") }
                     .buttonStyle(FridayButtonStyle(compact: true)).frame(maxWidth: .infinity, minHeight: 100)

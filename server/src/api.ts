@@ -24,6 +24,10 @@ function optionalModel(value: unknown): string | undefined {
   if (typeof value !== 'string' || value.length > 120 || /[\x00-\x1f]/.test(value)) throw new Error('模型或推理强度无效');
   return value;
 }
+function taskPrompt(value: unknown, images: unknown): string {
+  if (typeof value === 'string' && value.length <= 12_000 && !value.trim() && Array.isArray(images) && images.length) return '';
+  return text(value, '任务要求');
+}
 export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   const app = new Hono<{ Variables: { device: string } }>();
   const images = new IdeaImages(engine.directory);
@@ -196,7 +200,8 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     if (body.agent && !['friday', 'codex', 'claude'].includes(body.agent)) throw new Error('当前支持 Claude 和 Codex 本地执行，其他 Agent 尚未接入');
     const mode = body.mode ?? 'auto';
     if (!['auto', 'assistant', 'research', 'code'].includes(mode)) throw new Error('任务类型无效');
-    const id = await engine.createTask({ prompt: text(body.prompt, '任务要求'), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode, agent: body.agent ?? 'friday', model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined, workspace: workspaceSelection(body.workspace) });
+    const attached = await images.validate(body.images);
+    const id = await engine.createTask({ prompt: taskPrompt(body.prompt, attached), images: attached, projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode, agent: body.agent ?? 'friday', model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined, workspace: workspaceSelection(body.workspace) });
     return c.json({ id }, 201);
   });
   app.post('/api/tasks/:id/workspace', async c => {
@@ -236,14 +241,16 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
   });
   app.post('/api/tasks/:id/cancel', async c => { await engine.cancel(c.req.param('id')); return c.json({ ok: true }); });
   app.post('/api/tasks/:id/message', async c => {
-    const body = await c.req.json(); const prompt = text(body.text, '补充要求'); const requestId = text(body.requestId, '请求 ID', 100);
+    const body = await c.req.json(); const attached = await images.validate(body.images); const prompt = taskPrompt(body.text, attached); const requestId = text(body.requestId, '请求 ID', 100);
     const task = (await engine.snapshot()).tasks.find(t => t.id === c.req.param('id'));
     if (!task) throw new Error('任务不存在');
-    if (activeStatuses.includes(task.status)) {
+    if (task.messages?.some(message => message.id === requestId && message.delivery)) {
+      await engine.steer(task.id, prompt, requestId, attached);
+    } else if (activeStatuses.includes(task.status)) {
       if (body.model !== undefined || body.reasoningEffort !== undefined) throw new Error('请在当前执行结束后切换模型');
-      await engine.steer(task.id, prompt, requestId);
+      await engine.steer(task.id, prompt, requestId, attached);
     }
-    else await engine.createTask({ prompt, requestId, projectId: task.projectId, mode: task.mode, continueId: task.id, model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort) });
+    else await engine.createTask({ prompt, images: attached, requestId, projectId: task.projectId, mode: task.mode, continueId: task.id, model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort) });
     return c.json({ id: task.id });
   });
   app.post('/api/tasks/:id/approvals/:approvalId', async c => {

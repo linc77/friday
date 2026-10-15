@@ -2,7 +2,7 @@ import { CodexRpc as Rpc } from './codex-rpc.js';
 import type { CodexConnection } from './codex-provider.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { findExecutable } from './agents.js';
-import type { Approval, ExecutionRequest, Executor, Workspace } from './types.js';
+import type { Approval, ExecutionRequest, Executor, Workspace, ExecutionImage } from './types.js';
 import { CodexEvents } from './codex-events.js';
 
 
@@ -20,7 +20,7 @@ export class CodexExecutor implements Executor {
   private live = new Map<string, LiveRun>();
   constructor(private command = findExecutable('codex'), private connection?: CodexConnection, private workspace?: () => Promise<Workspace>) {}
 
-  async run({ task, prompt, signal, update }: ExecutionRequest): Promise<string> {
+  async run({ task, prompt, images = [], signal, update }: ExecutionRequest): Promise<string> {
     const configured = await this.connection?.runtime(task);
     const command = configured?.command ?? this.command;
     if (!command) throw new Error('找不到 Codex。请先安装并登录 Codex CLI。');
@@ -117,7 +117,7 @@ export class CodexExecutor implements Executor {
       await update({ kind: 'session', threadId: run.threadId, codexHome: configured?.home, model: configured?.model, reasoningEffort: configured?.effort });
       // The session identifier is durably saved before the external turn can start.
       if (signal.aborted) throw new Error('任务已中止');
-      const turn = await rpc.call('turn/start', { threadId: run.threadId, model: configured?.model, effort: configured?.effort, clientUserMessageId: task.lastRequestId, input: [{ type: 'text', text: prompt, text_elements: [] }] });
+      const turn = await rpc.call('turn/start', { threadId: run.threadId, model: configured?.model, effort: configured?.effort, clientUserMessageId: task.lastRequestId, input: codexInput(prompt, images) });
       run.turnId = turn.turn.id;
       await update({ kind: 'turn', turnId: run.turnId });
       await transcript.startTurn(run.turnId);
@@ -138,9 +138,13 @@ export class CodexExecutor implements Executor {
       : { decision };
     run.rpc.send({ id: approval.wireId, result }); run.approvals.delete(approvalId);
   }
-  async steer(taskId: string, text: string, requestId: string) {
+  async steer(taskId: string, text: string, requestId: string, images: ExecutionImage[] = []) {
     const run = this.live.get(taskId);
     if (!run?.turnId) throw new Error('任务尚未进入可补充要求的阶段。');
-    await run.rpc.call('turn/steer', { threadId: run.threadId, expectedTurnId: run.turnId, clientUserMessageId: requestId, input: [{ type: 'text', text, text_elements: [] }] });
+    await run.rpc.call('turn/steer', { threadId: run.threadId, expectedTurnId: run.turnId, clientUserMessageId: requestId, input: codexInput(text, images) });
   }
+}
+
+function codexInput(text: string, images: ExecutionImage[]) {
+  return [{ type: 'text', text, text_elements: [] }, ...images.map(image => ({ type: 'localImage', path: image.path }))];
 }

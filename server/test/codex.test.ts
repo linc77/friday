@@ -87,3 +87,25 @@ test('Conversation tools use read-only access before selection and return struct
     assert.equal(resumed.params.approvalsReviewer, 'auto_review');
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+
+test('Codex sends uploaded images in both initial and live wire inputs', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-codex-images-')); await chmod(command, 0o755);
+  const { IdeaImages } = await import('../src/ideas.js');
+  const store = new IdeaImages(directory);
+  const image = await store.save({ data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j2ioAAAAASUVORK5CYII=', name: 'image.png' });
+  const images = await store.resolve([image]); const executor = new CodexExecutor(command);
+  try {
+    await executor.run({ task: work(directory), prompt: 'test', images, signal: new AbortController().signal, update: async update => {
+      if (update.kind === 'approval') {
+        if (update.approval.method.includes('fileChange')) await executor.steer('test', 'See image', 'image-steer', images);
+        await executor.answer('test', update.approval.id, 'accept', { q: ['A'] });
+      }
+    } });
+    const wire = (await readFile(join(directory, 'wire.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+    for (const method of ['turn/start', 'turn/steer']) {
+      const input = wire.find(value => value.method === method).params.input;
+      assert.deepEqual(input[1], { type: 'localImage', path: images[0]!.path });
+      assert.equal(input[0].type, 'text');
+    }
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

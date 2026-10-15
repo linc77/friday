@@ -107,3 +107,25 @@ test('Claude tasks route through Durable, preserve provider/session across resta
     await new Promise(resolve => setTimeout(resolve, 100)); assert.equal((await wire(directory)).filter(message => message.type === 'user').length, count, 'uncertain external work must not replay');
   } finally { await engine.close(); auth.close(); await rm(directory, { recursive: true, force: true }); }
 });
+
+test('Claude sends typed image blocks in initial and live messages', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-claude-images-')); await chmod(binaryPath, 0o755);
+  const connection = new ClaudeConnection(directory); const executor = new ClaudeExecutor(connection);
+  const { IdeaImages } = await import('../src/ideas.js'); const store = new IdeaImages(directory);
+  const data = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j2ioAAAAASUVORK5CYII=';
+  const image = await store.save({ data, name: 'image.png' }); const images = await store.resolve([image]);
+  try {
+    await connection.save({ ...defaultClaudeSettings, binaryPath, homePath: directory });
+    let steered = false;
+    const result = await executor.run({ task: work(directory), prompt: 'wait-for-steer', images, signal: new AbortController().signal, update: async update => {
+      if (update.kind === 'output' && !steered) { steered = true; await executor.steer('claude-test', 'Inspect this image', 'image-steer', images); }
+    } });
+    assert.equal(result, 'Included: Inspect this image');
+    const wire = (await readFile(join(directory, 'claude-wire.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+    const messages = wire.filter(value => value.type === 'user'); assert.equal(messages.length, 2);
+    for (const message of messages) {
+      assert.equal(message.message.content[0].type, 'text');
+      assert.deepEqual(message.message.content[1], { type: 'image', source: { type: 'base64', media_type: 'image/png', data } });
+    }
+  } finally { await connection.close(); await rm(directory, { recursive: true, force: true }); }
+});

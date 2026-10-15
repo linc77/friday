@@ -1,4 +1,8 @@
 import SwiftUI
+import UniformTypeIdentifiers
+#if os(iOS)
+import PhotosUI
+#endif
 #if os(macOS)
 import AppKit
 #endif
@@ -42,6 +46,13 @@ struct NewAgentTaskView: View {
         Binding(get: { drafts[draftKey]?.message ?? "" }, set: { value in
             if drafts[draftKey] == nil { drafts[draftKey] = AgentTaskDraft() }
             drafts[draftKey]?.message = value
+        })
+    }
+
+    private var images: Binding<[IdeaImage]> {
+        Binding(get: { drafts[draftKey]?.images ?? [] }, set: { value in
+            if drafts[draftKey] == nil { drafts[draftKey] = AgentTaskDraft() }
+            drafts[draftKey]?.images = value
         })
     }
 
@@ -126,20 +137,20 @@ struct NewAgentTaskView: View {
                 }.font(.caption).multilineTextAlignment(.center)
             }
             AgentTaskComposer(store: store, projectPath: project?.path, projectId: project?.id, workspace: workspace,
-                workspaceState: workspaceState, workspaceReady: workspaceReady, requiresProject: true, message: message, sending: sending, send: send)
+                workspaceState: workspaceState, workspaceReady: workspaceReady, requiresProject: true, message: message, images: images, sending: sending, send: send)
         }
     }
 
     private func send(_ provider: String, _ model: String, _ effort: String) {
         guard let project, !sending else { return }
         let draft = drafts[project.id] ?? AgentTaskDraft()
-        guard !draft.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard !draft.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.images.isEmpty else { return }
         let executionWorkspace = workspace.wrappedValue
         drafts[project.id] = draft
         sending = true; error = nil
         Task {
             do {
-                let id = try await store.createTask(prompt: draft.message, requestId: draft.requestId, projectId: project.id, agent: provider, model: model, reasoningEffort: effort, workspace: executionWorkspace)
+                let id = try await store.createTask(prompt: draft.message, requestId: draft.requestId, projectId: project.id, agent: provider, model: model, reasoningEffort: effort, workspace: executionWorkspace, images: draft.images)
                 drafts[project.id] = nil; onCreated(id)
             } catch { self.error = error.localizedDescription }
             sending = false
@@ -171,10 +182,11 @@ private struct NewTaskWorkspaceCardBody: View {
     }
 }
 
-struct AgentTaskDraft {
+struct AgentTaskDraft: Codable, Equatable {
     var message = ""
+    var images: [IdeaImage] = []
     var workspace = TaskWorkspaceSelection()
-    let requestId = UUID().uuidString
+    var requestId = UUID().uuidString
 }
 
 struct AgentTaskComposer: View {
@@ -189,7 +201,9 @@ struct AgentTaskComposer: View {
     var embeddedInMobileDock = false
     var collapseRequest = 0
     var expandRequest = 0
+    var submissionError: String? = nil
     @Binding var message: String
+    @Binding var images: [IdeaImage]
     let sending: Bool
     let send: (String, String, String) -> Void
     @State private var states: [String: CodexConnectionState] = [:]
@@ -201,20 +215,29 @@ struct AgentTaskComposer: View {
     @State private var switchingBranch = false
     @State private var stoppingTaskId: String?
     @State private var expanded = true
+    @State private var showImageImporter = false
+    @State private var importerContext = ""
+    @State private var importing = false
+    @State private var dropTargeted = false
+    #if os(iOS)
+    @State private var photoItems: [PhotosPickerItem] = []
+    #endif
     #if os(macOS)
-    @State private var expandedHeight: CGFloat = 112
     @State private var focusRequest = 0
     #endif
-    @FocusState private var focused: Bool
+    // The AppKit/UIKit editor owns native focus and reports it through callbacks.
+    @State private var focused = false
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var state: CodexConnectionState? { states[provider] }
     private var providerName: String { provider == "claude" ? "Claude" : "Codex" }
-    private var connectionError: String? { error ?? (state?.enabled == false ? "已停用" : state?.error) }
+    private var connectionError: String? { error ?? submissionError ?? (state?.enabled == false ? "已停用" : state?.error) }
     private var active: Bool { task?.active == true }
     private var stopping: Bool { stoppingTaskId != nil && stoppingTaskId == task?.id }
-    private var showsStop: Bool { active && message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    private var disabled: Bool { sending || stopping || switchingBranch || task?.branchChange?.active == true || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task?.status == "queued" || (requiresProject && projectPath == nil) || !workspaceReady || (!active && state?.connected != true) }
+    private var draftEmpty: Bool { message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && images.isEmpty }
+    private var contextID: String { task?.id ?? projectId ?? "" }
+    private var showsStop: Bool { active && draftEmpty }
+    private var disabled: Bool { sending || importing || stopping || switchingBranch || task?.branchChange?.active == true || !store.connected || draftEmpty || task?.status == "queued" || (requiresProject && projectPath == nil) || !workspaceReady || (!active && state?.connected != true) }
     private var selectedModel: CodexProviderModel? { state?.models.first { $0.id == (model.isEmpty ? state?.model : model) } }
     private var compact: Bool {
         #if os(macOS)
@@ -237,6 +260,44 @@ struct AgentTaskComposer: View {
 
     var body: some View {
         composerSurface
+        #if os(iOS)
+        .fileImporter(isPresented: $showImageImporter, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
+            switch result {
+            case .success(let urls): importFiles(urls, context: importerContext)
+            case .failure(let failure): error = failure.localizedDescription
+            }
+        }
+        #endif
+        .onDrop(of: [UTType.image.identifier, UTType.fileURL.identifier], isTargeted: $dropTargeted) { providers in
+            guard !sending, !importing, !compact, !requiresProject || projectId != nil else { return false }
+            importProviders(providers); return true
+        }
+        .onChange(of: contextID) { _, _ in
+            importing = false; dropTargeted = false; error = nil
+        }
+        .overlay {
+            if dropTargeted {
+                RoundedRectangle(cornerRadius: 22).strokeBorder(FridayTheme.accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                    .allowsHitTesting(false)
+            }
+        }
+        #if os(iOS)
+        .onChange(of: photoItems) { _, items in
+            let context = contextID
+            guard !items.isEmpty else { return }
+            importing = true
+            Task { @MainActor in
+                for item in items {
+                    do {
+                        if let data = try await item.loadTransferable(type: Data.self), context == contextID {
+                            try addImage(data, name: "照片.png")
+                        }
+                    } catch { if context == contextID { self.error = error.localizedDescription } }
+                }
+                if context == contextID { importing = false; photoItems = [] }
+            }
+        }
+        #endif
         #if os(macOS)
         .task(id: focusRequest) {
             guard focusRequest > 0, expanded else { return }
@@ -271,13 +332,9 @@ struct AgentTaskComposer: View {
 
     @ViewBuilder private var composerSurface: some View {
         #if os(macOS)
-        // Keep the editor and toolbar mounted at their natural height. Animate
-        // one numeric outer height instead of switching between zero and nil.
-        expandedContent.padding(16).fixedSize(horizontal: false, vertical: true)
-            .background(GeometryReader { geometry in
-                Color.clear.preference(key: AgentComposerExpandedHeightKey.self, value: geometry.size.height)
-            })
-            .frame(height: compact ? 44 : expandedHeight, alignment: .bottom)
+        TaskComposerLayout(expansion: compact ? 0 : 1) {
+            expandedContent.padding(16).fixedSize(horizontal: false, vertical: true)
+        }
             .clipped().opacity(compact ? 0 : 1)
             .disabled(compact).allowsHitTesting(!compact).accessibilityHidden(compact)
             .modifier(AgentTaskComposerSurface(embeddedInMobileDock: false, focused: focused))
@@ -293,10 +350,7 @@ struct AgentTaskComposer: View {
                 }
             }
             .animation(composerAnimation, value: expanded)
-            .animation(composerAnimation, value: expandedHeight)
-            .onPreferenceChange(AgentComposerExpandedHeightKey.self) { height in
-                if height > 44, abs(height - expandedHeight) > 0.5 { expandedHeight = height }
-            }
+            .animation(composerAnimation, value: images.isEmpty)
         #else
         expandedContent.modifier(AgentTaskComposerSurface(embeddedInMobileDock: embeddedInMobileDock, focused: focused))
         #endif
@@ -304,30 +358,13 @@ struct AgentTaskComposer: View {
 
     private var expandedContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .bottom, spacing: 16) {
-                TextField(friday: placeholder, text: $message, axis: .vertical)
-                    .font(.body).lineLimit((embeddedInMobileDock ? 1 : (task == nil ? 3 : 2))...6).textFieldStyle(.plain).focused($focused)
-                    .disabled(compact || sending || (requiresProject && projectPath == nil))
-                    .accessibilityLabel(Text(friday: "任务要求"))
-                    .onChatSubmit { if !disabled { send(provider, model, effort) } }
-                if showsStop {
-                    Button(action: stop) {
-                        FridaySymbolImage(systemName: "stop.fill").font(.system(size: 8, weight: .medium))
-                    }.buttonStyle(AgentTaskActionButtonStyle(destructive: true))
-                        .accessibilityLabel(Text(friday: stopping ? "正在停止" : "停止"))
-                        .help(Text(friday: "停止"))
-                        .disabled(stopping || !store.connected || compact)
-                } else {
-                    Button { send(provider, model, effort) } label: {
-                        FridaySymbolImage(systemName: active ? "arrow.turn.up.right" : "arrow.up")
-                            .font(.system(size: 14, weight: .semibold))
-                    }.buttonStyle(AgentTaskActionButtonStyle())
-                        .accessibilityLabel(Text(friday: sending ? "发送中" : active ? "补充任务要求" : "发送"))
-                        .help(Text(friday: active ? "补充任务要求" : "发送"))
-                        .keyboardShortcut(.return, modifiers: .command).disabled(disabled || compact)
-                }
+            if !images.isEmpty {
+                TaskImageRail(store: store, images: images, remove: { id in images.removeAll { $0.id == id } }, disabled: sending || importing)
             }
-            if let connectionError { Text(fridayString: connectionError).font(.caption).foregroundStyle(.orange).lineLimit(2) }
+            TaskPromptEditor(text: $message, placeholder: placeholder,
+                enabled: !compact && !sending && (!requiresProject || projectPath != nil), focused: focused,
+                minimumHeight: embeddedInMobileDock ? 28 : task == nil ? 60 : 40,
+                focusChanged: { focused = $0 }, submit: { if !disabled { send(provider, model, effort) } }, importProviders: importProviders)
             HStack(spacing: 12) {
                 modelControls
                 Divider().frame(height: 16)
@@ -335,11 +372,106 @@ struct AgentTaskComposer: View {
                     defaultEffort: selectedModel?.defaultReasoningEffort ?? "")
                     .disabled(active || sending)
                 Spacer(minLength: 0)
+                if importing { ProgressView().controlSize(.small).accessibilityLabel(Text(friday: "正在添加图片")) }
+                attachmentButton
+                primaryAction
             }.font(.callout).foregroundStyle(.secondary)
+            if let connectionError { Text(fridayString: connectionError).font(.caption).foregroundStyle(.orange).lineLimit(3) }
+        }
+    }
+
+    private var attachmentButton: some View {
+        Group {
+            #if os(iOS)
+            Menu {
+                PhotosPicker(selection: $photoItems, maxSelectionCount: max(1, 20 - images.count), matching: .images) {
+                    FridaySymbolLabel(friday: "照片图库", systemImage: "photo")
+                }
+                Button { importerContext = contextID; showImageImporter = true } label: {
+                    FridaySymbolLabel(friday: "选择图片文件", systemImage: "folder")
+                }
+            } label: { FridaySymbolImage(systemName: "paperclip").frame(width: 28, height: 28) }
+            #else
+            Button(action: chooseImageFiles) {
+                FridaySymbolImage(systemName: "paperclip").font(.system(size: 16)).frame(width: 28, height: 28)
+            }.help(Text(friday: "添加图片，也可以粘贴或拖入"))
+            #endif
+        }.buttonStyle(FridaySymbolButtonStyle())
+            .disabled(sending || importing || showImageImporter || compact || images.count >= 20 || (requiresProject && projectPath == nil))
+            .accessibilityLabel(Text(friday: "添加图片"))
+    }
+
+    @ViewBuilder private var primaryAction: some View {
+        if showsStop {
+            Button(action: stop) {
+                FridaySymbolImage(systemName: "stop.fill").font(.system(size: 8, weight: .medium))
+            }.buttonStyle(AgentTaskActionButtonStyle(destructive: true))
+                .accessibilityLabel(Text(friday: stopping ? "正在停止" : "停止"))
+                .help(Text(friday: "停止"))
+                .disabled(stopping || !store.connected || compact)
+        } else {
+            Button { send(provider, model, effort) } label: {
+                if sending { ProgressView().controlSize(.small) }
+                else { FridaySymbolImage(systemName: active ? "arrow.turn.up.right" : "arrow.up").font(.system(size: 14, weight: .semibold)) }
+            }.buttonStyle(AgentTaskActionButtonStyle())
+                .accessibilityLabel(Text(friday: sending ? "发送中" : active ? "补充任务要求" : "发送"))
+                .help(Text(friday: active ? "补充任务要求" : "发送"))
+                .keyboardShortcut(.return, modifiers: .command).disabled(disabled || compact)
+        }
+    }
+
+    private func addImage(_ data: Data, name: String) throws {
+        let image = try IdeaImageCache.importImage(data, name: name)
+        guard !images.contains(where: { $0.id == image.id }) else { return }
+        guard images.count < 20 else { throw ConnectionError.message("最多添加 20 张图片。") }
+        images.append(image)
+    }
+    private func importFiles(_ urls: [URL], context: String) {
+        guard context == contextID, !sending else { return }
+        error = nil
+        for url in urls {
+            do { let (data, name) = try TaskImageImport.read(url); try addImage(data, name: name) }
+            catch { self.error = error.localizedDescription }
+        }
+        #if os(macOS)
+        setExpanded(true); focusRequest += 1
+        #endif
+    }
+    private func importProviders(_ providers: [NSItemProvider]) {
+        guard !sending, !importing, !requiresProject || projectId != nil else { return }
+        let context = contextID; importing = true; error = nil
+        Task { @MainActor in
+            for provider in providers.prefix(20) {
+                do {
+                    let (data, name) = try await TaskImageImport.data(from: provider)
+                    guard context == contextID else { return }
+                    try addImage(data, name: name)
+                } catch { if context == contextID { self.error = error.localizedDescription } }
+            }
+            guard context == contextID else { return }
+            importing = false
+            #if os(macOS)
+            setExpanded(true); focusRequest += 1
+            #endif
         }
     }
 
     #if os(macOS)
+    private func chooseImageFiles() {
+        guard !showImageImporter else { return }
+        let context = contextID
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true; panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true; panel.allowedContentTypes = [.image]
+        showImageImporter = true
+        let completion: (NSApplication.ModalResponse) -> Void = { response in
+            showImageImporter = false
+            if response == .OK { importFiles(panel.urls, context: context) }
+        }
+        if let window = NSApp.keyWindow { panel.beginSheetModal(for: window, completionHandler: completion) }
+        else { panel.begin(completionHandler: completion) }
+    }
+
     private var composerAnimation: Animation? {
         reduceMotion || !NSApp.isActive ? nil : .smooth(duration: 0.36)
     }
@@ -425,13 +557,6 @@ private struct AgentTaskActionButtonBody: View {
             .onHover { hovering = $0 }
     }
 }
-
-#if os(macOS)
-private struct AgentComposerExpandedHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
-#endif
 
 private struct AgentTaskComposerSurface: ViewModifier {
     let embeddedInMobileDock: Bool

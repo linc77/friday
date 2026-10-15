@@ -7,8 +7,9 @@ import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import type { Models } from '@earendil-works/pi-ai/models';
 import { Harness, configure, createRegistry, defineExtension, defineTask, type Conversation, type ConversationId, type ModelRef, type TaskId, type DocumentWatch } from '@earendil-works/pi-durable';
 import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node';
-import type { Executor, ExecutionUpdate, Workspace, WorkItem, TaskMode, TaskWorkspaceSelection } from './types.js';
+import type { Executor, ExecutionUpdate, Workspace, WorkItem, TaskMode, TaskWorkspaceSelection, IdeaImage } from './types.js';
 import { activeStatuses } from './types.js';
+import { IdeaImages } from './ideas.js';
 import { CodexExecutor } from './codex.js';
 import { fileURLToPath } from 'node:url';
 import { WorkspaceDoc } from './state.js';
@@ -29,7 +30,7 @@ const finishItems = (task: WorkItem, status: 'interrupted' | 'failed') => {
     item.durationMs = Date.parse(item.completedAt) - Date.parse(item.at);
   }
 };
-type Input = { id: string; predecessor: number | null; prompt: string };
+type Input = { id: string; predecessor: number | null; prompt: string; images?: IdeaImage[] };
 type Checkpoint = { phase: 'queued' } | { phase: 'execute' };
 
 export class Engine extends EventEmitter {
@@ -98,7 +99,7 @@ export class Engine extends EventEmitter {
               await this.patchTask(work.id, item => { item.executionWorkspace!.state = 'ready'; item.cwd = item.executionWorkspace!.cwd; });
               work = (await this.snapshot()).tasks.find(t => t.id === task.input.id)!;
             }
-            const result = await this.executor.run({ task: work, prompt: task.input.prompt, signal: runtime.signal, update: update => this.updateExecution(work.id, update) });
+            const result = await this.executor.run({ task: work, prompt: task.input.prompt, images: await new IdeaImages(this.directory).resolve(task.input.images), signal: runtime.signal, update: update => this.updateExecution(work.id, update) });
             const needsProject = !!(await this.snapshot()).tasks.find(t => t.id === work.id)?.workspaceRequest;
             if (needsProject) {
               await this.patchTask(work.id, item => {
@@ -202,6 +203,9 @@ export class Engine extends EventEmitter {
           const latest = (agent: string) => state.tasks.filter(t => t.agent === agent && t.durableId !== null).reduce<number | null>((id, t) => Math.max(id ?? 0, t.durableId!), null);
           state.assistantQueueTail = latest('friday'); state.queueTail = latest('codex');
         }
+        for (const task of state.tasks) for (const message of task.messages ?? []) {
+          if (message.delivery === 'sending') message.delivery = 'uncertain';
+        }
         for (const task of state.tasks) if (task.agent === 'friday') {
           for (const approval of task.approvals) if (approval.state === 'pending' && approval.method !== 'friday/requestUserInput') approval.state = 'expired';
         }
@@ -260,13 +264,15 @@ export class Engine extends EventEmitter {
     return id;
   }
 
-  async createTask(input: { prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; agent?: 'friday' | 'codex' | 'claude'; parentId?: string; model?: string; reasoningEffort?: string; workspace?: TaskWorkspaceSelection }) {
+  async createTask(input: { prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; agent?: 'friday' | 'codex' | 'claude'; parentId?: string; model?: string; reasoningEffort?: string; workspace?: TaskWorkspaceSelection; images?: IdeaImage[] }) {
     if (['__proto__', 'constructor', 'prototype'].includes(input.requestId)) throw new Error('请求 ID 无效');
     const snapshot = await this.snapshot();
     if (Object.hasOwn(snapshot.requests, input.requestId)) return snapshot.requests[input.requestId];
     const previous = snapshot.tasks.find(t => t.id === input.continueId);
     const agent = previous?.agent ?? input.agent ?? 'friday';
     const native = agent === 'friday';
+    const images = await new IdeaImages(this.directory).validate(input.images);
+    if (native && images.length) throw new Error('请从我的任务中把图片发送给 Codex 或 Claude。');
     if (previous && input.agent && input.agent !== previous.agent) throw new Error('不能切换会话所属 Agent，请新建任务');
     if (native && !this.agentOptions) await this.modelConnection.ready();
     if (!native && !this.customExecutor) await (agent === 'claude' ? this.claudeConnection : this.codexConnection).runtime({ model: input.model ?? previous?.model, reasoningEffort: input.reasoningEffort ?? previous?.reasoningEffort });
@@ -304,7 +310,7 @@ export class Engine extends EventEmitter {
       const predecessor = native ? workspace.assistantQueueTail ?? null : workspace.queueTail ?? null;
       const stamp = now();
       const task: WorkItem = work ?? {
-        id: taskId, title: input.prompt.slice(0, 64), prompt: input.prompt, projectId: input.projectId,
+        id: taskId, title: input.prompt.trim().slice(0, 64) || '图片任务', prompt: input.prompt, projectId: input.projectId,
         cwd: executionWorkspace?.cwd ?? project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent,
         status: 'queued', createdAt: stamp, updatedAt: stamp, durableId: null, threadId: null, turnId: null,
         result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: input.requestId,
@@ -320,7 +326,7 @@ export class Engine extends EventEmitter {
       } else if (!native && work && task.result && task.messages.at(-1)?.text !== task.result) {
         task.messages.push({ id: randomUUID(), role: 'assistant', text: task.result });
       }
-      task.messages.push({ id: randomUUID(), role: 'user', text: input.prompt, at: stamp });
+      task.messages.push({ id: randomUUID(), role: 'user', text: input.prompt, at: stamp, ...(images.length ? { images } : {}) });
       if (!native) {
         if (input.model !== undefined) task.model = input.model;
         if (input.reasoningEffort !== undefined) task.reasoningEffort = input.reasoningEffort;
@@ -330,7 +336,7 @@ export class Engine extends EventEmitter {
       const hasWorkspace = effectiveProject !== undefined || (work !== undefined && task.projectId !== null);
       const prompt = [
         !native && !task.threadId && task.messages.length > 1 ? `Previous conversation (context only; do not replay past actions):\n${task.messages.slice(0, -1).map(m => `${m.role}: ${m.text}`).join('\n\n')}` : '',
-        `Task: ${input.prompt}`,
+        `Task: ${input.prompt || '请查看附带图片。'}`,
         task.mode === 'auto'
           ? `Understand the user's intent and respond or act accordingly. ${hasWorkspace ? 'The user selected the workspace below. Only modify files when requested; inspect and explain read-only requests without changing files.' : 'No workspace is selected. Answer questions and research normally. If a local workspace is needed, call friday_request_workspace and stop this turn. Never guess a working directory or attempt file changes before selection.'}`
           : `Mode: ${task.mode}. ${task.mode === 'research' ? 'Research and report. Do not modify project files. Cite sources when researching externally.' : 'Implement the requested change, perform relevant verification, and report the files changed.'}`,
@@ -351,7 +357,7 @@ export class Engine extends EventEmitter {
       }
       const durableId = native
         ? await tx.createTask(this.response, { id: task.id, predecessor, prompt: input.prompt, requestId: input.requestId }, { ownership: { kind: 'conversation' } })
-        : await tx.createTask(this.execution, { id: task.id, predecessor, prompt }, { ownership: { kind: 'conversation' } });
+        : await tx.createTask(this.execution, { id: task.id, predecessor, prompt, ...(images.length ? { images } : {}) }, { ownership: { kind: 'conversation' } });
       if (native) workspace.assistantQueueTail = durableId;
       else workspace.queueTail = durableId;
       task.durableId = durableId; task.lastRequestId = input.requestId; task.status = 'queued'; task.error = null; task.turnId = null;
@@ -435,18 +441,45 @@ export class Engine extends EventEmitter {
     await this.updateExecution(id, { kind: 'approvalResolved', id: approvalId });
     await this.patchTask(id, item => { item.events.push(event('decision', approval.method.includes('requestUserInput') ? '已提交补充信息' : decision === 'accept' ? '已允许本次操作' : '已拒绝本次操作')); });
   }
-  async steer(id: string, text: string, requestId: string) {
-    const task = (await this.snapshot()).tasks.find(t => t.id === id);
-    if (task?.agent === 'friday') {
+  async steer(id: string, text: string, requestId: string, attached: IdeaImage[] = []) {
+    if (['__proto__', 'constructor', 'prototype'].includes(requestId)) throw new Error('请求 ID 无效');
+    const snapshot = await this.snapshot();
+    const task = snapshot.tasks.find(t => t.id === id);
+    if (!task) throw new Error('任务不存在');
+    if (Object.hasOwn(snapshot.requests, requestId)) {
+      if (snapshot.requests[requestId] !== id) throw new Error('请求 ID 已被其他任务使用');
+      if (task.messages?.find(m => m.id === requestId)?.delivery === 'sent') return;
+      throw new Error('补充要求的发送结果尚未确认，请检查对话后再发送新的要求。');
+    }
+    const images = await new IdeaImages(this.directory).validate(attached);
+    if (task.agent === 'friday') {
+      if (images.length) throw new Error('请从我的任务中把图片发送给 Codex 或 Claude。');
       if (task.status === 'queued') throw new Error('会话尚在排队，请开始后补充要求');
       const conversation = await this.harness.conversation(task.conversationId as ConversationId, context);
       if (!conversation) throw new Error('Friday 会话不存在');
       await conversation.submit({ type: 'input', content: text, requestId, whenBusy: 'steer' }, context);
-    } else await this.executor.steer(id, text, requestId);
-    await this.patchTask(id, item => {
-      item.events.push(event('user', text));
-      if (item.agent !== 'friday') item.messages?.push({ id: randomUUID(), role: 'user', text, at: now(), ...(item.turnId ? { turnId: item.turnId } : {}) });
+      await this.patchTask(id, item => { item.events.push(event('user', text)); });
+      return;
+    }
+    const resolved = await new IdeaImages(this.directory).resolve(images);
+    // Reserve and persist the input before the external side effect. A lost receipt
+    // or service crash must never cause an uncertain live message to be replayed.
+    await this.mutate(state => {
+      if (Object.hasOwn(state.requests, requestId)) throw new Error('补充要求正在发送，请检查对话后再重试。');
+      const item = state.tasks.find(t => t.id === id)!;
+      if (!['running', 'waiting'].includes(item.status)) throw new Error('任务尚未开始或已结束，请重新发送。');
+      state.requests[requestId] = id;
+      item.messages ??= [{ id: randomUUID(), role: 'user', text: item.prompt, at: item.createdAt }];
+      item.messages.push({ id: requestId, role: 'user', text, at: now(), delivery: 'sending', ...(images.length ? { images } : {}), ...(item.turnId ? { turnId: item.turnId } : {}) });
+      item.events.push(event('user', text)); item.updatedAt = now();
     });
+    try {
+      await this.executor.steer(id, text || '请查看附带图片。', requestId, resolved);
+      await this.patchTask(id, item => { item.messages!.find(m => m.id === requestId)!.delivery = 'sent'; });
+    } catch (error) {
+      await this.patchTask(id, item => { item.messages!.find(m => m.id === requestId)!.delivery = 'uncertain'; });
+      throw new Error(`补充要求的发送结果尚未确认，请检查对话后再发送新的要求。${error instanceof Error ? error.message : ''}`);
+    }
   }
   async artifact(id: string) {
     const task = (await this.snapshot()).tasks.find(t => t.id === id);

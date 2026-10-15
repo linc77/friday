@@ -48,6 +48,8 @@ struct Question: Codable, Identifiable { let id: String; let header: String; let
 struct Approval: Codable, Identifiable { let id: String; let method: String; let title: String; let detail: String; let questions: [Question]; let state: String }
 struct ChatMessage: Codable, Identifiable {
     let id: String; let role: String; let text: String; let at: String?; let turnId: String?
+    var images: [IdeaImage]? = nil
+    var delivery: String? = nil
     init(id: String, role: String, text: String, at: String? = nil, turnId: String? = nil) {
         self.id = id; self.role = role; self.text = text; self.at = at; self.turnId = turnId
     }

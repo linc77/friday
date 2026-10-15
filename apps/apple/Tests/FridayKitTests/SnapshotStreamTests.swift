@@ -60,6 +60,14 @@ struct SnapshotStreamTests {
         precondition(legacyTranscript.count == 3, "Legacy logs belong between the request and its answer")
         guard case .work(let legacyWork) = legacyTranscript[1].content else { preconditionFailure("Legacy work fold missing") }
         precondition(legacyWork.count == 1, "Legacy command start/completion pairs count once")
+        current["messages"] = [["id": "image-only", "role": "user", "text": "", "images": [["id": imageID, "name": "参考.png", "mediaType": "image/png"]], "delivery": "uncertain"]]
+        current["result"] = ""; current["events"] = []
+        let imageTask = try JSONDecoder().decode(WorkItem.self, from: JSONSerialization.data(withJSONObject: current))
+        precondition(imageTask.messages?.first?.images?.first?.id == imageID, "Task image metadata must decode after reconnecting")
+        precondition(imageTask.messages?.first?.delivery == "uncertain", "Lost live-message receipts must remain visible")
+        let imageRows = CodexTranscript.rows(imageTask)
+        precondition(imageRows.count == 1 && imageRows[0].id == "image-only", "Image-only user messages must not disappear from the timeline")
+        precondition(oldTask.conversation.first?.images == nil, "Legacy task messages remain compatible")
         let blocks = MarkdownBlocks.parse("## Result\n\n- **One**\n\n```swift\nlet x = 1\n```\n\n| A | B |\n| --- | --- |\n| C | D |")
         precondition(blocks == [.heading(2, "Result"), .list("•", "**One**", 0), .code("swift", "let x = 1"), .table(["A", "B"], [["C", "D"]])], "Render headings, lists, code, and tables as native blocks")
         precondition(MarkdownBlocks.parse("```ts\nconst partial =") == [.code("ts", "const partial =")], "Streaming unfinished fences retain code formatting")

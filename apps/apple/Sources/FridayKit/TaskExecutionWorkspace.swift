@@ -1,6 +1,6 @@
 import Foundation
 
-struct TaskWorkspaceSelection: Equatable {
+struct TaskWorkspaceSelection: Equatable, Codable {
     var mode = "checkout"
     var branch: String? = nil
     var title: String { mode == "worktree" ? "New Worktree" : "当前工作区" }

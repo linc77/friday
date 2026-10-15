@@ -5,7 +5,8 @@ export type Project = { id: string; name: string; path: string; context: string;
 export type Memory = { id: string; text: string; updatedAt: string };
 export type Question = { id: string; header: string; question: string; options: { label: string; description: string }[] };
 export type Approval = { id: string; method: string; title: string; detail: string; questions: Question[]; state: 'pending' | 'answered' | 'expired'; decision?: 'accept' | 'decline'; answers?: Record<string, string[]> };
-export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; at?: string; turnId?: string };
+export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; at?: string; turnId?: string; images?: IdeaImage[]; delivery?: 'sending' | 'sent' | 'uncertain' };
+export type ExecutionImage = IdeaImage & { path: string };
 export type TaskMode = 'auto' | 'assistant' | 'research' | 'code';
 export type TaskWorkspaceSelection = { mode: 'checkout' | 'worktree'; branch?: string };
 export type TaskWorkspacePlan = {
@@ -60,10 +61,10 @@ export type ExecutionUpdate =
   | { kind: 'idea'; id: string; text: string }
   | { kind: 'memory'; id: string; text: string }
   | { kind: 'note'; id: string; title: string; content: string };
-export type ExecutionRequest = { task: WorkItem; prompt: string; signal: AbortSignal; update: (update: ExecutionUpdate) => Promise<void> };
+export type ExecutionRequest = { task: WorkItem; prompt: string; images?: ExecutionImage[]; signal: AbortSignal; update: (update: ExecutionUpdate) => Promise<void> };
 export interface Executor {
   run(request: ExecutionRequest): Promise<string>;
   answer(taskId: string, approvalId: string, decision: 'accept' | 'decline', answers: Record<string, string[]>): Promise<void>;
-  steer(taskId: string, text: string, requestId: string): Promise<void>;
+  steer(taskId: string, text: string, requestId: string, images?: ExecutionImage[]): Promise<void>;
 }
 export const activeStatuses: TaskStatus[] = ['queued', 'running', 'waiting'];

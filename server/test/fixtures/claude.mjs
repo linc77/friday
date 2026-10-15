@@ -26,7 +26,7 @@ createInterface({ input: process.stdin }).on('line', line => {
     } } });
   }
   if (message.type === 'user') {
-    const text = message.message.content;
+    const text = typeof message.message.content === 'string' ? message.message.content : message.message.content.filter(block => block.type === 'text').map(block => block.text).join('\n');
     const uuid = message.uuid; consumed.push(uuid);
     if (value('--resume') && !existsSync(join(home, session + '.session'))) throw new Error('Missing persisted session');
     writeFileSync(join(home, session + '.session'), uuid);

@@ -12,3 +12,10 @@ swiftc -parse-as-library \
   apps/apple/Tests/FridayKitTests/SnapshotStreamTests.swift \
   -o "$FRIDAY_CHECK_DIR/check"
 "$FRIDAY_CHECK_DIR/check"
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  swiftc -parse-as-library \
+    apps/apple/Sources/FridayKit/TaskImagePasteboard.swift \
+    apps/apple/Tests/FridayKitTests/TaskImagePasteboardTests.swift \
+    -o "$FRIDAY_CHECK_DIR/clipboard-check"
+  "$FRIDAY_CHECK_DIR/clipboard-check"
+fi
