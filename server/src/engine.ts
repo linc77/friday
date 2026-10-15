@@ -272,8 +272,11 @@ export class Engine extends EventEmitter {
     if (!native && !this.customExecutor) await (agent === 'claude' ? this.claudeConnection : this.codexConnection).runtime({ model: input.model ?? previous?.model, reasoningEffort: input.reasoningEffort ?? previous?.reasoningEffort });
     if (!native && input.mode === 'assistant') throw new Error('主对话由 Friday 处理，请从任务入口调用本地 Agent');
     const project = snapshot.projects.find(p => p.id === input.projectId);
-    if (input.projectId && !project) throw new Error('项目不存在');
-    if (input.mode === 'code' && !project) throw new Error('代码任务需要先选择一个项目目录');
+    // Removing a Workspace registration retains its existing execution directory
+    // and Agent session. Only that same conversation can use the retained link.
+    const retainedWorkspace = previous !== undefined && previous.projectId !== null && previous.projectId === input.projectId;
+    if (input.projectId && !project && !retainedWorkspace) throw new Error('项目不存在');
+    if (input.mode === 'code' && !project && !retainedWorkspace) throw new Error('代码任务需要先选择一个项目目录');
     if (input.workspace && (native || input.continueId || !project)) throw new Error('执行位置只能用于已选择 Workspace 的新本地任务');
     const taskId = randomUUID();
     const executionWorkspace = input.workspace ? await planWorkspace(input.workspace, project!.path, this.directory, taskId) : undefined;
@@ -285,6 +288,8 @@ export class Engine extends EventEmitter {
       if (input.ideaId && !sourceIdea) throw new Error('想法不存在');
       if (sourceIdea?.taskId) return sourceIdea.taskId;
       let work = input.continueId ? workspace.tasks.find(t => t.id === input.continueId) : undefined;
+      if (input.projectId && !workspace.projects.some(p => p.id === input.projectId)
+          && (!work || work.projectId !== input.projectId)) throw new Error('项目不存在');
       if (branchBlocksTask(workspace, executionWorkspace?.cwd ?? work?.cwd ?? project?.path ?? join(this.directory, 'artifacts'))) throw new Error('当前工作区正在切换分支，请完成后再发送任务');
       if (input.continueId && !work) throw new Error('任务不存在');
       if (work && activeStatuses.includes(work.status)) throw new Error('任务正在运行，请使用补充要求');
@@ -322,13 +327,15 @@ export class Engine extends EventEmitter {
       }
       task.mode = input.mode; task.result = ''; task.artifact = null; task.workspaceRequest = null; task.turnId = null;
       const effectiveProject = workspace.projects.find(p => p.id === task.projectId);
+      const hasWorkspace = effectiveProject !== undefined || (work !== undefined && task.projectId !== null);
       const prompt = [
         !native && !task.threadId && task.messages.length > 1 ? `Previous conversation (context only; do not replay past actions):\n${task.messages.slice(0, -1).map(m => `${m.role}: ${m.text}`).join('\n\n')}` : '',
         `Task: ${input.prompt}`,
         task.mode === 'auto'
-          ? `Understand the user's intent and respond or act accordingly. ${effectiveProject ? 'The user selected the workspace below. Only modify files when requested; inspect and explain read-only requests without changing files.' : 'No workspace is selected. Answer questions and research normally. If a local workspace is needed, call friday_request_workspace and stop this turn. Never guess a working directory or attempt file changes before selection.'}`
+          ? `Understand the user's intent and respond or act accordingly. ${hasWorkspace ? 'The user selected the workspace below. Only modify files when requested; inspect and explain read-only requests without changing files.' : 'No workspace is selected. Answer questions and research normally. If a local workspace is needed, call friday_request_workspace and stop this turn. Never guess a working directory or attempt file changes before selection.'}`
           : `Mode: ${task.mode}. ${task.mode === 'research' ? 'Research and report. Do not modify project files. Cite sources when researching externally.' : 'Implement the requested change, perform relevant verification, and report the files changed.'}`,
         effectiveProject ? `Project: ${effectiveProject.name}\nProject context:\n${effectiveProject.context}` : '',
+        !effectiveProject && hasWorkspace ? `Workspace directory: ${task.cwd}` : '',
         workspace.memories.length ? `User-confirmed preferences:\n${workspace.memories.map(m => `- ${m.text}`).join('\n')}` : '',
         `Workflow skill:\n${skill}`,
         sourceIdea ? 'The user explicitly delegated this saved idea now. Act on it instead of saving the same idea again.' : '',

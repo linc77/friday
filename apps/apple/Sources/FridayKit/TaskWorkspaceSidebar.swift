@@ -11,6 +11,7 @@ struct TaskWorkspaceSidebar: View {
     let newTask: () -> Void
     @State private var adding = false
     @State private var editingWorkspace: Project?
+    @State private var showingHistory = false
     @State private var error: String?
     @State private var drag: CGFloat = 0
     @AppStorage("friday.tasks.collapsedWorkspaceGroups") private var collapsedWorkspaceData = Data()
@@ -21,6 +22,13 @@ struct TaskWorkspaceSidebar: View {
     private var pages: [String?] { [nil] + store.projects.map { Optional($0.id) } }
     private var index: Int { pages.firstIndex(of: scope) ?? 0 }
     private var project: Project? { store.projects.first { $0.id == scope } }
+    private var groups: [TaskWorkspaces.Group] { TaskWorkspaces.groups(store.tasks, projects: store.projects) }
+    private var workspaceGroups: [TaskWorkspaces.Group] { groups.filter { !$0.isHistory } }
+    private var historyTasks: [WorkItem] { groups.first { $0.isHistory }?.tasks ?? [] }
+    private var visibleTaskCount: Int {
+        scope == nil ? workspaceGroups.reduce(0) { $0 + $1.tasks.count }
+            : TaskWorkspaces.tasks(store.tasks, scope: scope, projects: store.projects).count
+    }
     private var motion: Animation? { reduceMotion || scenePhase != .active ? nil : FridayTheme.motion }
     private var collapsedWorkspaceGroups: Set<String> {
         Set((try? JSONDecoder().decode([String].self, from: collapsedWorkspaceData)) ?? [])
@@ -58,7 +66,7 @@ struct TaskWorkspaceSidebar: View {
         .onChange(of: store.projects.map(\.id)) { _, _ in reconcileWorkspaces() }
         .onChange(of: store.connected) { _, _ in reconcileWorkspaces() }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { drag = 0 }
+            if phase != .active { drag = 0; showingHistory = false }
         }
     }
 
@@ -81,7 +89,7 @@ struct TaskWorkspaceSidebar: View {
                     Text(friday: "全部 Workspace").lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                Text("\(TaskWorkspaces.tasks(store.tasks, scope: scope, projects: store.projects).count)")
+                Text("\(visibleTaskCount)")
                     .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
                     .fixedSize()
             }
@@ -111,7 +119,8 @@ struct TaskWorkspaceSidebar: View {
     }
 
     private func taskList(scope: String?) -> some View {
-        let tasks = TaskWorkspaces.tasks(store.tasks, scope: scope, projects: store.projects)
+        let groups = workspaceGroups
+        let tasks = scope == nil ? groups.flatMap(\.tasks) : TaskWorkspaces.tasks(store.tasks, scope: scope, projects: store.projects)
         let collapsed = collapsedWorkspaceGroups
         return ScrollView {
             LazyVStack(spacing: 3) {
@@ -124,7 +133,6 @@ struct TaskWorkspaceSidebar: View {
                     }.multilineTextAlignment(.center).padding(.horizontal, 20).padding(.top, 44)
                 }
                 if scope == nil {
-                    let groups = TaskWorkspaces.groups(store.tasks, projects: store.projects)
                     ForEach(groups) { group in
                         Section {
                             if !collapsed.contains(group.id) {
@@ -171,8 +179,8 @@ struct TaskWorkspaceSidebar: View {
         withAnimation(motion) { collapsedWorkspaceData = data }
     }
 
-    private func taskButton(_ task: WorkItem) -> some View {
-        Button { selectedTask = task.id } label: {
+    private func taskButton(_ task: WorkItem, closesHistory: Bool = false) -> some View {
+        Button { selectedTask = task.id; if closesHistory { showingHistory = false } } label: {
             TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects), selected: selectedTask == task.id, showsWorkspace: false)
                 .padding(.horizontal, TaskSidebarLayout.rowInset).foregroundStyle(.primary)
         }.buttonStyle(TaskRowButtonStyle(selected: selectedTask == task.id))
@@ -181,28 +189,66 @@ struct TaskWorkspaceSidebar: View {
     }
 
     private var footer: some View {
-        VStack(spacing: 8) {
-            ScrollViewReader { proxy in
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 2) {
                         ForEach(pages.indices, id: \.self) { page in
                             let title = pages[page].flatMap { id in store.projects.first { $0.id == id }?.name } ?? "全部 Workspace"
                             Button { select(pages[page]) } label: {
                                 FridaySymbolImage(systemName: "circle.fill")
-                                    .font(.system(size: page == index ? 8 : 6))
+                                    .font(.system(size: 7))
                                     .foregroundStyle(page == index ? .primary : .tertiary)
                                     .frame(width: 24, height: 28).contentShape(Rectangle())
                             }.buttonStyle(FridaySymbolButtonStyle())
                                 .accessibilityLabel(Text(fridayString: title))
                                 .accessibilityAddTraits(page == index ? .isSelected : [])
-                                .help(Text(fridayString: title)).id(page)
+                                .help(Text(fridayString: title))
                         }
-                    }.frame(minWidth: 100)
-                }.fixedSize(horizontal: false, vertical: true)
-                    .defaultScrollAnchor(.center)
-                    .onChange(of: index) { _, value in withAnimation(motion) { proxy.scrollTo(value, anchor: .center) } }
-            }.frame(maxWidth: CGFloat(pages.count * 26 + 8))
-        }.padding(.horizontal, 16).padding(.bottom, 12)
+                    }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(width: min(CGFloat(pages.count * 26 - 2), max(0, geometry.size.width - 80)), height: 28)
+                .frame(maxWidth: .infinity)
+
+                Button { showingHistory.toggle() } label: {
+                    FridaySymbolImage(systemName: "archivebox")
+                        .font(.system(size: 16))
+                        .foregroundStyle(showingHistory ? .primary : .secondary)
+                        .frame(width: 32, height: 32)
+                        .background(showingHistory ? Color.primary.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 8))
+                        .contentShape(Rectangle())
+                }.buttonStyle(FridaySymbolButtonStyle())
+                    .accessibilityLabel(Text(friday: "历史任务"))
+                    .accessibilityValue(Text(fridayString: showingHistory ? "已展开" : "已收起"))
+                    .help(Text(friday: "历史任务"))
+                    .popover(isPresented: $showingHistory, arrowEdge: .bottom) {
+                        historyPanel.environment(\.locale, locale)
+                    }
+            }.frame(height: 32)
+        }.frame(height: 32).padding(.horizontal, 8).padding(.bottom, 12)
+    }
+
+    private var historyPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(friday: "历史任务").font(.headline)
+                Spacer()
+                Text("\(historyTasks.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            if historyTasks.isEmpty {
+                Text(friday: "还没有历史任务")
+                    .font(.callout).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 64)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 3) {
+                        ForEach(historyTasks) { task in taskButton(task, closesHistory: true) }
+                    }
+                }.scrollBounceBehavior(.basedOnSize)
+                    .frame(height: min(320, max(80, CGFloat(historyTasks.count) * 48)))
+            }
+        }.padding(16).frame(width: 320)
     }
 
     private func select(_ id: String?) {

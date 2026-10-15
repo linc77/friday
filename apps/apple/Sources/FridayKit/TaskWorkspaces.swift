@@ -2,11 +2,14 @@ import Foundation
 
 /// UI terminology is Workspace; the existing service keeps its Project contract.
 enum TaskWorkspaces {
+    static let historyGroupId = "history:deleted-workspaces"
+
     struct Group: Identifiable {
         let id: String
         let name: String
         let project: Project?
         var tasks: [WorkItem]
+        var isHistory: Bool { id == TaskWorkspaces.historyGroupId }
     }
 
     static func project(for task: WorkItem, in projects: [Project]) -> Project? {
@@ -32,13 +35,17 @@ enum TaskWorkspaces {
     static func groups(_ input: [WorkItem], projects: [Project]) -> [Group] {
         var groups: [Group] = []
         var indices: [String: Int] = [:]
+        var history: [WorkItem] = []
         // The first task is the most recent, so both groups and their tasks
         // retain activity order. Names alone never identify a workspace.
         for task in tasks(input, scope: nil, projects: projects) {
             let project = project(for: task, in: projects)
+            if project == nil && task.projectId != nil {
+                history.append(task)
+                continue
+            }
             let id: String
             if let project { id = "project:\(project.id)" }
-            else if let projectId = task.projectId { id = "missing-project:\(projectId)" }
             else { id = "directory:\(normalized(task.cwd))" }
             if let index = indices[id] {
                 groups[index].tasks.append(task)
@@ -46,6 +53,9 @@ enum TaskWorkspaces {
                 indices[id] = groups.count
                 groups.append(Group(id: id, name: name(for: task, in: projects), project: project, tasks: [task]))
             }
+        }
+        if !history.isEmpty {
+            groups.append(Group(id: historyGroupId, name: "历史任务", project: nil, tasks: history))
         }
         return groups
     }

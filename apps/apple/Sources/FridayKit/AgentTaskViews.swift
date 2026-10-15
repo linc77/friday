@@ -26,6 +26,10 @@ struct NewAgentTaskView: View {
     private var workspaceReady: Bool {
         workspaceState.isReady(for: gitPath) && workspaceState.options(for: gitPath).map { workspace.wrappedValue.isValid(in: $0) } == true
     }
+    private var workspaceError: String? {
+        guard project != nil, !workspaceState.loading else { return nil }
+        return workspaceState.error ?? workspaceState.options(for: gitPath)?.validationMessage(for: workspace.wrappedValue)
+    }
     private var workspace: Binding<TaskWorkspaceSelection> {
         Binding(get: {
             (drafts[draftKey]?.workspace ?? TaskWorkspaceSelection()).resolved(in: workspaceState.options(for: gitPath))
@@ -64,8 +68,15 @@ struct NewAgentTaskView: View {
             VStack(spacing: 12) {
                 if let project {
                     Text(friday: "在 \(project.name) 中开始新任务").font(.system(size: 28, weight: .medium))
-                    Text(friday: "选择模型，把任务交给 Claude Code 或 Codex。")
+                    Text(fridayString: workspaceState.options(for: gitPath)?.git.status == "not_repository"
+                        ? "选择模型，任务将在当前目录执行。"
+                        : "选择模型，把任务交给 Claude Code 或 Codex。")
                         .font(.callout).foregroundStyle(.secondary)
+                    if !showsExecutionLocation {
+                        Text(project.path).font(.caption).foregroundStyle(.secondary)
+                            .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+                            .help(project.path)
+                    }
                     if let options = workspaceState.options(for: gitPath), options.git.status == "repository" {
                         TaskExecutionLocationPicker(selection: workspace, options: options)
                             .padding(.top, 6).disabled(sending || !store.connected)
@@ -103,9 +114,16 @@ struct NewAgentTaskView: View {
                     }
                 }.transition(.opacity)
             }
-            if let error = error ?? workspaceState.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
-            else if let options = workspaceState.options(for: gitPath), !workspace.wrappedValue.isValid(in: options) {
-                Text(friday: "所选分支不可用，请重新选择。").font(.caption).foregroundStyle(.orange)
+            if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
+            else if let workspaceError {
+                HStack(spacing: 8) {
+                    Text(fridayString: workspaceError).foregroundStyle(.orange).textSelection(.enabled)
+                    if workspaceState.error != nil || workspaceState.options(for: gitPath)?.git.status != "repository" {
+                        Button { Task { await workspaceState.refresh(store: store, path: gitPath) } } label: {
+                            Text(friday: "重试")
+                        }.buttonStyle(FridaySymbolButtonStyle()).fixedSize().disabled(sending || !store.connected)
+                    }
+                }.font(.caption).multilineTextAlignment(.center)
             }
             AgentTaskComposer(store: store, projectPath: project?.path, projectId: project?.id, workspace: workspace,
                 workspaceState: workspaceState, workspaceReady: workspaceReady, requiresProject: true, message: message, sending: sending, send: send)

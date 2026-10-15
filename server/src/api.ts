@@ -176,6 +176,11 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     await engine.mutate(s => { const p = s.projects.find(p => p.id === c.req.param('id')); if (!p) throw new Error('项目不存在'); Object.assign(p, changes); });
     return c.json({ ok: true });
   });
+  app.delete('/api/projects/:id', async c => {
+    const id = c.req.param('id');
+    await engine.mutate(s => { s.projects = s.projects.filter(p => p.id !== id); });
+    return c.json({ ok: true });
+  });
   app.get('/api/projects/:id/git', async c => {
     const project = (await engine.snapshot()).projects.find(p => p.id === c.req.param('id'));
     if (!project) return c.json({ error: '项目不存在' }, 404);

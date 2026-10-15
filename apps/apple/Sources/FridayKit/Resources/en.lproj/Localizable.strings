@@ -475,6 +475,14 @@
 "远程分支" = "Remote branch";
 "本地分支" = "Local branch";
 "所选分支不可用，请重新选择。" = "The selected branch is unavailable. Choose another branch.";
+"选择模型，任务将在当前目录执行。" = "Choose a model. The task will run in the current directory.";
+"无法读取 Workspace 信息，请确认目录可用后重试。" = "Could not read Workspace information. Check that the directory is available and try again.";
+"重试" = "Retry";
+"删除 Workspace" = "Delete Workspace";
+"删除 Workspace？" = "Delete Workspace?";
+"目录文件和已有任务会保留。" = "Directory files and existing tasks will be kept.";
+"历史任务" = "Task history";
+"还没有历史任务" = "No task history yet";
 "首次提交后可创建 New Worktree。" = "Create a worktree after the first commit.";
 "执行位置" = "Execution location";
 "切换分支" = "Switch branch";

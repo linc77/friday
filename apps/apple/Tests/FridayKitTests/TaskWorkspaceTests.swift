@@ -35,13 +35,19 @@ struct TaskWorkspaceTests {
         let legacyLinked = try task("legacy-linked", project: nil, cwd: "/work/friday/", updated: "2026-10-06")
         let worktree = try task("worktree", project: "a", cwd: "/worktrees/friday", updated: "2026-10-05")
         let groups = TaskWorkspaces.groups(tasks + artifacts + [sameName, legacyLinked, worktree], projects: projects)
-        precondition(groups.map(\.id) == ["project:a", "missing-project:gone", "project:b", "directory:/Friday/artifacts", "directory:/Other/artifacts"], "Groups follow the latest task activity, with separate same-name directories")
+        precondition(groups.map(\.id) == ["project:a", "project:b", "directory:/Friday/artifacts", "directory:/Other/artifacts", TaskWorkspaces.historyGroupId], "Workspace groups follow activity; deleted Workspace tasks appear once in history at the end")
         precondition(groups[0].tasks.map(\.id) == ["linked", "legacy-linked", "worktree"], "Legacy directory matches and linked Worktrees share their registered Workspace")
         precondition(groups[0].project?.id == "a" && groups[0].name == "Friday")
-        precondition(groups[3].name == "artifacts" && groups[3].tasks.map(\.id) == ["artifact-3", "artifact-2", "artifact-1", "artifact-0"], "The four Artifacts tasks share one header, sorted by activity")
+        precondition(groups[2].name == "artifacts" && groups[2].tasks.map(\.id) == ["artifact-3", "artifact-2", "artifact-1", "artifact-0"], "The four Artifacts tasks share one header, sorted by activity")
+        precondition(groups.last?.isHistory == true && groups.last?.name == "历史任务" && groups.last?.tasks.map(\.id) == ["deleted"], "A deleted Workspace's directory never reappears as a Workspace header")
         precondition(groups.flatMap(\.tasks).count == 10, "Every local-agent task occurs once; Friday conversations stay excluded")
         let replacement = try task("replacement", project: "new", cwd: "/work/old")
         precondition(TaskWorkspaces.groups([deleted, replacement], projects: recreated).count == 2, "A deleted Workspace does not merge into a new one with the same path")
+        let anotherDeleted = try task("another-deleted", project: "also-gone", cwd: "/work/another", updated: "2026-10-09")
+        let deletedGroups = TaskWorkspaces.groups([deleted, anotherDeleted, replacement], projects: recreated)
+        precondition(deletedGroups.map(\.id) == ["project:new", TaskWorkspaces.historyGroupId])
+        precondition(deletedGroups.last?.tasks.map(\.id) == ["another-deleted", "deleted"], "All deleted Workspace tasks share history, retain activity order and stay separate from a re-added directory")
+        precondition(TaskWorkspaces.groups([linked], projects: projects).allSatisfy { !$0.isHistory }, "No empty history group")
         precondition(TaskWorkspaces.groups([], projects: projects).isEmpty)
 
         var vertical = WorkspaceSwipe()
@@ -154,6 +160,19 @@ struct TaskWorkspaceTests {
             "A non-Git directory uses its current location even when a saved draft previously selected a Worktree and branch")
         precondition(selection.resolved(in: choices) == selection && selection.resolved(in: nil) == selection,
             "Keep Git draft choices while loading and when the directory remains a repository")
+        precondition(plainOptions.validationMessage(for: selection) == nil,
+            "A plain directory never shows a branch error, even with an old Git draft")
+        let unreadableOptions = try JSONDecoder().decode(TaskWorkspaceOptions.self, from: Data(#"{"git":{"status":"unavailable"},"hasCommit":false,"branches":[]}"#.utf8))
+        precondition(!TaskWorkspaceSelection().isValid(in: unreadableOptions))
+        precondition(unreadableOptions.validationMessage(for: TaskWorkspaceSelection()) == "无法读取 Workspace 信息，请确认目录可用后重试。",
+            "Unreadable directories report Workspace availability rather than a missing branch")
+        precondition(choices.validationMessage(for: TaskWorkspaceSelection()) == nil)
+        var deletedBranch = TaskWorkspaceSelection()
+        deletedBranch.branch = "refs/heads/deleted"
+        precondition(choices.validationMessage(for: deletedBranch) == "所选分支不可用，请重新选择。")
+        var unbornWorktree = TaskWorkspaceSelection()
+        unbornWorktree.mode = "worktree"
+        precondition(unbornOptions.validationMessage(for: unbornWorktree) == "首次提交后可创建 New Worktree。")
         print("Execution workspace selection, API payload, deleted/remote branches and unborn/non-Git validation passed")
         precondition(completed.branchChange == nil, "Older task records need no branch-change metadata")
         let switching = try rowTask(["branchChange": ["requestId": "change", "branch": "refs/heads/feature", "status": "queued"]])

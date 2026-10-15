@@ -33,7 +33,8 @@ export class FridayAssistant {
         const work = state.tasks.find(task => task.conversationId === conversationId);
         const project = state.projects.find(p => p.id === work?.projectId);
         const skill = await readFile(fileURLToPath(new URL(`../../skills/${work?.mode === 'code' ? 'code-validation' : work?.mode === 'research' ? 'project-research' : 'personal-assistant'}/SKILL.md`, import.meta.url)), 'utf8');
-        return JSON.stringify({ mode: work?.mode, project, preferences: state.memories.map(m => m.text), workflow: skill.replaceAll('friday_save_idea', 'save_idea'),
+        return JSON.stringify({ mode: work?.mode, project, workspaceDirectory: work?.projectId && !project ? work.cwd : undefined,
+          preferences: state.memories.map(m => m.text), workflow: skill.replaceAll('friday_save_idea', 'save_idea'),
           delegatedIdea: state.ideas.some(i => i.taskId === work?.id) ? 'The user explicitly delegated this saved idea. Act on it instead of saving the same idea again.' : undefined });
       }),
     ], tools: [
@@ -117,9 +118,8 @@ export class FridayAssistant {
     if (!work.projectId) throw new Error('请先调用 friday_request_workspace 等待用户选择工作目录');
     if (projectId && projectId !== work.projectId) throw new Error('只能访问用户为当前会话选择的项目');
     const project = (await this.engine.snapshot()).projects.find(p => p.id === (projectId ?? work.projectId));
-    if (!project) throw new Error('关联项目不存在');
     if (isAbsolute(path)) throw new Error('请使用项目内的相对路径');
-    const root = await realpath(project.path);
+    const root = await realpath(project?.path ?? work.cwd);
     const candidate = resolve(root, path);
     let target: string;
     try { target = await realpath(candidate); }

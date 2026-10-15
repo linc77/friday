@@ -115,6 +115,8 @@ struct WorkspaceIdentityEditor: View {
                     .keyboardShortcut(.defaultAction)
                     .disabled(!WorkspaceStyle.validName(name) || !store.connected)
             }
+            Divider()
+            WorkspaceDeleteButton(store: store, project: project, busy: $busy, error: $error, onDeleted: { dismiss() })
         }
         .padding(20).frame(width: 320).disabled(busy).interactiveDismissDisabled(busy)
     }

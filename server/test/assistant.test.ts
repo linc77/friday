@@ -74,6 +74,38 @@ test('Native file tools enforce project boundaries and persist explicit approval
   } finally { await engine.close(); await Promise.all([directory, project, outside].map(p => rm(p, { recursive: true, force: true }))); }
 });
 
+test('Native continuation retains the chosen directory and file boundaries after Workspace deletion', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-native-deleted-')); const project = await mkdtemp(join(tmpdir(), 'friday-retained-project-'));
+  const outside = await mkdtemp(join(tmpdir(), 'friday-retained-outside-'));
+  await writeFile(join(project, 'keep.txt'), 'Retained content');
+  await writeFile(join(outside, 'secret.txt'), 'outside-secret'); await symlink(outside, join(project, 'escape'));
+  const { faux, options } = model();
+  faux.setResponses([
+    fauxAssistantMessage('Ready.'),
+    ctx => {
+      assert.match(JSON.stringify(ctx), /workspaceDirectory/);
+      return fauxAssistantMessage(fauxToolCall('read_file', { path: 'escape/secret.txt' }), { stopReason: 'toolUse' });
+    },
+    ctx => {
+      assert.match(JSON.stringify(ctx), /路径超出关联项目/);
+      assert.ok(!JSON.stringify(ctx).includes('outside-secret'));
+      return fauxAssistantMessage(fauxToolCall('read_file', { path: 'keep.txt' }), { stopReason: 'toolUse' });
+    },
+    ctx => { assert.match(JSON.stringify(ctx), /Retained content/); return fauxAssistantMessage('Read the original directory.'); },
+  ]);
+  const engine = await new Engine(directory, noCodex, options).open();
+  try {
+    await engine.mutate(s => s.projects.push({ id: 'project', name: 'Project', path: project, context: '' }));
+    const id = await engine.createTask({ ...input('chosen'), mode: 'auto', projectId: 'project' });
+    const before = await until(engine, s => s.tasks[0]?.status === 'completed');
+    await engine.mutate(s => { s.projects = []; });
+    await engine.createTask({ ...input('continue-deleted'), mode: 'auto', projectId: 'project', continueId: id, prompt: 'Read the original directory' });
+    const state = await until(engine, s => s.tasks[0]?.result === 'Read the original directory.');
+    assert.equal(state.tasks[0].conversationId, before.tasks[0].conversationId);
+    assert.equal(state.tasks[0].cwd, project);
+  } finally { await engine.close(); await Promise.all([directory, project, outside].map(p => rm(p, { recursive: true, force: true }))); }
+});
+
 test('Direct conversation requests a workspace, releases the queue, and resumes the same native conversation after selection', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-native-workspace-')); const project = await mkdtemp(join(tmpdir(), 'friday-native-project-'));
   const { faux, options } = model(); let codexCalls = 0;

@@ -72,6 +72,7 @@ struct ProjectEditor: View {
     @State private var icon = "folder"
     @State private var color = "blue"
     @State private var busy = false
+    @State private var error: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack { Text(fridayString: project == nil ? "添加 Workspace" : "Workspace 背景").font(.title2.bold()); Spacer(); Button(friday: "取消") { dismiss() } }
@@ -86,12 +87,16 @@ struct ProjectEditor: View {
             Text(friday: "Workspace 背景与约定").font(.headline)
             TextEditor(text: $context).frame(minHeight: 150).padding(8).overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
             Text(friday: "目标、当前进展、你的偏好。此 Workspace 的任务都会读取这些内容。").font(.caption).foregroundStyle(.secondary)
-            if let error = store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
-            HStack { Spacer(); Button(friday: "保存 Workspace") {
+            if let error = error ?? store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
+            HStack {
+                if let project {
+                    WorkspaceDeleteButton(store: store, project: project, busy: $busy, error: $error, onDeleted: { dismiss() })
+                }
+                Spacer(); Button(friday: "保存 Workspace") {
                 busy = true
                 Task { if await store.perform(project.map { "/api/projects/\($0.id)" } ?? "/api/projects", method: project == nil ? "POST" : "PUT", body: ["name": name, "path": path, "context": context, "icon": icon, "color": color]) { dismiss() }; busy = false }
             }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(busy || !WorkspaceStyle.validName(name) || path.isEmpty || !store.connected) }
-        }.padding(26)
+        }.padding(26).disabled(busy)
         #if os(macOS)
         .frame(width: 560)
         #endif

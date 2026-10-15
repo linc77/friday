@@ -38,4 +38,16 @@ struct TaskWorkspaceOptions: Decodable {
     let git: TaskGitContext
     let branches: [Branch]
     let hasCommit: Bool
+
+    func validationMessage(for selection: TaskWorkspaceSelection) -> String? {
+        let selection = selection.resolved(in: self)
+        guard !selection.isValid(in: self) else { return nil }
+        guard git.status == "repository" else {
+            return "无法读取 Workspace 信息，请确认目录可用后重试。"
+        }
+        if selection.mode == "worktree" && !hasCommit {
+            return "首次提交后可创建 New Worktree。"
+        }
+        return "所选分支不可用，请重新选择。"
+    }
 }
