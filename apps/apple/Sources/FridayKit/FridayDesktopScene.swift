@@ -19,6 +19,7 @@ public struct FridayDesktopScene: Scene {
         .windowToolbarStyle(.unifiedCompact)
         .commands {
             FridayConversationCommands()
+            FridayTaskCommands()
             CommandGroup(replacing: .appSettings) {
                 Button(friday: "设置…") {
                     navigation.section = .settings

@@ -15,4 +15,9 @@
     <key>NSLocalNetworkUsageDescription</key><string>连接你自己的 Friday 主机。</string>
     <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
     <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLSchemes</key><array><string>friday</string></array></dict></array>
+    <key>UTExportedTypeDeclarations</key><array><dict>
+        <key>UTTypeIdentifier</key><string>dev.friday.task-sidebar-row</string>
+        <key>UTTypeDescription</key><string>Friday task sidebar row</string>
+        <key>UTTypeConformsTo</key><array><string>public.data</string></array>
+    </dict></array>
 </dict></plist>

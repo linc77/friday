@@ -1,0 +1,2255 @@
+{
+  "sourceRevision": "8cd9641f76874f2ce17d6c80acd71fab1f0b99d3",
+  "catalog": {
+    "provider": "codex",
+    "cwd": "/fixture",
+    "checkedAt": "2026-10-20T00:00:00Z",
+    "skills": [
+      {
+        "name": "review",
+        "displayName": "Review Changes",
+        "path": "/review",
+        "enabled": true,
+        "scope": "repo",
+        "shortDescription": "Review pull requests",
+        "description": "Inspect diffs and code changes"
+      },
+      {
+        "name": "plan-deploy",
+        "path": "/plan",
+        "enabled": true,
+        "scope": "project",
+        "description": "Deploy a planned change"
+      },
+      {
+        "name": "apply",
+        "path": "/apply",
+        "enabled": true,
+        "scope": "user",
+        "shortDescription": "Apply patches"
+      },
+      {
+        "name": "2spec",
+        "path": "/2spec",
+        "enabled": true,
+        "userInvocationOnly": true,
+        "description": "Turn ideas into a specification"
+      },
+      {
+        "name": "skill:review",
+        "path": "/namespaced",
+        "enabled": true,
+        "description": "Namespaced review"
+      },
+      {
+        "name": "Review",
+        "path": "/duplicate",
+        "enabled": true,
+        "description": "Duplicate should not win"
+      },
+      {
+        "name": "disabled",
+        "path": "/disabled",
+        "enabled": false
+      },
+      {
+        "name": "private",
+        "path": "/private",
+        "enabled": true,
+        "userInvocable": false
+      }
+    ],
+    "commands": [
+      {
+        "name": "compact",
+        "description": "Summarize the conversation and reduce context usage"
+      },
+      {
+        "name": "review",
+        "description": "Review command"
+      },
+      {
+        "name": "ui",
+        "description": "Explore, build, and refine UI."
+      },
+      {
+        "name": "gh-fix-ci",
+        "description": "Fix failing GitHub Actions"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "kind": "slash",
+      "query": "",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model",
+        "builtin:plan",
+        "builtin:default",
+        "command:compact",
+        "command:ui",
+        "command:gh-fix-ci",
+        "skill:review",
+        "skill:plan-deploy",
+        "skill:apply",
+        "skill:2spec",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model",
+        "builtin:plan",
+        "builtin:default",
+        "command:compact",
+        "command:review",
+        "command:ui",
+        "command:gh-fix-ci"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model",
+        "builtin:plan",
+        "builtin:default",
+        "skill:review",
+        "skill:plan-deploy",
+        "skill:apply",
+        "skill:2spec",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model",
+        "builtin:plan",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "m",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model",
+        "command:compact",
+        "skill:skill:review",
+        "builtin:plan",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "m",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model",
+        "command:compact",
+        "command:review",
+        "builtin:plan",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "m",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model",
+        "skill:skill:review",
+        "builtin:plan",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "m",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model",
+        "builtin:plan",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "model",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "model",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "model",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "model",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "modl",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "modl",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "modl",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "modl",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "mode",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model",
+        "builtin:plan",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "mode",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model",
+        "builtin:plan",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "mode",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model",
+        "builtin:plan",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "mode",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model",
+        "builtin:plan",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "plan",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan",
+        "skill:plan-deploy"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "plan",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "plan",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan",
+        "skill:plan-deploy"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "plan",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "pl",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan",
+        "skill:plan-deploy",
+        "skill:apply",
+        "command:ui"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "pl",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan",
+        "command:ui"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "pl",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan",
+        "skill:plan-deploy",
+        "skill:apply"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "pl",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "pln",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan",
+        "skill:plan-deploy"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "pln",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "pln",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan",
+        "skill:plan-deploy"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "pln",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "switch",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan",
+        "builtin:model",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "switch",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan",
+        "builtin:model",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "switch",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan",
+        "builtin:model",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "switch",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:plan",
+        "builtin:model",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "ui",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "command:ui",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "ui",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "command:ui",
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "ui",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "ui",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:default"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "gfc",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "command:gh-fix-ci"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "gfc",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "command:gh-fix-ci"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "gfc",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "gfc",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "review",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "review",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "command:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "review",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "review",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "changes",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "changes",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "changes",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "changes",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "repo",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "repo",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "repo",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "repo",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "user",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:apply"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "user",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "user",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:apply"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "user",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "skill",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:2spec",
+        "skill:apply",
+        "skill:plan-deploy",
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "skill",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "skill",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:2spec",
+        "skill:apply",
+        "skill:plan-deploy",
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "skill",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "skill:",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:2spec",
+        "skill:apply",
+        "skill:plan-deploy",
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "skill:",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "skill:",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:2spec",
+        "skill:apply",
+        "skill:plan-deploy",
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "skill:",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "skill:re",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "skill:re",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "skill:re",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "skill:re",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "sk",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review",
+        "skill:2spec",
+        "skill:apply",
+        "skill:plan-deploy",
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "sk",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "sk",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review",
+        "skill:2spec",
+        "skill:apply",
+        "skill:plan-deploy",
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "sk",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "2spec",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:2spec"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "2spec",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "2spec",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:2spec"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "2spec",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "rvew",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "rvew",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "command:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "rvew",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "rvew",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "nonsense",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "nonsense",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "nonsense",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "nonsense",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "/model",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "/model",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "/model",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "/model",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "builtin:model"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "€review",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "€review",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "€review",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "€review",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "compact",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": false,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "compact",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": false,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "compact",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": false,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "compact",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": false,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "context",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "command:compact"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "context",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "command:compact"
+      ]
+    },
+    {
+      "kind": "slash",
+      "query": "context",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "slash",
+      "query": "context",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:plan-deploy",
+        "skill:apply",
+        "skill:2spec",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:plan-deploy",
+        "skill:apply",
+        "skill:2spec",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:plan-deploy",
+        "skill:apply",
+        "skill:2spec",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:plan-deploy",
+        "skill:apply",
+        "skill:2spec",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "m",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "m",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "m",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "m",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "model",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "model",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "model",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "model",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "modl",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "modl",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "modl",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "modl",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "mode",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "mode",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "mode",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "mode",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "plan",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:plan-deploy"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "plan",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:plan-deploy"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "plan",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:plan-deploy"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "plan",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:plan-deploy"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "pl",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:plan-deploy",
+        "skill:apply"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "pl",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:plan-deploy",
+        "skill:apply"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "pl",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:plan-deploy",
+        "skill:apply"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "pl",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:plan-deploy",
+        "skill:apply"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "pln",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:plan-deploy"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "pln",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:plan-deploy"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "pln",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:plan-deploy"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "pln",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:plan-deploy"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "switch",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "switch",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "switch",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "switch",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "ui",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "ui",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "ui",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "ui",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "gfc",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "gfc",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "gfc",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "gfc",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "review",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "review",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "review",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "review",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "changes",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "changes",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "changes",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "changes",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "repo",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "repo",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "repo",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "repo",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "user",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:apply"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "user",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:apply"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "user",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:apply"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "user",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:apply"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "skill",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "skill",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "skill",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "skill",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "skill:",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "skill:",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "skill:",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "skill:",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "skill:re",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "skill:re",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "skill:re",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "skill:re",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "sk",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "sk",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "sk",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "sk",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "2spec",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:2spec"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "2spec",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:2spec"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "2spec",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:2spec"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "2spec",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:2spec"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "rvew",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "rvew",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "rvew",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "rvew",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "nonsense",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "nonsense",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "nonsense",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "nonsense",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "/model",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "/model",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "/model",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "/model",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "€review",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "€review",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "€review",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "€review",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": [
+        "skill:review",
+        "skill:skill:review"
+      ]
+    },
+    {
+      "kind": "skill",
+      "query": "compact",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": false,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "compact",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": false,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "compact",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": false,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "compact",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": false,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "context",
+      "atStart": true,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "context",
+      "atStart": true,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "context",
+      "atStart": false,
+      "showSkills": true,
+      "compactAvailable": true,
+      "expected": []
+    },
+    {
+      "kind": "skill",
+      "query": "context",
+      "atStart": false,
+      "showSkills": false,
+      "compactAvailable": true,
+      "expected": []
+    }
+  ],
+  "modeCases": [
+    {
+      "text": "/plan",
+      "expected": "plan"
+    },
+    {
+      "text": " /PLAN \n",
+      "expected": "plan"
+    },
+    {
+      "text": "/default",
+      "expected": "default"
+    },
+    {
+      "text": " /DeFaUlT\t",
+      "expected": "default"
+    },
+    {
+      "text": "/model",
+      "expected": null
+    },
+    {
+      "text": "/plans",
+      "expected": null
+    },
+    {
+      "text": "/plan reason",
+      "expected": null
+    },
+    {
+      "text": "prefix /plan",
+      "expected": null
+    },
+    {
+      "text": "/plan\n/plan",
+      "expected": null
+    },
+    {
+      "text": "﻿/plan﻿",
+      "expected": "plan"
+    },
+    {
+      "text": "/plan",
+      "expected": null
+    },
+    {
+      "text": " /default ",
+      "expected": "default"
+    },
+    {
+      "text": "/default?",
+      "expected": null
+    },
+    {
+      "text": "",
+      "expected": null
+    }
+  ],
+  "feedbackCases": [
+    {
+      "text": "/feedback",
+      "expected": "/feedback"
+    },
+    {
+      "text": " /feedback ",
+      "expected": "/feedback"
+    },
+    {
+      "text": "/Feedback problem",
+      "expected": "/Feedback problem"
+    },
+    {
+      "text": "/feedback\n  reason\nmore ",
+      "expected": "/feedback\n  reason\nmore"
+    },
+    {
+      "text": "/feedback-status",
+      "expected": null
+    },
+    {
+      "text": "Please /feedback",
+      "expected": null
+    },
+    {
+      "text": "/feedbackreason",
+      "expected": null
+    },
+    {
+      "text": "/feedback",
+      "expected": null
+    },
+    {
+      "text": "﻿/feedback﻿",
+      "expected": "/feedback"
+    },
+    {
+      "text": "/feedback reason",
+      "expected": "/feedback reason"
+    },
+    {
+      "text": "/FEEDBACK中文",
+      "expected": null
+    },
+    {
+      "text": "/feedback reason 🧪",
+      "expected": "/feedback reason 🧪"
+    },
+    {
+      "text": "/feedback reason",
+      "expected": "/feedback reason"
+    }
+  ]
+}

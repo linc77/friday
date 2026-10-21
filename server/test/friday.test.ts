@@ -11,14 +11,21 @@ import type { ExecutionRequest, Executor, Workspace } from '../src/types.js';
 class ControlledExecutor implements Executor {
   calls: string[] = [];
   releases: (() => void)[] = [];
+  live = new Map<string, () => void>();
   async run(request: ExecutionRequest) {
     this.calls.push(request.task.id);
     await request.update({ kind: 'session', threadId: `thread-${request.task.id}` });
+    await request.update({ kind: 'turn', turnId: `turn-${request.task.id}` });
     await request.update({ kind: 'output', text: 'Working' });
-    await new Promise<void>((resolve, reject) => {
-      this.releases.push(resolve);
-      request.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
-    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.releases.push(resolve);
+        this.live.set(request.task.id, resolve);
+        const abort = () => reject(new Error('aborted'));
+        request.signal.addEventListener('abort', abort, { once: true });
+        if (request.signal.aborted) abort();
+      });
+    } finally { this.live.delete(request.task.id); }
     return 'Verified result';
   }
   async answer() {}
@@ -31,21 +38,21 @@ async function until(engine: Engine, predicate: (value: Workspace) => boolean) {
 }
 const input = (requestId: string) => ({ agent: 'codex' as const, prompt: 'Inspect this project', mode: 'research' as const, projectId: null, requestId });
 
-test('Durable deduplicates submissions, serializes execution, and retains artifacts across restarts', async () => {
+test('Durable deduplicates submissions, runs independent threads concurrently, and retains artifacts across restarts', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-'));
   const executor = new ControlledExecutor(); let engine = await new Engine(directory, executor).open();
   try {
     const first = await engine.createTask(input('first'));
     assert.equal(await engine.createTask(input('first')), first);
     const second = await engine.createTask(input('second'));
-    await until(engine, s => s.tasks.find(t => t.id === first)?.threadId !== null);
-    assert.deepEqual(executor.calls, [first]);
+    await until(engine, () => executor.live.has(first) && executor.live.has(second));
+    assert.deepEqual(new Set(executor.calls), new Set([first, second]));
     await engine.steer(first, 'Please include the verification result', 'legacy-steer');
     assert.equal((await engine.snapshot()).tasks[0].messages?.at(-1)?.text, 'Please include the verification result');
-    executor.releases[0]();
-    await until(engine, s => s.tasks.find(t => t.id === second)?.threadId !== null);
-    assert.deepEqual(executor.calls, [first, second]);
-    executor.releases[1]();
+    executor.live.get(first)!();
+    await until(engine, s => s.tasks.find(t => t.id === first)?.status === 'completed');
+    assert.equal((await engine.snapshot()).tasks.find(t => t.id === second)?.status, 'running');
+    executor.live.get(second)!();
     await until(engine, s => s.tasks.every(t => t.status === 'completed'));
     assert.match(await engine.artifact(first), /Verified result/);
     await engine.close(); engine = await new Engine(directory, executor).open();
@@ -56,18 +63,22 @@ test('Durable deduplicates submissions, serializes execution, and retains artifa
   } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
-test('Interrupted external work is never replayed automatically; a queued task still resumes', async () => {
+test('Interrupted independent threads never replay automatically and can be continued explicitly', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-'));
   const executor = new ControlledExecutor(); let engine = await new Engine(directory, executor).open();
   try {
     const first = await engine.createTask(input('interrupt'));
     await until(engine, s => s.tasks[0].threadId !== null);
     const second = await engine.createTask(input('queued'));
+    await until(engine, () => executor.live.has(first) && executor.live.has(second));
     await engine.close(); engine = await new Engine(directory, executor).open();
-    const state = await until(engine, s => s.tasks.find(t => t.id === second)?.threadId !== null);
+    const state = await until(engine, s => s.tasks.every(task => task.status === 'interrupted'));
     assert.equal(state.tasks.find(t => t.id === first)?.status, 'interrupted');
     assert.equal(executor.calls.filter(id => id === first).length, 1);
-    executor.releases.at(-1)!();
+    assert.equal(executor.calls.length, 2);
+    await engine.createTask({ ...input('resume-second'), continueId: second });
+    await until(engine, () => executor.calls.length === 3 && executor.live.has(second));
+    executor.live.get(second)!();
     await until(engine, s => s.tasks.find(t => t.id === second)?.status === 'completed');
     await engine.createTask({ ...input('resume-explicit'), continueId: first });
     await until(engine, s => s.tasks[0].status === 'running');
@@ -81,15 +92,15 @@ test('Codex item snapshots persist once and unfinished items terminalize on reco
   const executor = new ControlledExecutor(); let engine = await new Engine(directory, executor).open();
   try {
     const id = await engine.createTask(input('items'));
-    await until(engine, s => s.tasks[0].threadId !== null);
-    await engine.updateExecution(id, { kind: 'turn', turnId: 'turn-items' });
-    const item = { id: 'codex:turn-items:command', itemId: 'command', turnId: 'turn-items', kind: 'command', text: 'pnpm test', at: '2026-10-07T10:00:00.000Z', status: 'running' as const };
+    const started = await until(engine, s => s.tasks[0].turnId !== null);
+    const turnId = started.tasks[0].turnId!;
+    const item = { id: `codex:${turnId}:command`, itemId: 'command', turnId, kind: 'command', text: 'pnpm test', at: '2026-10-07T10:00:00.000Z', status: 'running' as const };
     await engine.updateExecution(id, { kind: 'item', item });
     await engine.updateExecution(id, { kind: 'item', item: { ...item, at: '2026-10-07T10:00:01.000Z', detail: 'streamed output' } });
     let work = (await engine.snapshot()).tasks[0];
     assert.equal(work.events.filter(e => e.itemId === 'command').length, 1);
     assert.equal(work.events.find(e => e.itemId === 'command')?.at, item.at);
-    assert.equal(work.messages?.[0].turnId, 'turn-items');
+    assert.equal(work.messages?.[0].turnId, turnId);
     await engine.close(); engine = await new Engine(directory, executor).open();
     work = (await until(engine, s => s.tasks[0].status === 'interrupted')).tasks[0];
     assert.equal(work.events.find(e => e.itemId === 'command')?.status, 'interrupted');
@@ -98,7 +109,7 @@ test('Codex item snapshots persist once and unfinished items terminalize on reco
   } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
-test('Continuing an older task stays in FIFO order with new tasks', async () => {
+test('Continuing a thread does not block new threads or overlap an existing turn of that same thread', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-'));
   const executor = new ControlledExecutor(); const engine = await new Engine(directory, executor).open();
   try {
@@ -109,13 +120,11 @@ test('Continuing an older task stays in FIFO order with new tasks', async () => 
     await until(engine, s => s.tasks[1].threadId !== null);
     await engine.createTask({ ...input('continue-old'), continueId: first });
     const third = await engine.createTask(input('newer'));
-    executor.releases[1]();
-    await until(engine, s => s.tasks[0].status === 'running');
-    assert.deepEqual(executor.calls, [first, second, first]);
-    assert.equal((await engine.snapshot()).tasks[2].status, 'queued');
-    executor.releases[2]();
-    await until(engine, s => s.tasks[2].threadId !== null);
-    assert.deepEqual(executor.calls, [first, second, first, third]);
+    await until(engine, s => s.tasks.every(task => task.status === 'running') && executor.calls.length === 4);
+    assert.equal(executor.calls.filter(id => id === first).length, 2);
+    await assert.rejects(engine.createTask({ ...input('overlap'), continueId: first }), /正在运行/);
+    executor.live.get(first)!(); executor.live.get(second)!();
+    await until(engine, s => s.tasks.slice(0, 2).every(task => task.status === 'completed'));
     await engine.cancel(third);
     await engine.updateExecution(third, { kind: 'approvalResolved', id: 'late-reply' });
     assert.equal((await engine.snapshot()).tasks[2].status, 'cancelled');

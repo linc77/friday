@@ -14,6 +14,8 @@ struct TaskRow: View {
     var workspace: Project? = nil
     var selected = false
     var showsWorkspace = true
+    var renaming: TaskTitleEditorConfiguration? = nil
+    var acknowledgeWake: (() -> Void)? = nil
 
     private var showsGitMetadata: Bool { task.git?.status == "repository" }
 
@@ -33,9 +35,31 @@ struct TaskRow: View {
                     .frame(width: TaskSidebarLayout.iconSize, height: TaskSidebarLayout.iconSize)
                     .foregroundStyle(.secondary)
                     .help(task.agentName)
-                title
+                title.opacity(task.titleRegeneration == nil || renaming != nil ? 1 : 0.55)
+                    .help(task.titleRegeneration == nil ? Text(task.title) : Text(friday: "正在重新生成标题"))
+                if task.pinnedAt != nil {
+                    FridaySymbolImage(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(.secondary)
+                        .accessibilityLabel(Text(friday: "已置顶"))
+                }
+                if task.unread == true {
+                    FridaySymbolImage(systemName: "circle.fill").font(.system(size: 6)).foregroundStyle(.blue)
+                        .accessibilityLabel(Text(friday: "未读"))
+                }
+                if let activity = task.backgroundActivity, activity.total > 0 {
+                    let count = activity.total
+                    HStack(spacing: 3) {
+                        FridaySymbolImage(systemName: activity.commands == count ? "terminal" : "square.stack").font(.system(size: 10)).accessibilityHidden(true)
+                        Text(verbatim: String(count)).font(.system(size: 10)).monospacedDigit()
+                    }.foregroundStyle(.secondary).accessibilityLabel(Text(friday: "后台工作")).fridaySymbolFeedback(value: count)
+                }
+                if let badge = TaskPullRequestPresentation.badge(task.pullRequests ?? [], stacks: task.changeRequestStacks ?? [:], branch: task.branchPullRequest) {
+                    HStack(spacing: 3) {
+                        FridaySymbolImage(systemName: badge.stacked ? "square.stack" : badge.state == "merged" ? "arrow.triangle.merge" : badge.state == "closed" ? "xmark.circle" : "arrow.triangle.pull").font(.system(size: 10))
+                        Text(badge.stacked ? String(badge.count) : "#\(badge.current.number)").font(.system(size: 10)).monospacedDigit()
+                    }.foregroundStyle(badge.state == "merged" ? Color.purple : badge.state == "open" ? Color.green : Color.secondary).help(badge.current.title)
+                }
                 if !showsGitMetadata {
-                    TaskRowActivity(task: task).foregroundStyle(.secondary)
+                    TaskRowActivity(task: task, acknowledgeWake: acknowledgeWake).foregroundStyle(.secondary)
                 }
             }.frame(maxWidth: .infinity, alignment: .leading).frame(minHeight: 16)
 
@@ -51,21 +75,25 @@ struct TaskRow: View {
                         .lineLimit(1).truncationMode(.middle)
                         .help(TaskRowPresentation.branch(task.git))
                     Spacer(minLength: 6)
-                    TaskRowActivity(task: task).foregroundStyle(.secondary)
+                    TaskRowActivity(task: task, acknowledgeWake: acknowledgeWake).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading).frame(height: 16)
                 .padding(.leading, TaskSidebarLayout.titleInset)
             }
         }
         .padding(.vertical, 6)
-        .accessibilityElement(children: .combine)
-        .accessibilityValue(Text(task.agentName) + Text("，") + Text(fridayString: task.statusText))
+        .accessibilityElement(children: renaming == nil ? .combine : .contain)
+        .accessibilityValue(Text(task.agentName) + Text("，") + Text(fridayString: task.statusText) + (task.titleRegeneration == nil ? Text("") : Text("，") + Text(friday: "正在重新生成标题")))
     }
 
-    private var title: some View {
-        TaskRowTitle(title: task.title)
-            .font(.system(size: 12))
-            .foregroundStyle(.primary)
+    @ViewBuilder private var title: some View {
+        #if os(macOS)
+        if let renaming {
+            TaskTitleEditor(configuration: renaming).id(renaming.token).frame(height: 20)
+        } else { TaskRowTitle(title: task.title).font(.system(size: 12)).foregroundStyle(.primary) }
+        #else
+        TaskRowTitle(title: task.title).font(.system(size: 12)).foregroundStyle(.primary)
+        #endif
     }
 }
 
@@ -189,6 +217,7 @@ private struct SidebarRowButtonBody: View {
 
 private struct TaskRowActivity: View {
     let task: WorkItem
+    let acknowledgeWake: (() -> Void)?
 
     private var color: Color {
         switch task.status {
@@ -202,7 +231,7 @@ private struct TaskRowActivity: View {
     var body: some View {
         Group {
             if task.localAgent {
-                AgentTaskSidebarActivity(task: task)
+                AgentTaskSidebarActivity(task: task, acknowledgeWake: acknowledgeWake)
             } else if task.status == "completed" {
                 TimelineView(.periodic(from: .now, by: 60)) { context in
                     Text(TaskRowPresentation.age(task, now: context.date))

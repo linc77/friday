@@ -1,0 +1,461 @@
+{
+  "sha": "8cd9641f76874f2ce17d6c80acd71fab1f0b99d3",
+  "synthetic": true,
+  "source": "apps/desktop/src/preview/BrowserImport",
+  "derivation": {
+    "secret": "Friday synthetic cookie fixture only",
+    "key": "JfLvLUPtwlogDMYgAREgtw=="
+  },
+  "crypto": [
+    {
+      "data": "djEwGyMOIFi9VdkJSiIKAMU7cA==",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "app.fixture.invalid",
+      "version": 23,
+      "expected": ""
+    },
+    {
+      "data": "djEwx+1PoBmnrTu3UdJRMIsdBQ==",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "app.fixture.invalid",
+      "version": 23,
+      "expected": "hello"
+    },
+    {
+      "data": "djEwx+1PoBmnrTu3UdJRMIsd",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "app.fixture.invalid",
+      "version": 23,
+      "expected": null
+    },
+    {
+      "data": "djEwx+1PoBmnrTu3UdJRMIsAAA==",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "app.fixture.invalid",
+      "version": 23,
+      "expected": null
+    },
+    {
+      "data": "djExx+1PoBmnrTu3UdJRMIsdBQ==",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "app.fixture.invalid",
+      "version": 23,
+      "expected": null
+    },
+    {
+      "data": "djEwkCGhp/WEZSOsiB3gYnGROg==",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "app.fixture.invalid",
+      "version": 23,
+      "expected": "中文 😀"
+    },
+    {
+      "data": "djEwGyMOIFi9VdkJSiIKAMU7cA==",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": ".fixture.invalid",
+      "version": 23,
+      "expected": ""
+    },
+    {
+      "data": "djEwx+1PoBmnrTu3UdJRMIsdBQ==",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": ".fixture.invalid",
+      "version": 23,
+      "expected": "hello"
+    },
+    {
+      "data": "djEwx+1PoBmnrTu3UdJRMIsd",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": ".fixture.invalid",
+      "version": 23,
+      "expected": null
+    },
+    {
+      "data": "djEwx+1PoBmnrTu3UdJRMIsAAA==",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": ".fixture.invalid",
+      "version": 23,
+      "expected": null
+    },
+    {
+      "data": "djExx+1PoBmnrTu3UdJRMIsdBQ==",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": ".fixture.invalid",
+      "version": 23,
+      "expected": null
+    },
+    {
+      "data": "djEwkCGhp/WEZSOsiB3gYnGROg==",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": ".fixture.invalid",
+      "version": 23,
+      "expected": "中文 😀"
+    },
+    {
+      "data": "djEwNeBPoGpGB4SHJ4tCzQR2tsC6Y0evxbyGTY3PGzmn+Fxx5NPp6Ks2/x66W6RqnQ7e",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "app.fixture.invalid",
+      "version": 24,
+      "expected": ""
+    },
+    {
+      "data": "djEwNeBPoGpGB4SHJ4tCzQR2tsC6Y0evxbyGTY3PGzmn+Fxx5NPp6Ks2/x66W6RqnQ7e",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "other.fixture.invalid",
+      "version": 24,
+      "expected": null
+    },
+    {
+      "data": "djEwNeBPoGpGB4SHJ4tCzQR2tsC6Y0evxbyGTY3PGzmn+Fwr+D01EAKuHmfR9aOQTFZb",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "app.fixture.invalid",
+      "version": 24,
+      "expected": "hello"
+    },
+    {
+      "data": "djEwNeBPoGpGB4SHJ4tCzQR2tsC6Y0evxbyGTY3PGzmn+Fwr+D01EAKuHmfR9aOQTFY=",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "app.fixture.invalid",
+      "version": 24,
+      "expected": null
+    },
+    {
+      "data": "djEwNeBPoGpGB4SHJ4tCzQR2tsC6Y0evxbyGTY3PGzmn+Fwr+D01EAKuHmfR9aOQTAAA",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "app.fixture.invalid",
+      "version": 24,
+      "expected": null
+    },
+    {
+      "data": "djExNeBPoGpGB4SHJ4tCzQR2tsC6Y0evxbyGTY3PGzmn+Fwr+D01EAKuHmfR9aOQTFZb",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "app.fixture.invalid",
+      "version": 24,
+      "expected": null
+    },
+    {
+      "data": "djEwNeBPoGpGB4SHJ4tCzQR2tsC6Y0evxbyGTY3PGzmn+Fwr+D01EAKuHmfR9aOQTFZb",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "other.fixture.invalid",
+      "version": 24,
+      "expected": null
+    },
+    {
+      "data": "djEwNeBPoGpGB4SHJ4tCzQR2tsC6Y0evxbyGTY3PGzmn+FypIiXJ5HTL/entxdeNUbvH",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "app.fixture.invalid",
+      "version": 24,
+      "expected": "中文 😀"
+    },
+    {
+      "data": "djEwNeBPoGpGB4SHJ4tCzQR2tsC6Y0evxbyGTY3PGzmn+FypIiXJ5HTL/entxdeNUbvH",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "other.fixture.invalid",
+      "version": 24,
+      "expected": null
+    },
+    {
+      "data": "djEw/xVHU59um0c0QkAV0hyRNeSWf1FQ+j1qEpeDoGY8ZBYb/tkUEGGs0uP9bk5zFe0j",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": ".fixture.invalid",
+      "version": 24,
+      "expected": ""
+    },
+    {
+      "data": "djEw/xVHU59um0c0QkAV0hyRNeSWf1FQ+j1qEpeDoGY8ZBYb/tkUEGGs0uP9bk5zFe0j",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "other.fixture.invalid",
+      "version": 24,
+      "expected": null
+    },
+    {
+      "data": "djEw/xVHU59um0c0QkAV0hyRNeSWf1FQ+j1qEpeDoGY8ZBYhG+tSqt5ozMaZlnK+Gmik",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": ".fixture.invalid",
+      "version": 24,
+      "expected": "hello"
+    },
+    {
+      "data": "djEw/xVHU59um0c0QkAV0hyRNeSWf1FQ+j1qEpeDoGY8ZBYhG+tSqt5ozMaZlnK+Gmg=",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": ".fixture.invalid",
+      "version": 24,
+      "expected": null
+    },
+    {
+      "data": "djEw/xVHU59um0c0QkAV0hyRNeSWf1FQ+j1qEpeDoGY8ZBYhG+tSqt5ozMaZlnK+GgAA",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": ".fixture.invalid",
+      "version": 24,
+      "expected": null
+    },
+    {
+      "data": "djEx/xVHU59um0c0QkAV0hyRNeSWf1FQ+j1qEpeDoGY8ZBYhG+tSqt5ozMaZlnK+Gmik",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": ".fixture.invalid",
+      "version": 24,
+      "expected": null
+    },
+    {
+      "data": "djEw/xVHU59um0c0QkAV0hyRNeSWf1FQ+j1qEpeDoGY8ZBYhG+tSqt5ozMaZlnK+Gmik",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "other.fixture.invalid",
+      "version": 24,
+      "expected": null
+    },
+    {
+      "data": "djEw/xVHU59um0c0QkAV0hyRNeSWf1FQ+j1qEpeDoGY8ZBavLMZR/clAWsBgLBNwe6s+",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": ".fixture.invalid",
+      "version": 24,
+      "expected": "中文 😀"
+    },
+    {
+      "data": "djEw/xVHU59um0c0QkAV0hyRNeSWf1FQ+j1qEpeDoGY8ZBavLMZR/clAWsBgLBNwe6s+",
+      "key": "JfLvLUPtwlogDMYgAREgtw==",
+      "host": "other.fixture.invalid",
+      "version": 24,
+      "expected": null
+    }
+  ],
+  "safari": [
+    {
+      "data": "Y29vawAAAAEAAAB2AAABAAEAAAAQAAAAAAAAAGYAAAAAAAAAAAAAAAAAAAA4AAAASAAAAFAAAABWAAAAAAAAAAAAAAAAAAAAgIQuQQAAAAAAAAAAZml4dHVyZS5pbnZhbGlkAHNlc3Npb24AL3BhdGgAc3ludGhldGljLXZhbHVlAA==",
+      "expected": [
+        {
+          "url": "http://fixture.invalid/path",
+          "name": "session",
+          "value": "synthetic-value",
+          "path": "/path",
+          "secure": false,
+          "httpOnly": false,
+          "expirationDate": 979307200,
+          "sameSite": "lax"
+        }
+      ]
+    },
+    {
+      "data": "Y29vawAAAAEAAAB2AAABAAEAAAAQAAAAAAAAAGYAAAAAAAAAAQAAAAAAAAA4AAAASAAAAFAAAABWAAAAAAAAAAAAAAAAAAAAgIQuQQAAAAAAAAAAZml4dHVyZS5pbnZhbGlkAHNlc3Npb24AL3BhdGgAc3ludGhldGljLXZhbHVlAA==",
+      "expected": [
+        {
+          "url": "https://fixture.invalid/path",
+          "name": "session",
+          "value": "synthetic-value",
+          "path": "/path",
+          "secure": true,
+          "httpOnly": false,
+          "expirationDate": 979307200,
+          "sameSite": "lax"
+        }
+      ]
+    },
+    {
+      "data": "Y29vawAAAAEAAAB2AAABAAEAAAAQAAAAAAAAAGYAAAAAAAAABAAAAAAAAAA4AAAASAAAAFAAAABWAAAAAAAAAAAAAAAAAAAAgIQuQQAAAAAAAAAAZml4dHVyZS5pbnZhbGlkAHNlc3Npb24AL3BhdGgAc3ludGhldGljLXZhbHVlAA==",
+      "expected": [
+        {
+          "url": "http://fixture.invalid/path",
+          "name": "session",
+          "value": "synthetic-value",
+          "path": "/path",
+          "secure": false,
+          "httpOnly": true,
+          "expirationDate": 979307200,
+          "sameSite": "lax"
+        }
+      ]
+    },
+    {
+      "data": "Y29vawAAAAEAAAB2AAABAAEAAAAQAAAAAAAAAGYAAAAAAAAABQAAAAAAAAA4AAAASAAAAFAAAABWAAAAAAAAAAAAAAAAAAAAgIQuQQAAAAAAAAAAZml4dHVyZS5pbnZhbGlkAHNlc3Npb24AL3BhdGgAc3ludGhldGljLXZhbHVlAA==",
+      "expected": [
+        {
+          "url": "https://fixture.invalid/path",
+          "name": "session",
+          "value": "synthetic-value",
+          "path": "/path",
+          "secure": true,
+          "httpOnly": true,
+          "expirationDate": 979307200,
+          "sameSite": "lax"
+        }
+      ]
+    },
+    {
+      "data": "Y29vawAAAAEAAAB3AAABAAEAAAAQAAAAAAAAAGcAAAAAAAAAAAAAAAAAAAA4AAAASQAAAFEAAABXAAAAAAAAAAAAAAAAAAAAgIQuQQAAAAAAAAAALmZpeHR1cmUuaW52YWxpZABzZXNzaW9uAC9wYXRoAHN5bnRoZXRpYy12YWx1ZQA=",
+      "expected": [
+        {
+          "url": "http://fixture.invalid/path",
+          "domain": ".fixture.invalid",
+          "name": "session",
+          "value": "synthetic-value",
+          "path": "/path",
+          "secure": false,
+          "httpOnly": false,
+          "expirationDate": 979307200,
+          "sameSite": "lax"
+        }
+      ]
+    },
+    {
+      "data": "Y29vawAAAAEAAAB3AAABAAEAAAAQAAAAAAAAAGcAAAAAAAAAAQAAAAAAAAA4AAAASQAAAFEAAABXAAAAAAAAAAAAAAAAAAAAgIQuQQAAAAAAAAAALmZpeHR1cmUuaW52YWxpZABzZXNzaW9uAC9wYXRoAHN5bnRoZXRpYy12YWx1ZQA=",
+      "expected": [
+        {
+          "url": "https://fixture.invalid/path",
+          "domain": ".fixture.invalid",
+          "name": "session",
+          "value": "synthetic-value",
+          "path": "/path",
+          "secure": true,
+          "httpOnly": false,
+          "expirationDate": 979307200,
+          "sameSite": "lax"
+        }
+      ]
+    },
+    {
+      "data": "Y29vawAAAAEAAAB3AAABAAEAAAAQAAAAAAAAAGcAAAAAAAAABAAAAAAAAAA4AAAASQAAAFEAAABXAAAAAAAAAAAAAAAAAAAAgIQuQQAAAAAAAAAALmZpeHR1cmUuaW52YWxpZABzZXNzaW9uAC9wYXRoAHN5bnRoZXRpYy12YWx1ZQA=",
+      "expected": [
+        {
+          "url": "http://fixture.invalid/path",
+          "domain": ".fixture.invalid",
+          "name": "session",
+          "value": "synthetic-value",
+          "path": "/path",
+          "secure": false,
+          "httpOnly": true,
+          "expirationDate": 979307200,
+          "sameSite": "lax"
+        }
+      ]
+    },
+    {
+      "data": "Y29vawAAAAEAAAB3AAABAAEAAAAQAAAAAAAAAGcAAAAAAAAABQAAAAAAAAA4AAAASQAAAFEAAABXAAAAAAAAAAAAAAAAAAAAgIQuQQAAAAAAAAAALmZpeHR1cmUuaW52YWxpZABzZXNzaW9uAC9wYXRoAHN5bnRoZXRpYy12YWx1ZQA=",
+      "expected": [
+        {
+          "url": "https://fixture.invalid/path",
+          "domain": ".fixture.invalid",
+          "name": "session",
+          "value": "synthetic-value",
+          "path": "/path",
+          "secure": true,
+          "httpOnly": true,
+          "expirationDate": 979307200,
+          "sameSite": "lax"
+        }
+      ]
+    },
+    {
+      "data": "Y29vawAAAAEAAABqAAABAAEAAAAQAAAAAAAAAFoAAAAAAAAAAAAAAAAAAAA4AAAAPAAAAEQAAABKAAAAAAAAAAAAAAAAAAAAgIQuQQAAAAAAAAAAOjoxAHNlc3Npb24AL3BhdGgAc3ludGhldGljLXZhbHVlAA==",
+      "expected": [
+        {
+          "url": "http://[::1]/path",
+          "name": "session",
+          "value": "synthetic-value",
+          "path": "/path",
+          "secure": false,
+          "httpOnly": false,
+          "expirationDate": 979307200,
+          "sameSite": "lax"
+        }
+      ]
+    },
+    {
+      "data": "Y29vawAAAAEAAABqAAABAAEAAAAQAAAAAAAAAFoAAAAAAAAAAQAAAAAAAAA4AAAAPAAAAEQAAABKAAAAAAAAAAAAAAAAAAAAgIQuQQAAAAAAAAAAOjoxAHNlc3Npb24AL3BhdGgAc3ludGhldGljLXZhbHVlAA==",
+      "expected": [
+        {
+          "url": "https://[::1]/path",
+          "name": "session",
+          "value": "synthetic-value",
+          "path": "/path",
+          "secure": true,
+          "httpOnly": false,
+          "expirationDate": 979307200,
+          "sameSite": "lax"
+        }
+      ]
+    },
+    {
+      "data": "Y29vawAAAAEAAABqAAABAAEAAAAQAAAAAAAAAFoAAAAAAAAABAAAAAAAAAA4AAAAPAAAAEQAAABKAAAAAAAAAAAAAAAAAAAAgIQuQQAAAAAAAAAAOjoxAHNlc3Npb24AL3BhdGgAc3ludGhldGljLXZhbHVlAA==",
+      "expected": [
+        {
+          "url": "http://[::1]/path",
+          "name": "session",
+          "value": "synthetic-value",
+          "path": "/path",
+          "secure": false,
+          "httpOnly": true,
+          "expirationDate": 979307200,
+          "sameSite": "lax"
+        }
+      ]
+    },
+    {
+      "data": "Y29vawAAAAEAAABqAAABAAEAAAAQAAAAAAAAAFoAAAAAAAAABQAAAAAAAAA4AAAAPAAAAEQAAABKAAAAAAAAAAAAAAAAAAAAgIQuQQAAAAAAAAAAOjoxAHNlc3Npb24AL3BhdGgAc3ludGhldGljLXZhbHVlAA==",
+      "expected": [
+        {
+          "url": "https://[::1]/path",
+          "name": "session",
+          "value": "synthetic-value",
+          "path": "/path",
+          "secure": true,
+          "httpOnly": true,
+          "expirationDate": 979307200,
+          "sameSite": "lax"
+        }
+      ]
+    },
+    {
+      "data": "Y29vawAAAAEAAABiAAABAAEAAAAQAAAAAAAAAFIAAAAAAAAAAAAAAAAAAAA4AAAASAAAAEoAAABQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZml4dHVyZS5pbnZhbGlkAG4AL3BhdGgAdg==",
+      "fails": true
+    },
+    {
+      "data": "Y29vawAAAAEAAABiAAABAAEAAAAIAAAAAAAAAFIAAAAAAAAAAAAAAAAAAAA4AAAASAAAAEoAAABQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZml4dHVyZS5pbnZhbGlkAG4AL3BhdGgAdgA=",
+      "fails": true
+    },
+    {
+      "data": "Y29vawAAAAEAAABiAAABAAEAAAAQAAAAAAAAAP////8AAAAAAAAAAAAAAAA4AAAASAAAAEoAAABQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZml4dHVyZS5pbnZhbGlkAG4AL3BhdGgAdgA=",
+      "fails": true
+    }
+  ],
+  "firefoxProfiles": [
+    {
+      "ini": "[Profile0]\nName=Personal\nIsRelative=1\nPath=Profiles/a.default\n[InstallX]\nDefault=not-a-profile",
+      "root": "/synthetic/firefox",
+      "expected": [
+        {
+          "directory": "Profiles/a.default",
+          "name": "Personal"
+        }
+      ]
+    },
+    {
+      "ini": "[Profile0]\nName=External\nIsRelative=0\nPath=/custom/profiles/work",
+      "root": "/synthetic/firefox",
+      "expected": [
+        {
+          "directory": "/custom/profiles/work",
+          "name": "External"
+        }
+      ]
+    },
+    {
+      "ini": "[Profile0]\nPath=../../escape\n[Profile1]\nIsRelative=9\nPath=bad\n[Profile2]\nPath=Profiles/a/../b\nName= B ",
+      "root": "/synthetic/firefox",
+      "expected": [
+        {
+          "directory": "Profiles/b",
+          "name": "B"
+        }
+      ]
+    },
+    {
+      "ini": "[profile12]\r\nPath=Profiles/u😀\r\nName=名字\r\n",
+      "root": "/synthetic/firefox",
+      "expected": [
+        {
+          "directory": "Profiles/u😀",
+          "name": "名字"
+        }
+      ]
+    }
+  ]
+}

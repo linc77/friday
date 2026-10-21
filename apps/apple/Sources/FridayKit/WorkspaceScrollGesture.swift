@@ -7,9 +7,11 @@ import SwiftUI
 struct WorkspaceScrollGesture: NSViewRepresentable {
     let changed: (Double) -> Void
     let ended: (WorkspaceSwipe, Bool) -> Void
+    var identity = ""
 
     func makeNSView(context: Context) -> WorkspaceScrollView { WorkspaceScrollView() }
     func updateNSView(_ view: WorkspaceScrollView, context: Context) {
+        view.updateIdentity(identity)
         view.changed = changed; view.ended = ended
     }
     static func dismantleNSView(_ view: WorkspaceScrollView, coordinator: ()) { view.stop() }
@@ -22,6 +24,15 @@ final class WorkspaceScrollView: NSView {
     private var swipe = WorkspaceSwipe()
     private var tracking = false
     private var consumesMomentum = false
+    private var identity = ""
+
+    func updateIdentity(_ value: String) {
+        guard identity != value else { return }
+        identity = value
+        // A host, scope or page-order change cancels an in-flight gesture.
+        // Keep consuming momentum from an already committed horizontal swipe.
+        if tracking { consumesMomentum = swipe.axis == .horizontal; tracking = false; swipe = WorkspaceSwipe() }
+    }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 

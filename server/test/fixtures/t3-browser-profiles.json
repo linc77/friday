@@ -1,0 +1,166 @@
+{
+  "sha": "8cd9641f76874f2ce17d6c80acd71fab1f0b99d3",
+  "source": "packages/contracts/src/browserProfile.ts",
+  "cases": [
+    {
+      "user": [],
+      "expected": [
+        {
+          "id": "default",
+          "name": "Default",
+          "kind": "persistent"
+        },
+        {
+          "id": "incognito",
+          "name": "Incognito",
+          "kind": "incognito"
+        }
+      ]
+    },
+    {
+      "user": [
+        {
+          "id": "work",
+          "name": "Work",
+          "kind": "persistent"
+        }
+      ],
+      "expected": [
+        {
+          "id": "default",
+          "name": "Default",
+          "kind": "persistent"
+        },
+        {
+          "id": "incognito",
+          "name": "Incognito",
+          "kind": "incognito"
+        },
+        {
+          "id": "work",
+          "name": "Work",
+          "kind": "persistent"
+        }
+      ]
+    },
+    {
+      "user": [
+        {
+          "id": "default",
+          "name": "Fake",
+          "kind": "persistent"
+        },
+        {
+          "id": "incognito",
+          "name": "Fake",
+          "kind": "persistent"
+        }
+      ],
+      "expected": [
+        {
+          "id": "default",
+          "name": "Default",
+          "kind": "persistent"
+        },
+        {
+          "id": "incognito",
+          "name": "Incognito",
+          "kind": "incognito"
+        }
+      ]
+    },
+    {
+      "user": [
+        {
+          "id": "a",
+          "name": "First",
+          "kind": "persistent"
+        },
+        {
+          "id": "a",
+          "name": "Second",
+          "kind": "persistent"
+        }
+      ],
+      "expected": [
+        {
+          "id": "default",
+          "name": "Default",
+          "kind": "persistent"
+        },
+        {
+          "id": "incognito",
+          "name": "Incognito",
+          "kind": "incognito"
+        },
+        {
+          "id": "a",
+          "name": "First",
+          "kind": "persistent"
+        }
+      ]
+    },
+    {
+      "user": [
+        {
+          "id": "a",
+          "name": "A",
+          "kind": "incognito"
+        }
+      ],
+      "expected": [
+        {
+          "id": "default",
+          "name": "Default",
+          "kind": "persistent"
+        },
+        {
+          "id": "incognito",
+          "name": "Incognito",
+          "kind": "incognito"
+        },
+        {
+          "id": "a",
+          "name": "A",
+          "kind": "persistent"
+        }
+      ]
+    },
+    {
+      "user": [
+        {
+          "id": "配置一",
+          "name": "个人",
+          "kind": "persistent"
+        },
+        {
+          "id": "配置二",
+          "name": "项目",
+          "kind": "persistent"
+        }
+      ],
+      "expected": [
+        {
+          "id": "default",
+          "name": "Default",
+          "kind": "persistent"
+        },
+        {
+          "id": "incognito",
+          "name": "Incognito",
+          "kind": "incognito"
+        },
+        {
+          "id": "配置一",
+          "name": "个人",
+          "kind": "persistent"
+        },
+        {
+          "id": "配置二",
+          "name": "项目",
+          "kind": "persistent"
+        }
+      ]
+    }
+  ]
+}

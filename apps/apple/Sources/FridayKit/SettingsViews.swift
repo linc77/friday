@@ -29,6 +29,7 @@ struct ProjectsView: View {
                                     FridaySymbolImage(systemName: "arrow.up.right").font(.caption).foregroundStyle(.tertiary)
                                 }
                                 Text(project.name).font(.headline).lineLimit(2)
+                                if let clone = project.clone, clone.blocksTasks { Text(friday: clone.phase == "running" ? "正在克隆仓库" : "仓库克隆未完成").font(.caption).foregroundStyle(.orange) }
                                 Group {
                                     if project.context.isEmpty { Text(friday: "添加 Workspace 背景，让 Friday 更了解这件事。") }
                                     else { Text(project.context) }
@@ -44,7 +45,7 @@ struct ProjectsView: View {
                 }
             }.padding(28).frame(maxWidth: 960).frame(maxWidth: .infinity)
         }.background(FridayTheme.canvas)
-        .sheet(isPresented: $adding) { ProjectEditor(store: store, project: nil).environment(\.locale, locale) }
+        .sheet(isPresented: $adding) { WorkspaceAddView(store: store).environment(\.locale, locale) }
         .sheet(item: $editing) { ProjectEditor(store: store, project: $0).environment(\.locale, locale) }
     }
 }
@@ -73,9 +74,11 @@ struct ProjectEditor: View {
     @State private var color = "blue"
     @State private var busy = false
     @State private var error: String?
+    @State private var scriptsShown = false
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack { Text(fridayString: project == nil ? "添加 Workspace" : "Workspace 背景").font(.title2.bold()); Spacer(); Button(friday: "取消") { dismiss() } }
+            if let project { ProjectCloneControl(store: store, project: project) }
             TextField(friday: "Workspace 名称", text: $name).textFieldStyle(.roundedBorder)
             WorkspaceAppearancePicker(icon: $icon, color: $color)
             HStack {
@@ -90,6 +93,7 @@ struct ProjectEditor: View {
             if let error = error ?? store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
             HStack {
                 if let project {
+                    Button(friday: "项目脚本…") { scriptsShown = true }.buttonStyle(FridayButtonStyle(compact: true))
                     WorkspaceDeleteButton(store: store, project: project, busy: $busy, error: $error, onDeleted: { dismiss() })
                 }
                 Spacer(); Button(friday: "保存 Workspace") {
@@ -101,6 +105,15 @@ struct ProjectEditor: View {
         .frame(width: 560)
         #endif
         .interactiveDismissDisabled(busy)
+        .sheet(isPresented: $scriptsShown) { if let project {
+            VStack(spacing: 0) {
+                HStack { Spacer(); Button(friday: "完成") { scriptsShown = false } }.padding(12)
+                ProjectScriptsSettingsView(store: store, initialProjectId: project.id)
+            }
+            #if os(macOS)
+            .frame(width: 720, height: 650)
+            #endif
+        } }
         .onAppear {
             if let project {
                 name = project.name; path = project.path; context = project.context

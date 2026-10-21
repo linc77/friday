@@ -1,0 +1,433 @@
+{
+  "source": "@pierre/trees@1.0.0-beta.6 FileTreeController.getSearchMatchingPaths",
+  "integrity": "sha512-zxeuSFM9TveM7b5XofweJALCtm/tGYV9HZzdbf7Uf+kBxIlUyz24/EHaGRjB0dsmmfDQl2ETz7AWwJ15lhSnpw==",
+  "cases": [
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "",
+      "matches": []
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": " ",
+      "matches": []
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "﻿",
+      "matches": []
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": " Alpha.SW ",
+      "matches": [
+        "loaded/Alpha.swift"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "Alpha.SW",
+      "matches": [
+        "loaded/Alpha.swift"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "alpsw",
+      "matches": []
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "LOADED/",
+      "matches": [
+        "loaded/",
+        "loaded/Alpha.swift",
+        "loaded/beta.txt"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "loaded\\",
+      "matches": [
+        "loaded/",
+        "loaded/Alpha.swift",
+        "loaded/beta.txt"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "empty/",
+      "matches": [
+        "empty/"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "ignored/.env",
+      "matches": [
+        "ignored/.env.local"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "café",
+      "matches": [
+        "café.txt"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "cafe",
+      "matches": []
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "café",
+      "matches": []
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "ΟΣ",
+      "matches": []
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "ος",
+      "matches": []
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "οσ",
+      "matches": [
+        "greek/ΟΣ.txt"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "İ",
+      "matches": [
+        "İstanbul.txt"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "i",
+      "matches": [
+        "emoji/",
+        "emoji/😀.md",
+        "ignored/",
+        "ignored/.env.local",
+        "loaded/Alpha.swift",
+        "İstanbul.txt"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "😀",
+      "matches": [
+        "emoji/😀.md"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "emoji/",
+      "matches": [
+        "emoji/",
+        "emoji/😀.md"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "missing",
+      "matches": []
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "/",
+      "matches": [
+        "emoji/",
+        "emoji/😀.md",
+        "empty/",
+        "greek/",
+        "greek/ΟΣ.txt",
+        "ignored/",
+        "ignored/.env.local",
+        "loaded/",
+        "loaded/Alpha.swift",
+        "loaded/beta.txt"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "\\",
+      "matches": [
+        "emoji/",
+        "emoji/😀.md",
+        "empty/",
+        "greek/",
+        "greek/ΟΣ.txt",
+        "ignored/",
+        "ignored/.env.local",
+        "loaded/",
+        "loaded/Alpha.swift",
+        "loaded/beta.txt"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": ".swift",
+      "matches": [
+        "loaded/Alpha.swift"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": " .TXT ",
+      "matches": [
+        "greek/ΟΣ.txt",
+        "loaded/beta.txt",
+        "café.txt",
+        "İstanbul.txt"
+      ]
+    },
+    {
+      "paths": [
+        "loaded/Alpha.swift",
+        "loaded/beta.txt",
+        "empty/",
+        "ignored/.env.local",
+        "café.txt",
+        "greek/ΟΣ.txt",
+        "İstanbul.txt",
+        "emoji/😀.md"
+      ],
+      "query": "alpha\nbeta",
+      "matches": []
+    }
+  ]
+}

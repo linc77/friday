@@ -6,6 +6,8 @@ import { DatabaseSync } from 'node:sqlite';
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 export class Auth {
   readonly token: string;
+  /** A non-secret identity shared by this owner's paired devices and URLs. */
+  get serviceId(): string { return hash('friday.service-identity.v1\0' + this.token); }
   private db: DatabaseSync;
   private attempts = new Map<string, { count: number; since: number }>();
   constructor(directory: string) {

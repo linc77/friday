@@ -31,6 +31,8 @@
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>连接你自己的 Friday 主机。</string>
@@ -47,5 +49,22 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>dev.friday.task-sidebar-row</string>
+			<key>UTTypeDescription</key>
+			<string>Friday task sidebar row</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>允许网页在你授权后使用摄像头。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>允许网页在你授权后使用麦克风。</string>
 </dict>
 </plist>

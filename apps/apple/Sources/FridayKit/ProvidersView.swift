@@ -21,6 +21,7 @@ struct ProvidersView: View {
                 Text("Friday").tag("friday")
                 Text("Codex").tag("codex")
                 Text("Claude").tag("claude")
+                if store.usageLimitSourcesSupported { Text(friday: "额度来源").tag("usage-sources") }
                 ForEach(store.agents.filter { !["codex", "claude"].contains($0.id) }) { agent in Text(agent.name).tag(agent.id) }
             }.pickerStyle(.menu)
             details
@@ -33,9 +34,10 @@ struct ProvidersView: View {
             providerRow(id: "friday", name: "Friday", icon: "sparkles", detail: "主会话 · API")
             providerRow(id: "codex", name: "Codex", icon: "cpu", detail: "任务 · 本地")
             providerRow(id: "claude", name: "Claude", icon: "sparkle", detail: "任务 · 本地")
+            if store.usageLimitSourcesSupported { providerRow(id: "usage-sources", name: "额度来源", icon: "server.rack", detail: "共享账号配额") }
             ForEach(store.agents.filter { !["codex", "claude"].contains($0.id) }) { agent in
                 providerRow(id: agent.id, name: agent.name, icon: "terminal", detail: "任务 · 本地",
-                            status: agent.installed ? "尚未接入" : "未安装")
+                            status: agent.executableSupported ? nil : agent.installed ? "尚未接入" : "未安装")
             }
         }.padding(10)
     }
@@ -45,7 +47,7 @@ struct ProvidersView: View {
             HStack(alignment: .top, spacing: 10) {
                 FridaySymbolImage(systemName: icon).font(.system(size: 16)).frame(width: 20)
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(name).font(.system(size: 13, weight: .medium))
+                    Text(fridayString: name).font(.system(size: 13, weight: .medium))
                     Text(fridayString: detail).font(.system(size: 11)).foregroundStyle(.secondary)
                     if let status { Text(fridayString: status).font(.system(size: 11)).foregroundStyle(.tertiary) }
                 }.frame(maxWidth: .infinity, alignment: .leading)
@@ -61,6 +63,9 @@ struct ProvidersView: View {
         case "friday": ModelSettingsView(store: store)
         case "codex": CodexSettingsView(store: store).id("codex")
         case "claude": CodexSettingsView(store: store, provider: "claude").id("claude")
+        case "pi": CodexSettingsView(store: store, provider: "pi").id("pi")
+        case "grok": CodexSettingsView(store: store, provider: "grok").id("grok")
+        case "usage-sources": UsageSourceSettingsView(store: store)
         default:
             if let agent = store.agents.first(where: { $0.id == selection }) { localAgentDetails(agent) }
         }

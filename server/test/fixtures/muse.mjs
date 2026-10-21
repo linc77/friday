@@ -1,0 +1,57 @@
+#!/usr/bin/env node
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { spawn } from 'node:child_process';
+const args = process.argv.slice(2), home = process.env.MUSE_TEST_HOME;
+const trace = value => { if (process.env.MUSE_TEST_WIRE) appendFileSync(process.env.MUSE_TEST_WIRE, JSON.stringify({ pid: process.pid, cwd: process.cwd(), args, ...value }) + '\n'); };
+if (args.includes('--version')) { trace({ version: true }); console.log('Muse Code 1.4.6'); process.exit(0); }
+if (args[0] !== 'serve') process.exit(2);
+let input = '', session, turn, holding = false;
+const send = value => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...value }) + '\n');
+const reply = (request, result) => send({ id: request.id, result: { ...result, ...(request.params?.commandId ? { commandId: request.params.commandId } : {}) } });
+const fail = (request, kind, message) => send({ id: request.id, error: { code: -32000, message, data: { kind } } });
+const notice = (method, params) => send({ method, params: { sessionId: session, ...(turn ? { turnId: turn } : {}), ...params } });
+const item = value => notice(value.status === 'completed' ? 'item/completed' : 'item/started', { item: { turnId: turn, ...value } });
+const complete = () => { item({ itemId: 'answer', revision: 3, status: 'completed', kind: 'agentMessage', text: 'Muse reply café\u2028line\u2029end' }); notice('turn/completed', { turnId: turn, terminal: 'completed' }); };
+let mcp;
+const approvals = [{ choiceId: 'allow', label: 'Allow', decision: 'approved', scope: 'once' }, { choiceId: 'session', label: 'Session', decision: 'approvedForSession', scope: 'session' }, { choiceId: 'persistent', label: 'Always', decision: 'approvedPolicyAmendment', scope: 'localPersistent' }, { choiceId: 'abort', label: 'Reject', decision: 'abort', scope: 'once' }];
+async function handle(request) {
+  const params = request.params ?? {}; trace({ method: request.method, params, receivedMetaKey: process.env.META_API_KEY !== undefined });
+  if (request.method === 'initialize') return reply(request, { schema: { version: 1, fingerprint: 'muse-independent-wire-fixture' }, grantedCapabilities: ['sessionMcp'], serverInfo: { name: 'Muse fixture', version: '1.4.6' } });
+  if (request.method === 'initialized') return;
+  if (request.method === 'model/list') return reply(request, { providerId: 'meta', models: [{ modelId: 'muse-native', providerId: 'meta', displayLabel: 'Muse Native', isDefault: true, variants: ['low', 'high'], defaultReasoningEffort: 'high' }, { modelId: 'muse-no-thinking', providerId: 'meta', displayLabel: '', isDefault: false, variants: [] }, { modelId: 'wrong-provider', providerId: 'other', displayLabel: 'Wrong' }] });
+  if (['session/start', 'session/resume'].includes(request.method)) {
+    mcp = params.config?.mcpServers?.friday;
+    if (args.includes('--disable-write')) return fail(request, 'invalidParams', 'Read-only probe attempted to create a session');
+    session = params.sessionId; mkdirSync(home, { recursive: true }); const file = join(home, session + '.json');
+    if (request.method === 'session/resume') { if (!existsSync(file) || process.env.MUSE_TEST_FAIL_RESUME === '1') return fail(request, 'sessionNotFound', 'Native Muse session not found'); item({ itemId: 'old', revision: 1, status: 'completed', kind: 'agentMessage', text: 'Loaded Muse history must not replay' }); }
+    else writeFileSync(file, JSON.stringify({ sessionId: session, modelId: params.modelId, prompts: [] }));
+    return reply(request, { session: { sessionId: session, modelId: JSON.parse(readFileSync(file)).modelId } });
+  }
+  if (['session/setApprovalMode', 'session/setModel'].includes(request.method)) return reply(request, {});
+  if (request.method === 'session/compact') { reply(request, { status: 'accepted' }); item({ itemId: 'compact', revision: 1, kind: 'compaction', status: 'completed', outcome: 'compacted', reason: 'Native compacted' }); return; }
+  if (request.method === 'turn/interrupt') { trace({ interrupted: params.turnId }); reply(request, {}); notice('turn/completed', { turnId: params.turnId, terminal: 'cancelled' }); return; }
+  if (request.method === 'turn/steer') { if (params.expectedTurnId !== turn || 'turnId' in params) return fail(request, 'invalidParams', 'Wrong native steer identity'); trace({ steered: params.input }); reply(request, { turnId: turn }); if (process.env.MUSE_TEST_STEER_SETTLES === '1') complete(); return; }
+  if (request.method === 'approval/decide') { if (params.requirementId?.sourceIndex !== 1 || !approvals.some(choice => choice.choiceId === params.choiceId)) return fail(request, 'invalidParams', 'Wrong native permission choice'); reply(request, { approvalId: 'write', terminal: true }); notice('approval/resolved', { approvalId: 'write' }); complete(); return; }
+  if (request.method === 'userInput/answer') { reply(request, {}); notice('userInput/settled', { userInputId: 'question' }); complete(); return; }
+  if (request.method !== 'turn/start') return fail(request, 'methodNotFound', 'Unknown fixture method');
+  turn = params.commandId; const text = params.input.filter(part => part.type === 'text').map(part => part.text).join('\n'), prompt = text.match(/^Task: ([^\n]+)/m)?.[1] ?? text;
+  const file = join(home, session + '.json'), saved = JSON.parse(readFileSync(file)); saved.prompts.push(prompt); writeFileSync(file, JSON.stringify(saved));
+  trace({ prompt, turnId: turn, sessionId: session }); reply(request, { turnId: turn });
+  if (prompt === 'mcp' && mcp) await fetch(mcp.url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...mcp.headers }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'fixture', arguments: { text: 'muse-native' } } }) });
+  if (prompt === 'hold') { holding = true; const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' }); trace({ child: child.pid }); return; }
+  if (prompt === 'approval') { notice('approval/requested', { approvalId: 'write', currentRequirementId: { approvalId: 'write', sourceIndex: 1 }, availableChoices: approvals, toolName: 'write_file', rawArgs: '{"path":"fixture.txt"}', subject: { kind: 'write', path: 'fixture.txt' } }); return; }
+  if (prompt === 'question') { notice('userInput/requested', { userInputId: 'question', questions: [{ id: 'target', header: 'Target', question: 'Choose a target', options: [{ label: 'One' }, { label: 'Two' }], selection: { mode: 'multiple', minSelections: 1, maxSelections: 2 } }] }); return; }
+  if (prompt === 'error') { notice('turn/completed', { terminal: 'failed', error: { message: 'Native Muse failure' } }); return; }
+  notice('turn/completed', { turnId: 'foreign-turn', terminal: 'completed' });
+  send({ method: 'item/completed', params: { sessionId: 'foreign-session', turnId: turn, item: { itemId: 'foreign', revision: 1, kind: 'agentMessage', status: 'completed', text: 'Foreign Muse text' } } });
+  item({ itemId: 'thought', revision: 1, kind: 'reasoning', status: 'inProgress', summary: ['Thinking'] }); notice('item/delta', { itemId: 'thought', field: 'summary.0', delta: ' carefully' });
+  item({ itemId: 'command', revision: 1, kind: 'toolCall', tool: 'shell', args: '{"command":"printf fixture"}', status: 'inProgress' }); notice('item/delta', { itemId: 'command', field: 'visibleOutput', delta: 'native output' });
+  item({ itemId: 'command', revision: 2, kind: 'toolCall', tool: 'shell', args: '{"command":"printf fixture"}', status: 'completed', visibleOutput: 'native output', exitCode: 0 });
+  item({ itemId: 'answer', revision: 1, kind: 'agentMessage', status: 'inProgress', text: '' }); notice('item/delta', { itemId: 'answer', delta: 'Muse reply café\u2028' }); notice('item/delta', { itemId: 'answer', delta: 'line\u2029end' });
+  item({ itemId: 'answer', revision: 1, kind: 'agentMessage', status: 'inProgress', text: 'Stale revision must not replace deltas' });
+  notice('session/contextUsage', { usedTokens: 321, windowTokens: 8192 }); notice('session/todoListChanged', { items: [{ text: 'Finish fixture', status: 'completed' }] });
+  setTimeout(complete, 40);
+}
+process.stdin.setEncoding('utf8'); process.stdin.on('data', chunk => { input += chunk; let index; while ((index = input.indexOf('\n')) >= 0) { const line = input.slice(0, index); input = input.slice(index + 1); if (line) { const value = JSON.parse(line); void handle(value).catch(error => fail(value, 'internalError', error.message)); } } });
+process.stdin.on('end', () => { if (!holding) process.exit(0); });

@@ -87,6 +87,9 @@ struct WorkspaceIdentityEditor: View {
     @State private var color: String
     @State private var busy = false
     @State private var error: String?
+    @State private var showingTextGeneration = false
+    @State private var showingProjectScripts = false
+    @State private var showingMergeSettings = false
 
     init(store: FridayStore, project: Project) {
         self.store = store; self.project = project
@@ -105,6 +108,7 @@ struct WorkspaceIdentityEditor: View {
             TextField(friday: "Workspace 名称", text: $name).textFieldStyle(.roundedBorder)
                 .accessibilityLabel(Text(friday: "Workspace 名称"))
             WorkspaceAppearancePicker(icon: $icon, color: $color)
+            TaskProjectGroupingControl(project: project, server: store.connection.server)
             if name.utf16.count > 120 { Text(friday: "名称最多 120 个字符").font(.caption).foregroundStyle(.orange) }
             if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true) }
             HStack {
@@ -116,9 +120,42 @@ struct WorkspaceIdentityEditor: View {
                     .disabled(!WorkspaceStyle.validName(name) || !store.connected)
             }
             Divider()
+            Button { showingTextGeneration = true } label: { FridaySymbolLabel(friday: "文字生成设置…", systemImage: "text.bubble") }
+                .buttonStyle(FridayButtonStyle(compact: true)).disabled(!store.connected)
+            Button { showingProjectScripts = true } label: { FridaySymbolLabel(friday: "项目脚本…", systemImage: "play") }
+                .buttonStyle(FridayButtonStyle(compact: true)).disabled(!store.connected)
+            Button { showingMergeSettings = true } label: { FridaySymbolLabel(friday: "合并设置…", systemImage: "arrow.triangle.merge") }
+                .buttonStyle(FridayButtonStyle(compact: true)).disabled(!store.connected)
             WorkspaceDeleteButton(store: store, project: project, busy: $busy, error: $error, onDeleted: { dismiss() })
         }
         .padding(20).frame(width: 320).disabled(busy).interactiveDismissDisabled(busy)
+        .sheet(isPresented: $showingMergeSettings) {
+            VStack(spacing: 16) {
+                HStack { Text(friday: "合并设置").font(.headline); Spacer(); Button(friday: "完成") { showingMergeSettings = false }.buttonStyle(FridayButtonStyle(compact: true)) }
+                SourceControlMergeSettings(store: store, initialProjectID: project.id)
+            }.padding(24)
+            #if os(macOS)
+            .frame(width: 700)
+            #endif
+        }
+        .sheet(isPresented: $showingProjectScripts) {
+            VStack(spacing: 0) {
+                HStack { Spacer(); Button(friday: "完成") { showingProjectScripts = false } }.padding(12)
+                ProjectScriptsSettingsView(store: store, initialProjectId: project.id)
+            }
+            #if os(macOS)
+            .frame(width: 720, height: 650)
+            #endif
+        }
+        .sheet(isPresented: $showingTextGeneration) {
+            VStack(spacing: 0) {
+                HStack { Spacer(); Button(friday: "完成") { showingTextGeneration = false }.buttonStyle(FridayButtonStyle(compact: true)) }.padding(12)
+                TextGenerationSettingsView(store: store, initialProjectId: project.id)
+            }
+            #if os(macOS)
+            .frame(width: 700, height: 650)
+            #endif
+        }
     }
 
     private func save() {

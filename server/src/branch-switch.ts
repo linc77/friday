@@ -1,21 +1,39 @@
-import { relative, isAbsolute } from 'node:path';
+import { basename, dirname, join, relative, isAbsolute, resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
 import { defineTask, type TaskId } from '@earendil-works/pi-durable';
 import type { Engine } from './engine.js';
 import type { TaskBranchChange, TaskWorkspacePlan, Workspace } from './types.js';
-import { activeStatuses } from './types.js';
+import { runningFork, activeGitOperation, activeRewind, activeStatuses } from './types.js';
+import { hasRunningBackgroundCommands } from './task-background-commands.js';
 import { prepareWorkspace } from './task-workspace.js';
+import { queueRunning } from './task-queue.js';
 
 export const switchingBranch = (change?: TaskBranchChange) => change?.status === 'queued' || change?.status === 'running';
+function canonicalDirectory(path: string) {
+  let current = resolve(path); const suffix: string[] = [];
+  for (;;) {
+    try { return join(realpathSync(current), ...suffix.reverse()); }
+    catch {
+      const parent = dirname(current); if (parent === current) return resolve(path);
+      suffix.push(basename(current)); current = parent;
+    }
+  }
+}
 export function containsDirectory(root: string, cwd: string) {
-  const path = relative(root, cwd);
+  const path = relative(canonicalDirectory(root), canonicalDirectory(cwd));
   return path !== '..' && !path.startsWith('../') && !isAbsolute(path);
 }
-export function branchBlocksTask(state: Workspace, cwd: string) {
-  return state.tasks.some(task => switchingBranch(task.branchChange) && containsDirectory(task.branchChange!.root, cwd));
+export const directoriesOverlap = (left: string, right: string) => containsDirectory(left, right) || containsDirectory(right, left);
+export function branchBlocksTask(state: Workspace, cwd: string,ignoreProjectOperation?:string) {
+  return state.projectRepositoryOperations?.some(operation=>operation.id!==ignoreProjectOperation&&['queued','running'].includes(operation.status)&&directoriesOverlap(operation.cwd,cwd))===true || state.changeRequestCheckouts?.some(p => ['queued', 'running'].includes(p.status) && directoriesOverlap(p.root, cwd)) === true || state.tasks.some(task => (switchingBranch(task.branchChange) && containsDirectory(task.branchChange!.root, cwd))
+    || (runningFork(task.forkOperation) && directoriesOverlap(task.cwd, cwd))
+    || (activeGitOperation(task.gitOperation) && directoriesOverlap(task.gitOperation!.root, cwd))
+    || (activeRewind(task.rewindOperation) && directoriesOverlap(task.rewindOperation!.cwd, cwd))
+    || (activeStatuses.includes(task.status) && task.executionWorkspace?.mode === 'checkout' && task.executionWorkspace.state !== 'ready' && containsDirectory(task.executionWorkspace.root, cwd)));
 }
 export function assertCheckoutIdle(state: Workspace, root: string) {
-  if (state.tasks.some(task => containsDirectory(root, task.cwd) && activeStatuses.includes(task.status))) {
+  if (state.tasks.some(task => directoriesOverlap(root, task.cwd) && (activeStatuses.includes(task.status) || queueRunning(task) || task.settleCleanup?.status === 'pending' || hasRunningBackgroundCommands(task) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation)))) {
     throw new Error('当前工作区有正在执行或排队的任务，请等待完成后切换分支。');
   }
 }

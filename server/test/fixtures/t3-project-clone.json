@@ -1,0 +1,167 @@
+{
+  "source": "8cd9641f76874f2ce17d6c80acd71fab1f0b99d3",
+  "progress": [
+    {
+      "line": "remote: Enumerating objects: 5, done.",
+      "result": {
+        "stage": "counting",
+        "percent": null,
+        "detail": null
+      }
+    },
+    {
+      "line": "remote: Counting objects: 100% (5/5), done.",
+      "result": {
+        "stage": "counting",
+        "percent": 100,
+        "detail": null
+      }
+    },
+    {
+      "line": "remote: Compressing objects: 50% (2/4)",
+      "result": {
+        "stage": "counting",
+        "percent": 50,
+        "detail": null
+      }
+    },
+    {
+      "line": "Receiving objects: 75% (3/4), 1.25 MiB | 2.00 MiB/s",
+      "result": {
+        "stage": "receiving",
+        "percent": 75,
+        "detail": "1.25 MiB | 2.00 MiB/s"
+      }
+    },
+    {
+      "line": "Resolving deltas: 100% (2/2), done.",
+      "result": {
+        "stage": "resolving",
+        "percent": 100,
+        "detail": null
+      }
+    },
+    {
+      "line": "Updating files: 36% (2/6)",
+      "result": {
+        "stage": "checkout",
+        "percent": 36,
+        "detail": null
+      }
+    },
+    {
+      "line": "Checking out files: 120% (6/5)",
+      "result": {
+        "stage": "checkout",
+        "percent": 100,
+        "detail": null
+      }
+    },
+    {
+      "line": "Receiving objects: 0% (0/4)",
+      "result": {
+        "stage": "receiving",
+        "percent": 0,
+        "detail": null
+      }
+    },
+    {
+      "line": " fatal: permission denied ",
+      "result": null
+    },
+    {
+      "line": "Cloning into repo...",
+      "result": null
+    },
+    {
+      "line": "Receiving objects: unknown",
+      "result": {
+        "stage": "receiving",
+        "percent": null,
+        "detail": null
+      }
+    },
+    {
+      "line": "remote: Counting objects: 5% (1/20), done.",
+      "result": {
+        "stage": "counting",
+        "percent": 5,
+        "detail": null
+      }
+    }
+  ],
+  "remotes": [
+    {
+      "remote": "owner/repo",
+      "normalized": "https://github.com/owner/repo.git",
+      "publicRemote": "https://github.com/owner/repo.git",
+      "directoryName": "repo"
+    },
+    {
+      "remote": "owner/repo.git",
+      "normalized": "https://github.com/owner/repo.git",
+      "publicRemote": "https://github.com/owner/repo.git",
+      "directoryName": "repo"
+    },
+    {
+      "remote": "https://github.com/owner/repo.git",
+      "normalized": "https://github.com/owner/repo.git",
+      "publicRemote": "https://github.com/owner/repo.git",
+      "directoryName": "repo"
+    },
+    {
+      "remote": "git@github.com:owner/repo.git",
+      "normalized": "git@github.com:owner/repo.git",
+      "publicRemote": "git@github.com:owner/repo.git",
+      "directoryName": "repo"
+    },
+    {
+      "remote": "ssh://git@example.test:2222/team/repo.git",
+      "normalized": "ssh://git@example.test:2222/team/repo.git",
+      "publicRemote": "ssh://example.test:2222/team/repo.git",
+      "directoryName": "repo"
+    },
+    {
+      "remote": "https://user:synthetic-password@example.test/team/repo.git?synthetic=opaque",
+      "normalized": "https://user:synthetic-password@example.test/team/repo.git?synthetic=opaque",
+      "publicRemote": "https://example.test/team/repo.git",
+      "directoryName": "repo"
+    },
+    {
+      "remote": "https://example.test:2222",
+      "normalized": "https://example.test:2222",
+      "publicRemote": "https://example.test:2222",
+      "directoryName": ""
+    },
+    {
+      "remote": "https://example.test",
+      "normalized": "https://example.test",
+      "publicRemote": "https://example.test",
+      "directoryName": ""
+    },
+    {
+      "remote": "file:///local/repo.git",
+      "normalized": "file:///local/repo.git",
+      "publicRemote": "file:///local/repo.git",
+      "directoryName": "repo"
+    },
+    {
+      "remote": "C:\\work\\repo.git",
+      "normalized": "C:\\work\\repo.git",
+      "publicRemote": "C:\\work\\repo.git",
+      "directoryName": "repo"
+    },
+    {
+      "remote": "https://example.test/team/repo?token=synthetic#readme",
+      "normalized": "https://example.test/team/repo?token=synthetic#readme",
+      "publicRemote": "https://example.test/team/repo#readme",
+      "directoryName": "repo"
+    },
+    {
+      "remote": " repo.git ",
+      "normalized": "repo.git",
+      "publicRemote": "repo.git",
+      "directoryName": "repo"
+    }
+  ]
+}

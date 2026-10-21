@@ -4,18 +4,24 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { macAppIdentity } from './mac-app-identity.mjs';
+import { preparePtyRuntime } from './mac-pty-runtime.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 process.chdir(root);
 const config = JSON.parse(await readFile('release/macos.json', 'utf8'));
 const standalone = process.argv.includes('--standalone');
+// Reuse the incremental Debug build used by directed native tests. Only the
+// self-contained release needs whole-module Release optimization.
+const configuration = standalone ? 'release' : 'debug';
 const identity = macAppIdentity(root, { standalone });
 const run = (command, args, options = {}) => execFileSync(command, args, { stdio: 'inherit', ...options });
 const output = (command, args) => execFileSync(command, args, { encoding: 'utf8' }).trim();
 if (process.platform !== 'darwin' || process.arch !== config.architecture) throw new Error('This release targets Apple Silicon macOS.');
 if (standalone && !config.publicKey) throw new Error('Configure the Sparkle public key in release/macos.json first.');
-run('swift', ['build', '--package-path', 'apps/apple', '-c', 'release']);
-const bin = output('swift', ['build', '--package-path', 'apps/apple', '-c', 'release', '--show-bin-path']);
+run('node', ['scripts/build-markdown-assets.mjs', '--check']);
+run('node', ['scripts/build-browser-annotation-assets.mjs', '--check']);
+run('swift', ['build', '--package-path', 'apps/apple', '-c', configuration]);
+const bin = output('swift', ['build', '--package-path', 'apps/apple', '-c', configuration, '--show-bin-path']);
 const app = identity.appPath;
 await rm(app, { recursive: true, force: true });
 const contents = join(app, 'Contents');
@@ -26,6 +32,8 @@ await cp(join(bin, 'Friday'), join(contents, 'MacOS', identity.executable));
 await cp('apps/apple/Info-mac.plist', join(contents, 'Info.plist'));
 await cp('apps/apple/Assets/Friday.icns', join(contents, 'Resources/Friday.icns'));
 await cp(join(bin, 'Friday_FridayKit.bundle'), join(contents, 'Resources/Friday_FridayKit.bundle'), { recursive: true });
+await cp(join(bin, 'SwiftTerm_SwiftTerm.bundle'), join(contents, 'Resources/SwiftTerm_SwiftTerm.bundle'), { recursive: true });
+await cp('apps/apple/.build/checkouts/SwiftTerm/LICENSE', join(contents, 'Resources/SwiftTerm-LICENSE'));
 const framework = join(root, 'apps/apple/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework');
 run('/usr/bin/ditto', [framework, join(contents, 'Frameworks/Sparkle.framework')]);
 const plist = (key, type, value) => run('/usr/bin/plutil', ['-replace', key, '-' + type, String(value), join(contents, 'Info.plist')]);
@@ -54,6 +62,8 @@ if (standalone) {
   run('pnpm', ['install', '--prod', '--frozen-lockfile', '--ignore-scripts', '--dir', 'dist/runtime']);
   await rm('dist/runtime/pnpm-lock.yaml');
   await cp('dist/runtime', join(contents, 'Resources/runtime'), { recursive: true, verbatimSymlinks: true });
+  const terminalRuntime = await preparePtyRuntime(join(contents, 'Resources/runtime'));
+  await cp(terminalRuntime.license, join(contents, 'Resources/node-pty-LICENSE'));
   await cp(join(vendor, `node-v${config.nodeVersion}-darwin-arm64/LICENSE`), join(contents, 'Resources/Node-LICENSE'));
   const sparkleLicense = join(root, 'apps/apple/.build/checkouts/Sparkle/LICENSE');
   await cp(sparkleLicense, join(contents, 'Resources/Sparkle-LICENSE'));
@@ -79,5 +89,5 @@ await verifyLinks(app);
 // Personal preview only. A Developer ID release needs the notarized signing pipeline.
 run('/usr/bin/codesign', ['--force', '--deep', '--sign', '-', app]);
 run('/usr/bin/codesign', ['--verify', '--deep', '--strict', app]);
-await writeFile('dist/build.json', JSON.stringify({ ...config, standalone, appName: identity.name, bundleIdentifier: identity.bundleIdentifier, workspace: identity.workspace, commit: output('git', ['rev-parse', 'HEAD']) }, null, 2) + '\n');
+await writeFile('dist/build.json', JSON.stringify({ ...config, standalone, configuration, appName: identity.name, bundleIdentifier: identity.bundleIdentifier, workspace: identity.workspace, commit: output('git', ['rev-parse', 'HEAD']) }, null, 2) + '\n');
 console.log(`Built ${app}${standalone ? ' (self-contained personal preview)' : ' (development client)'}`);

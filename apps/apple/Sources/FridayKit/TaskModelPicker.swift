@@ -4,11 +4,12 @@ struct TaskModelChoice: Identifiable {
     let provider: String
     let model: CodexProviderModel
     var id: String { provider + ":" + model.id }
-    var providerName: String { provider == "claude" ? "Claude" : "Codex" }
+    var providerName: String { TaskProviderCatalog.name(provider) }
 }
 
 struct TaskModelPicker: View {
     let server: String
+    let scope: String
     let states: [String: CodexConnectionState]
     let lockedProvider: String?
     let provider: String
@@ -18,9 +19,14 @@ struct TaskModelPicker: View {
     @State private var search = ""
     @State private var filter = "all"
     @FocusState private var searching: Bool
+    @Environment(\.dismiss) private var dismiss
+    #if os(macOS)
+    @Environment(\.fridayModelJump) private var modelJump
+    @State private var jumpOwner = UUID()
+    #endif
 
     private var choices: [TaskModelChoice] {
-        ["codex", "claude"].filter { lockedProvider == nil || $0 == lockedProvider }.flatMap { value in
+        TaskProviderCatalog.order.filter { lockedProvider == nil || $0 == lockedProvider }.flatMap { value in
             preferences.get(server: server, provider: value).sorted(states[value]?.models ?? [], includeHidden: false)
                 .map { TaskModelChoice(provider: value, model: $0) }
         }.filter { choice in
@@ -38,8 +44,9 @@ struct TaskModelPicker: View {
                 filterButton("all", title: "全部模型", symbol: "square.stack")
                 filterButton("favorites", title: "收藏", symbol: "star")
                 Divider().padding(.horizontal, 8)
-                if lockedProvider == nil || lockedProvider == "codex" { filterButton("codex", title: "Codex") }
-                if lockedProvider == nil || lockedProvider == "claude" { filterButton("claude", title: "Claude") }
+                ForEach(TaskProviderCatalog.order.filter { states[$0] != nil && (lockedProvider == nil || lockedProvider == $0) }, id: \.self) { value in
+                    filterButton(value, title: LocalizedStringKey(TaskProviderCatalog.name(value)))
+                }
                 Spacer()
             }.padding(8).frame(width: 54)
             Divider()
@@ -68,7 +75,28 @@ struct TaskModelPicker: View {
         .frame(width: 340, height: 380)
         #endif
         .task { searching = true }
+        .onChange(of: scope) { _, _ in dismiss() }
+        #if os(macOS)
+        .onAppear { installJumpContext() }
+        .onChange(of: choices.map { $0.id + ":" + String(states[$0.provider]?.connected == true) }) { _, _ in
+            if modelJump.wrappedValue?.owner == jumpOwner { installJumpContext() }
+        }
+        .onDisappear { if modelJump.wrappedValue?.owner == jumpOwner { modelJump.wrappedValue = nil } }
+        .onExitCommand { dismiss() }
+        #endif
     }
+
+    #if os(macOS)
+    private func installJumpContext() {
+        let models = Array(choices.prefix(9))
+        let revision = UUID()
+        let enabled = Set(models.indices.filter { states[models[$0].provider]?.connected == true })
+        modelJump.wrappedValue = TaskModelJumpContext(owner: jumpOwner, revision: revision, titles: models.map { $0.providerName + " · " + $0.model.selectionName }, enabled: enabled) { index in
+            guard enabled.contains(index), modelJump.wrappedValue?.owner == jumpOwner, modelJump.wrappedValue?.revision == revision else { return }
+            modelJump.wrappedValue = nil; select(models[index])
+        }
+    }
+    #endif
 
     private func filterButton(_ value: String, title: LocalizedStringKey, symbol: String? = nil) -> some View {
         Button { filter = value } label: {
@@ -100,6 +128,11 @@ struct TaskModelPicker: View {
                         }.font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 4)
+                    #if os(macOS)
+                    if let index = choices.firstIndex(where: { $0.id == choice.id }), index < 9 {
+                        Text("⌘\(index + 1)").font(.caption2.monospaced()).foregroundStyle(.tertiary).accessibilityHidden(true)
+                    }
+                    #endif
                     if selected { FridaySymbolImage(systemName: "checkmark").font(.caption).foregroundStyle(FridayTheme.accent) }
                 }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(FridaySymbolButtonStyle()).disabled(!available)

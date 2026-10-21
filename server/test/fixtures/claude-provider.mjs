@@ -11,9 +11,15 @@ if (args.includes('auth')) {
 createInterface({ input: process.stdin }).on('line', line => {
   const message = JSON.parse(line); appendFileSync('claude-wire.jsonl', line + '\n');
   if (message.type === 'user') throw new Error('A provider probe must not start a turn');
+  if (message.type === 'control_request' && message.request.subtype === 'get_usage') {
+    console.log(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: message.request_id, response: {
+      rate_limits_available: process.env.FRIDAY_TEST_USAGE !== 'unsupported', rate_limits: { five_hour: { utilization: 23, resets_at: '2033-05-18T03:33:20Z' }, seven_day: { utilization: 45, resets_at: null }, model_scoped: [{ display_name: 'Future Model', utilization: 67, resets_at: null }] },
+    } } })); return;
+  }
   if (message.type === 'control_request') console.log(JSON.stringify({ type: 'control_response', response: {
     subtype: 'success', request_id: message.request_id, response: {
       account: { email: 'claude@example.com', tokenSource: 'ANTHROPIC_API_KEY' },
+      commands: [{ name: 'compact', description: 'Compact context', argumentHint: '', builtin: true }],
       models: [
         { value: 'default', displayName: 'Default', resolvedModel: 'gateway-model', description: '', supportedEffortLevels: ['low', 'high'] },
         { value: 'sonnet', displayName: 'Sonnet', description: '', supportedEffortLevels: ['medium', 'high'] },

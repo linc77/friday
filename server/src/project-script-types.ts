@@ -1,0 +1,5 @@
+import type { TaskWorkspacePlan } from './types.js';
+export type ProjectScript = { id: string; name: string; command: string; icon: 'play' | 'test' | 'lint' | 'configure' | 'build' | 'debug'; runOnWorktreeCreate: boolean; runOnSettle?: boolean; async?: boolean; previewUrl?: string; autoOpenPreview?: boolean };
+export type ProjectScriptSettings = { version: number; defaults: ProjectScript[]; projects: Record<string, ProjectScript[] | null>; requests: Record<string, string>; keybindings?: Record<string, string> };
+export type ProjectScriptRun = { id: string; projectId: string; taskId?: string; preparationId?: string; requestId: string; digest: string; durableId: number; script: ProjectScript; trigger: 'manual' | 'setup' | 'settle'; cwd: string; workspace?: TaskWorkspacePlan; terminalOwner: string; terminalId: string; generation?: number; status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted' | 'cancelled'; createdAt: string; updatedAt: string; startedAt?: string; completedAt?: string; exitCode?: number | null; error?: string };
+export const activeProjectScript = (run: ProjectScriptRun) => run.status === 'queued' || run.status === 'running';

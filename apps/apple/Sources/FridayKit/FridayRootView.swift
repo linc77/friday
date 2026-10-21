@@ -35,7 +35,7 @@ public struct FridayRootView: View {
     @State private var taskDrafts: [String: AgentTaskDraft] = [:]
     @State private var choosingMobileWorkspace = false
     @State private var selectedConversation: String?
-    private var localTasks: [WorkItem] { store.tasks.filter { $0.localAgent } }
+    private var localTasks: [WorkItem] { store.tasks.filter { $0.localAgent && $0.subagentOrigin == nil && $0.archivedAt == nil } }
     @State private var mobileTab = 0
     @State private var mobileTaskPath: [String] = []
     @State private var startingConversation = false
@@ -45,6 +45,8 @@ public struct FridayRootView: View {
     #if os(macOS)
     @FocusState private var focusedSidebarSection: FridaySection?
     @State private var settingsSection: FridaySettingsSection = .appearance
+    @State private var taskModelJump: TaskModelJumpContext?
+    @State private var taskTitleEditors: Set<UUID> = []
     #endif
     public init() {}
 
@@ -89,26 +91,11 @@ public struct FridayRootView: View {
                         .navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id, onOpenTask: openLocalTask) }
                         .toolbar {
                             if mobileTab == 2 {
-                                Button { choosingMobileWorkspace = true } label: { FridaySymbolLabel(friday: "新任务", systemImage: "square.and.pencil") }
+                                Button { draftProjectId = nil; choosingMobileWorkspace = true } label: { FridaySymbolLabel(friday: "新任务", systemImage: "square.and.pencil") }
+                                TaskSearchControl(store: store, openTask: openLocalTask)
                             }
                         }
-                        .sheet(isPresented: $choosingMobileWorkspace) {
-                            NavigationStack {
-                                List(store.projects) { project in
-                                    NavigationLink {
-                                        NewAgentTaskView(store: store, project: project, onCreated: { id in
-                                            choosingMobileWorkspace = false; openLocalTask(id)
-                                        }, drafts: $taskDrafts)
-                                    } label: {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(project.name)
-                                            Text(project.path).font(.caption).foregroundStyle(.secondary)
-                                        }
-                                    }
-                                }.navigationTitle(Text(friday: "选择 Workspace"))
-                                    .toolbar { Button(friday: "取消") { choosingMobileWorkspace = false } }
-                            }
-                        }
+                        .sheet(isPresented: $choosingMobileWorkspace) { mobileNewTaskSheet }
                 }.fridayMobilePage(isSelected: mobileTab == 2)
                 NavigationStack {
                     List {
@@ -117,7 +104,11 @@ public struct FridayRootView: View {
                         NavigationLink(friday: "Workspace") { ProjectsView(store: store) }
                         NavigationLink(friday: "记忆") { MemoriesView(store: store) }
                         NavigationLink("Providers") { ProvidersView(store: store) }
-                        NavigationLink(friday: "外观") { AppearanceSettingsView() }
+                        NavigationLink(friday: "文字生成") { TextGenerationSettingsView(store: store) }
+                        NavigationLink(friday: "Source Control") { SourceControlSettingsView(store: store) }
+                        NavigationLink(friday: "项目脚本") { ProjectScriptsSettingsView(store: store) }
+                        NavigationLink(friday: "外观") { AppearanceSettingsView(store: store) }
+                        NavigationLink(friday: "已归档任务") { TaskArchivedTasks(store: store) }
                         NavigationLink(friday: "连接与设备") { ConnectionView(store: store) }
                     }.navigationTitle(Text(friday: "我的 Friday"))
                 }.fridayMobilePage(isSelected: mobileTab == 3)
@@ -138,21 +129,43 @@ public struct FridayRootView: View {
         .tint(FridayTheme.accent)
         #if os(macOS)
         .buttonStyle(FridayDefaultButtonStyle())
+        .environment(\.fridayModelJump, $taskModelJump)
+        .environment(\.fridayTitleEditors, $taskTitleEditors)
         #endif
         .accentColor(FridayTheme.accent)
         .symbolRenderingMode(.monochrome)
         .environment(\.locale, language.locale)
+        .environment(\.fridayNewTaskOnBranch, openSameBranchDraft)
+        .environment(\.fridayTaskLifecycleNavigation, TaskLifecycleNavigation(selectedID: selectedLifecycleTask, archived: archiveSelectedTask, open: openLocalTask))
+        .onChange(of: TaskActionUndo.context(store), initial: true) { _, _ in store.taskUndo.synchronize(store) }
+        .onChange(of: store.tasks.map(\.id)) { _, _ in store.taskUndo.synchronize(store) }
+        #if os(macOS)
+        .background(TaskUndoKeyboard { store.taskUndo.undo(store: store) }.frame(width: 0, height: 0))
+        #endif
         .preferredColorScheme(appearance.colorScheme)
+        .overlay(alignment: .bottomTrailing) { VStack(alignment: .trailing, spacing: 8) { ProjectPublicationNotices(store: store); TaskReviewGuideNotices(store: store) }.padding(16) }
+        .sheet(item: $store.reviewGuideOpenRequest) { target in TaskChangeRequestPanel(store: store, taskID: target.taskID, url: target.url, initialTab: "guide") }
         .task(id: store.connection.server) {
             taskDrafts = TaskDraftCache.load([String: AgentTaskDraft].self, server: store.connection.server, context: "new-tasks") ?? [:]
             await store.importSharedIdeas(); await store.connect()
         }
+        .onChange(of: store.reviewGuideComposerHandoff?.id) { _, _ in
+            if let target = store.reviewGuideComposerHandoff, target.identity == store.connectionIdentity { openLocalTask(target.taskID) }
+        }
+        .onChange(of: store.changeRequestDraftHandoff?.id) { _, _ in openPreparedDraft() }
         .onChange(of: taskDrafts) { _, drafts in
             TaskDraftCache.save(drafts.isEmpty ? nil : drafts, server: store.connection.server, context: "new-tasks")
         }
         .onChange(of: scenePhase) { _, phase in
+            #if os(iOS)
+            if phase == .background {FridayClientLifecycle.enteredBackground()}
+            if phase == .active {FridayClientLifecycle.cancelQuit()}
+            #endif
             if phase == .active { Task { await store.importSharedIdeas(); await store.connect() } }
         }
+        #if os(macOS)
+        .onChange(of: store.connectionIdentity) { _, _ in taskModelJump = nil; taskTitleEditors = [] }
+        #endif
         .onOpenURL { url in
             guard url.scheme == "friday", url.host == "capture", let components = URLComponents(url: url, resolvingAgainstBaseURL: false), let text = components.queryItems?.first(where: { $0.name == "text" })?.value else { return }
             Task { await store.saveIdea(text) }
@@ -228,7 +241,6 @@ public struct FridayRootView: View {
             #if os(macOS)
             HStack(spacing: 0) {
                 TaskWorkspaceSidebar(store: store, scope: $workspaceScope, draftProjectId: $draftProjectId, selectedTask: $selectedTask) {
-                    draftProjectId = workspaceScope
                     selectedTask = nil
                 }
                 .frame(width: 250)
@@ -264,11 +276,72 @@ public struct FridayRootView: View {
         else { NewConversationView(store: store, onCreated: openConversation) }
     }
 
+    private var selectedLifecycleTask: String? {
+        #if os(macOS)
+        navigation.section == .tasks ? selectedTask : nil
+        #else
+        mobileTab == 2 ? mobileTaskPath.last : nil
+        #endif
+    }
+    private func archiveSelectedTask(_ id: String) {
+        guard selectedLifecycleTask == id else { return }
+        draftProjectId = store.tasks.first { $0.id == id }?.projectId
+        selectedTask = nil; mobileTaskPath = []
+    }
     private func openConversation(_ id: String) { startingConversation = false; selectedConversation = id; navigation.section = .chat; mobileTab = 0 }
 
+    private func openPreparedDraft() {
+        guard let handoff = store.changeRequestDraftHandoff, handoff.identity == store.connectionIdentity,
+              store.projects.contains(where: { $0.id == handoff.result.projectId }) else { return }
+        let key = handoff.result.projectId
+        var draft = taskDrafts[key] ?? AgentTaskDraft(); draft.workspace = handoff.result.selection; draft.requestId = UUID().uuidString; taskDrafts[key] = draft
+        draftProjectId = key; workspaceScope = key; selectedTask = nil; navigation.section = .tasks; mobileTab = 2; mobileTaskPath = []
+        #if os(iOS)
+        choosingMobileWorkspace = true
+        #endif
+    }
+
+    private func openSameBranchDraft(_ source: WorkItem) {
+        guard store.connected, store.taskExistingWorkspaceSupported, store.snapshotIdentity == store.connectionIdentity, source.subagentOrigin == nil,
+              let current = store.tasks.first(where: { $0.id == source.id && $0.cwd == source.cwd }),
+              let branch = current.git?.branch, let key = current.projectId,
+              store.projects.contains(where: { $0.id == key }) else { return }
+        var workspace = TaskWorkspaceSelection()
+        workspace.mode = current.git?.isWorktree == true ? "worktree" : "checkout"
+        workspace.branch = "refs/heads/" + branch; workspace.reuseTaskId = current.id
+        workspace.preparedBranch = branch; workspace.preparedPath = current.cwd
+        var draft = taskDrafts[key] ?? AgentTaskDraft(); draft.workspace = workspace; draft.requestId = UUID().uuidString; taskDrafts[key] = draft
+        draftProjectId = key; selectedTask = nil; navigation.section = .tasks; mobileTab = 2; mobileTaskPath = []
+        #if os(iOS)
+        choosingMobileWorkspace = true
+        #endif
+    }
+    #if os(iOS)
+    private var mobileNewTaskSheet: some View {
+        NavigationStack {
+            Group {
+                if let project = store.projects.first(where: { $0.id == draftProjectId }),
+                   taskDrafts[project.id]?.workspace.preparationId != nil || taskDrafts[project.id]?.workspace.reuseTaskId != nil {
+                    NewAgentTaskView(store: store, project: project, onCreated: finishMobileTask, drafts: $taskDrafts)
+                } else { mobileWorkspaceChoices }
+            }.toolbar { Button(friday: "取消") { choosingMobileWorkspace = false } }
+        }
+    }
+    private func finishMobileTask(_ id: String) { choosingMobileWorkspace = false; openLocalTask(id) }
+    private var mobileWorkspaceChoices: some View {
+        NewAgentTaskView(store: store, project: store.projects.first { $0.id == draftProjectId }, onSelectProject: { draftProjectId = $0.id }, onCreated: finishMobileTask, drafts: $taskDrafts)
+            .navigationTitle(Text(friday: "新任务"))
+    }
+    #endif
+
     private func openLocalTask(_ id: String) {
-        if let task = store.tasks.first(where: { $0.id == id }), let workspaceScope,
-           TaskWorkspaces.project(for: task, in: store.projects)?.id != workspaceScope { self.workspaceScope = nil }
+        if let task = store.tasks.first(where: { $0.id == id }), let workspaceScope {
+            let defaults = UserDefaults.standard
+            let groups = TaskProjectSidebar.groups(store.projects, tasks: store.tasks,
+                mode: TaskProjectGrouping(rawValue: defaults.string(forKey: FridayPreferenceKeys.projectGrouping) ?? "") ?? .repository,
+                overrides: TaskProjectSidebar.dictionaries(defaults.data(forKey: FridayPreferenceKeys.projectGroupingOverrides) ?? Data())[store.connection.server] ?? [:])
+            if let group = groups.first(where: { $0.id == workspaceScope }), TaskProjectSidebar.filtered([task], group: group, projects: store.projects).isEmpty { self.workspaceScope = nil }
+        }
         selectedTask = id; navigation.section = .tasks; mobileTab = 2; mobileTaskPath = [id]
     }
 
@@ -282,7 +355,8 @@ public struct FridayRootView: View {
                     LazyVStack(spacing: 6) {
                         ForEach(localTasks.reversed()) { task in
                             Button { selectedTask = task.id } label: {
-                                TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects), workspace: TaskWorkspaces.project(for: task, in: store.projects), selected: selectedTask == task.id).padding(.horizontal, 12)
+                                TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects), workspace: TaskWorkspaces.project(for: task, in: store.projects), selected: selectedTask == task.id,
+                                    acknowledgeWake: { Task { await store.acknowledgeTaskWake(task) } }).padding(.horizontal, 12)
                                     .foregroundStyle(.primary)
                             }.buttonStyle(TaskRowButtonStyle(selected: selectedTask == task.id))
                                 .accessibilityAddTraits(selectedTask == task.id ? .isSelected : [])
@@ -290,7 +364,7 @@ public struct FridayRootView: View {
                     }.padding(.horizontal, 10)
                 }
                 #else
-                List(localTasks.reversed()) { task in NavigationLink(value: task.id) { TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects), workspace: TaskWorkspaces.project(for: task, in: store.projects)) } }.refreshable { await store.refresh() }
+                MobileTaskList(store: store)
                 #endif
             }
         }

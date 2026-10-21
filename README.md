@@ -25,7 +25,11 @@ pnpm mac:build
 pnpm mac:open
 ```
 
+开发预览使用 Debug 构建，复用定向原生测试的增量编译缓存；`--standalone` 发布构建使用 Release 优化。相关功能完成后统一检查和打包，开发中只运行受影响的测试。
+
 macOS 开发构建会自动标明当前工作区：主检出显示 `Friday · main`，Codex worktree 例如 `Friday · 449d`，其他 worktree 使用目录名。应用包相应为 `dist/Friday-main.app`、`dist/Friday-449d.app` 等，窗口标题同步使用这个名称；每个检出目录有独立的 Bundle Identifier，可以同时打开。继续使用 `pnpm mac:build` / `pnpm mac:open` 即可，名称不随分支或提交变化。独立应用标识也使各工作区的客户端偏好分别保存；服务和数据仍按原连接配置使用，隔离服务时另设 `FRIDAY_DATA_DIR`、`FRIDAY_PORT` 和 `FRIDAY_SERVER_URL`。`--standalone` 发布构建仍使用 `Friday.app`。
+
+任务网页面板的本机模式使用系统 WebKit。手机或远端 Mac 访问主机 `localhost` 时，会连接常驻服务中的主机浏览器；公网网页也可从菜单选择“在主机浏览器中打开”。这一模式要求服务主机已安装 Chrome／Chromium，或通过 `FRIDAY_BROWSER_EXECUTABLE` 指定绝对可执行路径。浏览器使用独立私有配置和沙盒，不使用日常 Chrome 配置；断开客户端保留页面，关闭任务标签或删除任务释放页面。主机模式已支持文件上传／下载与文字剪贴板；主机截图／录屏及浮动／独立／画中画预览已接通；网页批注、开发工具、音频与完整配置管理等仍在对齐中，详见 [任务对齐清单](docs/t3code-task-parity.md)。
 
 启动后先进入“设置 → Providers → Friday”，填入 [DeepSeek API Key](https://platform.deepseek.com/api_keys)，点击“验证并保存”。Friday 会向官方接口发送一次简短测试请求（产生少量 API 用量），成功后才保存密钥；失败不会覆盖已有密钥。默认模型为 `deepseek-flash`，主机启动时可用 `FRIDAY_MODEL_ID=deepseek-v4-pro` 选择 Pro。模型和工具调用使用 [DeepSeek 官方 Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/)，由 Pi Durable 驱动。续聊会保留历史，并使用当前配置的模型。
 

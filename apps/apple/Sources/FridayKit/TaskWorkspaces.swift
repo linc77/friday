@@ -18,18 +18,100 @@ enum TaskWorkspaces {
     }
 
     static func name(for task: WorkItem, in projects: [Project]) -> String {
-        if let project = project(for: task, in: projects) { return project.name }
+        if let project = project(for: task, in: projects) { return project.isScratch == true ? "无项目" : project.name }
         guard !task.cwd.isEmpty else { return "未关联 Workspace" }
         return URL(fileURLWithPath: task.cwd).lastPathComponent
     }
 
-    static func tasks(_ tasks: [WorkItem], scope: String?, projects: [Project], query: String = "") -> [WorkItem] {
+    static func tasks(_ tasks: [WorkItem], scope: String?, projects: [Project], query: String = "", includeArchived: Bool = false) -> [WorkItem] {
         let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
         return tasks.filter { task in
-            task.localAgent && (scope == nil || project(for: task, in: projects)?.id == scope)
+            task.localAgent && task.subagentOrigin == nil && (includeArchived || task.archivedAt == nil) && (scope == nil || project(for: task, in: projects)?.id == scope)
                 && (search.isEmpty || [task.title, name(for: task, in: projects), task.agentName]
                     .contains { $0.localizedStandardContains(search) })
         }.sorted { $0.updatedAt == $1.updatedAt ? $0.id < $1.id : $0.updatedAt > $1.updatedAt }
+    }
+
+    enum Shelf: String, CaseIterable, Identifiable {
+        case pinned, active, working, snoozed, settled
+        var id: String { rawValue }
+        var title: String {
+            switch self { case .pinned: "置顶"; case .active: "活跃"; case .working: "Working"; case .snoozed: "稍后处理"; case .settled: "已结束" }
+        }
+    }
+
+    static func isWorking(_ task: WorkItem) -> Bool {
+        if let activity = task.sidebarActivity { return activity.working }
+        // Old compact summaries omit approvals. Keep an ambiguous waiting
+        // task in the inbox until an authoritative activity summary arrives.
+        return task.localAgent && task.backgroundWaiting != true && (task.status == "queued" || task.status == "running" || task.queueActive) && !task.approvals.contains { $0.state == "pending" }
+    }
+
+    static func shelf(_ task: WorkItem, now: Date, workingShelfEnabled: Bool = false) -> Shelf {
+        if TaskSnooze.isSnoozed(task, now: now) { return .snoozed }
+        if task.settledAt != nil { return .settled }
+        if task.pinnedAt != nil { return .pinned }
+        if task.active || isWorking(task) { return workingShelfEnabled && isWorking(task) ? .working : .active }
+        if task.settlementManaged == true { return .active }
+        // T3's default auto-settle interval is three days. Manual Un-settle
+        // restarts that interval without pretending new agent output arrived.
+        let activity = max(CodexTranscript.date(task.updatedAt) ?? now, CodexTranscript.date(task.unsettledAt) ?? .distantPast)
+        if task.autoSettle != false && now.timeIntervalSince(activity) >= 3 * 86_400 { return .settled }
+        return .active
+    }
+
+    static func shelfTasks(_ tasks: [WorkItem], shelf: Shelf, now: Date, workingShelfEnabled: Bool = false, returnedAt: [String: Date] = [:]) -> [WorkItem] {
+        tasks.filter { $0.subagentOrigin == nil && $0.archivedAt == nil && self.shelf($0, now: now, workingShelfEnabled: workingShelfEnabled) == shelf }.sorted {
+            let left = $0; let right = $1
+            if shelf == .working || shelf == .active && workingShelfEnabled {
+                let a = shelf == .working ? workingSentAt(left) : inboxReturnAt(left, observed: returnedAt[left.id])
+                let b = shelf == .working ? workingSentAt(right) : inboxReturnAt(right, observed: returnedAt[right.id])
+                return a == b ? left.id < right.id : a > b
+            }
+            if shelf == .pinned || shelf == .active {
+                let a = shelf == .pinned ? left.pinOrderKey : left.activeOrderKey
+                let b = shelf == .pinned ? right.pinOrderKey : right.activeOrderKey
+                if let a, let b { return a == b ? left.id < right.id : a < b }
+                if (a != nil) != (b != nil) { return shelf == .pinned ? a != nil : a == nil }
+                let anchor: (WorkItem) -> Date = { task in
+                    let created = CodexTranscript.date(task.createdAt) ?? .init(timeIntervalSince1970: 0)
+                    return shelf == .pinned ? created : max(created, CodexTranscript.date(task.unsettledAt) ?? .init(timeIntervalSince1970: 0))
+                }
+                return anchor(left) == anchor(right) ? left.id < right.id : anchor(left) > anchor(right)
+            }
+            if shelf == .snoozed {
+                let a = CodexTranscript.date(left.snoozedUntil) ?? .init(timeIntervalSince1970: 0)
+                let b = CodexTranscript.date(right.snoozedUntil) ?? .init(timeIntervalSince1970: 0)
+                return a == b ? left.id < right.id : a < b
+            }
+            let a = settledDate(left); let b = settledDate(right)
+            return a == b ? left.id < right.id : a > b
+        }
+    }
+
+    private static func workingSentAt(_ task: WorkItem) -> Date {
+        let authored: Date?
+        if let activity = task.sidebarActivity { authored = CodexTranscript.date(activity.latestUserAuthoredMessageAt) }
+        else {
+            authored = task.messages?.filter { $0.role == "user" && $0.revertedAt == nil && $0.creationSource != "monitor" }.compactMap { CodexTranscript.date($0.at) }.max()
+                ?? task.runs?.last(where: { $0.revertedAt == nil && $0.executionExcludedAt == nil }).flatMap { CodexTranscript.date($0.at) }
+        }
+        return max(CodexTranscript.date(task.createdAt) ?? .init(timeIntervalSince1970: 0), authored ?? .init(timeIntervalSince1970: 0))
+    }
+
+    private static func inboxReturnAt(_ task: WorkItem, observed: Date?) -> Date {
+        let run = task.runs?.last { $0.revertedAt == nil && $0.executionExcludedAt == nil }
+        let requested = task.sidebarActivity?.latestRunRequestedAt ?? (task.sidebarActivity == nil ? run?.at : nil)
+        let completed = task.sidebarActivity?.latestRunCompletedAt ?? (task.sidebarActivity == nil ? run?.completedAt : nil)
+        return ([task.createdAt, task.unsettledAt, requested, completed].compactMap { CodexTranscript.date($0) } + [observed].compactMap { $0 }).max() ?? .init(timeIntervalSince1970: 0)
+    }
+
+    private static func settledDate(_ task: WorkItem) -> Date {
+        if let date = CodexTranscript.date(task.sidebarSettledAt ?? task.settledAt) { return date }
+        let run = task.runs?.last { $0.revertedAt == nil && $0.executionExcludedAt == nil }
+        let user = task.messages?.last { $0.role == "user" && $0.revertedAt == nil && $0.delivery == nil && $0.creationSource != "monitor" }
+        return [user?.at, run?.at, run?.startedAt, run?.completedAt].compactMap { CodexTranscript.date($0) }.max()
+            ?? CodexTranscript.date(task.updatedAt) ?? .init(timeIntervalSince1970: 0)
     }
 
     static func groups(_ input: [WorkItem], projects: [Project]) -> [Group] {

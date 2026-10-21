@@ -9,7 +9,7 @@ export type CodexSettings = {
   enabled: boolean; displayName: string; binaryPath: string; homePath: string; shadowHomePath: string;
   launchArgs: string; model: string; reasoningEffort: string; environment: { name: string; value: string }[];
   customModels: { id: string; name: string }[];
-  permissionMode: 'auto' | 'default' | 'acceptEdits' | 'plan';
+  permissionMode: 'auto' | 'default' | 'acceptEdits' | 'plan' | 'fullAccess';
 };
 export const defaultCodexSettings: CodexSettings = {
   enabled: true, displayName: 'Codex', binaryPath: 'codex', homePath: '', shadowHomePath: '',
@@ -38,22 +38,22 @@ function field(input: unknown, name: string, max = 4096): string {
   if (typeof input !== 'string' || input.length > max || input.includes('\0')) throw new Error(`${name}格式无效。`);
   return input.trim();
 }
-export function validateSettings(input: unknown, previous: CodexSettings, provider = 'Codex'): CodexSettings {
+export function validateSettings(input: unknown, previous: CodexSettings, provider = 'Codex', allowedEfforts: readonly string[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']): CodexSettings {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('模型配置格式无效。');
   const value = input as Record<string, unknown>;
   if (typeof value.enabled !== 'boolean') throw new Error('启用状态无效。');
   const permissionMode = value.permissionMode === undefined ? previous.permissionMode : value.permissionMode;
-  const permissionModes = provider === 'Claude' ? ['auto', 'default', 'acceptEdits', 'plan'] : ['auto', 'default'];
+  const permissionModes = provider === 'Claude' ? ['auto', 'default', 'acceptEdits', 'plan'] : ['Pi', 'Antigravity'].includes(provider) ? ['auto', 'default', 'acceptEdits'] : ['Grok', 'Cursor'].includes(provider) ? ['auto', 'default', 'fullAccess'] : ['auto', 'default'];
   if (typeof permissionMode !== 'string' || !permissionModes.includes(permissionMode)) throw new Error('权限模式无效。');
   const result: CodexSettings = {
     enabled: value.enabled, displayName: field(value.displayName, '显示名称', 80) || provider,
     binaryPath: field(value.binaryPath, '可执行文件') || provider.toLowerCase(), homePath: field(value.homePath, '配置目录'),
     shadowHomePath: field(value.shadowHomePath, '独立账号目录'), launchArgs: field(value.launchArgs, '启动参数', 8000),
-    model: field(value.model, '模型', 160), reasoningEffort: field(value.reasoningEffort, '推理强度', 30), environment: [], customModels: [],
+    model: field(value.model, '模型', 160), reasoningEffort: field(value.reasoningEffort, '推理强度', provider === 'Grok' ? 32 : ['Cursor', 'OpenCode', 'ACP Registry', 'Antigravity'].includes(provider) ? 64 : 30), environment: [], customModels: [],
     permissionMode: permissionMode as CodexSettings['permissionMode'],
   };
   for (const path of [result.homePath, result.shadowHomePath]) if (path && !isAbsolute(expandHome(path))) throw new Error('配置目录必须使用绝对路径或 ~/ 开头的路径。');
-  if (result.reasoningEffort && !['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(result.reasoningEffort)) throw new Error('推理强度无效。');
+  if (result.reasoningEffort && !allowedEfforts.includes(result.reasoningEffort)) throw new Error('推理强度无效。');
   parseLaunchArgs(result.launchArgs);
   if (!Array.isArray(value.environment) || value.environment.length > 40) throw new Error('环境变量最多可配置 40 个。');
   const names = new Set<string>();
@@ -114,14 +114,18 @@ async function shadowHome(shared: string, shadow: string) {
   for (const plan of plans) await symlink(plan.target, plan.link);
 }
 
+export async function codexAccountEnvironment(settings: CodexSettings) {
+  const shared = resolve(expandHome(settings.homePath || process.env.CODEX_HOME || join(homedir(), '.codex')));
+  const home = settings.shadowHomePath ? resolve(expandHome(settings.shadowHomePath)) : shared;
+  if (settings.shadowHomePath) await shadowHome(shared, home);
+  const env: NodeJS.ProcessEnv = { ...Object.fromEntries(settings.environment.map(e => [e.name, e.value])), CODEX_HOME: home };
+  return { env, home };
+}
 export async function codexRuntime(settings: CodexSettings) {
   const binary = expandHome(settings.binaryPath);
   const command = isAbsolute(binary) ? binary : findExecutable(binary);
   if (!command) throw new Error('找不到 Codex，请检查可执行文件路径。');
   await access(command, constants.X_OK);
-  const shared = resolve(expandHome(settings.homePath || process.env.CODEX_HOME || join(homedir(), '.codex')));
-  const home = settings.shadowHomePath ? resolve(expandHome(settings.shadowHomePath)) : shared;
-  if (settings.shadowHomePath) await shadowHome(shared, home);
-  const env: NodeJS.ProcessEnv = { ...Object.fromEntries(settings.environment.map(e => [e.name, e.value])), CODEX_HOME: home };
+  const { env, home } = await codexAccountEnvironment(settings);
   return { command, args: parseLaunchArgs(settings.launchArgs), env, home };
 }

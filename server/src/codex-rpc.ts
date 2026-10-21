@@ -8,6 +8,7 @@ export class CodexRpc {
   nextId = 1;
   onMessage: (message: Wire) => void = () => {};
   onExit: (error: Error) => void = () => {};
+  onIdle: () => void = () => {};
   stderr = '';
   constructor(command: string, cwd: string, options: { args?: string[]; env?: NodeJS.ProcessEnv } = {}) {
     const env = { ...process.env, ...options.env };
@@ -20,6 +21,7 @@ export class CodexRpc {
         const pending = this.pending.get(message.id)!;
         this.pending.delete(message.id); clearTimeout(pending.timer);
         if (message.error) pending.reject(new Error(message.error.message)); else pending.resolve(message.result);
+        if (!this.pending.size) this.onIdle();
       } else this.onMessage(message);
     });
     this.child.stderr.on('data', data => { this.stderr = (this.stderr + data.toString()).slice(-4000); });
@@ -28,10 +30,10 @@ export class CodexRpc {
     this.child.stdin.on('error', () => {});
   }
   send(message: Wire) { if (!this.child.stdin.destroyed) this.child.stdin.write(`${JSON.stringify(message)}\n`); }
-  call(method: string, params: unknown): Promise<any> {
+  call(method: string, params: unknown, timeoutMs = 30_000): Promise<any> {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`Codex ${method} 请求超时`)); }, 30_000);
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`Codex ${method} 请求超时`)); if (!this.pending.size) this.onIdle(); }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer }); this.send({ id, method, params });
     });
   }

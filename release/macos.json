@@ -1,6 +1,6 @@
 {
-  "version": "0.1.0-beta.3",
-  "build": 3,
+  "version": "0.1.0-beta.4",
+  "build": 4,
   "architecture": "arm64",
   "minimumSystemVersion": "14.0",
   "nodeVersion": "24.21.0",

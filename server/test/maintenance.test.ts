@@ -35,6 +35,15 @@ test('abandoned update leases expire without requiring a service restart', async
   await gate.prepare(); await delay(50);
   assert.equal(gate.preparing, false); gate.enterWrite()();
 });
+test('project cloning and publication prevent updates even when there are no agent tasks',async()=>{
+  for(const kind of ['clone','publish'])for(const status of ['queued','running','completed','failed','cancelled','interrupted']){
+    const workspace={tasks:[],projectRepositoryOperations:[{kind,status}]} as unknown as Workspace;
+    const gate=new ServiceMaintenance(async()=>workspace);
+    if(status==='queued'||status==='running'){await assert.rejects(gate.prepare(),/克隆或发布项目/);assert.equal(gate.preparing,false);gate.enterWrite()();}
+    else await gate.prepare();
+    gate.cancel();
+  }
+});
 
 test('branch switches prevent updates until the checkout operation finishes', async () => {
   for (const status of ['queued', 'running', 'completed', 'failed', 'interrupted'] as const) {

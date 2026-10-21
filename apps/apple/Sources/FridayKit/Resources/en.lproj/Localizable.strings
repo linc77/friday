@@ -501,3 +501,2114 @@
 "选择图片文件" = "Choose image files";
 "缩小图片" = "Zoom out";
 "放大图片" = "Zoom in";
+
+// T3 Code task lifecycle
+"重命名任务" = "Rename thread";
+"任务名称" = "Thread title";
+"删除任务？" = "Delete thread?";
+"停止并删除任务" = "Stop and delete thread";
+"删除任务" = "Delete thread";
+"删除 Friday 中的对话和执行记录，保留项目文件与 Agent 原始会话。正在执行的任务会先停止。" = "Delete this conversation and execution history from Friday. Project files and the original agent session are kept. Running work will be stopped first.";
+"稍后处理" = "Snoozed";
+"唤醒时间" = "Wake time";
+"任务操作失败" = "Thread action failed";
+"置顶任务" = "Pin thread";
+"取消置顶" = "Unpin thread";
+"移回活跃任务" = "Un-settle thread";
+"结束跟进" = "Settle thread";
+"唤醒任务" = "Wake thread";
+"一小时后" = "In one hour";
+"三小时后" = "In three hours";
+"明天上午 9 点" = "Tomorrow at 9 AM";
+"今晚 6 点" = "This evening at 6 PM";
+"下周一上午 9 点" = "Next Monday at 9 AM";
+"已唤醒" = "Woke";
+"确认唤醒提醒" = "Dismiss Woke notification";
+"后台命令" = "Background commands";
+"状态未确认" = "Status unconfirmed";
+"正在停止…" = "Stopping…";
+"停止命令" = "Stop command";
+"后台运行" = "Running in background";
+"日期与时间" = "Date and time";
+"时长" = "Duration";
+"时长单位" = "Duration unit";
+"分钟" = "Minutes";
+"小时" = "Hours";
+"自定义时间…" = "Custom…";
+"标为未读" = "Mark unread";
+"自动结束跟进" = "Auto-settle behavior";
+"目录" = "Path";
+"分支" = "Branch";
+"任务 ID" = "Thread ID";
+"在 Finder 中显示" = "Reveal in Finder";
+"归档任务" = "Archive thread";
+"恢复任务" = "Restore thread";
+"已置顶" = "Pinned";
+"未读" = "Unread";
+"活跃" = "Active";
+"已结束" = "Settled";
+"上一题" = "Previous";
+"下一题" = "Next";
+
+// T3 Code queued messages
+"排队消息" = "Queued";
+"继续队列" = "Resume queue";
+"编辑排队消息" = "Edit queued message";
+"立即补充到当前执行" = "Steer now";
+"删除排队消息" = "Remove queued message";
+"调整排队顺序" = "Reorder queued message";
+"上移" = "Move up";
+"下移" = "Move down";
+"移到末尾" = "Move to end";
+"正在编辑排队消息" = "Editing queued message";
+"这条消息已开始发送，修改内容仍保留在输入框中。" = "This message has started sending. Your edits are still in the composer.";
+"继续任务" = "Resume thread";
+"保存排队消息" = "Update queued message";
+"加入队列" = "Queue message";
+"加入队列；按住 ⌘ 或 Control 立即补充。" = "Queue message. Hold ⌘ or Control to steer.";
+"立即补充；按住 ⌘ 或 Control 加入队列。" = "Steer message. Hold ⌘ or Control to queue.";
+"运行中默认排队" = "Queue follow-ups by default";
+"运行中默认立即补充" = "Steer follow-ups by default";
+"%lld 个文件改动" = "%lld changed files";
+"打开 Diff" = "Open diff";
+"收起所有文件夹" = "Collapse all folders";
+"展开所有文件夹" = "Expand all folders";
+"正在修改文件" = "Changing files";
+"这些改动未确认应用成功" = "These changes were not confirmed as applied";
+"复制文件路径" = "Copy file path";
+"复制相对路径" = "Copy relative path";
+"打开文件" = "Open file";
+"待处理" = "Pending";
+"待确认方案" = "Proposed plan";
+"方案操作" = "Plan actions";
+"复制方案" = "Copy plan";
+"导出 Markdown" = "Download Markdown";
+"保存到工作区" = "Save to workspace";
+"相对文件路径" = "Relative file path";
+"收起方案" = "Collapse plan";
+"展开完整方案" = "Expand full plan";
+"已保存到 %@" = "Saved to %@";
+"当前工作区改动" = "Workspace changes";
+"执行中的文件改动" = "Execution changes";
+"刷新文件改动" = "Refresh changes";
+"关闭改动面板" = "Close changes panel";
+"显示改动面板" = "Show changes panel";
+"文件改动与 Diff" = "Changes and diff";
+"文件改动范围" = "Change scope";
+"全部" = "All";
+"未暂存" = "Unstaged";
+"已暂存" = "Staged";
+"保存的历史补丁" = "Saved historical patch";
+"这次文件改动已经不在任务记录中" = "This change is no longer in the task record";
+"补丁过大，仅显示部分内容" = "This patch is too large. Showing a partial preview.";
+"二进制文件无法显示文本 Diff" = "A text diff is unavailable for this binary file";
+"文件过大，请在本机编辑器中查看" = "This file is too large. Open it in a local editor.";
+"没有文本差异" = "No text differences";
+"这个工作区不是 Git 仓库" = "This workspace is not a Git repository";
+"没有文件改动" = "No changed files";
+"切换为统一 Diff" = "Switch to unified diff";
+"切换为左右 Diff" = "Switch to split diff";
+"统一 Diff" = "Unified diff";
+"左右 Diff" = "Split diff";
+"复制补丁" = "Copy patch";
+"调整改动面板宽度" = "Resize changes panel";
+"原始内容" = "Original";
+"修改后内容" = "Modified";
+"方案已就绪" = "Plan ready";
+"切换计划模式" = "Toggle Plan mode";
+"计划模式" = "Plan mode";
+"普通模式" = "Default mode";
+"实施" = "Implement";
+"细化" = "Refine";
+"在新任务中实施" = "Implement in a new thread";
+"实施选项" = "Implementation options";
+"补充意见以细化方案，或直接实施…" = "Add feedback to refine the plan, or implement it…";
+"先研究什么，再提出方案…" = "What should the agent investigate and plan?";
+"Git 操作" = "Git actions";
+"Git 操作已完成" = "Git action completed";
+"Git 操作未完成" = "Git action did not complete";
+"Git 操作正在进行" = "A Git action is in progress";
+"全选文件" = "Select all files";
+"分支已分叉，请先合并或变基" = "This branch has diverged. Merge or rebase first.";
+"分支已是最新状态" = "This branch is up to date.";
+"创建 PR" = "Create PR";
+"刷新 Git 状态" = "Refresh Git status";
+"可以先创建功能分支，也可以明确选择在当前分支继续。" = "Create a feature branch, or choose to continue on the current branch.";
+"同步分支" = "Sync branch";
+"在当前分支继续" = "Continue on current branch";
+"在新分支上提交" = "Commit on new branch";
+"在默认分支上发布？" = "Publish on the default branch?";
+"复制提交 ID" = "Copy commit ID";
+"完成" = "Done";
+"已选择" = "Selected";
+"拉取" = "Pull";
+"推送" = "Push";
+"推送并创建 PR" = "Push and create PR";
+"提交" = "Commit";
+"提交、推送并创建 PR" = "Commit, push and PR";
+"提交并推送" = "Commit and push";
+"提交改动" = "Commit changes";
+"提交说明" = "Commit message";
+"提交说明（可选）" = "Commit message (optional)";
+"文件" = "Files";
+"新分支名称（可选）" = "New branch name (optional)";
+"新建分支后继续" = "Create branch and continue";
+"未选择" = "Not selected";
+"查看 Git 操作" = "View Git action";
+"查看 PR" = "View PR";
+"正在创建 PR" = "Creating PR…";
+"正在创建分支" = "Creating branch…";
+"正在执行 Git 操作" = "Running Git action…";
+"正在拉取" = "Pulling…";
+"正在推送" = "Pushing…";
+"正在提交" = "Committing…";
+"正在生成 PR 说明" = "Generating PR content…";
+"正在生成提交说明" = "Generating commit message…";
+"正在读取 Git 状态" = "Reading Git status…";
+"留空将自动生成" = "Leave empty to auto-generate";
+"确认发布分支" = "Confirm publishing branch";
+"等待 Git 操作" = "Waiting for Git action";
+"请先创建并切换到一个本地分支" = "Create and check out a local branch first.";
+"请先添加远端仓库" = "Add a remote repository first.";
+"请检查 GitHub CLI 和登录状态" = "Check GitHub CLI installation and sign-in.";
+"重试请求" = "Retry request";
+"默认分支" = "Default branch";
+"整轮文件改动" = "Turn changes";
+"整轮文件改动暂不可用" = "Turn changes unavailable";
+"执行前后检查点的净改动" = "Net changes between turn checkpoints";
+"二进制" = "Binary";
+"从这里编辑" = "Edit from here";
+"从这里编辑？" = "Edit from here?";
+"对话将回到这条消息之前，原请求和附件会放回输入框。" = "Rewind chat to before this message. Your prompt and attachments return to the composer.";
+"将回退 %lld 轮执行" = "Rewind %lld turns";
+"同时恢复文件" = "Revert files too";
+"回退并保留改动" = "Revert and keep changes";
+"从保留历史建立新会话" = "Start a new session from kept history";
+"从保留历史建立新会话？" = "Start a new session from kept history?";
+"建立新会话并继续回退" = "Start a new session and continue rewind";
+"将保留已选历史并使用新的 Agent 会话。原会话记录仍保留；若这次请求包含文件恢复，将继续该操作。" = "Keep the selected history in a new agent session. The original session remains saved. Any requested file restore will continue.";
+"正在恢复文件" = "Restoring files";
+"正在回退会话" = "Rewinding chat";
+"原请求已放回输入框" = "Prompt restored to composer";
+"回退需要处理" = "Rewind needs attention";
+"恢复原草稿" = "Restore previous draft";
+"查看当前改动" = "Review current changes";
+"重新恢复文件" = "Retry file restore";
+"保留当前文件并结束" = "Keep current files and finish";
+"核对并继续回退" = "Check and continue rewind";
+"重新恢复文件？" = "Retry file restore?";
+"将文件恢复到所选消息之前，保留当前分支和提交。请先核对当前改动。" = "Restore files to before the selected message, keeping the current branch and commits. Review the current changes first.";
+"当前没有未提交改动" = "No uncommitted changes";
+"恢复文件" = "Restore files";
+"Worktree 目录已清理，将重新创建并恢复所选检查点。" = "The worktree directory was removed. It will be recreated from the selected checkpoint.";
+
+/* Integrated task terminal. */
+"显示终端" = "Show terminal";
+"收起终端" = "Hide terminal";
+"终端 · ⌘J" = "Terminal · ⌘J";
+"搜索终端" = "Search terminal";
+"粘贴" = "Paste";
+"新建终端" = "New terminal";
+"拆分终端" = "Split terminal";
+"关闭终端" = "Close terminal";
+"清空终端" = "Clear terminal";
+"重新启动终端" = "Restart terminal";
+"重新启动" = "Restart";
+"重命名终端" = "Rename terminal";
+"终端名称" = "Terminal name";
+"复制选中文字" = "Copy selection";
+"增大终端字体" = "Increase terminal font size";
+"减小终端字体" = "Decrease terminal font size";
+"重置终端字体" = "Reset terminal font size";
+"停止终端中的程序？" = "Stop programs in this terminal?";
+"停止并重新启动" = "Stop and restart";
+"停止并关闭" = "Stop and close";
+"终端仍有程序在运行，停止后尚未完成的工作会中断。" = "Programs are still running in this terminal. Stopping them will interrupt unfinished work.";
+"正在打开终端…" = "Opening terminal…";
+"尚未打开终端" = "No open terminals";
+"继续输入" = "Continue typing";
+"正在连接终端…" = "Connecting to terminal…";
+"终端已退出，历史输出已保留。" = "Terminal exited. Output history is preserved.";
+"已加载最近的终端输出。" = "Recent terminal output loaded.";
+"调整终端高度" = "Resize terminal height";
+"上一段输入是否送达尚未确认。请检查终端内容后再继续输入；不会自动重发。" = "The last input could not be confirmed. Check the terminal before continuing; input will not be sent again automatically.";
+"粘贴内容过大，尚未发送的输入已取消。" = "The paste is too large. Unsent input was cancelled.";
+"主机连接已切换" = "Host connection changed";
+"终端连接暂时不可用" = "Terminal connection is unavailable.";
+"终端连接授权失效或会话已被移除" = "Terminal access expired or the session was removed.";
+"终端输出不同步，正在重新加载。" = "Terminal output is out of sync. Reloading…";
+"终端输出保存失败，已停止接收输入，请重新启动。" = "Terminal output could not be saved. Input is stopped; restart the terminal to continue.";
+"服务已停止；保留输出，等待明确重新启动，不重放输入。" = "The service stopped. Output is preserved. Restart explicitly to continue; input will not be replayed.";
+"服务曾中断；保留终端输出，等待明确重新启动，不重放输入。" = "The service was interrupted. Output is preserved. Restart explicitly to continue; input will not be replayed.";
+"终端操作曾中断，等待明确重新启动；不会自动重放。" = "The terminal operation was interrupted. Restart explicitly; it will not be replayed.";
+"终端操作已中断；输入不会自动重放。" = "The terminal operation was interrupted. Input will not be replayed.";
+"终端操作未能确认提交，请明确重新启动或关闭。" = "The terminal operation could not be confirmed. Explicitly restart or close it.";
+
+/* Task source references. */
+"添加到任务输入框" = "Add to task input";
+"添加选区到任务" = "Add selection to task";
+"正在添加引用…" = "Adding reference…";
+"引用 Workspace 内容" = "Reference workspace content";
+"搜索文件或目录" = "Search files or folders";
+"引用文件、目录或代码" = "Reference a file, folder, or code";
+"复制引用内容" = "Copy reference content";
+"这是截取的引用，未包含全部文件内容。" = "This excerpt does not include the full source.";
+"捕获于" = "Captured at";
+"正在搜索文件…" = "Searching files…";
+"未找到文件或目录" = "No matching files or folders";
+"行范围" = "Lines";
+"引用代码" = "Reference code";
+"引用此目录" = "Reference this folder";
+"引用文件" = "Reference file";
+"选择文件以预览，或引用当前目录。" = "Select a file to preview, or reference the current folder.";
+"刷新引用预览" = "Refresh reference preview";
+"用户消息" = "User message";
+"引用内容未加载，请删除后重新添加。" = "Reference content is unavailable. Remove and add it again.";
+"每条消息最多添加 20 个上下文引用" = "A message can include up to 20 references.";
+"上下文引用已改变，请重新打开" = "The reference changed. Open it again.";
+"文件已改变，请重新查看后添加引用" = "The file changed. Review it again before adding a reference.";
+"终端已退出或重新启动，请重新选取内容" = "The terminal exited or restarted. Select the excerpt again.";
+"终端选区不能为空，且最多 64,000 字" = "Select terminal text, up to 64,000 characters.";
+"不能引用 Friday 的私有运行数据" = "Friday private runtime data cannot be referenced.";
+"上下文引用已失效，请重新添加后发送" = "The reference expired. Add it again before sending.";
+"上下文引用不属于此任务或 Workspace，请重新添加" = "This reference belongs to another task or workspace. Add it again.";
+"文件不能指向工作区之外" = "The file must remain inside the workspace.";
+"二进制文件不能用作文本引用" = "Binary files cannot be used as text references.";
+"这个文件不是 UTF-8 文本，无法创建文本引用" = "This file is not UTF-8 text and cannot be used as a text reference.";
+"引用行超出已读取文件，请重新选择" = "The line range is outside the loaded file. Select it again.";
+"读取期间文件已改变，请重新选择" = "The file changed while being read. Select it again.";
+"引用内容已截取，未包含全部源内容。" = "This excerpt does not include the full source.";
+"引用未能添加，选区已保留；请检查任务输入框后重试。" = "The reference was not added. Your selection is preserved; check the task input and retry.";
+
+"从此回复分叉" = "Fork from this response";
+"保留到此轮为止的历史，在新任务中继续" = "Keep history through this turn and continue in a new task";
+"分叉自" = "Forked from";
+"打开原任务" = "Open source task";
+"正在准备分叉会话…" = "Preparing forked session…";
+"分叉结果尚未确认" = "Fork result has not been confirmed";
+"核对原生分叉" = "Inspect native fork";
+"重试分叉" = "Retry fork";
+"从可见历史建立新会话" = "Start a new session from visible history";
+"下一轮将在新会话中使用这里保留的可见历史。" = "The next turn will use the visible history retained here in a new session.";
+
+"准备分叉中" = "Preparing fork";
+
+"分叉待处理" = "Fork needs attention";
+
+"正在加载历史…" = "Loading history…";
+
+"加载更早的记录" = "Load earlier history";
+"工作区准备失败" = "Workspace preparation failed";
+"重试准备" = "Retry";
+"正在准备工作区…" = "Preparing workspace…";
+"准备工作区" = "Preparing workspace";
+"对话历史已改变，请重新加载记录" = "Conversation history changed. Load it again.";
+"历史正在更新，请稍后重试" = "History is updating. Try again shortly.";
+"也会回退较早请求后续产生的回复和处理记录，原请求会保留。" = "Later replies and activity from earlier requests will also be rewound. Their original requests will remain.";
+
+"输出过大，仅显示部分内容" = "Output is too large; showing partial content";
+
+"没有输出" = "No output";
+
+"重新加载输出" = "Reload output";
+
+"正在加载输出…" = "Loading output…";
+
+"较早的输出未显示" = "Earlier output not shown";
+
+"输出数据过大，请重新展开执行项。" = "Output data is too large. Reopen the activity item.";
+
+"任务历史已改变，请重新展开执行项。" = "Task history changed. Reopen the activity item.";
+
+"输出连接已中断，正在重新连接。" = "Output connection interrupted. Reconnecting.";
+
+"任务不存在" = "Task not found";
+
+"任务进展暂时无法加载" = "Task progress is temporarily unavailable";
+
+"任务列表已改变，正在重新加载。" = "The task list changed. Reloading.";
+
+"任务关系" = "Related tasks";
+"%lld 个相关任务" = "%lld related tasks";
+"原任务与分叉任务" = "Source task and forks";
+"原任务" = "Source task";
+"分叉任务" = "Fork";
+"任务已删除或不可用" = "Task deleted or unavailable";
+"再显示 %lld 项" = "Show %lld more";
+"已归档" = "Archived";
+"上一个任务" = "Previous task";
+"下一个任务" = "Next task";
+"跳转到第 %lld 个任务" = "Jump to task %lld";
+"任务名称不能为空，最多 200 个字符且不能包含换行" = "Use a nonempty title of up to 200 characters without line breaks.";
+"主机未连接，请重新连接后再修改任务名称" = "Reconnect to the host before renaming the task.";
+
+"搜索任务" = "Search tasks";
+"搜索任务…" = "Search tasks…";
+"搜索任务标题、PR 或消息" = "Search task titles, PRs, or messages";
+"搜索任务标题、PR 或消息…" = "Search task titles, PRs, or messages…";
+"输入任务标题、PR 编号或历史消息" = "Enter a task title, PR number, or message";
+"正在搜索消息…" = "Searching messages…";
+"没有找到任务" = "No tasks found";
+"重新搜索" = "Search again";
+"输入至少 2 个字符搜索消息" = "Use at least 2 characters to search messages";
+"连接主机后可搜索历史消息" = "Connect to the host to search message history";
+"当前主机不支持消息搜索" = "This host does not support message search";
+"搜索内容需要 2 到 200 个字符" = "Search queries need 2 to 200 characters";
+"任务消息搜索暂时不可用，请稍后重试" = "Message search is temporarily unavailable. Try again shortly.";
+"搜索结果已改变，请重试" = "Search results changed. Try again.";
+"你：" = "You:";
+"Agent：" = "Agent:";
+"重新生成标题" = "Regenerate title";
+"正在重新生成标题" = "Regenerating title";
+"文字生成" = "Text generation";
+"用于任务标题和其他自动生成的文字；提交与 PR 说明可单独选择模型。" = "Used for task titles and other generated text. Commit and PR descriptions can use a separate model.";
+"设置范围" = "Settings scope";
+"应用到" = "Apply to";
+"此主机" = "This host";
+"文字生成模型" = "Text generation model";
+"提交与 PR 说明模型" = "Commit and PR model";
+"正在同步设置…" = "Syncing settings…";
+"重新加载" = "Reload";
+"Provider 的账号与连接需在主机的 Providers 中配置。" = "Provider accounts and connections are configured in Providers on the host.";
+"此 Workspace" = "This Workspace";
+"主机设置" = "Host settings";
+"已启用的 Provider" = "Enabled provider";
+"跟随文字生成模型" = "Use text generation model";
+"默认设置" = "Defaults";
+"模型默认" = "Model default";
+"使用主机设置" = "Use host settings";
+"恢复默认模型" = "Reset model";
+"当前主机不支持文字生成设置" = "This host does not support text generation settings";
+"无法读取文字生成设置" = "Unable to load text generation settings";
+"文字生成设置…" = "Text generation settings…";
+"文字生成设置已在其他设备修改，请重新加载后再修改。" = "These settings changed on another device. Reload before editing.";
+"主机返回的设置范围或版本无效" = "The host returned an invalid settings scope or version";
+"Source Control 写作" = "Source Control writing";
+"写作风格" = "Writing style";
+"仓库惯例" = "Repository conventions";
+"自定义说明" = "Custom instructions";
+"恢复默认风格" = "Reset writing style";
+"保存说明" = "Save instructions";
+"遵循 PR 模板" = "Follow PR templates";
+"使用目标分支中的仓库 PR 模板填写说明。" = "Use the repository PR template from the target branch.";
+"提交标题使用 Conventional Commits 前缀；PR 标题保持简洁。" = "Use Conventional Commit prefixes for commit subjects and keep PR titles concise.";
+"将自定义说明用于提交与 PR 的文字生成。" = "Use your instructions for commit messages and PR descriptions.";
+"参考仓库最近的提交标题和本地说明，沿用已有写作习惯。" = "Match recent commit subjects and local writing instructions in the repository.";
+"任务顺序已在其他设备修改，请刷新后重试。" = "The task order changed on another device. Refresh and try again.";
+"任务侧栏" = "Task sidebar";
+"Working" = "Working";
+"Working 分组（Beta）" = "Working section (beta)";
+"折叠正在处理的任务；需要你处理时回到活跃列表顶部，活跃列表按返回时间排序。" = "Fold processing threads into Working. They return to the top of the inbox when they need you; the inbox sorts by return time.";
+"关闭 Working 分组并恢复已保存的手动排序。" = "Turn off Working and restore the saved manual order.";
+"自动结束不活跃任务" = "Auto-settle inactive tasks";
+"由主机服务处理；关闭窗口后继续生效。" = "Handled by the host service, even when client windows are closed.";
+"无活动天数" = "Days of inactivity";
+"输入 1–90 天，回车或结束编辑时保存；新活动会恢复自动判断。" = "Enter 1–90 days and press Return or finish editing to save. New activity restores automatic evaluation.";
+"天数" = "Days";
+"天" = "days";
+"设置来源" = "Setting source";
+"自动结束设置已在其他设备修改，请重新加载后重试。" = "Auto-settle settings changed on another device. Reload and try again.";
+"后台工作" = "Background work";
+"后台任务" = "Background task";
+"等待后台任务" = "Waiting for background tasks";
+"监视器" = "Monitor";
+"子 Agent" = "Subagent";
+"停止任务" = "Stop task";
+"父任务" = "Parent task";
+"尚无进度摘要" = "No progress summary yet";
+"停止后台工作" = "Stop background work";
+"正在停止后台工作…" = "Stopping background work…";
+"重新核对停止结果" = "Recheck Stop result";
+"查看子 Agent 对话" = "Open subagent conversation";
+"原生子 Agent" = "Native subagent";
+"在父任务中处理授权和继续对话" = "Handle permissions and continue the conversation in the parent task";
+"返回父任务" = "Back to parent task";
+"原任务、子 Agent 与分叉任务" = "Parent task, subagents, and forks";
+"停止子 Agent" = "Stop subagent";
+"正在读取历史…" = "Loading conversation history…";
+"暂时无法读取对话历史" = "Conversation history is temporarily unavailable";
+"未完成" = "Not completed";
+"说明" = "Note";
+"提示" = "Tip";
+"重要" = "Important";
+"警告" = "Warning";
+"注意" = "Caution";
+"收起表格单元格" = "Collapse table cells";
+"展开表格单元格" = "Expand table cells";
+"复制为 Markdown" = "Copy as Markdown";
+"复制为 CSV" = "Copy as CSV";
+"复制表格" = "Copy table";
+"取消自动换行" = "Disable line wrap";
+"自动换行" = "Wrap lines";
+"已启用" = "Enabled";
+"已关闭" = "Disabled";
+"图片" = "Image";
+"查看图表" = "Show diagram";
+"查看源码" = "Show code";
+"展开图表" = "Expand diagram";
+"正在绘制图表" = "Rendering diagram";
+"无法绘制图表" = "Unable to render diagram";
+"缩小" = "Zoom out";
+"适合窗口" = "Fit to window";
+"放大" = "Zoom in";
+"复制图表图片" = "Copy diagram image";
+"导出 SVG" = "Export SVG";
+"图表暂时无法显示" = "The diagram is temporarily unavailable";
+"图表暂时无法加载" = "The diagram could not be loaded";
+"图表内容为空" = "The diagram is empty";
+"图表内容过长，源码已保留" = "The diagram is too large; its source is preserved";
+"图表绘制超时，源码已保留" = "Diagram rendering timed out; its source is preserved";
+"图表导出失败，请重试" = "Diagram export failed. Please try again.";
+"复制图表失败，请重试" = "Could not copy the diagram. Please try again.";
+"详细内容" = "Details";
+"复制图片" = "Copy image";
+"复制图片链接" = "Copy image link";
+"保存图片" = "Save image";
+"适应窗口" = "Fit to window";
+"图片保存失败，请重试" = "Could not save the image. Please try again.";
+"工作区文件" = "Workspace files";
+"改动" = "Changes";
+"关闭文件" = "Close file";
+"关闭侧栏" = "Close side panel";
+"调整侧栏宽度" = "Resize side panel";
+"复制绝对路径" = "Copy absolute path";
+"显示源代码" = "Show source";
+"显示预览" = "Show preview";
+"显示文件树" = "Show file explorer";
+"刷新文件" = "Refresh files";
+"文件夹条目较多，可使用搜索定位文件" = "This folder has more entries. Search to locate a file.";
+"文件夹为空" = "This folder is empty";
+"仅显示文件前 1 MiB 的内容" = "Showing the first 1 MiB of this file";
+"此文件暂不支持预览" = "This file cannot be previewed yet";
+"文件预览暂时无法加载" = "The file preview could not be loaded";
+"复制源代码" = "Copy source";
+"代码自动换行" = "Wrap source lines";
+"源代码" = "Source code";
+"读取期间文件已改变，请重新加载" = "The file changed while reading. Reload to try again.";
+"请选择普通文件" = "Select a regular file";
+"搜索文件" = "Search files";
+"展开图片" = "Expand image";
+"正在保存" = "Saving";
+"已保存" = "Saved";
+"未保存" = "Unsaved";
+"保存未完成" = "Save incomplete";
+"保存文件" = "Save file";
+"复制编辑内容" = "Copy edits";
+"核对保存结果" = "Check save result";
+"重新保存" = "Save again";
+"复制编辑并读取当前文件" = "Copy edits and read current file";
+"工作区已改变，编辑内容已保留" = "The workspace changed. Your edits have been kept.";
+"文件保存失败，编辑内容已保留" = "The file could not be saved. Your edits have been kept.";
+"保存结果待确认，编辑内容已保留" = "The save could not be confirmed. Your edits have been kept.";
+"文件最多 1 MiB，编辑内容已保留" = "Files can be up to 1 MiB. Your edits have been kept.";
+"标为已完成" = "Mark complete";
+"标为未完成" = "Mark incomplete";
+"复制引用" = "Copy mention";
+"添加到输入框" = "Add to chat";
+"输入框尚未准备好接收引用" = "The chat isn't ready to accept references.";
+"打开" = "Open";
+"无法打开文件" = "Could not open file";
+"表格预览已截取：最多 100 行、30 列，每格 2000 字符。可切换源码查看完整内容。" = "Table preview limited to 100 rows, 30 columns and 2000 characters per cell. Switch to source for the rest.";
+"浏览文件夹" = "Browse folder";
+"返回上一层" = "Back to parent folder";
+"文件路径" = "File path";
+"部分文件夹条目未显示，可在文件树中搜索。" = "Some folder entries are not shown. Search the file tree to find them.";
+"当前路径已变为文件夹，编辑内容已保留" = "This path is now a folder. Your edits have been kept.";
+
+"视频暂时无法加载" = "Video unavailable";
+
+"音频暂时无法加载" = "Unable to load audio";
+
+"路径已复制" = "Path copied";
+
+"链接已复制" = "URL copied";
+
+"图片已复制" = "Image copied";
+
+"文件已保存" = "File saved";
+
+"选择保存位置" = "Choose where to save";
+
+"正在复制图片…" = "Copying image…";
+
+"正在准备下载…" = "Preparing download…";
+
+"保存视频" = "Save video";
+
+"媒体文件暂时无法读取，请重新连接后重试" = "Media unavailable. Reconnect and try again.";
+
+"媒体下载失败，请重试" = "Media download failed. Try again.";
+
+"链接未返回完整媒体文件，请重新加载后重试" = "The link did not return a complete media file. Reload and try again.";
+
+"文件所属工作区已改变，请重新打开媒体" = "The workspace changed. Reopen the media file.";
+
+"媒体来源无法确认，请更新服务并重新打开文件" = "The media source could not be verified. Update the service and reopen the file.";
+
+"打开原链接" = "Open original link";
+
+"在文件预览中打开" = "Open in file viewer";
+
+"媒体文件路径无效" = "Invalid media path";
+
+"媒体文件不存在或无法读取" = "The media file is missing or unreadable";
+
+"这个文件不是支持的媒体类型" = "This media type is not supported";
+
+"请选择普通媒体文件" = "Choose a regular media file";
+
+"媒体文件路径已改变，请重新加载" = "The media file changed. Reload and try again.";
+
+"打开方式" = "Open with";
+"正在查找主机编辑器…" = "Finding editors on the host…";
+"主机上未找到可用编辑器" = "No installed editors found on the host";
+"刷新打开方式" = "Refresh editors";
+"在首选编辑器中打开 · ⌘O" = "Open in preferred editor · ⌘O";
+"在主机上打开" = "Open on the host";
+"文件所属工作区已改变，请重新打开文件" = "The workspace changed. Reopen the file.";
+"主机未确认打开文件，请检查后重试" = "The host did not confirm opening the file. Check before retrying.";
+"无法读取主机打开方式" = "Could not read editors on the host";
+"无法在主机上打开文件，请检查应用是否仍可用" = "Could not open the file on the host. Check that the application is still installed.";
+"打开方式无效" = "Invalid editor selection";
+"文件行列位置无效" = "Invalid file line or column";
+"主机上未找到这个编辑器" = "This editor is not installed on the host";
+"主机不支持在文件管理器中显示" = "The host does not support revealing files";
+"文件所属工作区或路径已改变，请重新打开文件" = "The workspace or file path changed. Reopen the file.";
+"请选择普通文件或目录" = "Choose a regular file or directory";
+"好" = "OK";
+
+"文件或目录路径无效" = "Invalid file or directory path";
+"文件预览目录已改变，请刷新预览" = "The preview directory changed. Refresh the preview.";
+"添加批注" = "Add comment";
+"添加批注…" = "Add a comment…";
+"删除批注" = "Delete comment";
+"批注" = "Comment";
+"⌘ / Ctrl Enter 提交" = "⌘ / Ctrl Enter to send";
+"输入框尚未准备好接收批注" = "The composer is not ready to receive this comment.";
+"批注不属于当前输入框" = "This comment belongs to a different composer.";
+"批注内容无效" = "Invalid comment.";
+"批注行范围无效" = "Invalid comment line range.";
+"批注或选区内容过长" = "The comment or selection is too long.";
+"批注所属工作区无效" = "Invalid comment workspace.";
+"批注所属工作区已改变，请重新添加" = "The comment workspace changed. Add the comment again.";
+"选中的 Diff 行已改变，请重新选择" = "The selected Diff lines changed. Select them again.";
+"Diff 批注选区无效" = "Invalid Diff comment selection.";
+
+// Assistant message citations
+"引用回答" = "Quote reply";
+"引用" = "Quote";
+"返回原消息" = "Return to source";
+"补充说明（可选）" = "Add a comment (optional)";
+"补充说明最多 8,000 个字符" = "Comments can contain up to 8,000 characters";
+"引用已被修改，请关闭后重新打开" = "This quote has changed. Close and reopen it to edit.";
+"保存" = "Save";
+"全选" = "Select all";
+"复制" = "Copy";
+
+// Task browser preview
+"新标签页" = "New tab";
+"无痕浏览" = "Incognito";
+"网页预览" = "Browser preview";
+"关闭网页" = "Close browser tab";
+"添加侧栏标签页" = "Add a panel tab";
+"复制标签页" = "Duplicate tab";
+"复制网页地址" = "Copy page URL";
+"关闭其他标签页" = "Close other browser tabs";
+"关闭右侧标签页" = "Close browser tabs to the right";
+"重新打开已关闭的标签页" = "Reopen closed tab";
+"输入网址或搜索" = "Enter a URL or search";
+"本地服务" = "Local servers";
+"配置本地服务地址" = "Configure local server URLs";
+"暂未发现可预览的网页服务" = "No web servers found";
+"最近浏览" = "Recent pages";
+"清除历史" = "Clear history";
+"在此项目中打开的网页会显示在这里" = "Pages opened in this project appear here";
+"打开网页" = "Open browser";
+"新增浏览配置" = "New browser profile";
+"名称" = "Name";
+"创建" = "Create";
+"本地服务地址" = "Local server URLs";
+"每行一个本机地址，可包含页面路径" = "One local URL per line; page paths are supported";
+"后退" = "Back";
+"前进" = "Forward";
+"停止加载" = "Stop loading";
+"在默认浏览器中打开" = "Open in default browser";
+"截取网页" = "Capture page";
+"强制重新加载" = "Hard reload";
+"隐藏设备工具栏" = "Hide device toolbar";
+"显示设备工具栏" = "Show device toolbar";
+"跟随系统" = "System";
+"网页外观" = "Appearance";
+"重置缩放" = "Reset zoom";
+"清除 Cookie" = "Clear cookies";
+"清除缓存" = "Clear cache";
+"默认浏览配置" = "Default profile";
+"浏览配置" = "Browser profiles";
+"网页菜单" = "Browser menu";
+"自适应" = "Responsive";
+"宽度" = "Width";
+"高度" = "Height";
+"旋转视口" = "Rotate viewport";
+"此页面仅在主机本地可访问" = "This page is only accessible on the host";
+"网页进程已结束，请重新加载" = "The page process ended. Reload to continue.";
+"Cookie 已清除" = "Cookies cleared";
+"缓存已清除" = "Cache cleared";
+"下载完成" = "Download completed";
+"无法截取页面" = "Unable to capture the page";
+"确定" = "OK";
+
+"最多配置 32 个地址，每个地址最多 2,048 个字符" = "Configure up to 32 URLs, each up to 2,048 characters";
+"视口面积不能超过 3840 × 2160" = "Viewport area cannot exceed 3840 × 2160";
+"调整网页宽度" = "Resize page width";
+"调整网页高度" = "Resize page height";
+"调整网页视口" = "Resize page viewport";
+"选择元素" = "Select elements";
+"框选区域" = "Select a region";
+"自由绘制" = "Draw freehand";
+"擦除标记" = "Erase annotations";
+"选择元素并批注" = "Select elements and annotate";
+"Shift 多选" = "Shift to select multiple";
+"临时调整样式" = "Preview style changes";
+"取消批注" = "Cancel annotation";
+"收起批注" = "Collapse annotation";
+"展开批注" = "Expand annotation";
+"描述需要修改的地方（可选）" = "Describe the requested changes (optional)";
+"正在截取…" = "Capturing…";
+"添加并发送" = "Attach and send";
+"样式只在本次批注中预览，结束后还原。" = "Styles are previewed for this annotation and restored when it ends.";
+"尺寸" = "Dimensions";
+"锁定宽高比" = "Lock aspect ratio";
+"已锁定" = "Locked";
+"未锁定" = "Unlocked";
+"字体" = "Font family";
+"字号" = "Font size";
+"字重" = "Font weight";
+"行高" = "Line height";
+"文字颜色" = "Text color";
+"背景颜色" = "Background color";
+"不透明度" = "Opacity";
+"圆角" = "Border radius";
+"边框颜色" = "Border color";
+"边框宽度" = "Border width";
+"内边距" = "Padding";
+"外边距" = "Margin";
+"间距" = "Gap";
+"布局" = "Display";
+"排列方向" = "Flex direction";
+"交叉轴对齐" = "Align items";
+"主轴对齐" = "Justify content";
+"打开批注网页" = "Open annotated page";
+"请求的样式修改" = "Requested style changes";
+"已添加批注，截图未能附加" = "Annotation attached; screenshot could not be added";
+"无法应用样式" = "Unable to apply this style";
+"输入框已改变，请重新添加批注" = "The composer changed; attach the annotation again";
+"网页处理超时" = "The page operation timed out";
+"无法加载网页批注" = "Unable to load page annotations";
+"所选元素已不可用，请重新选择" = "The selected elements are no longer available; select them again";
+"网页批注过大或格式无效" = "The page annotation is too large or invalid";
+"网页截取超时" = "Page capture timed out";
+"网页尚未显示" = "The page is not visible yet";
+"无法创建网页录屏" = "Unable to start browser recording";
+"无法编码网页录屏" = "Unable to encode browser recording";
+"网页录屏已结束" = "Browser recording has ended";
+"录屏尚未取得画面" = "No recording frames are available yet";
+"录屏保存失败" = "Unable to save the recording";
+"录屏中断，已保存已有画面" = "Recording interrupted; available frames were saved";
+"预览文件无效" = "Invalid preview file";
+"预览文件为空" = "The preview file is empty";
+"录屏已保存" = "Recording saved";
+"截图已保存" = "Screenshot saved";
+"文件操作" = "File actions";
+"导出文件" = "Export file";
+"截图 · Shift 点击开始录屏" = "Screenshot · Shift-click to record";
+"开始录屏" = "Start recording";
+"停止录屏" = "Stop recording";
+"正在保存录屏…" = "Saving recording…";
+"正在准备录屏…" = "Preparing recording…";
+"录屏帧率" = "Recording frame rate";
+"显示按键" = "Show key presses";
+"显示鼠标点击" = "Show mouse presses";
+"录屏设置" = "Recording settings";
+"最近的截图与录屏" = "Recent screenshots and recordings";
+"置顶小预览" = "Always-on-top preview";
+"关闭小预览" = "Close mini preview";
+"打开独立预览窗口" = "Open separate preview window";
+"返回任务侧栏" = "Return to task sidebar";
+"网页已在独立窗口中打开" = "The page is open in a separate window";
+"显示预览窗口" = "Show preview window";
+"无法锁定录屏文件" = "Unable to lock the recording";
+"录屏仍在写入，请稍后再试" = "The recording is still being written; try again later";
+"录屏保存超时，文件已保留以便恢复" = "Saving timed out; the recording was retained for recovery";
+"无法恢复这段录屏，原始文件已保留" = "Unable to recover this recording; the original file was retained";
+"尚无可恢复的完整片段，原始文件已保留" = "No complete fragments are available yet; the original file was retained";
+"正在恢复…" = "Recovering…";
+"恢复可用片段" = "Recover available fragments";
+"未完成的录屏" = "Unfinished recordings";
+"返回浮动预览" = "Return to floating preview";
+"移动浮动预览" = "Move floating preview";
+"正在录屏，可拖动浮动预览" = "Recording; drag to move the floating preview";
+"关闭浮动预览" = "Close floating preview";
+"调整浮动预览大小" = "Resize floating preview";
+"在任务中浮动预览" = "Float preview in task";
+"关闭侧栏时浮动预览" = "Float preview when closing the sidebar";
+"录屏已恢复" = "Recording recovered";
+
+// Host browser
+"主机浏览器" = "Host browser";
+"正在连接主机浏览器" = "Connecting to the host browser";
+"等待主机网页画面" = "Waiting for the host page";
+"网页键盘" = "Page keyboard";
+"主机网页画面" = "Host page";
+"取得控制权" = "Take control";
+"释放控制权" = "Release control";
+"继续控制" = "Resume control";
+"重新连接画面" = "Reconnect video";
+"重新打开主机标签" = "Reopen host tab";
+"在此设备中打开" = "Open on this device";
+"在主机浏览器中打开" = "Open in the host browser";
+"设备视口" = "Device viewport";
+"网页对话框" = "Page dialog";
+"主机会话已变化或连接被拒绝，请核对后重新打开" = "The host session changed or the connection was refused. Check before reopening.";
+"主机标签已关闭，请重新打开" = "The host tab was closed. Reopen it to continue.";
+"主机画面连接已中断，正在重连" = "The host video connection was interrupted. Reconnecting.";
+"网页输入过多，请重新取得控制权" = "Too much page input. Take control again.";
+"操作结果尚未确认。请检查页面后重新取得控制权；不会自动重发。" = "The operation result is uncertain. Check the page and take control again. It will not be resent automatically.";
+"操作结果尚未确认，请检查页面后重新取得控制权" = "The operation result is uncertain. Check the page and take control again.";
+"操作结果尚未确认，请检查页面后再操作；不会自动重发" = "The operation result is uncertain. Check the page before continuing. It will not be resent automatically.";
+"主机网页文件上传尚未接通" = "Host page file uploads are not available yet.";
+"主机网页下载尚未接通" = "Host page downloads are not available yet.";
+"主机网页进程已退出，请新建标签或明确重新打开" = "The host page process exited. Create a tab or reopen it explicitly.";
+"主机网页导航未完成；请核对页面后重新操作" = "Host navigation did not finish. Check the page before trying again.";
+"主机网页画面传输已停止，请重新连接" = "Host video stopped. Reconnect to continue.";
+"主机浏览器请求失败" = "Host browser request failed.";
+"主机浏览请求无效" = "Invalid host browser request.";
+
+// Host browser file transfers and clipboard
+"网页请求选择文件" = "The page requests files";
+"网页请求选择一个文件" = "The page requests a file";
+"正在上传" = "Uploading";
+"选择文件" = "Choose files";
+"正在下载文件" = "Downloading files";
+"暂无网页下载" = "No page downloads";
+"网页下载" = "Page downloads";
+"下载失败" = "Download failed";
+"正在下载" = "Downloading";
+"所选文件数量超过网页允许的范围" = "The selected files exceed the page selection limit.";
+"上传文件合计不能超过 100 MiB" = "Uploads cannot exceed 100 MiB in total.";
+"网页文件选择已变化，请重新选择" = "The page file chooser changed. Choose files again.";
+"文件选择的控制权已变化" = "Control of the file chooser changed.";
+"上传文件信息无效" = "Invalid upload file metadata.";
+"上传文件内容与请求不一致" = "The uploaded file contents do not match the request.";
+"上传文件未完成" = "The file upload did not finish.";
+"下载文件不存在或尚未完成" = "The download is missing or incomplete.";
+"下载文件大小与主机记录不一致" = "The download size does not match the host record.";
+"下载目录已变化" = "The download directory changed.";
+"下载文件已变化" = "The downloaded file changed.";
+"主机网页下载未完成" = "The host page download did not finish.";
+"下载文件超过 1 GiB" = "The download exceeds 1 GiB.";
+"文件提交结果尚未确认，请核对网页后重新选择；不会自动重发" = "The file submission result is uncertain. Check the page before choosing again. It will not be resent automatically.";
+"剪贴板文字过长" = "The clipboard text is too long.";
+"剪贴板文字过长，请分段粘贴" = "The clipboard text is too long. Paste it in smaller sections.";
+"正在传输其他文件，请稍后再选" = "Other files are transferring. Choose again shortly.";
+
+"正在提交这个文件选择，请等待结果" = "This file selection is being submitted. Wait for the result.";
+
+// Host page capture
+"网页已变化，请重新截图" = "The page changed. Capture it again.";
+"网页截图过大" = "The page screenshot is too large.";
+"主机未返回有效的 PNG 截图" = "The host did not return a valid PNG image.";
+"主机网页截图失败" = "The host page capture failed.";
+"主机网页尚未连接" = "The host page is not connected.";
+"主机画面连接已中断" = "The host video connection was interrupted.";
+"这次录屏已结束，请重新开始" = "This recording has ended. Start another recording.";
+"录屏设置无效" = "Invalid recording settings.";
+"录屏标识已用于其他内容" = "The recording ID is already used for another operation.";
+"这个页面已在录屏" = "This page is already being recorded.";
+"录屏不属于这个查看连接" = "The recording belongs to another viewer.";
+"录屏操作无效" = "Invalid recording operation.";
+
+"主机录屏画面不可用，请重新连接" = "Host recording frames are unavailable. Reconnect to continue.";
+"请先取得网页控制权" = "Take control of the page first";
+"网页批注响应无效" = "The page annotation response is invalid";
+"网页批注操作无效" = "The page annotation operation is invalid";
+"网页或批注控制权已变化，请重新选择" = "The page or annotation control changed. Select again.";
+"批注已结束，请重新选择" = "The annotation ended. Select again.";
+"这个网页已有批注，请先结束本次选择" = "Finish the current annotation before starting another.";
+"批注不属于这个查看连接" = "This annotation belongs to another viewer.";
+"网页批注暂不可用，请重新选择" = "Page annotations are unavailable. Select again.";
+"网页批注过大" = "The page annotation is too large";
+"批注操作过多，请等待页面响应" = "Too many annotation operations. Wait for the page.";
+"请先确认本次批注" = "Confirm this annotation first";
+"浏览默认值" = "Browser defaults";
+"浏览器" = "Browser";
+"网页缩放" = "Page zoom";
+"收起网页面板时浮动预览" = "Float the preview when hiding the browser panel";
+"默认值应用于新标签页，已有页面保持当前设置。" = "Defaults apply to new tabs. Existing pages keep their current settings.";
+"管理浏览配置" = "Manage browser profiles";
+"配置名称" = "Profile name";
+"删除浏览配置" = "Remove browser profile";
+"清除浏览数据" = "Clear browsing data";
+"清除数据" = "Clear data";
+"浏览配置已删除" = "Browser profile removed";
+"浏览数据已清除" = "Browsing data cleared";
+"将清除 Cookie、网站存储和缓存，并关闭使用此配置的主机页面。此操作不能撤销。" = "Cookies, website storage and cache will be cleared. Host pages using this profile will close. This cannot be undone.";
+"将清除此设备的无痕浏览数据。" = "Incognito browsing data on this device will be cleared.";
+"最多 24 个自定义配置，名称最多 48 个字符。无痕配置不能设为默认。" = "Up to 24 custom profiles, with names up to 48 characters. Incognito cannot be the default.";
+"Default" = "Default";
+"Incognito" = "Incognito";
+"New profile" = "New profile";
+"打开开发工具" = "Open DevTools";
+"网页静音" = "Mute page";
+"取消网页静音" = "Unmute page";
+"当前系统不支持网页静音" = "Page muting is unavailable on this system";
+"当前系统无法打开网页开发工具" = "Page DevTools are unavailable on this system";
+"无法清除主机浏览数据" = "Unable to clear host browser data";
+"主机不支持清理浏览配置" = "The host cannot clear browser profiles";
+"浏览配置标识无效" = "The browser profile ID is invalid";
+"导入浏览器 Cookie" = "Import browser cookies";
+"导入 Cookie" = "Import cookies";
+"导入 Cookie 以复用登录状态。macOS 可能请求钥匙串或完全磁盘访问权限。" = "Import cookies to reuse sign-ins. macOS may request Keychain or Full Disk Access.";
+"请先退出来源浏览器。" = "Quit the source browser before importing.";
+"正在读取浏览器配置…" = "Reading browser profiles…";
+"未发现可导入的浏览器配置" = "No browser profiles available to import";
+"来源浏览器" = "Source browser";
+"来源配置" = "Source profile";
+"此 Mac 的浏览配置" = "Browser profile on this Mac";
+"新建浏览配置" = "Create a browser profile";
+"相同域名、路径和名称的 Cookie 将更新为来源值。" = "Cookies with the same domain, path and name will be updated with the source value.";
+"导入完成：%d 项，跳过 %d 项" = "Imported %d cookies; skipped %d";
+"部分 Cookie 未能导入" = "Some cookies could not be imported";
+"已写入登录状态，尚未确认保存到磁盘。" = "Sign-in data was written, but saving to disk has not been confirmed.";
+"打开系统设置" = "Open System Settings";
+"刷新浏览器列表" = "Refresh browsers";
+"正在导入…" = "Importing…";
+"browser.import.notInstalled" = "This browser is not installed on this Mac.";
+"browser.import.browserRunning" = "Quit the source browser and refresh the list before importing.";
+"browser.import.needsKeychainApproval" = "Allow Friday to read the browser cookie key in the Keychain prompt, then retry.";
+"browser.import.keychainItemMissing" = "The browser cookie key was not found. Sign in to that browser once, then retry.";
+"browser.import.keychainUnavailable" = "The system Keychain could not be accessed. Unlock it and retry.";
+"browser.import.needsFullDiskAccess" = "Give Friday Full Disk Access in System Settings → Privacy & Security, then retry.";
+"browser.import.unknownSourceProfile" = "The source browser profile is no longer available. Refresh the list.";
+"browser.import.readFailed" = "The browser cookie database could not be read.";
+"browser.import.sessionUnavailable" = "The target browser profile is unavailable or busy.";
+"browser.import.profileLimitReached" = "The profile limit has been reached. Choose an existing profile or remove one.";
+"browser.import.profileNotSaved" = "The new profile could not be saved. Its imported cookies were cleared.";
+
+// Repository publication
+"发布新仓库" = "Publish repository";
+"正在创建远端仓库" = "Creating remote repository";
+"正在添加远端" = "Adding remote";
+"正在首次推送" = "Pushing for the first time";
+"平台" = "Provider";
+"仓库" = "Repository";
+"结果" = "Result";
+"选择服务主机已登录的仓库平台" = "Choose a provider signed in on the service host";
+"刷新登录状态" = "Refresh sign-in status";
+"所有者／仓库名称" = "Owner / repository";
+"私有仓库" = "Private repository";
+"公开仓库" = "Public repository";
+"可见性" = "Visibility";
+"任何人都可以查看已推送的提交历史和文件。" = "Anyone can view the pushed commit history and files.";
+"仅你和获授权的人可以访问。" = "Only you and authorized people can access it.";
+"远端名称" = "Remote name";
+"传输协议" = "Transport protocol";
+"高级选项" = "Advanced options";
+"本地尚无提交：创建仓库并添加远端，提交后再推送。" = "No local commits yet: create the repository and add its remote, then commit and push.";
+"发布当前分支已有的提交；未提交文件不会上传。" = "Publish existing commits on the current branch. Uncommitted files will not be uploaded.";
+"仓库已发布" = "Repository published";
+"仓库已创建，远端已添加" = "Repository created and remote added";
+"远端仓库已创建" = "Remote repository created";
+"提交文件后，使用推送将代码发送到新仓库。" = "After committing files, use Push to send the code to the new repository.";
+"打开仓库" = "Open repository";
+"正在确认仓库发布状态" = "Checking repository publication status";
+"下一步" = "Next";
+"上一步" = "Back";
+"正在提交请求" = "Submitting request";
+"仓库发布设置无效" = "Invalid repository publication settings";
+"请选择支持的仓库平台" = "Choose a supported repository provider";
+"仓库名称无效" = "Invalid repository name";
+"请填写完整的所有者／仓库名称" = "Enter the full owner / repository path";
+"仓库可见性无效" = "Invalid repository visibility";
+"远端名称无效" = "Invalid remote name";
+"仓库传输协议无效" = "Invalid repository transport protocol";
+"请刷新仓库平台的登录状态" = "Refresh the repository provider sign-in status";
+"无法确认仓库平台的登录状态，请刷新后重试" = "Cannot confirm provider sign-in. Refresh and try again.";
+"仓库平台的登录账号已经改变，请刷新后重新确认" = "The provider account changed. Refresh and confirm again.";
+"仓库创建结果尚未确认。请在平台上核对名称、权限及是否已创建，再决定下一步；同一请求不会重复创建。" = "Repository creation is unconfirmed. Check its name, permissions and existence on the provider before proceeding. The same request will not create it again.";
+"平台返回的仓库地址或可见性与确认内容不一致。请在平台核对；不会添加远端或重复创建。" = "The returned repository address or visibility differs from the confirmed values. Check on the provider. No remote was added, and creation will not be repeated.";
+"只有尚未配置远端的本地分支才能发布新仓库" = "Only a local branch without a remote can publish a new repository";
+"发布新仓库不会提交文件或创建分支，请先单独提交" = "Publishing a repository does not commit files or create a branch. Commit separately first.";
+"发布期间仓库配置或文件已经改变，请核对后再继续" = "Repository configuration or files changed during publication. Review before continuing.";
+"提交历史包含 Friday 私有数据目录，已停止发布，请先清理历史" = "Commit history contains Friday private data. Publication stopped. Clean the history first.";
+"仓库发布设置已经改变" = "Repository publication settings changed";
+"仓库已创建，请核对当前远端后再继续" = "The repository was created. Review the current remote before continuing.";
+"仓库已创建，但未能添加远端。请打开仓库核对后手动添加远端，不要重新发布。" = "The repository was created, but adding the remote failed. Open it to verify, then add the remote manually. Do not publish again.";
+"仓库发布记录不完整" = "The repository publication record is incomplete";
+"仓库已创建并添加远端，但首次推送未完成。请检查 SSH／HTTPS 凭据和连接后使用“推送”继续，不要重新发布。" = "The repository and remote were created, but the first push did not complete. Check SSH / HTTPS credentials and connectivity, then use Push. Do not publish again.";
+"请安装 gh 并运行 gh auth login" = "Install gh and run gh auth login.";
+"请安装 glab 并运行 glab auth login" = "Install glab and run glab auth login.";
+"无法确认 GitHub 登录状态，请在服务主机运行 gh auth login 后刷新" = "Cannot confirm GitHub sign-in. Run gh auth login on the service host, then refresh.";
+"无法确认 GitLab 登录状态，请在服务主机运行 glab auth login 后刷新" = "Cannot confirm GitLab sign-in. Run glab auth login on the service host, then refresh.";
+
+// Source Control connections
+"Source Control" = "Source Control";
+"管理服务主机的仓库平台、登录状态和发布凭据。" = "Manage repository providers, sign-in status and publication credentials on the service host.";
+"平台状态" = "Provider status";
+"正在扫描" = "Scanning";
+"重新扫描" = "Rescan";
+"仓库平台" = "Repository providers";
+"GitHub Token" = "GitHub token";
+"GitLab 使用服务主机的 glab 登录；登录后重新扫描确认状态。" = "GitLab uses the glab sign-in on the service host. Rescan after signing in.";
+"重新载入设置" = "Reload settings";
+"重试保存" = "Retry save";
+"密钥仅保存到服务主机的私有文件；读取设置只返回已配置状态。Git 推送使用主机已有的 SSH／HTTPS 认证。" = "Secrets are stored only in a private file on the service host. Reading settings returns configuration status only. Git pushes use the host's existing SSH / HTTPS authentication.";
+"已保存的 Token 优先于主机环境变量和 gh 登录；发布仓库可直接使用 Token，无需安装 gh。" = "Saved tokens take precedence over host environment variables and gh sign-in. Repository publication can use a token without gh.";
+"发布向导当前使用 github.com；其他主机 Token 用于对应主机的状态检查。" = "The publication wizard currently uses github.com. Tokens for other hosts are used to check their status.";
+"GitHub 主机" = "GitHub host";
+"保存 Token" = "Save token";
+"移除 Token" = "Remove token";
+"创建 Token" = "Create token";
+"已保存的主机" = "Saved hosts";
+"使用仓库／项目／工作区 Access Token，或 Atlassian 邮箱与 API Token。Access Token 优先。" = "Use a repository, project or workspace access token, or an Atlassian email and API token. Access tokens take precedence.";
+"Access Token 已保存，输入以替换" = "Access token saved; enter a replacement";
+"Access Token" = "Access token";
+"Atlassian 账号邮箱" = "Atlassian account email";
+"API Token 已保存，输入以替换" = "API token saved; enter a replacement";
+"API Token" = "API token";
+"保存 Bitbucket" = "Save Bitbucket";
+"移除 Access Token" = "Remove access token";
+"移除 API Token" = "Remove API token";
+"工作区 Token 可能没有用户读取权限；配置后仍可尝试发布到获授权的工作区。" = "Workspace tokens may lack user-read permission. You can still try publishing to an authorized workspace.";
+"已认证" = "Authenticated";
+"已配置，状态未确认" = "Configured, status unconfirmed";
+"主机工具未安装" = "Host tool not installed";
+"未认证" = "Not authenticated";
+"显示或隐藏仓库账号" = "Show or hide repository account";
+"GitHub 主机名无效" = "Invalid GitHub hostname";
+"Source Control 设置无效" = "Invalid Source Control settings";
+"Source Control 设置版本或请求无效" = "Invalid Source Control settings version or request";
+"GitHub Token 无效" = "Invalid GitHub token";
+"Bitbucket 设置无效" = "Invalid Bitbucket settings";
+"Bitbucket 凭据无效" = "Invalid Bitbucket credential";
+"没有需要保存的 Source Control 设置" = "No Source Control settings to save";
+"无法读取 Source Control 私有设置" = "Cannot read private Source Control settings";
+"Source Control 私有设置无法读取，请检查主机数据目录" = "Private Source Control settings could not be read. Check the host data directory.";
+"Source Control 设置正在关闭" = "Source Control settings are shutting down";
+"Source Control 请求已使用，请重新载入设置" = "This Source Control request was already used. Reload settings.";
+"Source Control 设置已被其他设备修改，请重新载入" = "Another device changed Source Control settings. Reload to continue.";
+"最多保存 32 个 GitHub 主机" = "Up to 32 GitHub hosts can be saved.";
+"无法保存 Source Control 私有设置，请检查主机数据目录" = "Cannot save private Source Control settings. Check the host data directory.";
+"Source Control 连接已关闭" = "The Source Control connection is closed.";
+"Source Control 请求路径无效" = "Invalid Source Control request path";
+"Source Control 认证或权限不足" = "Source Control authentication or permissions are insufficient.";
+"Source Control 请求过于频繁，请稍后重试" = "Too many Source Control requests. Try again later.";
+"Source Control 平台未能完成请求" = "The Source Control provider could not complete the request.";
+"Source Control 返回空结果" = "Source Control returned an empty result.";
+"Source Control 返回内容过大" = "The Source Control response is too large.";
+"Source Control 返回结果无效" = "Source Control returned an invalid result.";
+"请在 Source Control 设置中配置 Bitbucket 凭据" = "Configure Bitbucket credentials in Source Control settings.";
+"请在服务主机安装并登录 gh，或配置 GitHub Token" = "Install and sign in to gh on the service host, or configure a GitHub token.";
+"请在服务主机安装并登录 glab" = "Install and sign in to glab on the service host.";
+"Bitbucket 凭据已配置，尚未确认账号；工作区 Token 可能没有用户读取权限" = "Bitbucket credentials are configured; account status is unconfirmed. Workspace tokens may lack user-read permission.";
+"无法确认平台登录状态，请检查凭据、权限和主机连接后刷新" = "Cannot confirm provider sign-in. Check credentials, permissions and host connectivity, then refresh.";
+"仓库平台凭据版本无效" = "Invalid repository provider credential version";
+"请刷新 Bitbucket 凭据后重新确认" = "Refresh Bitbucket credentials and confirm again.";
+"仓库平台凭据已经改变，请刷新后重新确认" = "Repository provider credentials changed. Refresh and confirm again.";
+"Source Control 设置格式无效" = "Invalid Source Control settings format.";
+
+// Source Control accounts and change requests
+"推送并创建 MR" = "Push and create MR";
+"提交、推送并创建 MR" = "Commit, push and create MR";
+"正在生成 MR 说明" = "Generating MR description";
+"正在创建 MR" = "Creating MR";
+"创建 MR" = "Create MR";
+"查看 MR" = "View MR";
+"请检查仓库平台认证和登录状态" = "Check repository provider authentication and sign-in.";
+"GitHub 账号路由" = "GitHub account routing";
+"为每个主机选择 gh 登录账号，或停用该主机。" = "Choose a gh account for each host, or turn the host off.";
+"隐藏账号" = "Hide accounts";
+"显示账号" = "Reveal accounts";
+"启用主机" = "Enable host";
+"跟随 gh 当前账号" = "Follow the active gh account";
+"使用账号" = "Account";
+"登录 gh 后重新扫描，可在此选择账号。" = "Sign in with gh and rescan to choose an account here.";
+"已选账号当前不可用，暂时跟随 gh 活跃账号。" = "The selected account is unavailable. Using the active gh account for now.";
+"清除账号选择" = "Clear account selection";
+"当前使用 Token；Token 不再提供凭据时，gh 账号选择才会生效。" = "A token is in use. The gh account selection applies when a token is no longer providing credentials.";
+"部分 gh 账号登录已失效，请在服务主机重新登录后扫描。" = "Some gh accounts are no longer authenticated. Sign in again on the service host, then rescan.";
+"Token 和账号路由用于对应 GitHub 主机的 PR 与链接读取；发布新仓库使用 github.com。" = "Tokens and account routing apply to PRs and linked subjects on their GitHub host. New repository publication uses github.com.";
+"GitHub 账号路由设置无效" = "Invalid GitHub account routing settings";
+"没有可用的 GitHub 登录凭据" = "No usable GitHub sign-in credential";
+"请安装并登录 gh，或配置 GitHub Token" = "Install and sign in to gh, or configure a GitHub token.";
+"无法取得 GitHub 登录凭据，请检查主机 gh 登录后重新扫描" = "Cannot obtain GitHub credentials. Check gh sign-in on the host and rescan.";
+"此 GitHub 主机已在 Source Control 设置中停用" = "This GitHub host is turned off in Source Control settings.";
+"Source Control 返回列表无效" = "Source Control returned an invalid list.";
+"Source Control CLI 请求未完成，请检查登录和连接" = "The Source Control CLI request did not complete. Check sign-in and connectivity.";
+"无法确认 Source Control 账号" = "Cannot confirm the Source Control account.";
+"Source Control 账号或凭据已改变，请重新确认操作" = "The Source Control account or credential changed. Confirm the operation again.";
+"平台返回的 PR／MR 信息无效" = "The provider returned invalid PR / MR information.";
+"平台返回的 PR／MR 地址无效" = "The provider returned an invalid PR / MR address.";
+"平台返回的 PR／MR 地址与仓库不一致" = "The returned PR / MR address does not match the repository.";
+"平台返回未知的 PR／MR 状态" = "The provider returned an unknown PR / MR state.";
+"无法读取当前分支的 PR／MR，请检查平台登录、权限和连接" = "Cannot read PRs / MRs for this branch. Check provider sign-in, permissions and connectivity.";
+"PR／MR 创建结果尚未确认。请在平台核对后刷新，不会自动重复创建。" = "PR / MR creation is unconfirmed. Check on the provider and refresh. Creation will not be repeated automatically.";
+"PR／MR 编号无效" = "Invalid PR / MR number";
+"无法确认已有 PR／MR 的状态，不会重复创建" = "Cannot confirm the existing PR / MR state. A duplicate will not be created.";
+"Source Control 连接与目标平台或主机不一致" = "The Source Control connection does not match the target provider or host.";
+"创建 PR／MR 需要可用的平台认证和默认分支信息" = "Creating a PR / MR requires provider authentication and default branch information.";
+"PR／MR 目标需要重新确认" = "Confirm the PR / MR target again.";
+"请从功能分支创建 PR／MR" = "Create a PR / MR from a feature branch.";
+"请先新建功能分支，再创建 PR／MR" = "Create a feature branch before opening a PR / MR.";
+"生成的 PR／MR 说明无效" = "The generated PR / MR description is invalid.";
+"PR／MR 说明尚未生成" = "The PR / MR description has not been generated.";
+"安装 gh 后可选择登录账号；已保存的 Token 仍可使用" = "Install gh to choose sign-in accounts. Saved tokens still work.";
+"请升级 gh 至 2.81.0 或更新版本，再重新扫描账号" = "Upgrade gh to 2.81.0 or later, then rescan accounts.";
+"无法读取 gh 账号列表，请检查主机登录后重新扫描" = "Cannot read gh accounts. Check sign-in on the host and rescan.";
+
+/* Task PR / MR review panel */
+"PR／MR 详情" = "PR / MR details";
+"概览" = "Summary";
+"时间线" = "Timeline";
+"确认合并此 PR／MR？" = "Merge this PR / MR?";
+"在平台打开" = "Open on host";
+"待合并" = "Open";
+"标记为待审查" = "Mark ready for review";
+"转为草稿" = "Convert to draft";
+"重新打开" = "Reopen";
+"关闭 PR／MR" = "Close PR / MR";
+"暂无描述" = "No description";
+"审查者" = "Reviewers";
+"合并状态" = "Merge status";
+"个文件" = "files";
+"此仓库使用合并队列；合并请求将按平台规则处理。" = "This repository uses a merge queue. The host will process the merge request.";
+"暂时无法读取检查状态，请刷新后重试" = "Cannot read checks right now. Refresh to try again.";
+"正在读取时间线" = "Loading timeline";
+"时间线较长，完整内容可在平台查看" = "This timeline is long. Open the host to see everything.";
+"发表评论" = "Post comment";
+"正在读取远端 Diff" = "Loading remote diff";
+"文件较多，完整 Diff 可在平台查看" = "This change has many files. Open the host for the full diff.";
+"此文件的 Diff 不可用，请在平台查看" = "This diff is unavailable. Open the file on the host.";
+"暂无文件改动" = "No file changes";
+"代码版本已改变，请移除旧版本批注并重新审查" = "The code has changed. Remove comments on the old revision and review again.";
+"审查意见" = "Review summary";
+"审查结论" = "Review verdict";
+"批准" = "Approve";
+"请求修改" = "Request changes";
+"提交审查" = "Submit review";
+"正在发送平台操作" = "Sending to host";
+"平台操作已提交" = "Operation submitted";
+"平台操作未完成" = "Operation incomplete";
+"步已发送，请先核对平台" = "steps sent. Verify on the host first.";
+"正在读取 PR／MR" = "Loading PR / MR";
+"关联的 PR／MR" = "Linked PRs / MRs";
+"操作已提交，请刷新平台状态" = "Operation submitted. Refresh the host status.";
+"外部结果尚未确认，请在平台核对。已发送的内容不会自动重发。" = "The remote result is unconfirmed. Verify on the host; sent content will not be resent automatically.";
+"操作已中断，请在平台核对；不会自动重复发送。" = "The operation was interrupted. Verify on the host; it will not be resent automatically.";
+"PR／MR 的代码版本已改变，请刷新后重新审查" = "The code revision changed. Refresh and review again.";
+"PR／MR 的代码版本已改变，请刷新详情" = "The code revision changed. Refresh the details.";
+"平台或当前账号不支持这项审查结论" = "This host or account does not support that review verdict.";
+"这个 PR／MR 已有操作正在发送，请等待完成" = "An operation is already being sent for this PR / MR. Wait for it to finish.";
+"请填写审查意见或添加行批注" = "Write a review summary or add a line comment.";
+"当前状态或账号不支持这项 PR／MR 操作" = "The current state or account does not support this operation.";
+
+/* PR / MR collaboration */
+"待解决" = "Unresolved";
+"已解决" = "Resolved";
+"旧版本" = "Outdated";
+"条评论" = "comments";
+"重新打开线程" = "Reopen thread";
+"解决线程" = "Resolve thread";
+"已编辑" = "Edited";
+"编辑评论" = "Edit comment";
+"回复线程" = "Reply to thread";
+"正在读取评论" = "Loading comments";
+"更多评论" = "More comments";
+"编辑 PR／MR" = "Edit PR / MR";
+"标题" = "Title";
+"描述" = "Description";
+"评论内容" = "Comment";
+"发送回复" = "Send reply";
+"请求审查" = "Request a review";
+"管理标签" = "Change labels";
+"正在读取候选列表" = "Loading candidates";
+"没有匹配的候选项" = "No matching candidates";
+"候选列表已截断，更多选项可在平台管理" = "The candidate list is truncated. Manage more options on the host.";
+"该评论或审查线程不属于当前 PR" = "This comment or review thread does not belong to this PR.";
+"该审查线程不属于当前 PR" = "This review thread does not belong to this PR.";
+"该审查线程不属于当前 PR／MR" = "This review thread does not belong to this PR / MR.";
+"当前账号不能编辑此评论" = "This account cannot edit this comment.";
+"当前账号不能编辑此 PR／MR" = "This account cannot edit this PR / MR.";
+"当前账号不能请求审查" = "This account cannot request a review.";
+"当前账号不能回复审查线程" = "This account cannot reply to the review thread.";
+"当前账号不能解决审查线程" = "This account cannot resolve this review thread.";
+"此审查线程不能标记为已解决" = "This review thread cannot be resolved.";
+"平台或当前账号不支持标签管理" = "This host or account does not support label management.";
+"无法读取 GitHub 审查线程" = "Cannot read GitHub review threads.";
+"无法读取审查者候选" = "Cannot read reviewer candidates.";
+"无法读取标签候选" = "Cannot read label candidates.";
+
+/* Remote review threads, reactions and viewed files */
+"赞" = "Thumbs up";
+"不赞同" = "Thumbs down";
+"笑" = "Laugh";
+"庆祝" = "Hooray";
+"困惑" = "Confused";
+"喜欢" = "Heart";
+"火箭" = "Rocket";
+"关注" = "Eyes";
+"添加表情反应" = "Add a reaction";
+"未定位的审查线程" = "Unplaced review threads";
+"其他文件的审查线程" = "Review threads in other files";
+"已读" = "Viewed";
+"已读标记仅保存在当前环境" = "Viewed marks are stored in this environment";
+"已读标记同步到平台" = "Viewed marks sync with the host";
+"列表已截断" = "List truncated";
+"文件已改变，需要重新阅读" = "File changed. Review it again.";
+"标记为未读" = "Mark unviewed";
+"标记为已读" = "Mark viewed";
+"无法确认当前审查账号" = "Cannot identify the current reviewer.";
+"无法读取平台文件已读状态" = "Cannot read viewed files from the host.";
+"无法读取表情反应" = "Cannot read reactions.";
+"该表情反应目标不属于当前 PR" = "This reaction target does not belong to this PR.";
+"该表情反应目标不属于当前 MR" = "This reaction target does not belong to this MR.";
+"Bitbucket 不支持表情反应" = "Bitbucket does not support reactions.";
+"文件已读设置无效" = "Invalid viewed file settings.";
+"文件已读路径无效" = "Invalid viewed file path.";
+"表情反应设置无效" = "Invalid reaction settings.";
+"你" = "You";
+"开启自动合并？" = "Enable auto-merge?";
+"创建回退 PR？" = "Create a revert PR?";
+"删除远端源分支？" = "Delete the remote source branch?";
+"批准此版本的 Fork 工作流？" = "Approve fork workflows for this version?";
+"确认平台操作？" = "Confirm platform action?";
+"条件满足后平台会自动合并；当前已满足条件时会立即合并。" = "The platform merges automatically when requirements are met. If already met, it merges immediately.";
+"平台将创建一个回退此合并的新 PR，供你继续审查。" = "The platform creates a new PR reverting this merge for review.";
+"仅删除此 PR 的远端源分支。本地分支和工作区保留。源分支已有新提交时不会删除。" = "Deletes this PR’s remote source branch. Local branches and workspaces are kept. A branch with newer commits will not be deleted.";
+"允许当前 Fork 代码在目标仓库运行待批准的工作流。代码或来源变化后需要重新确认。" = "Allows the current fork code to run pending workflows in the target repository. Changes to the code or source require confirmation again.";
+"开启自动合并" = "Enable auto-merge";
+"取消自动合并" = "Cancel auto-merge";
+"更新源分支" = "Update source branch";
+"创建回退 PR" = "Create revert PR";
+"删除远端源分支" = "Delete remote source branch";
+"批准 Fork 工作流" = "Approve fork workflows";
+"通过变基更新" = "Update with rebase";
+"通过合并更新" = "Update with merge";
+"自动合并已开启" = "Auto-merge enabled";
+"分支已是最新版本" = "Branch is up to date";
+"个提交落后于目标分支" = "commits behind the target branch";
+"无法确认待批准工作流，请刷新或在平台查看" = "Could not confirm pending workflows. Refresh or check the platform.";
+"查看回退 PR" = "View revert PR";
+"GitLab 操作目标无效" = "Invalid GitLab action target";
+"GitLab 操作结果尚未确认，请在平台核对" = "GitLab action result is unconfirmed. Check the platform.";
+"分支更新方式无效" = "Invalid branch update method";
+"堆叠 PR 编号无效" = "Invalid stacked PR number";
+"无法确认 Fork 工作流的来源" = "Could not confirm the fork workflow source";
+"PR 的代码版本已改变，请刷新" = "The PR code version changed. Refresh to continue.";
+"无法确认工作流所属 PR" = "Could not confirm which PR owns the workflow";
+"工作流来源列表不完整，请在平台核对" = "The workflow source list is incomplete. Check the platform.";
+"工作流来源对应多个或不同 PR，请在平台核对" = "The workflow source matches multiple PRs or a different PR. Check the platform.";
+"无法读取待批准的工作流" = "Could not read workflows awaiting approval";
+"工作流列表不完整，请在平台核对" = "The workflow list is incomplete. Check the platform.";
+"堆叠 PR 操作尚未接入，不能按单个 PR 执行" = "Stacked PR actions are not available yet and cannot run as single PR actions.";
+"平台或当前账号不支持这种分支更新方式" = "This platform or account does not support this branch update method";
+"Fork 工作流来源已改变，请刷新后重新批准" = "The fork workflow source changed. Refresh before approving again.";
+"工作流执行记录无效" = "Invalid workflow execution receipt";
+"GitLab 不支持这项操作" = "GitLab does not support this action";
+"GitLab 连接不支持这项操作" = "This GitLab connection does not support this action";
+"只能删除已合并或关闭 PR 的源分支" = "Only merged or closed PR source branches can be deleted";
+"源分支不可用" = "Source branch unavailable";
+"当前账号不能删除源分支" = "This account cannot delete the source branch";
+"不能删除目标分支" = "The target branch cannot be deleted";
+"源仓库不可用" = "Source repository unavailable";
+"不能删除源仓库的默认分支" = "The source repository’s default branch cannot be deleted";
+"源分支已有新提交，不能删除" = "The source branch has newer commits and cannot be deleted";
+"Fork 工作流来源格式无效" = "Invalid fork workflow source";
+"最新在前" = "Newest first";
+"最早在前" = "Oldest first";
+"提交记录暂不可用，评论仍可查看" = "Commit history is unavailable. Comments are still shown.";
+"仅显示近期提交，完整记录可在平台查看" = "Showing recent commits. View the full history on the platform.";
+"部分审查撤销原因未能读取" = "Some review dismissal reasons could not be loaded.";
+"位参与者" = "authors";
+"未命名提交" = "Untitled commit";
+"查看此提交的文件改动" = "View this commit’s file changes";
+"PR／MR 已合并" = "PR/MR merged";
+"PR／MR 已关闭" = "PR/MR closed";
+"创建了此 PR／MR" = "opened this PR/MR";
+"此审查早于最新提交" = "This review was made before the latest commits.";
+"撤销原因" = "Dismissal reason";
+"已批准" = "Approved";
+"审查已撤销" = "Review dismissed";
+"已审查" = "Reviewed";
+"正在读取提交 Diff" = "Loading commit diff";
+"暂未读取提交内容" = "Commit content has not been loaded";
+"此提交没有文件改动" = "This commit has no file changes";
+"无法读取 PR／MR 提交记录" = "Could not read PR/MR commit history";
+"提交版本无效" = "Invalid commit revision";
+"该提交不在当前 PR／MR 的可见提交记录中" = "This commit is not in the current PR/MR’s visible commit history.";
+"平台返回的提交版本不一致" = "The platform returned a different commit revision.";
+"已折叠" = "Collapsed";
+"暂无活动" = "No activity yet.";
+"正在只读调查变更…" = "Investigating the change read-only…";
+"停止生成" = "Stop generation";
+"生成 Guide" = "Write guide";
+"重写 Guide" = "Rewrite guide";
+"请求版本已改变，请刷新后添加批注" = "The request revision changed. Refresh before adding comments.";
+"此 Guide 生成于最新推送之前，摘录仍对应原版本。请重写后再添加行评论。" = "This guide was written before the latest push. Excerpts still show the original revision. Rewrite before adding inline comments.";
+"这次变更没有可导览的文件" = "This change has no files to tour.";
+"上一站" = "Previous stop";
+"下一站" = "Next stop";
+"完成导览并审查" = "Finish tour and review";
+"正在读取 Guide…" = "Loading guide…";
+"模型正在阅读变更，可以关闭窗口，生成会继续。" = "An agent is reading the change. You can close this window; generation continues.";
+"尚未生成 Guide。它会按阅读顺序讲解代码和需要维护者判断的取舍。" = "No guide yet. A guide explains the change in reading order and highlights decisions for the maintainer.";
+"问题已加入任务对话" = "Question added to the task conversation";
+"询问这一站" = "Ask about this stop";
+"Guide 已就绪" = "Review guide ready";
+"设计取舍" = "Tradeoff";
+"公开契约" = "Public contract";
+"产品行为" = "Product behavior";
+"风险判断" = "Risk";
+"无障碍" = "Accessibility";
+"修改前" = "Before the change";
+"询问此段代码" = "Ask about this code";
+"此摘录暂不可用，仍可打开文件查看" = "This excerpt is unavailable. You can still open the file.";
+"加入审查草稿" = "Add to pending review";
+"询问 Guide" = "Ask about guide";
+"关于此站点的问题" = "Question about this stop";
+"发送结果未确认，重试会保留同一次请求。" = "Delivery is unconfirmed. Retrying keeps the same request.";
+"发送问题" = "Send question";
+"重试发送" = "Retry sending";
+"Guide 生成未完成" = "Review guide did not finish";
+"查看 Guide" = "View guide";
+"审查 Guide 模型" = "Review guide model";
+"审查 Guide" = "Review guides";
+"启用审查 Guide" = "Enable review guides";
+"让模型只读调查 PR／MR，并生成按阅读顺序组织的代码导览。" = "Let an agent investigate the PR/MR read-only and write a tour of its code.";
+"Guide 阅读偏好" = "Review guide preferences";
+"跟随提交与 PR 说明模型" = "Follow the commit and PR writer model";
+"Guide 生成结果过大" = "The generated guide is too large.";
+"Guide 未返回有效的结构化内容" = "The agent did not return a valid structured guide.";
+"Guide 结构或代码位置无效" = "Invalid guide structure or code positions.";
+"Guide 存储已关闭" = "Review guide storage is closed.";
+"Guide 存储不是独立文件" = "Review guide storage must be an independent file.";
+"Guide 不能读取 Friday 私有数据目录" = "Review guides cannot read Friday’s private data directory.";
+"Guide 需要这个仓库的主远端" = "A review guide needs this repository’s primary remote.";
+"请在该 PR／MR 所属仓库的工作区生成 Guide" = "Generate the guide from a checkout of this PR/MR’s repository.";
+"Guide 检出版本无效" = "Invalid review guide checkout revision.";
+"Guide 检出目录无效" = "Invalid review guide checkout directory.";
+"Guide 目标分支名称无效" = "Invalid review guide base branch name.";
+"Guide 的工作区或远端已改变" = "The guide workspace or remote changed.";
+"Guide 的提交名称指向其他版本" = "The guide commit name resolves to another revision.";
+"无法检出平台报告的 Guide 版本" = "Could not check out the guide revision reported by the platform.";
+"Guide 检出路径已被占用" = "The guide checkout path is occupied.";
+"Guide 检出路径已被其他版本占用" = "Another revision occupies the guide checkout path.";
+"无法确认 Guide 比较基线" = "Could not confirm the guide comparison base.";
+"Guide 检出版本已改变" = "The guide checkout revision changed.";
+"Guide 所属任务不存在" = "The task owning this guide no longer exists.";
+"已有更新版本的 Guide 请求" = "A newer guide request has taken over.";
+"上次 Guide 请求结果未确认，请显式重试；不会自动重复调用模型" = "The previous guide result is unconfirmed. Retry explicitly; the model will not be called again automatically.";
+"Guide 只允许只读调查，不能请求写入或其他授权" = "Guides may only investigate read-only and cannot request write access or other permissions.";
+"Guide 的固定版本记录不存在，请显式重试" = "The guide’s pinned revision record is missing. Retry explicitly.";
+"Guide 生成失败，请检查 Provider 配置后显式重试" = "Guide generation failed. Check the provider settings and retry explicitly.";
+"Guide 生成已中断，请显式重试" = "Guide generation was interrupted. Retry explicitly.";
+"Guide 请求格式无效" = "Invalid guide request.";
+"Guide 请求 ID 已用于不同内容" = "This guide request ID was used for different content.";
+"PR／MR 的代码版本已改变，请刷新后生成 Guide" = "The PR/MR revision changed. Refresh before generating a guide.";
+"新版本正在生成 Guide" = "A guide is being generated for a newer revision.";
+"Guide 请求不存在" = "Guide request not found.";
+"Guide 开关只能在主机范围设置" = "Review guides can only be enabled or disabled in host settings.";
+"Guide 自定义说明无效" = "Invalid review guide preferences.";
+"请先在文字生成设置中启用审查 Guide" = "Enable review guides in Text Generation settings first.";
+"没有已启用的 Guide Provider" = "No review guide provider is enabled.";
+"仍在生成审查 Guide，请等待完成或停止后更新。" = "A review guide is still running. Wait for it to finish or stop it before updating.";
+
+"Guide 引用格式无效" = "Invalid Guide reference";
+
+"Guide 已更新，请刷新后再加入输入框" = "The Guide has changed. Refresh it before adding it to the composer.";
+
+"已加入输入框，请检查后发送" = "Added to the composer. Review it before sending.";
+
+"正在加入任务输入框…" = "Adding to the task composer…";
+
+"重试生成" = "Retry generation";
+
+"正在刷新堆叠…" = "Refreshing stack…";
+
+"堆叠信息可能已过时" = "Stack information may be stale";
+
+"刷新堆叠" = "Refresh stack";
+
+"整栈变基" = "Rebase stack";
+
+"合并堆叠" = "Merge stack";
+
+"将所选层及下方尚未合并的 PR 合入堆叠基线。GitHub 检查分支规则后合并或加入队列，并调整剩余层。" = "Merge the selected layer and its unmerged layers below into the stack base. GitHub checks branch rules before merging or queueing them and adjusts the remaining layers.";
+
+"从底层向上变基远端分支，会改写历史并可能重跑检查。某层失败时，之前完成的更新会保留。" = "Rebase remote branches from bottom to top. This rewrites history and may restart checks. If a layer fails, earlier updates remain.";
+
+"堆叠已加入合并队列" = "The stack was added to the merge queue";
+
+"堆叠已合并" = "The stack was merged";
+
+"整栈变基已完成" = "Stack rebase completed";
+
+"GitHub 堆叠数据无效" = "GitHub returned invalid stack data";
+
+"GitHub 堆叠层数据无效" = "GitHub returned an invalid stack layer";
+
+"GitHub 堆叠层重复" = "GitHub returned duplicate stack layers";
+
+"堆叠 PR 操作格式无效" = "Invalid stack operation";
+
+"堆叠 PR 已改变，请刷新后重新确认" = "The stack has changed. Refresh it and confirm again.";
+
+"堆叠 PR 的代码版本已改变，请刷新后重新确认" = "Stack revisions have changed. Refresh them and confirm again.";
+
+"堆叠中的所有操作层必须开放，合并前须退出草稿" = "All affected layers must be open and ready before merging.";
+
+"没有更新堆叠中所有源分支的权限" = "You cannot update every branch in this stack.";
+
+"堆叠分支关系已改变，请刷新后重新确认" = "Stack branch relationships have changed. Refresh and confirm again.";
+
+"堆叠中的 PR 已有操作正在发送，请等待完成" = "A pull request in this stack already has an operation in progress.";
+
+"当前账号或仓库不支持此堆叠合并方式" = "The account or repository does not support this stack merge method.";
+
+"当前账号不支持这项堆叠操作" = "This account cannot perform this stack operation.";
+
+"GitHub 仍在处理堆叠合并，请先在平台核对再提交其他请求" = "GitHub is still processing this stack merge. Check its status before submitting another request.";
+
+"GitHub 拒绝堆叠合并，请检查分支规则和合并要求" = "GitHub refused the stack merge. Check branch rules and merge requirements.";
+
+"堆叠合并结果未确认，请在平台核对；不会自动重发" = "The stack merge result is unknown. Check GitHub; the request will not be sent again automatically.";
+
+"堆叠操作结果未确认，之前的更新保留；请在平台核对，不会自动重发" = "The stack operation result is unknown. Earlier updates remain. Check GitHub; the request will not be sent again automatically.";
+
+"堆叠操作已中断，之前的更新保留；请核对平台，不会自动重复写入" = "The stack operation was interrupted. Earlier updates remain. Check GitHub before trying again.";
+
+"堆叠成员已改变，请刷新" = "Stack membership has changed. Refresh it.";
+
+"GitHub 堆叠成员已改变，请刷新" = "GitHub stack membership has changed. Refresh it.";
+
+"源仓库与分支" = "Source repository and branch";
+
+"跟随仓库默认目标" = "Use the repository default target";
+
+"目标仓库" = "Target repository";
+
+"目标分支" = "Base branch";
+
+"将源分支推送到 Fork，再向所选目标仓库创建合并请求。" = "Push the source branch to the fork, then open a change request in the selected repository.";
+
+"先新建功能分支" = "Create a feature branch first";
+
+"向同一仓库创建 PR／MR 前，需要先创建功能分支。" = "Create a feature branch before opening a change request in the same repository.";
+
+"正在读取 PR／MR 源与目标…" = "Reading the change request source and target…";
+
+"正在核对源与目标…" = "Checking the source and target…";
+
+"正在读取 PR／MR 目标分支" = "Reading the change request base branch";
+
+"PR／MR 目标选择无效" = "Invalid change request target selection";
+
+"PR／MR 目标版本无效" = "Invalid change request target version";
+
+"创建 PR／MR 需要本地分支和受支持的远端仓库" = "Creating a change request requires a local branch and a supported remote repository.";
+
+"无法确认要推送的源仓库" = "The source repository to push could not be confirmed.";
+
+"所选目标远端不属于当前平台和主机" = "The selected remote belongs to a different platform or host.";
+
+"GH_REPO 与源仓库的平台或主机不一致" = "GH_REPO belongs to a different platform or host than the source repository.";
+
+"无法确认 PR／MR 的目标仓库" = "The change request target repository could not be confirmed.";
+
+"平台没有返回目标仓库的默认分支，请选择目标分支" = "The host did not report a default branch. Select a base branch.";
+
+"PR／MR 分支名称无效" = "Invalid change request branch name";
+
+"无法确认 GitLab 源项目和目标项目" = "The GitLab source and target projects could not be confirmed.";
+
+"PR／MR 源或目标已经改变，请刷新后重新确认" = "The change request source or target changed. Refresh and confirm again.";
+
+"PR／MR 远端配置已改变，请重新确认源和目标" = "Remote settings changed. Confirm the change request source and target again.";
+
+"Git 请求 ID 已用于不同操作" = "This Git request ID was used for a different operation.";
+
+"创建 PR／MR 需要可用的平台认证" = "Creating a change request requires an authenticated platform connection.";
+
+"此 Git 操作不能指定 PR／MR 目标" = "This Git action cannot specify a change request target.";
+
+"PR／MR 目标记录不完整" = "The change request target record is incomplete.";
+
+"当前连接无法获取 PR 目标基线" = "This connection cannot fetch the pull request base revision.";
+
+"PR／MR 目标基线无效" = "Invalid change request base revision";
+
+// PR / MR checkout and draft handoff
+"从 PR／MR 开始" = "Start from PR / MR";
+"PR／MR 地址、编号或 checkout 命令" = "PR / MR URL, number, or checkout command";
+"当前目录" = "Current directory";
+"当前目录有未提交改动，使用 Worktree 可以保留这些改动。" = "The current directory has uncommitted changes. Use a worktree to keep them.";
+"允许丢弃当前目录和所选本地分支的改动，重置到 PR／MR 提交" = "Allow discarding current directory and selected local branch changes and reset to the PR / MR commit";
+"正在准备执行目录…" = "Preparing execution directory…";
+"保留了已有 Worktree 的本地状态，尚未对齐 PR／MR 最新提交" = "Kept the existing worktree's local state. It is not at the latest PR / MR commit.";
+"停止准备" = "Stop preparing";
+"重新准备" = "Prepare again";
+"打开任务草稿" = "Open task draft";
+"核对准备结果" = "Check preparation result";
+"准备并打开草稿" = "Prepare and open draft";
+"清除检出选择" = "Clear checkout selection";
+"检出并打开新任务草稿" = "Check out and open a new task draft";
+"目录准备结果尚未确认，请核对准备结果" = "Preparation result is unconfirmed. Check the preparation result.";
+
+// Self-managed GitLab hosts
+"添加自建 GitLab 主机；使用服务主机的 glab 登录，并按所选主机读取和发布仓库。" = "Add a self-managed GitLab host. Sign in with glab on the service host to read and publish repositories on that instance.";
+"GitLab 主机" = "GitLab host";
+"添加 GitLab 主机" = "Add GitLab host";
+"移除主机" = "Remove host";
+"已通过 glab 登录的主机会自动识别；停用主机会阻止使用该主机的登录凭据。" = "Instances signed in through glab are discovered automatically. Disabling a host blocks its credentials.";
+
+// Commit scope and immutable full files
+"单次提交只读；切换到全部提交后可添加行内评论" = "Individual commits are read-only. Switch to All commits to add line comments.";
+"全部提交" = "All commits";
+"提交列表已截断" = "Commit list is truncated";
+"完整文件" = "Full file";
+"变更前" = "Before";
+"变更后" = "After";
+"文件版本" = "File revision";
+"此版本中不存在该文件" = "This file does not exist in this revision";
+"文件过大，无法加载完整内容" = "The file is too large to load in full";
+"此文件是符号链接或子模块，未跟随其目标" = "This is a symlink or submodule. Its target was not followed.";
+"此文件不是可预览的文本或图片" = "This file is not a supported text or image preview";
+
+/* Project scripts */
+"项目脚本" = "Project scripts";
+"在任务终端运行常用命令，也可在创建 Worktree 或收起任务时运行。" = "Run common commands in the task terminal, on worktree creation, or when settling a task.";
+"使用主机脚本" = "Use host scripts";
+"此 Workspace 使用主机脚本；关闭继承后可单独编辑或清空。" = "This workspace inherits host scripts. Turn inheritance off to edit or clear them.";
+"添加脚本" = "Add script";
+"从 t3.json 导入" = "Import from t3.json";
+"可导入脚本" = "Available scripts";
+"脚本" = "Script";
+"导入" = "Import";
+"脚本名称" = "Script name";
+"删除脚本" = "Delete script";
+"创建 Worktree 时运行" = "Run on worktree creation";
+"等待初始化脚本结束再启动 Agent" = "Wait for setup before starting the agent";
+"收起 Worktree 任务时运行" = "Run when settling a worktree task";
+"预览地址（可选）" = "Preview URL (optional)";
+"运行后打开网页预览" = "Open preview after launch";
+"核对脚本运行" = "Check script run";
+"项目脚本设置…" = "Project script settings…";
+"项目脚本…" = "Project scripts…";
+"停止脚本" = "Stop script";
+"正在读取脚本运行…" = "Loading script run…";
+"查看初始化脚本" = "View setup script";
+"等待脚本" = "Script queued";
+"脚本运行中" = "Script running";
+"脚本已完成" = "Script completed";
+"脚本失败" = "Script failed";
+"脚本已停止" = "Script stopped";
+"脚本结果待确认" = "Script result unconfirmed";
+"快捷键" = "Keyboard shortcut";
+"清除快捷键" = "Clear shortcut";
+"查看输出" = "View output";
+"脚本终端" = "Script terminals";
+
+/* Merge preferences */
+"合并设置" = "Merge settings";
+"合并设置…" = "Merge settings…";
+"合并时移除 Agent 署名" = "Remove agent credits on merge";
+"仅清理 GitHub merge／squash 消息中的已识别 Agent 行，保留真人共同作者。适用于自动合并；不修改合并队列、Stack 或已有提交。" = "Remove recognized agent credit lines from GitHub merge and squash messages, keeping human co-authors. Includes auto-merge; excludes merge queues, stacks and existing commits.";
+"按键录入" = "Record shortcut";
+"手动输入" = "Enter manually";
+
+/* Paginated change request diffs */
+"重试读取" = "Retry loading";
+"当前切片中有内容被平台省略，文件统计仍保留" = "The platform omitted content from this slice. File statistics are retained.";
+"正在读取审查状态…" = "Loading review state…";
+"已加载文件" = "Files loaded";
+"正在读取下一页…" = "Loading next page…";
+"加载更多文件" = "Load more files";
+"重试下一页" = "Retry next page";
+"刷新详情" = "Refresh details";
+"二进制文件没有文本 Diff" = "Binary files have no text diff";
+"平台未提供过大文件的行级 Diff" = "The platform omitted line changes for this large file";
+"平台折叠了此文件的 Diff" = "The platform collapsed this file’s diff";
+"平台未提供此文件的行级 Diff" = "The platform did not provide line changes for this file";
+"在平台查看" = "View on platform";
+"此变更没有行级 Diff" = "This change has no line diff";
+"正在查找所选文件…" = "Finding the selected file…";
+"当前切片没有可显示的文件" = "No files to display in this slice";
+
+/* Worktree preparation stages */
+"检出文件" = "Check out files";
+"运行初始化脚本" = "Run setup script";
+"启动 Agent" = "Start agent";
+"工作区准备已停止" = "Workspace preparation stopped";
+"工作区准备已结束" = "Workspace preparation finished";
+"初始化脚本仍在运行" = "Setup script is still running";
+"初始化脚本未成功完成" = "Setup script did not finish successfully";
+"已跳过" = "Skipped";
+"收起详情" = "Hide details";
+"准备详情" = "Preparation details";
+"仓库与 Worktree" = "Repository and Worktree";
+"从 origin 最新提交开始" = "Start from the latest origin commit";
+"新 Worktree 默认从 origin 开始" = "Start new Worktrees from origin by default";
+"创建前获取基准分支的最新提交，也可在新任务中单独切换。" = "Fetch the latest base branch before creation. You can change this for each new task.";
+"子模块初始化" = "Submodule initialization";
+"只在创建 Worktree 时执行，已有目录保持原状。初始化失败显示警告，随后继续运行 setup。" = "Runs when creating a Worktree. Existing directories are preserved. A failure shows a warning and continues to setup.";
+"跟随 t3.json（默认递归）" = "Follow t3.json (recursive by default)";
+"递归初始化" = "Initialize recursively";
+"仅顶层子模块" = "Top-level submodules only";
+"不初始化" = "Do not initialize";
+"Worktree 设置来源" = "Worktree settings source";
+"获取基准分支" = "Fetch base branch";
+"初始化子模块" = "Initialize submodules";
+"子模块初始化未成功完成" = "Submodule initialization did not finish successfully";
+
+"组织／项目／仓库名称" = "Organization / project / repository";
+
+"访问权限由 Azure 项目管理。" = "Access is managed by the Azure project.";
+
+"GitCafe Token" = "GitCafe Token";
+
+"保存的 Token 用于 git.cafe；也可使用主机的 CAFE_TOKEN 或 cafe 登录。" = "The saved token is for git.cafe. You can also use CAFE_TOKEN or the host’s cafe login.";
+
+"审查者账号或邮箱" = "Reviewer account or email";
+
+"添加审查者" = "Add reviewer";
+
+"源分支落后于目标分支" = "The source branch is behind the target branch";
+
+"检查通过" = "Checks passed";
+
+"检查进行中" = "Checks in progress";
+
+"检查失败" = "Checks failed";
+
+"由平台将所选层及下方尚未合并的 PR 合入堆叠基线。" = "The platform merges the selected layer and its unmerged lower layers into the stack base.";
+
+"由平台更新整栈分支，会改写历史并可能重跑检查。" = "The platform updates the entire stack, rewriting history and potentially rerunning checks.";
+
+"刷新暂不可用，正在显示最近的数据" = "Refresh is temporarily unavailable. Showing recent data.";
+
+"平台请求受到限流，凭据已保留，请稍后刷新" = "The host is rate limited. Your credentials are retained; refresh later.";
+
+"管理关联的 PR／MR" = "Manage linked pull requests";
+
+"管理关联" = "Manage links";
+
+"关联任意支持的平台地址，或输入当前 Workspace 的编号。查看详情与关联任务分别生效。" = "Link a supported pull request URL, or enter a number from this workspace. Viewing a pull request does not link it to the task.";
+
+"PR／MR 地址或 #编号" = "Pull request URL or #number";
+
+"关联" = "Link";
+
+"取消关联" = "Unlink";
+
+"此任务尚未关联 PR／MR" = "This task has no linked pull requests.";
+
+"正在加载关联…" = "Loading linked pull requests…";
+
+"正在保存关联…" = "Saving linked pull requests…";
+
+"由此任务创建" = "Created by this task";
+
+"由 Agent 关联" = "Linked by the agent";
+
+"堆叠成员" = "Stack member";
+
+"手动关联" = "Manually linked";
+
+"等待同步" = "Waiting to sync";
+
+"PR 合并后自动结束" = "Settle after a pull request merges";
+
+"所有有效关联均已合并或关闭，且没有更新的用户要求时结束；关闭不活跃计时后仍可生效。" = "Settle when all relevant linked pull requests are merged or closed and there is no newer user request. This works independently of the inactivity timer.";
+
+"保留关联 PR 的不活跃任务" = "Keep inactive tasks with pull requests";
+
+"有关联 PR／MR 的任务不因时间经过而结束；已确认的合并或关闭仍按终态规则处理。" = "Keep linked tasks from settling due to inactivity. Confirmed merge and close outcomes still follow their settlement rules.";
+
+"正在自动跟进" = "Watching for changes";
+
+"自动跟进变化" = "Watch for changes";
+
+"停止自动跟进" = "Stop watching";
+
+"自动跟进" = "Watch update";
+
+"开启自动跟进后，CI、评论或冲突变化会让 Agent 继续此任务；停止按钮会结束跟进。" = "CI, comment or conflict changes will wake the agent in this task. Stop ends watching.";
+
+"批量操作" = "Bulk actions";
+"取消选择" = "Clear selection";
+"正在批量处理" = "Processing tasks";
+"部分任务未完成" = "Some tasks were not processed";
+"删除所选任务？" = "Delete selected tasks?";
+"个任务" = "tasks";
+"选择" = "Select";
+"在此分支新建任务" = "New task on this branch";
+"主机未连接，请重新连接后重试" = "Host disconnected. Reconnect and retry.";
+"主机尚不支持复用任务工作区，请更新主机或清除检出选择。" = "This host does not support existing task workspaces. Update the host or clear the checkout selection.";
+
+"上下文窗口" = "Context window";
+"已使用" = "Used";
+"剩余" = "Remaining";
+"输入 Token" = "Input tokens";
+"缓存 Token" = "Cached tokens";
+"输出 Token" = "Output tokens";
+"推理 Token" = "Reasoning tokens";
+"当前上下文占用来自最近一次 Provider 请求，不代表累计用量。" = "Context occupancy is reported by the latest provider request, separately from total usage.";
+"Provider 尚未报告上下文占用" = "The provider has not reported context occupancy";
+"刷新命令和 Skill" = "Refresh commands and Skills";
+"正在压缩上下文" = "Compacting context";
+"重试核对" = "Retry confirmation";
+"压缩上下文" = "Compact context";
+"请先等待已有会话空闲，再压缩上下文。" = "Wait for the existing session to become idle before compacting.";
+"正在查找…" = "Searching…";
+"未找到匹配项" = "No matches found";
+"任务输入框" = "Task composer";
+"在斜杠菜单中显示 Skill" = "Show Skills in the slash menu";
+"关闭后仍可输入 $ 查找并选择可调用的 Skill。" = "When disabled, type $ to find and select an invocable Skill.";
+"压缩" = "Compact";
+"完整历史" = "Full history";
+"保留完整历史" = "Keep full history";
+"压缩后发送" = "Compact and send";
+"下次先压缩再发送；点击保留完整历史" = "Compact before the next send. Click to keep full history.";
+"下次保留完整历史；点击先压缩再发送" = "Keep full history on the next send. Click to compact first.";
+"账号配额" = "Account limits";
+"刷新账号配额" = "Refresh account limits";
+"重置时间" = "Resets";
+"正在读取账号配额" = "Loading account limits";
+"此 Provider 暂无可用配额信息" = "Usage limits are unavailable for this provider";
+"账号配额由 Provider 报告，与当前会话的上下文窗口分别计算。" = "Account limits are reported by the provider, separately from the context window of this conversation.";
+"执行器已经改变，请重新加载" = "The provider changed. Reload to continue.";
+"无法读取 Codex 账号配额，请稍后重试" = "Could not read Codex account limits. Retry later.";
+"上下文压缩完成" = "Context compacted";
+"Session" = "Session";
+"Weekly" = "Weekly";
+"Monthly" = "Monthly";
+"Switch response model for this thread" = "Switch response model for this thread";
+"Switch this thread into plan mode" = "Switch this thread into plan mode";
+"Switch this thread back to normal build mode" = "Switch this thread back to normal build mode";
+"Show this provider's usage limits" = "Show this provider's usage limits";
+
+"建议恢复前压缩过期历史" = "Suggest compaction before resuming expired history";
+
+"已归档任务" = "Archived tasks";
+"已取消置顶" = "Unpinned";
+"已结束跟进" = "Settled";
+"已稍后处理" = "Snoozed";
+"撤销" = "Undo";
+"⌘ Z 撤销任务操作；文字编辑保留原生撤销" = "⌘ Z undoes task actions. Text editing keeps native Undo.";
+"没有已归档任务" = "No archived tasks";
+"连接主机后查看已归档任务" = "Connect to the host to view archived tasks";
+"归档后的任务会显示在这里，可恢复或删除。" = "Archived tasks appear here. Restore or delete them.";
+"创建于" = "Created";
+"正在清理归档会话" = "Cleaning up the archived session";
+"重新清理归档会话" = "Retry archive cleanup";
+"任务操作" = "Task actions";
+"归档后可从已归档任务中恢复。" = "Archived tasks can be restored from Archived tasks.";
+"归档前确认" = "Confirm before archiving";
+"归档任务？" = "Archive task?";
+"归档已保存；清理尚未确认，请检查后重新归档。" = "Archive saved. Cleanup is unconfirmed. Inspect the session and archive again.";
+"归档清理曾中断；原生操作不会重新执行。" = "Archive cleanup was interrupted. Native operations will not be replayed.";
+"正在清理归档会话，请等待完成后继续" = "Archive cleanup is in progress. Wait for it to finish.";
+"请先恢复并完成归档清理，再打开终端" = "Restore the task and finish archive cleanup before opening a terminal.";
+"请先恢复并完成归档清理，再运行项目脚本" = "Restore the task and finish archive cleanup before running project scripts.";
+"任务执行范围已经改变" = "The task scope changed.";
+
+"已丢弃草稿" = "Discarded draft";
+
+"丢弃草稿" = "Discard draft";
+
+"丢弃草稿，五秒内可撤销" = "Discard draft; undo within five seconds";
+
+"草稿已有新内容，无法恢复被丢弃的草稿。" = "The draft has new content. The discarded draft could not be restored.";
+
+"正在清理会话…" = "Cleaning up session…";
+
+"会话清理待确认" = "Session cleanup needs confirmation";
+
+"重新清理结束跟进的会话" = "Retry settled session cleanup";
+
+"可用重置次数：%lld" = "Reset credits available: %lld";
+
+"下一个到期时间" = "Next expiry";
+
+"有待确认的配额重置请求" = "A rate-limit reset is awaiting confirmation";
+
+"正在使用…" = "Using…";
+
+"检查重置结果" = "Check reset result";
+
+"使用一次重置" = "Use reset";
+
+"使用一次配额重置？" = "Use one reset credit?";
+
+"这会消耗当前账号的一次重置机会，并清除当前限流窗口。此操作不能撤销。" = "This redeems one credit on the current account and clears its rate-limit windows. This cannot be undone.";
+
+"重置已生效，当前限流窗口已清除。" = "Reset applied. The current rate-limit windows have cleared.";
+
+"当前没有需要重置的限流窗口。" = "Nothing to reset right now.";
+
+"当前没有可用的重置次数。" = "No reset credit left.";
+
+"此次重置已使用。" = "That credit was already redeemed.";
+
+"重置结果尚未确认，请先检查。重试会查询同一个重置请求。" = "The reset is unconfirmed. Check it before retrying with the same native request.";
+
+"重置请求曾中断，请检查结果后重试。" = "The reset request was interrupted. It will not be replayed automatically; check before retrying.";
+
+"重置结果已保存，配额刷新暂未成功；请稍后刷新，不要重复消费。" = "The reset result is saved, but usage could not be refreshed. Refresh later without redeeming another credit.";
+
+"Codex 账号配置已经改变，请重新确认。" = "The Codex account configuration changed. Confirm it again.";
+
+"Codex 账号已经改变，请重新确认。" = "The Codex account changed. Confirm it again.";
+
+"Claude 账号配置已经改变，请重新确认。" = "The Claude account configuration changed. Confirm it again.";
+
+"Claude 账号已经改变，请重新确认。" = "The Claude account changed. Confirm it again.";
+
+"Claude 重置暂时受到限流，请稍后再试。" = "Claude is rate limiting resets. Try again soon.";
+
+"Claude 重置正在冷却，请稍后再试。" = "Claude resets are cooling down. Try again later.";
+
+"请重新登录 Claude 后使用一次重置。" = "Sign in to Claude again to redeem resets.";
+
+"当前 Codex 账号没有可用的重置信息信息。" = "Reset credit information is unavailable for this Codex account.";
+
+"当前 Claude 账号没有可用的重置信息信息。" = "Reset credit information is unavailable for this Claude account.";
+
+/* Task goals, feedback and pooled usage limits */
+"正在执行目标" = "Pursuing goal";
+"目标已设定" = "Goal set";
+"目标已暂停" = "Goal paused";
+"目标需要处理" = "Goal blocked";
+"目标达到用量限制" = "Goal hit a usage limit";
+"目标达到 Token 预算" = "Goal reached its token budget";
+"目标已完成" = "Goal complete";
+"继续目标" = "Resume";
+"清除目标" = "Clear goal";
+"请先检查上次反馈的提交结果。" = "Check the previous feedback submission first.";
+"正在向 OpenAI 提交反馈…" = "Sending feedback to OpenAI…";
+"反馈已发送给 OpenAI" = "Feedback sent to OpenAI";
+"反馈提交结果尚未确认" = "Feedback delivery is unconfirmed";
+"复制反馈 ID" = "Copy feedback ID";
+"检查提交结果" = "Check submission result";
+"请先开始一条 Codex 会话后提交反馈" = "Start a Codex thread before submitting feedback";
+"请先检查上次重置的结果。" = "Check the previous reset result first.";
+"账号配额已重置。" = "Account limits reset.";
+"当前配额无需重置。" = "No limits need resetting.";
+"这次重置已经处理，没有重复消费。" = "This reset was already processed. No additional credit was used.";
+"重置结果尚未确认，请先检查。" = "The reset result is unconfirmed. Check it first.";
+"个账号" = "accounts";
+"下次重置" = "Next reset";
+"次重置" = "reset credits";
+"这会消耗当前账号的一次重置次数，无法撤销。" = "This spends one reset credit for this account and cannot be undone.";
+"额度来源" = "Usage limit sources";
+"连接 CLIProxy，查看多个账号的共享额度。" = "Connect CLIProxy to view pooled usage limits across accounts.";
+"请在主机管理额度来源。" = "Manage usage limit sources on the host.";
+"添加额度来源" = "Add usage limit source";
+"移除额度来源" = "Remove usage limit source";
+"移除额度来源？" = "Remove this usage limit source?";
+"管理密钥" = "Management key";
+"已保存密钥，留空保留。" = "A key is saved. Leave blank to keep it.";
+"清除已保存密钥" = "Clear saved key";
+"共享账号配额" = "Pooled account limits";
+"使用快于重置节奏" = "Usage is ahead of pace";
+"使用低于重置节奏" = "Usage is under pace";
+"使用节奏适中" = "Usage is on pace";
+"重置曾中断；不会自动再次消费。刷新后重试同一次重置可避免重复消费。" = "The reset was interrupted and will not be retried automatically. Refresh and retry the same credit to avoid a duplicate spend.";
+"重置已中断，结果尚未确认。不会自动再次消费。" = "The reset was interrupted and its result is unconfirmed. No credit will be spent again automatically.";
+"额度来源已改变，请重新确认" = "The usage source changed. Confirm it again.";
+"额度来源配置无法读取" = "Could not read usage source settings.";
+"额度来源已在其他窗口更新，请重新加载" = "The usage source was updated in another window. Reload it.";
+"额度来源地址无效" = "The usage source URL is invalid.";
+"未配置管理密钥" = "No management key configured.";
+"额度来源读取失败" = "Could not read usage limits from this source.";
+"账号或重置次数已改变，请刷新后重新确认" = "The account or reset credit changed. Refresh and confirm it again.";
+"提交曾中断，反馈可能已经送达。不会自动重复上传。" = "Submission was interrupted. Feedback may already have arrived and will not be uploaded again automatically.";
+"提交中断，反馈结果尚未确认。不会自动重复上传。" = "Submission was interrupted. Delivery is unconfirmed and will not be retried automatically.";
+"额度已重置，来源的路由冷却暂未清除；冷却到期后会恢复。" = "Limits were reset, but the hub cooldown could not be cleared. Routing will resume after cooldown.";
+"额度来源请求失败，请检查地址、管理密钥或连接" = "The usage source request failed. Check its URL, management key, or connection.";
+"额度来源未返回有效的账号列表" = "The usage source returned an invalid account list.";
+"额度来源返回的账号响应无效" = "The usage source returned an invalid account response.";
+"额度来源返回的账号数据无效" = "The usage source returned invalid account data.";
+"额度来源账号已改变，请刷新后重新确认" = "The source account changed. Refresh and confirm it again.";
+"额度来源返回了未知的重置结果" = "The source returned an unknown reset result.";
+
+"回应结果尚未确认；请核对执行记录或停止任务，不会自动重复授权。" = "The response is unconfirmed. Check the execution record or stop the task; approval will not be sent again automatically.";
+"始终允许本会话" = "Always allow this session";
+"取消本次执行" = "Cancel this execution";
+"更多授权选项" = "More approval options";
+"始终允许" = "Always allow";
+"终端账号配置已改变，请恢复这条任务使用的 Codex 目录" = "The terminal account configuration changed. Restore the Codex home used by this task.";
+"终端账号配置已改变，请恢复这条任务使用的 Claude 目录" = "The terminal account configuration changed. Restore the Claude home used by this task.";
+"授权回应请求 ID 无效" = "Invalid approval response request ID.";
+"授权回应请求 ID 已用于其他决定" = "This approval response ID was already used for a different decision.";
+"回应结果尚未确认，请核对或停止执行，不会自动重复授权" = "The response is unconfirmed. Check or stop the execution; approval will not be sent again automatically.";
+"此授权请求不支持这个决定" = "This approval request does not support that decision.";
+"此请求不支持会话授权" = "This request does not support session approval.";
+"此请求不支持永久授权" = "This request does not support persistent approval.";
+"用户取消了本次执行" = "The user cancelled this execution.";
+"已允许本会话的同类操作" = "Allowed this kind of operation for the session.";
+"已允许并保留授权" = "Allowed with persistent approval.";
+"已取消本次操作" = "Cancelled this operation.";
+
+"按 Workspace 筛选任务" = "Filter tasks by workspace";
+"搜索 Workspace" = "Search workspaces";
+"Workspace 设置" = "Workspace settings";
+"项目分组" = "Project grouping";
+"将同一仓库的 Workspace 合并；可在 Workspace 设置中单独覆盖。" = "Group workspaces from the same repository. Individual workspaces can override this setting.";
+"项目顺序" = "Project order";
+"用于项目筛选器和项目树；手动顺序可在旧版项目树中拖动调整。" = "Applies to the project picker and tree. Drag projects in the legacy tree to change manual order.";
+"旧版项目树" = "Sidebar (legacy)";
+"按项目展开任务，替代默认的扁平任务分组。" = "Show expandable project trees in place of the default flat task groups.";
+"项目内任务顺序" = "Thread order";
+"最近发送按最新用户消息排序，流式输出不会改变顺序。" = "Recent activity follows the latest user message; streamed output does not change the order.";
+"默认显示任务数" = "Visible threads";
+"每个项目默认显示 1–15 条任务，可展开完整列表。" = "Show 1–15 threads per project before expanding the full list.";
+"使用全局项目分组" = "Use global project grouping";
+"仅影响这台客户端的侧栏，不更改仓库或任务目录。" = "Applies to this client’s sidebar without changing repositories or task directories.";
+"最近活动" = "Recent activity";
+"最近创建" = "Newest first";
+"手动排序" = "Manual";
+"按仓库" = "By repository";
+"按仓库与子目录" = "By repository and subdirectory";
+"分别显示" = "Separate projects";
+"最近发送" = "Recent activity";
+"收起任务列表" = "Show fewer threads";
+"显示更多任务" = "Show more threads";
+"Workspace 操作" = "Workspace actions";
+"Workspace 分组已改变" = "The workspace group changed.";
+"Workspace 分组范围无效" = "Invalid workspace group scope.";
+
+"新任务；按住 Shift 在当前项目中新建" = "New thread; hold Shift to use the current project.";
+
+"无项目" = "No project";
+"从一个任务开始" = "Start with a task";
+"选择一个 Workspace，或直接创建无项目任务。" = "Choose a workspace, or start a task with no project.";
+"开始一个无项目任务" = "Start a task with no project";
+"默认使用独立目录，文件保留在主机上。" = "Uses a separate directory by default. Files stay on the host.";
+"在独立目录中开始，不需要选择已有 Workspace。" = "Start in a separate directory without choosing an existing workspace.";
+"正在准备无项目任务…" = "Preparing a task with no project…";
+"在当前分支开始新任务" = "Start a new task on the current branch";
+"使用已选择的任务目录，建立独立会话。" = "Use the selected task directory with a separate session.";
+"此主机暂不支持无项目任务" = "This host does not currently support tasks with no project.";
+"此主机无法提供无项目任务，请检查数据目录及 Git 状态" = "This host cannot create tasks with no project. Check its data directory and Git status.";
+"无项目任务使用独立临时目录，请清除 Git 执行位置选择" = "Tasks with no project use a separate scratch directory. Clear the Git execution location.";
+"无项目任务的排序范围无效" = "Invalid ordering scope for tasks with no project.";
+"临时工作区的主机目录已改变" = "The host directory for the scratch workspace changed.";
+"临时工作区目录不能指向其他位置" = "The scratch workspace directory cannot point to another location.";
+"临时工作区的目录范围已改变" = "The scratch workspace directory scope changed.";
+"临时任务目录不能指向其他位置" = "The scratch task directory cannot point to another location.";
+"临时任务目录的归属已改变，请恢复原目录或创建新任务" = "The scratch task directory was replaced. Restore the original directory or create a new task.";
+"临时工作区分配记录不存在" = "The scratch workspace allocation record is missing.";
+"临时目录的创建结果待核对，请重试工作区准备；不会自动重复分配" = "The scratch directory creation needs review. Retry workspace preparation to allocate a different directory.";
+"请先完成临时工作区准备再打开终端" = "Complete scratch workspace preparation before opening the terminal.";
+"临时任务目录已改变，请重新打开终端" = "The scratch task directory changed. Reopen the terminal.";
+"请先完成临时工作区准备再访问文件" = "Complete scratch workspace preparation before accessing files.";
+"临时任务目录已改变，请重新打开文件" = "The scratch task directory changed. Reopen the file.";
+
+"新建项目" = "New project";
+"已有目录" = "Existing directory";
+"项目来源" = "Project source";
+"创建项目" = "Create project";
+"项目已创建" = "Project created";
+"项目已创建，首次提交未完成" = "Project created without a first commit";
+"打开项目" = "Open project";
+"在主机创建独立目录和 Git 仓库，包含 README、项目图标及首次提交。" = "Create a separate directory and Git repository on the host, with a README, project icon and initial commit.";
+"正在准备项目…" = "Preparing the project…";
+"核对创建结果" = "Check creation result";
+"项目创建结果待核对" = "The project creation needs review.";
+"此主机暂不支持新建项目" = "This host does not currently support creating projects.";
+"项目已创建，等待 Workspace 同步后再打开" = "The project was created. Wait for workspace sync before opening it.";
+"托管项目的目录范围已改变" = "The managed project directory scope changed.";
+"托管项目目录已改变，请恢复原目录或重新添加 Workspace" = "The managed project directory changed. Restore the original directory or add the workspace again.";
+"Git 尚未设置姓名或邮箱；设置 user.name 和 user.email 后即可提交。" = "Git has no name or email. Set user.name and user.email before committing.";
+"Git 未能完成首次提交。" = "Git could not make the initial commit.";
+"服务正在停止，请稍后创建项目" = "The service is stopping. Create the project later.";
+"项目创建请求无效" = "Invalid project creation request.";
+"项目创建结果待核对；请检查主机目录，同一请求不会重复创建。" = "Project creation needs review. Check the directory on the host; this request will not create it again.";
+"项目创建请求 ID 已用于其他内容" = "This project creation request ID was used for different content.";
+"托管项目的主机目录已改变" = "The host directory for managed projects changed.";
+"托管项目目录不能指向其他位置" = "The managed project directory cannot point to another location.";
+"项目目录名称已被占用，请换一个名称" = "All candidate directory names are taken. Choose another project name.";
+"项目创建已取消" = "Project creation was cancelled.";
+"此目录正在创建项目，请等待完成" = "A project is being created in this directory. Wait for it to finish.";
+"托管项目的 Git 仓库关联已经改变" = "The managed project Git repository association changed.";
+"Worktree 主仓库关联已经改变" = "The worktree main repository association changed.";
+
+"Friday 私有数据不能作为发布项目" = "Friday private data cannot be published as a project.";
+"Git 仓库地址" = "Git repository URL";
+"Workspace 不存在" = "The workspace does not exist.";
+"Workspace 已删除或目录已改变" = "The workspace was deleted or its directory changed.";
+"Workspace 已改变" = "The workspace changed.";
+"Workspace 或克隆记录已改变" = "The workspace or clone record changed.";
+"不发布到远端" = "Keep local";
+"不能克隆到 Friday 私有运行目录" = "Cannot clone into Friday private runtime data.";
+"主机尚未就绪，请连接后重试项目操作" = "The host is not ready. Reconnect before retrying the project operation.";
+"仓库克隆未完成" = "Repository cloning did not finish";
+"仓库发布未完成" = "Repository publication did not finish";
+"仓库发布设置已失效" = "Repository publication settings are no longer valid.";
+"仓库来源" = "Repository source";
+"仓库查询参数无效" = "Invalid repository lookup parameters.";
+"克隆仓库" = "Clone repository";
+"克隆参数无效" = "Invalid clone parameters.";
+"克隆已取消" = "Clone cancelled";
+"克隆已开始，等待 Workspace 同步后再打开" = "Cloning started. Wait for workspace sync before opening it.";
+"克隆开始后可关闭面板；进度、取消和重试会显示在项目中。" = "You can close this panel after cloning starts. Progress, Cancel and Retry remain available in the project.";
+"克隆来源已失效" = "The clone source is no longer available.";
+"克隆来源已失效，请重新选择仓库" = "The clone source is no longer available. Select the repository again.";
+"克隆目录已改变，请在主机核对后重新选择" = "The clone directory changed. Check it on the host before selecting it again.";
+"克隆目录的归属记录不存在" = "The clone directory ownership record is missing.";
+"克隆目标不是普通目录" = "The clone destination is not a normal directory.";
+"克隆目标的父目录已改变" = "The clone destination parent directory changed.";
+"克隆目标目录" = "Clone destination";
+"克隆目标目录已存在且不为空" = "The clone destination already exists and is not empty.";
+"克隆记录已改变" = "The clone record changed.";
+"关闭" = "Close";
+"创建后发布为私有仓库" = "Publish a private repository after creation";
+"发布已停止，请先核对平台和远端；不会自动重复创建仓库。" = "Publication stopped. Check the platform and remote before continuing; the repository will not be created again automatically.";
+"取消克隆" = "Cancel clone";
+"只有尚未配置远端的本地项目分支才能发布" = "Only a local project branch without a remote can be published.";
+"平台没有返回可用的克隆地址" = "The platform did not return usable clone URLs.";
+"平台返回的 SSH 仓库不一致" = "The platform returned a different SSH repository.";
+"平台返回的 SSH 地址无效" = "The platform returned an invalid SSH URL.";
+"平台返回的仓库归属不一致" = "The platform returned a different repository.";
+"平台返回的克隆地址与仓库不一致" = "The platform clone URLs do not match the repository.";
+"开始克隆" = "Start clone";
+"接收对象" = "Receiving objects";
+"提交历史包含 Friday 私有数据，已停止发布" = "The commit history contains Friday private data. Publication stopped.";
+"新建项目只支持发布为私有仓库" = "New projects can only be published as private repositories.";
+"未完成的克隆会清理本次克隆内容；已完成的项目文件和已有任务会保留。" = "An unfinished clone will be cleared. Completed project files and existing tasks will be kept.";
+"查询仓库" = "Look up repository";
+"正在克隆仓库" = "Cloning repository";
+"正在发布私有仓库" = "Publishing private repository";
+"此克隆不能重试" = "This clone cannot be retried.";
+"此目录有正在执行的任务或 Git 操作，请完成后重试" = "A task or Git operation is running in this directory. Retry after it finishes.";
+"目录包含不属于克隆的文件，请在主机核对后重试" = "The directory contains files unrelated to this clone. Check it on the host before retrying.";
+"私有仓库已创建" = "Private repository created";
+"私有仓库已创建并添加远端，首次推送未完成；请在 Git 菜单继续推送，不要重复创建仓库。" = "The private repository and remote were created, but the initial push failed. Continue with Push in the Git menu instead of creating another repository.";
+"统计对象" = "Counting objects";
+"解析差异" = "Resolving deltas";
+"请检查仓库平台的主机与服务路径" = "Check the repository platform host and service path.";
+"请输入仓库地址" = "Enter a repository URL.";
+"请选择克隆目标目录" = "Choose a clone destination.";
+"这个目录已经添加" = "This directory has already been added.";
+"远端仓库已创建，请核对当前远端，不要重复发布" = "The remote repository was created. Check the current remotes instead of publishing again.";
+"连接仓库" = "Connecting to repository";
+"选择父目录" = "Choose parent directory";
+"重试会清理本次未完成的克隆内容；已有项目会继续保留。" = "Retry clears the unfinished clone contents and keeps the registered project.";
+"重试克隆" = "Retry clone";
+"项目分支或提交已改变，请核对仓库后继续" = "The project branch or commit changed. Check the repository before continuing.";
+"项目已创建，仓库发布未完成" = "Project created; repository publication did not finish";
+"项目已配置远端，请使用 Git 菜单继续" = "The project has a remote. Continue in the Git menu.";
+"项目操作不属于此 Workspace" = "The project operation belongs to another workspace.";
+"项目操作未完成" = "The project operation did not finish.";
+"项目操作步骤无效" = "Invalid project operation step.";
+"项目操作的外部结果待核对；不会自动重复克隆、创建仓库或推送。" = "The external result needs review. Cloning, repository creation and pushing will not be repeated automatically.";
+"项目操作记录不存在" = "The project operation record does not exist.";
+"项目操作请求 ID 已用于其他内容" = "This project operation request ID was used for different content.";
+"项目操作请求无效" = "Invalid project operation request.";
+"项目远端已改变，请核对后继续" = "The project remote changed. Check it before continuing.";
+"仓库正在克隆，请完成后再开始任务" = "The repository is still being cloned. Start the task after it finishes.";
+"仓库尚未克隆完成，请先重试克隆" = "The repository was not cloned. Retry the clone first.";
+"仍在克隆或发布项目，请完成或取消后再安装更新。" = "A project is being cloned or published. Complete or cancel it before installing an update.";
+"Azure 返回的克隆地址与仓库不一致" = "The Azure clone URLs do not match the repository.";
+"Forgejo 返回的克隆地址与仓库不一致" = "The Forgejo clone URLs do not match the repository.";
+
+"克隆传输协议无效" = "Invalid clone transport.";
+
+"在主机运行 pi /login，或配置 Pi 模型凭据后重新检测。" = "Run pi /login on the host, or configure Pi model credentials, then check again.";
+"传给 Pi RPC 的额外参数；会话和执行模式由 Friday 管理。" = "Additional arguments for Pi RPC. Friday manages the session and execution mode.";
+"Auto 允许 Pi 执行工具；手动确认会在写入或运行命令前请求授权。" = "Full access allows Pi to run tools. Manual approval asks before writing files or running commands.";
+"完全访问" = "Full access";
+"在主机运行 grok login，或配置 XAI_API_KEY 后重新检测。" = "Run grok login on the host, or configure XAI_API_KEY, then check again.";
+"Auto 使用 Grok 的自动判断；手动确认请求授权，完全访问允许工具执行。" = "Auto uses Grok's own approval decisions. Manual approval requests permission; full access allows tools to run.";
+
+"原生审核使用 Cursor 沙盒和工具审核；完全访问关闭这两项限制。" = "Native review uses the Cursor sandbox and tool review; Full Access disables both.";
+
+"手动确认会在需要授权时询问；完全访问允许工具执行。" = "Manual approval asks when authorization is needed; Full Access allows tool execution.";
+
+"连接 Cursor 账号，或配置 CURSOR_API_KEY。" = "Connect a Cursor account or configure CURSOR_API_KEY.";
+
+"登录 Cursor" = "Sign in to Cursor";
+
+"Muse 模型目录可用不代表已登录；账号由主机上的 Muse 原生工具在执行时确认。" = "A Muse model catalog does not confirm sign-in. The native Muse tool checks your account when it runs.";
+
+"服务地址" = "Server URL";
+
+"留空时启动主机上的 OpenCode；也可连接已有服务。" = "Leave blank to start OpenCode on the host, or connect an existing server.";
+
+"连接密码" = "Connection password";
+
+"已保存的密码不会回传；留空保留原值。" = "Saved passwords are never returned. Leave blank to keep the saved value.";
+
+"原生审核" = "Native review";
+
+"正在解包…" = "Extracting…";
+
+"正在核对工具…" = "Verifying tool…";
+
+"工具已准备" = "Tool prepared";
+
+"准备失败" = "Preparation failed";
+
+"准备工具" = "Prepare tool";
+
+"主机工具" = "Host tool";
+
+"托管工具" = "Managed tool";
+
+"保存配置后准备工具；已有可执行文件也可以直接使用。" = "Save the configuration before preparing the tool. Existing executables can also be used.";
+
+"使用工具声明的认证方式；也可在主机的原生工具中登录。" = "Use an authentication method advertised by the agent, or sign in with its native host tool.";
+
+"Google 账号与凭据保存在此主机的独立配置中。" = "The Google account and credentials use an isolated profile on this host.";
+
+"认证方式 ID" = "Authentication method ID";
+
+"留空使用工具提供的 Agent 管理认证。" = "Leave blank to use an agent-managed authentication method.";
+
+"ACP 工具" = "ACP tool";
+
+"从官方 Registry 选择，或使用主机上的本地 ACP 命令。" = "Choose from the official registry, or use a local ACP command on the host.";
+
+"本地命令" = "Local command";
+
+"添加参数" = "Add argument";
+
+"Registry 工具 ID" = "Registry agent ID";
+
+"搜索 ACP 工具" = "Search ACP agents";
+
+"可执行文件覆盖" = "Executable override";
+
+"可选；保留 Registry 声明的启动参数和环境。" = "Optional. Keep the registry arguments and environment.";
+
+"认证方式" = "Authentication method";
+
+"选择此主机使用的 Google 账号或密钥类型。" = "Choose the Google account or key type for this host.";
+
+"已保存的密钥不会回传；留空保留原值。" = "Saved keys are never returned. Leave blank to keep the saved value.";
+
+"清除已保存的密钥" = "Clear saved key";
+
+"Google Cloud 项目标识。" = "Google Cloud project ID.";
+
+"Google Cloud 区域。" = "Google Cloud location.";
+
+"Harness 路径" = "Harness path";
+
+"留空使用 ACP 程序旁的原生 Harness。" = "Leave blank to use the native harness next to the ACP executable.";
+
+"手动确认请求原生授权；自动接受编辑使用原生编辑模式，完全访问使用原生 Yolo 模式。" = "Manual approval asks for native permissions. Auto-accept edits uses native edit mode; Full Access uses native Yolo mode.";
+
+"手动确认保留工具的原生授权选项；自动审批允许本次工具调用。" = "Manual approval preserves the agent’s native choices. Automatic approval allows the current tool call.";
+
+"自动审批" = "Automatic approval";

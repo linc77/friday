@@ -15,11 +15,16 @@ enum TaskRowPresentation {
     }
 
     static func runningStart(_ task: WorkItem) -> Date? {
+        if task.queueActive && !["queued", "running", "waiting"].contains(task.status),
+           let pending = task.queue?.pending.first, let start = CodexTranscript.date(pending.createdAt) { return start }
         // Streaming updates change updatedAt; use the current turn's original
         // timestamp so the running clock neither resets nor includes old turns.
+        if let date = CodexTranscript.date(task.activityStartedAt) { return date }
         if let turnId = task.turnId,
            let turn = task.events.last(where: { $0.kind == "turn" && $0.turnId == turnId }),
            let start = CodexTranscript.date(turn.at) { return start }
+        if let run = task.runs?.first(where: { $0.id == task.currentRunId }),
+           let start = CodexTranscript.date(run.startedAt ?? run.workspacePreparation?.startedAt) { return start }
         return CodexTranscript.date(task.events.last(where: { $0.kind == "user" })?.at)
             ?? CodexTranscript.date(task.messages?.last(where: { $0.role == "user" })?.at)
             ?? CodexTranscript.date(task.createdAt)

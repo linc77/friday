@@ -1,0 +1,14 @@
+// Pinned T3 pure functions are the oracle; license: task-sidebar-order.ts.
+import ts from 'typescript';
+import {readFile,writeFile} from 'node:fs/promises';
+import {join} from 'node:path';
+import {execFileSync} from 'node:child_process';
+const root=process.argv[2],revision='8cd9641f76874f2ce17d6c80acd71fab1f0b99d3';
+if(!root||execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim()!==revision)throw Error('Pass the pinned T3 source');
+async function select(path,names){const text=await readFile(join(root,path),'utf8'),ast=ts.createSourceFile(path,text,ts.ScriptTarget.Latest,true);return ast.statements.filter(node=>ts.isFunctionDeclaration(node)&&names.includes(node.name?.text)||ts.isVariableStatement(node)&&node.declarationList.declarations.some(declaration=>names.includes(declaration.name.getText(ast)))).map(node=>node.getText(ast)).join('\n');}
+const raw=[await select('apps/server/src/project/gitCloneProgress.ts',['STAGE_PREFIXES','PERCENT','parseGitCloneProgressLine']),await select('apps/server/src/sourceControl/SourceControlRepositoryService.ts',['redactRemoteUrl']),await select('packages/client-runtime/src/operations/projects.ts',['GITHUB_REPOSITORY_SHORTHAND','normalizePastedCloneUrl','getCloneDirectoryName']), 'export {redactRemoteUrl};'].join('\n');
+const js=ts.transpileModule(raw,{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.ESNext}}).outputText,source=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+const lines=['remote: Enumerating objects: 5, done.','remote: Counting objects: 100% (5/5), done.','remote: Compressing objects: 50% (2/4)','Receiving objects: 75% (3/4), 1.25 MiB | 2.00 MiB/s','Resolving deltas: 100% (2/2), done.','Updating files: 36% (2/6)','Checking out files: 120% (6/5)','Receiving objects: 0% (0/4)',' fatal: permission denied ','Cloning into repo...','Receiving objects: unknown','remote: Counting objects: 5% (1/20), done.'];
+const remotes=['owner/repo','owner/repo.git','https://github.com/owner/repo.git','git@github.com:owner/repo.git','ssh://git@example.test:2222/team/repo.git','https://user:synthetic-password@example.test/team/repo.git?synthetic=opaque','https://example.test:2222','https://example.test','file:///local/repo.git','C:\\work\\repo.git','https://example.test/team/repo?token=synthetic#readme',' repo.git '];
+await writeFile('server/test/fixtures/t3-project-clone.json',JSON.stringify({source:revision,progress:lines.map(line=>({line,result:source.parseGitCloneProgressLine(line)})),remotes:remotes.map(remote=>({remote,normalized:source.normalizePastedCloneUrl(remote),publicRemote:source.redactRemoteUrl(source.normalizePastedCloneUrl(remote)),directoryName:source.getCloneDirectoryName(source.normalizePastedCloneUrl(remote))}))},null,2)+'\n');
+console.log(`${lines.length} progress and ${remotes.length} remote cases derived from pinned T3`);

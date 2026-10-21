@@ -1,0 +1,6577 @@
+{
+  "source": "8cd9641f76874f2ce17d6c80acd71fab1f0b99d3",
+  "bases": [
+    {
+      "name": "repositories, subdirectories, empty projects and archived activity",
+      "projects": [
+        {
+          "id": "main",
+          "path": "/repo",
+          "name": "Repo",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "/repo",
+            "displayName": "Owner/Repo",
+            "name": "Repo"
+          }
+        },
+        {
+          "id": "worktree",
+          "path": "/worktree",
+          "name": "Repo",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "/worktree",
+            "displayName": "Owner/Repo",
+            "name": "Repo"
+          }
+        },
+        {
+          "id": "subdir",
+          "path": "/repo/packages/web",
+          "name": "Web",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "/repo",
+            "displayName": "Owner/Repo",
+            "name": "Repo"
+          }
+        },
+        {
+          "id": "other",
+          "path": "/other",
+          "name": "Repo",
+          "context": "",
+          "createdAt": "2026-10-04T12:00:00.000Z",
+          "updatedAt": "2026-10-04T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/other/repo",
+            "rootPath": "/other",
+            "displayName": "Other/Repo",
+            "name": "Repo"
+          }
+        },
+        {
+          "id": "plain",
+          "path": "/plain",
+          "name": "Notes",
+          "context": "",
+          "createdAt": "2026-10-08T12:00:00.000Z",
+          "updatedAt": "2026-10-08T12:00:00.000Z"
+        }
+      ],
+      "tasks": [
+        {
+          "id": "a",
+          "projectId": "main",
+          "cwd": "/unused",
+          "agent": "codex",
+          "title": "a",
+          "prompt": "",
+          "mode": "code",
+          "status": "completed",
+          "createdAt": "2026-10-02T12:00:00.000Z",
+          "updatedAt": "2026-10-14T12:00:00.000Z",
+          "durableId": null,
+          "threadId": null,
+          "turnId": null,
+          "result": "",
+          "error": null,
+          "events": [],
+          "approvals": [],
+          "artifact": null,
+          "lastRequestId": "a",
+          "messages": [
+            {
+              "id": "user",
+              "role": "user",
+              "text": "",
+              "at": "2026-10-03T12:00:00.000Z"
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "projectId": "worktree",
+          "cwd": "/unused",
+          "agent": "codex",
+          "title": "b",
+          "prompt": "",
+          "mode": "code",
+          "status": "completed",
+          "createdAt": "2026-10-04T12:00:00.000Z",
+          "updatedAt": "2026-10-15T12:00:00.000Z",
+          "durableId": null,
+          "threadId": null,
+          "turnId": null,
+          "result": "",
+          "error": null,
+          "events": [],
+          "approvals": [],
+          "artifact": null,
+          "lastRequestId": "b",
+          "messages": [
+            {
+              "id": "user",
+              "role": "user",
+              "text": "",
+              "at": "2026-10-05T12:00:00.000Z"
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "projectId": "subdir",
+          "cwd": "/unused",
+          "agent": "codex",
+          "title": "c",
+          "prompt": "",
+          "mode": "code",
+          "status": "completed",
+          "createdAt": "2026-10-06T12:00:00.000Z",
+          "updatedAt": "2026-10-13T12:00:00.000Z",
+          "durableId": null,
+          "threadId": null,
+          "turnId": null,
+          "result": "",
+          "error": null,
+          "events": [],
+          "approvals": [],
+          "artifact": null,
+          "lastRequestId": "c",
+          "messages": [
+            {
+              "id": "user",
+              "role": "user",
+              "text": "",
+              "at": "2026-10-07T12:00:00.000Z"
+            }
+          ]
+        },
+        {
+          "id": "d",
+          "projectId": "other",
+          "cwd": "/unused",
+          "agent": "codex",
+          "title": "d",
+          "prompt": "",
+          "mode": "code",
+          "status": "completed",
+          "createdAt": "2026-10-08T12:00:00.000Z",
+          "updatedAt": "2026-10-12T12:00:00.000Z",
+          "durableId": null,
+          "threadId": null,
+          "turnId": null,
+          "result": "",
+          "error": null,
+          "events": [],
+          "approvals": [],
+          "artifact": null,
+          "lastRequestId": "d",
+          "messages": [
+            {
+              "id": "user",
+              "role": "user",
+              "text": "",
+              "at": "2026-10-09T12:00:00.000Z"
+            }
+          ]
+        },
+        {
+          "id": "archived",
+          "projectId": "plain",
+          "cwd": "/unused",
+          "agent": "codex",
+          "title": "archived",
+          "prompt": "",
+          "mode": "code",
+          "status": "completed",
+          "createdAt": "2026-10-19T12:00:00.000Z",
+          "updatedAt": "2026-10-19T12:00:00.000Z",
+          "durableId": null,
+          "threadId": null,
+          "turnId": null,
+          "result": "",
+          "error": null,
+          "events": [],
+          "approvals": [],
+          "artifact": null,
+          "lastRequestId": "archived",
+          "messages": [
+            {
+              "id": "user",
+              "role": "user",
+              "text": "",
+              "at": "2026-10-19T12:00:00.000Z"
+            }
+          ],
+          "archivedAt": "2026-10-20T12:00:00.000Z"
+        },
+        {
+          "id": "z",
+          "projectId": "main",
+          "cwd": "/unused",
+          "agent": "codex",
+          "title": "z",
+          "prompt": "",
+          "mode": "code",
+          "status": "completed",
+          "createdAt": "2026-10-02T12:00:00.000Z",
+          "updatedAt": "2026-10-03T12:00:00.000Z",
+          "durableId": null,
+          "threadId": null,
+          "turnId": null,
+          "result": "",
+          "error": null,
+          "events": [],
+          "approvals": [],
+          "artifact": null,
+          "lastRequestId": "z",
+          "messages": [
+            {
+              "id": "user",
+              "role": "user",
+              "text": "",
+              "at": "2026-10-03T12:00:00.000Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "custom shared names and physical duplicate winners with a known older identity",
+      "projects": [
+        {
+          "id": "main",
+          "path": "/repo",
+          "name": "Custom title",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "/repo",
+            "displayName": "Owner/Repo",
+            "name": "Repo"
+          }
+        },
+        {
+          "id": "worktree",
+          "path": "/worktree",
+          "name": "Custom title",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "/worktree",
+            "displayName": "Owner/Repo",
+            "name": "Repo"
+          }
+        },
+        {
+          "id": "subdir",
+          "path": "/repo/packages/web",
+          "name": "Web",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "/repo",
+            "displayName": "Owner/Repo",
+            "name": "Repo"
+          }
+        },
+        {
+          "id": "other",
+          "path": "/other",
+          "name": "Repo",
+          "context": "",
+          "createdAt": "2026-10-04T12:00:00.000Z",
+          "updatedAt": "2026-10-04T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/other/repo",
+            "rootPath": "/other",
+            "displayName": "Other/Repo",
+            "name": "Repo"
+          }
+        },
+        {
+          "id": "plain",
+          "path": "/plain",
+          "name": "Notes",
+          "context": "",
+          "createdAt": "2026-10-08T12:00:00.000Z",
+          "updatedAt": "2026-10-08T12:00:00.000Z"
+        },
+        {
+          "id": "new-main",
+          "path": "/repo/",
+          "name": "Latest alias",
+          "context": "",
+          "createdAt": "2026-10-09T12:00:00.000Z",
+          "updatedAt": "2026-10-09T12:00:00.000Z"
+        }
+      ],
+      "tasks": [
+        {
+          "id": "a",
+          "projectId": "main",
+          "cwd": "/unused",
+          "agent": "codex",
+          "title": "a",
+          "prompt": "",
+          "mode": "code",
+          "status": "completed",
+          "createdAt": "2026-10-02T12:00:00.000Z",
+          "updatedAt": "2026-10-14T12:00:00.000Z",
+          "durableId": null,
+          "threadId": null,
+          "turnId": null,
+          "result": "",
+          "error": null,
+          "events": [],
+          "approvals": [],
+          "artifact": null,
+          "lastRequestId": "a",
+          "messages": [
+            {
+              "id": "user",
+              "role": "user",
+              "text": "",
+              "at": "2026-10-03T12:00:00.000Z"
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "projectId": "worktree",
+          "cwd": "/unused",
+          "agent": "codex",
+          "title": "b",
+          "prompt": "",
+          "mode": "code",
+          "status": "completed",
+          "createdAt": "2026-10-04T12:00:00.000Z",
+          "updatedAt": "2026-10-15T12:00:00.000Z",
+          "durableId": null,
+          "threadId": null,
+          "turnId": null,
+          "result": "",
+          "error": null,
+          "events": [],
+          "approvals": [],
+          "artifact": null,
+          "lastRequestId": "b",
+          "messages": [
+            {
+              "id": "user",
+              "role": "user",
+              "text": "",
+              "at": "2026-10-05T12:00:00.000Z"
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "projectId": "subdir",
+          "cwd": "/unused",
+          "agent": "codex",
+          "title": "c",
+          "prompt": "",
+          "mode": "code",
+          "status": "completed",
+          "createdAt": "2026-10-06T12:00:00.000Z",
+          "updatedAt": "2026-10-13T12:00:00.000Z",
+          "durableId": null,
+          "threadId": null,
+          "turnId": null,
+          "result": "",
+          "error": null,
+          "events": [],
+          "approvals": [],
+          "artifact": null,
+          "lastRequestId": "c",
+          "messages": [
+            {
+              "id": "user",
+              "role": "user",
+              "text": "",
+              "at": "2026-10-07T12:00:00.000Z"
+            }
+          ]
+        },
+        {
+          "id": "d",
+          "projectId": "other",
+          "cwd": "/unused",
+          "agent": "codex",
+          "title": "d",
+          "prompt": "",
+          "mode": "code",
+          "status": "completed",
+          "createdAt": "2026-10-08T12:00:00.000Z",
+          "updatedAt": "2026-10-12T12:00:00.000Z",
+          "durableId": null,
+          "threadId": null,
+          "turnId": null,
+          "result": "",
+          "error": null,
+          "events": [],
+          "approvals": [],
+          "artifact": null,
+          "lastRequestId": "d",
+          "messages": [
+            {
+              "id": "user",
+              "role": "user",
+              "text": "",
+              "at": "2026-10-09T12:00:00.000Z"
+            }
+          ]
+        },
+        {
+          "id": "archived",
+          "projectId": "plain",
+          "cwd": "/unused",
+          "agent": "codex",
+          "title": "archived",
+          "prompt": "",
+          "mode": "code",
+          "status": "completed",
+          "createdAt": "2026-10-19T12:00:00.000Z",
+          "updatedAt": "2026-10-19T12:00:00.000Z",
+          "durableId": null,
+          "threadId": null,
+          "turnId": null,
+          "result": "",
+          "error": null,
+          "events": [],
+          "approvals": [],
+          "artifact": null,
+          "lastRequestId": "archived",
+          "messages": [
+            {
+              "id": "user",
+              "role": "user",
+              "text": "",
+              "at": "2026-10-19T12:00:00.000Z"
+            }
+          ],
+          "archivedAt": "2026-10-20T12:00:00.000Z"
+        },
+        {
+          "id": "z",
+          "projectId": "main",
+          "cwd": "/unused",
+          "agent": "codex",
+          "title": "z",
+          "prompt": "",
+          "mode": "code",
+          "status": "completed",
+          "createdAt": "2026-10-02T12:00:00.000Z",
+          "updatedAt": "2026-10-03T12:00:00.000Z",
+          "durableId": null,
+          "threadId": null,
+          "turnId": null,
+          "result": "",
+          "error": null,
+          "events": [],
+          "approvals": [],
+          "artifact": null,
+          "lastRequestId": "z",
+          "messages": [
+            {
+              "id": "user",
+              "role": "user",
+              "text": "",
+              "at": "2026-10-03T12:00:00.000Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "fork origins group apart from the upstream",
+      "projects": [
+        {
+          "id": "upstream",
+          "path": "/up",
+          "name": "Repo",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "/up",
+            "displayName": "Owner/Repo",
+            "name": "Repo"
+          }
+        },
+        {
+          "id": "fork",
+          "path": "/fork",
+          "name": "Repo",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "/fork",
+            "displayName": "Owner/Repo",
+            "name": "Repo",
+            "origin": {
+              "canonicalKey": "github.com/me/repo",
+              "displayName": "Me/Repo"
+            }
+          }
+        },
+        {
+          "id": "fork2",
+          "path": "/fork2",
+          "name": "Repo",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "/fork2",
+            "displayName": "Owner/Repo",
+            "name": "Repo",
+            "origin": {
+              "canonicalKey": "github.com/me/repo",
+              "displayName": "Me/Repo"
+            }
+          }
+        }
+      ],
+      "tasks": []
+    },
+    {
+      "name": "Windows and UNC physical identities, roots and path boundaries",
+      "projects": [
+        {
+          "id": "windows",
+          "path": "C:\\Repo\\",
+          "name": "Windows",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "c:\\repo",
+            "displayName": "Owner/Repo",
+            "name": "Repo"
+          }
+        },
+        {
+          "id": "windows2",
+          "path": "c:/repo",
+          "name": "Fresh",
+          "context": "",
+          "createdAt": "2026-10-03T12:00:00.000Z",
+          "updatedAt": "2026-10-03T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "C:/Repo",
+            "displayName": "Owner/Repo",
+            "name": "Repo"
+          }
+        },
+        {
+          "id": "win-sub",
+          "path": "C:/Repo/Packages/Web",
+          "name": "Web",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "C:/Repo",
+            "displayName": "Owner/Repo",
+            "name": "Repo"
+          }
+        },
+        {
+          "id": "unc",
+          "path": "\\\\Server\\Share\\",
+          "name": "UNC",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z"
+        },
+        {
+          "id": "root",
+          "path": "/",
+          "name": "Root",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z"
+        },
+        {
+          "id": "prefix",
+          "path": "/repo-other",
+          "name": "Prefix",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "repositoryIdentity": {
+            "canonicalKey": "github.com/owner/repo",
+            "rootPath": "/repo",
+            "displayName": "Owner/Repo",
+            "name": "Repo"
+          }
+        }
+      ],
+      "tasks": []
+    },
+    {
+      "name": "managed scratch projects coalesce without absorbing ordinary same-title projects",
+      "projects": [
+        {
+          "id": "scratch-one",
+          "path": "/scratch",
+          "name": "No project",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "isScratch": true
+        },
+        {
+          "id": "scratch-two",
+          "path": "/other-scratch",
+          "name": "Personal scratch",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "isScratch": true
+        },
+        {
+          "id": "ordinary",
+          "path": "/ordinary",
+          "name": "No project",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z"
+        }
+      ],
+      "tasks": []
+    },
+    {
+      "name": "old timestamps, title ties and non-repository names",
+      "projects": [
+        {
+          "id": "empty-a",
+          "path": "/a",
+          "name": "same",
+          "context": "",
+          "createdAt": "invalid",
+          "updatedAt": "invalid"
+        },
+        {
+          "id": "empty-b",
+          "path": "/b",
+          "name": "same",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z"
+        },
+        {
+          "id": "empty-c",
+          "path": "/c",
+          "name": "Café",
+          "context": "",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "updatedAt": "2026-10-01T12:00:00.000Z"
+        }
+      ],
+      "tasks": []
+    }
+  ],
+  "cases": [
+    {
+      "base": 0,
+      "mode": "repository",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "main",
+          "members": [
+            "main",
+            "worktree",
+            "subdir"
+          ],
+          "projectIDs": [
+            "main",
+            "subdir",
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "repository",
+      "sort": "updated_at",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree",
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir",
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Repo",
+          "representative": "main",
+          "members": [
+            "main"
+          ],
+          "projectIDs": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "repository",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "main",
+          "members": [
+            "main",
+            "worktree",
+            "subdir"
+          ],
+          "projectIDs": [
+            "main",
+            "subdir",
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "repository",
+      "sort": "created_at",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree",
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir",
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Repo",
+          "representative": "main",
+          "members": [
+            "main"
+          ],
+          "projectIDs": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "repository",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "subdir",
+          "members": [
+            "subdir",
+            "worktree",
+            "main"
+          ],
+          "projectIDs": [
+            "main",
+            "subdir",
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "repository",
+      "sort": "manual",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "subdir",
+          "members": [
+            "subdir",
+            "worktree"
+          ],
+          "projectIDs": [
+            "subdir",
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Repo",
+          "representative": "main",
+          "members": [
+            "main"
+          ],
+          "projectIDs": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "repository_path",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "main",
+          "members": [
+            "main",
+            "worktree"
+          ],
+          "projectIDs": [
+            "main",
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "repository_path",
+      "sort": "updated_at",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Repo",
+          "representative": "main",
+          "members": [
+            "main"
+          ],
+          "projectIDs": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "repository_path",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "main",
+          "members": [
+            "main",
+            "worktree"
+          ],
+          "projectIDs": [
+            "main",
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "repository_path",
+      "sort": "created_at",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Repo",
+          "representative": "main",
+          "members": [
+            "main"
+          ],
+          "projectIDs": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "repository_path",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree",
+            "main"
+          ],
+          "projectIDs": [
+            "main",
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "repository_path",
+      "sort": "manual",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Repo",
+          "representative": "main",
+          "members": [
+            "main"
+          ],
+          "projectIDs": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "separate",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/other",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "local:/repo/packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "local:/worktree",
+          "name": "Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Repo",
+          "representative": "main",
+          "members": [
+            "main"
+          ],
+          "projectIDs": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "separate",
+      "sort": "updated_at",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/other",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "local:/repo/packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "local:/worktree",
+          "name": "Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Repo",
+          "representative": "main",
+          "members": [
+            "main"
+          ],
+          "projectIDs": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "separate",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "local:/other",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/repo/packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "local:/worktree",
+          "name": "Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Repo",
+          "representative": "main",
+          "members": [
+            "main"
+          ],
+          "projectIDs": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "separate",
+      "sort": "created_at",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "local:/other",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/repo/packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "local:/worktree",
+          "name": "Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Repo",
+          "representative": "main",
+          "members": [
+            "main"
+          ],
+          "projectIDs": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "separate",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "local:/other",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/repo/packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "local:/worktree",
+          "name": "Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Repo",
+          "representative": "main",
+          "members": [
+            "main"
+          ],
+          "projectIDs": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "mode": "separate",
+      "sort": "manual",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "local:/other",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/repo/packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "local:/worktree",
+          "name": "Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Repo",
+          "representative": "main",
+          "members": [
+            "main"
+          ],
+          "projectIDs": [
+            "main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "repository",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "new-main",
+          "members": [
+            "new-main",
+            "worktree",
+            "subdir"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main",
+            "subdir",
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "repository",
+      "sort": "updated_at",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree",
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir",
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Latest alias",
+          "representative": "new-main",
+          "members": [
+            "new-main"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "repository",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "new-main",
+          "members": [
+            "new-main",
+            "worktree",
+            "subdir"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main",
+            "subdir",
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "repository",
+      "sort": "created_at",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "worktree",
+          "members": [
+            "worktree",
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir",
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Latest alias",
+          "representative": "new-main",
+          "members": [
+            "new-main"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "repository",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "new-main",
+          "members": [
+            "new-main",
+            "subdir",
+            "worktree"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main",
+            "subdir",
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "repository",
+      "sort": "manual",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/repo",
+          "name": "Latest alias",
+          "representative": "new-main",
+          "members": [
+            "new-main"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "subdir",
+          "members": [
+            "subdir",
+            "worktree"
+          ],
+          "projectIDs": [
+            "subdir",
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "repository_path",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "new-main",
+          "members": [
+            "new-main",
+            "worktree"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main",
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "repository_path",
+      "sort": "updated_at",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Custom title",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Latest alias",
+          "representative": "new-main",
+          "members": [
+            "new-main"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "repository_path",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "new-main",
+          "members": [
+            "new-main",
+            "worktree"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main",
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "repository_path",
+      "sort": "created_at",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Custom title",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Latest alias",
+          "representative": "new-main",
+          "members": [
+            "new-main"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "repository_path",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "new-main",
+          "members": [
+            "new-main",
+            "worktree"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main",
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "repository_path",
+      "sort": "manual",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/repo",
+          "name": "Latest alias",
+          "representative": "new-main",
+          "members": [
+            "new-main"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "github.com/other/repo",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Custom title",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "separate",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/other",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "local:/repo/packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "local:/worktree",
+          "name": "Custom title",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Latest alias",
+          "representative": "new-main",
+          "members": [
+            "new-main"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "separate",
+      "sort": "updated_at",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/other",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "local:/repo/packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "local:/worktree",
+          "name": "Custom title",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Latest alias",
+          "representative": "new-main",
+          "members": [
+            "new-main"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "separate",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "local:/other",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/repo/packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "local:/worktree",
+          "name": "Custom title",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Latest alias",
+          "representative": "new-main",
+          "members": [
+            "new-main"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "separate",
+      "sort": "created_at",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "local:/other",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/repo/packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "local:/worktree",
+          "name": "Custom title",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        },
+        {
+          "id": "local:/repo",
+          "name": "Latest alias",
+          "representative": "new-main",
+          "members": [
+            "new-main"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "separate",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/repo",
+          "name": "Latest alias",
+          "representative": "new-main",
+          "members": [
+            "new-main"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "local:/other",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/repo/packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "local:/worktree",
+          "name": "Custom title",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1,
+      "mode": "separate",
+      "sort": "manual",
+      "overrides": {
+        "/repo": "separate"
+      },
+      "preferred": [
+        "/repo",
+        "/plain",
+        "/other",
+        "/repo/packages/web",
+        "/worktree",
+        "/repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/repo",
+          "name": "Latest alias",
+          "representative": "new-main",
+          "members": [
+            "new-main"
+          ],
+          "projectIDs": [
+            "main",
+            "new-main"
+          ]
+        },
+        {
+          "id": "local:/plain",
+          "name": "Notes",
+          "representative": "plain",
+          "members": [
+            "plain"
+          ],
+          "projectIDs": [
+            "plain"
+          ]
+        },
+        {
+          "id": "local:/other",
+          "name": "Repo",
+          "representative": "other",
+          "members": [
+            "other"
+          ],
+          "projectIDs": [
+            "other"
+          ]
+        },
+        {
+          "id": "local:/repo/packages/web",
+          "name": "Web",
+          "representative": "subdir",
+          "members": [
+            "subdir"
+          ],
+          "projectIDs": [
+            "subdir"
+          ]
+        },
+        {
+          "id": "local:/worktree",
+          "name": "Custom title",
+          "representative": "worktree",
+          "members": [
+            "worktree"
+          ],
+          "projectIDs": [
+            "worktree"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "repository",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "github.com/me/repo",
+          "name": "Me/Repo",
+          "representative": "fork",
+          "members": [
+            "fork",
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork",
+            "fork2"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "repository",
+      "sort": "updated_at",
+      "overrides": {
+        "/up": "separate"
+      },
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "github.com/me/repo",
+          "name": "Me/Repo",
+          "representative": "fork",
+          "members": [
+            "fork",
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork",
+            "fork2"
+          ]
+        },
+        {
+          "id": "local:/up",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "repository",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "github.com/me/repo",
+          "name": "Me/Repo",
+          "representative": "fork",
+          "members": [
+            "fork",
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork",
+            "fork2"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "repository",
+      "sort": "created_at",
+      "overrides": {
+        "/up": "separate"
+      },
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "github.com/me/repo",
+          "name": "Me/Repo",
+          "representative": "fork",
+          "members": [
+            "fork",
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork",
+            "fork2"
+          ]
+        },
+        {
+          "id": "local:/up",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "repository",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "github.com/me/repo",
+          "name": "Me/Repo",
+          "representative": "fork2",
+          "members": [
+            "fork2",
+            "fork"
+          ],
+          "projectIDs": [
+            "fork",
+            "fork2"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "repository",
+      "sort": "manual",
+      "overrides": {
+        "/up": "separate"
+      },
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "github.com/me/repo",
+          "name": "Me/Repo",
+          "representative": "fork2",
+          "members": [
+            "fork2",
+            "fork"
+          ],
+          "projectIDs": [
+            "fork",
+            "fork2"
+          ]
+        },
+        {
+          "id": "local:/up",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "repository_path",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "github.com/me/repo",
+          "name": "Me/Repo",
+          "representative": "fork",
+          "members": [
+            "fork",
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork",
+            "fork2"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "repository_path",
+      "sort": "updated_at",
+      "overrides": {
+        "/up": "separate"
+      },
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "github.com/me/repo",
+          "name": "Me/Repo",
+          "representative": "fork",
+          "members": [
+            "fork",
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork",
+            "fork2"
+          ]
+        },
+        {
+          "id": "local:/up",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "repository_path",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "github.com/me/repo",
+          "name": "Me/Repo",
+          "representative": "fork",
+          "members": [
+            "fork",
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork",
+            "fork2"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "repository_path",
+      "sort": "created_at",
+      "overrides": {
+        "/up": "separate"
+      },
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "github.com/me/repo",
+          "name": "Me/Repo",
+          "representative": "fork",
+          "members": [
+            "fork",
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork",
+            "fork2"
+          ]
+        },
+        {
+          "id": "local:/up",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "repository_path",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "github.com/me/repo",
+          "name": "Me/Repo",
+          "representative": "fork2",
+          "members": [
+            "fork2",
+            "fork"
+          ],
+          "projectIDs": [
+            "fork",
+            "fork2"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "repository_path",
+      "sort": "manual",
+      "overrides": {
+        "/up": "separate"
+      },
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "github.com/me/repo",
+          "name": "Me/Repo",
+          "representative": "fork2",
+          "members": [
+            "fork2",
+            "fork"
+          ],
+          "projectIDs": [
+            "fork",
+            "fork2"
+          ]
+        },
+        {
+          "id": "local:/up",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "separate",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "local:/fork",
+          "name": "Repo",
+          "representative": "fork",
+          "members": [
+            "fork"
+          ],
+          "projectIDs": [
+            "fork"
+          ]
+        },
+        {
+          "id": "local:/fork2",
+          "name": "Repo",
+          "representative": "fork2",
+          "members": [
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork2"
+          ]
+        },
+        {
+          "id": "local:/up",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "separate",
+      "sort": "updated_at",
+      "overrides": {
+        "/up": "separate"
+      },
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "local:/fork",
+          "name": "Repo",
+          "representative": "fork",
+          "members": [
+            "fork"
+          ],
+          "projectIDs": [
+            "fork"
+          ]
+        },
+        {
+          "id": "local:/fork2",
+          "name": "Repo",
+          "representative": "fork2",
+          "members": [
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork2"
+          ]
+        },
+        {
+          "id": "local:/up",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "separate",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "local:/fork",
+          "name": "Repo",
+          "representative": "fork",
+          "members": [
+            "fork"
+          ],
+          "projectIDs": [
+            "fork"
+          ]
+        },
+        {
+          "id": "local:/fork2",
+          "name": "Repo",
+          "representative": "fork2",
+          "members": [
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork2"
+          ]
+        },
+        {
+          "id": "local:/up",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "separate",
+      "sort": "created_at",
+      "overrides": {
+        "/up": "separate"
+      },
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "local:/fork",
+          "name": "Repo",
+          "representative": "fork",
+          "members": [
+            "fork"
+          ],
+          "projectIDs": [
+            "fork"
+          ]
+        },
+        {
+          "id": "local:/fork2",
+          "name": "Repo",
+          "representative": "fork2",
+          "members": [
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork2"
+          ]
+        },
+        {
+          "id": "local:/up",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "separate",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "local:/fork2",
+          "name": "Repo",
+          "representative": "fork2",
+          "members": [
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork2"
+          ]
+        },
+        {
+          "id": "local:/fork",
+          "name": "Repo",
+          "representative": "fork",
+          "members": [
+            "fork"
+          ],
+          "projectIDs": [
+            "fork"
+          ]
+        },
+        {
+          "id": "local:/up",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2,
+      "mode": "separate",
+      "sort": "manual",
+      "overrides": {
+        "/up": "separate"
+      },
+      "preferred": [
+        "/fork2",
+        "/fork",
+        "/up"
+      ],
+      "expected": [
+        {
+          "id": "local:/fork2",
+          "name": "Repo",
+          "representative": "fork2",
+          "members": [
+            "fork2"
+          ],
+          "projectIDs": [
+            "fork2"
+          ]
+        },
+        {
+          "id": "local:/fork",
+          "name": "Repo",
+          "representative": "fork",
+          "members": [
+            "fork"
+          ],
+          "projectIDs": [
+            "fork"
+          ]
+        },
+        {
+          "id": "local:/up",
+          "name": "Repo",
+          "representative": "upstream",
+          "members": [
+            "upstream"
+          ],
+          "projectIDs": [
+            "upstream"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "repository",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "windows2",
+          "members": [
+            "windows2",
+            "win-sub",
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix",
+            "win-sub",
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "repository",
+      "sort": "updated_at",
+      "overrides": {
+        "c:\\repo": "separate"
+      },
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "local:c:\\repo",
+          "name": "Fresh",
+          "representative": "windows2",
+          "members": [
+            "windows2"
+          ],
+          "projectIDs": [
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "win-sub",
+          "members": [
+            "win-sub",
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix",
+            "win-sub"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "repository",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "windows2",
+          "members": [
+            "windows2",
+            "win-sub",
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix",
+            "win-sub",
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "repository",
+      "sort": "created_at",
+      "overrides": {
+        "c:\\repo": "separate"
+      },
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "local:c:\\repo",
+          "name": "Fresh",
+          "representative": "windows2",
+          "members": [
+            "windows2"
+          ],
+          "projectIDs": [
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "win-sub",
+          "members": [
+            "win-sub",
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix",
+            "win-sub"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "repository",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "prefix",
+          "members": [
+            "prefix",
+            "win-sub",
+            "windows2"
+          ],
+          "projectIDs": [
+            "prefix",
+            "win-sub",
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "repository",
+      "sort": "manual",
+      "overrides": {
+        "c:\\repo": "separate"
+      },
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "prefix",
+          "members": [
+            "prefix",
+            "win-sub"
+          ],
+          "projectIDs": [
+            "prefix",
+            "win-sub"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "local:c:\\repo",
+          "name": "Fresh",
+          "representative": "windows2",
+          "members": [
+            "windows2"
+          ],
+          "projectIDs": [
+            "windows",
+            "windows2"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "repository_path",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "windows2",
+          "members": [
+            "windows2",
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix",
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "win-sub",
+          "members": [
+            "win-sub"
+          ],
+          "projectIDs": [
+            "win-sub"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "repository_path",
+      "sort": "updated_at",
+      "overrides": {
+        "c:\\repo": "separate"
+      },
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "local:c:\\repo",
+          "name": "Fresh",
+          "representative": "windows2",
+          "members": [
+            "windows2"
+          ],
+          "projectIDs": [
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Prefix",
+          "representative": "prefix",
+          "members": [
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "win-sub",
+          "members": [
+            "win-sub"
+          ],
+          "projectIDs": [
+            "win-sub"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "repository_path",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "windows2",
+          "members": [
+            "windows2",
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix",
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "win-sub",
+          "members": [
+            "win-sub"
+          ],
+          "projectIDs": [
+            "win-sub"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "repository_path",
+      "sort": "created_at",
+      "overrides": {
+        "c:\\repo": "separate"
+      },
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "local:c:\\repo",
+          "name": "Fresh",
+          "representative": "windows2",
+          "members": [
+            "windows2"
+          ],
+          "projectIDs": [
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo",
+          "name": "Prefix",
+          "representative": "prefix",
+          "members": [
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "win-sub",
+          "members": [
+            "win-sub"
+          ],
+          "projectIDs": [
+            "win-sub"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "repository_path",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/owner/repo",
+          "name": "Owner/Repo",
+          "representative": "prefix",
+          "members": [
+            "prefix",
+            "windows2"
+          ],
+          "projectIDs": [
+            "prefix",
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "win-sub",
+          "members": [
+            "win-sub"
+          ],
+          "projectIDs": [
+            "win-sub"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "repository_path",
+      "sort": "manual",
+      "overrides": {
+        "c:\\repo": "separate"
+      },
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "github.com/owner/repo",
+          "name": "Prefix",
+          "representative": "prefix",
+          "members": [
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "github.com/owner/repo::packages/web",
+          "name": "Web",
+          "representative": "win-sub",
+          "members": [
+            "win-sub"
+          ],
+          "projectIDs": [
+            "win-sub"
+          ]
+        },
+        {
+          "id": "local:c:\\repo",
+          "name": "Fresh",
+          "representative": "windows2",
+          "members": [
+            "windows2"
+          ],
+          "projectIDs": [
+            "windows",
+            "windows2"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "separate",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "local:c:\\repo",
+          "name": "Fresh",
+          "representative": "windows2",
+          "members": [
+            "windows2"
+          ],
+          "projectIDs": [
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "local:/repo-other",
+          "name": "Prefix",
+          "representative": "prefix",
+          "members": [
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "local:c:\\repo\\packages\\web",
+          "name": "Web",
+          "representative": "win-sub",
+          "members": [
+            "win-sub"
+          ],
+          "projectIDs": [
+            "win-sub"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "separate",
+      "sort": "updated_at",
+      "overrides": {
+        "c:\\repo": "separate"
+      },
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "local:c:\\repo",
+          "name": "Fresh",
+          "representative": "windows2",
+          "members": [
+            "windows2"
+          ],
+          "projectIDs": [
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "local:/repo-other",
+          "name": "Prefix",
+          "representative": "prefix",
+          "members": [
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "local:c:\\repo\\packages\\web",
+          "name": "Web",
+          "representative": "win-sub",
+          "members": [
+            "win-sub"
+          ],
+          "projectIDs": [
+            "win-sub"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "separate",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "local:c:\\repo",
+          "name": "Fresh",
+          "representative": "windows2",
+          "members": [
+            "windows2"
+          ],
+          "projectIDs": [
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "local:/repo-other",
+          "name": "Prefix",
+          "representative": "prefix",
+          "members": [
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "local:c:\\repo\\packages\\web",
+          "name": "Web",
+          "representative": "win-sub",
+          "members": [
+            "win-sub"
+          ],
+          "projectIDs": [
+            "win-sub"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "separate",
+      "sort": "created_at",
+      "overrides": {
+        "c:\\repo": "separate"
+      },
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "local:c:\\repo",
+          "name": "Fresh",
+          "representative": "windows2",
+          "members": [
+            "windows2"
+          ],
+          "projectIDs": [
+            "windows",
+            "windows2"
+          ]
+        },
+        {
+          "id": "local:/repo-other",
+          "name": "Prefix",
+          "representative": "prefix",
+          "members": [
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "local:c:\\repo\\packages\\web",
+          "name": "Web",
+          "representative": "win-sub",
+          "members": [
+            "win-sub"
+          ],
+          "projectIDs": [
+            "win-sub"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "separate",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/repo-other",
+          "name": "Prefix",
+          "representative": "prefix",
+          "members": [
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "local:c:\\repo\\packages\\web",
+          "name": "Web",
+          "representative": "win-sub",
+          "members": [
+            "win-sub"
+          ],
+          "projectIDs": [
+            "win-sub"
+          ]
+        },
+        {
+          "id": "local:c:\\repo",
+          "name": "Fresh",
+          "representative": "windows2",
+          "members": [
+            "windows2"
+          ],
+          "projectIDs": [
+            "windows",
+            "windows2"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 3,
+      "mode": "separate",
+      "sort": "manual",
+      "overrides": {
+        "c:\\repo": "separate"
+      },
+      "preferred": [
+        "/repo-other",
+        "/",
+        "\\\\server\\share",
+        "c:\\repo\\packages\\web",
+        "c:\\repo",
+        "c:\\repo"
+      ],
+      "expected": [
+        {
+          "id": "local:/repo-other",
+          "name": "Prefix",
+          "representative": "prefix",
+          "members": [
+            "prefix"
+          ],
+          "projectIDs": [
+            "prefix"
+          ]
+        },
+        {
+          "id": "local:/",
+          "name": "Root",
+          "representative": "root",
+          "members": [
+            "root"
+          ],
+          "projectIDs": [
+            "root"
+          ]
+        },
+        {
+          "id": "local:\\\\server\\share",
+          "name": "UNC",
+          "representative": "unc",
+          "members": [
+            "unc"
+          ],
+          "projectIDs": [
+            "unc"
+          ]
+        },
+        {
+          "id": "local:c:\\repo\\packages\\web",
+          "name": "Web",
+          "representative": "win-sub",
+          "members": [
+            "win-sub"
+          ],
+          "projectIDs": [
+            "win-sub"
+          ]
+        },
+        {
+          "id": "local:c:\\repo",
+          "name": "Fresh",
+          "representative": "windows2",
+          "members": [
+            "windows2"
+          ],
+          "projectIDs": [
+            "windows",
+            "windows2"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "repository",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-one",
+          "members": [
+            "scratch-one",
+            "scratch-two"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "repository",
+      "sort": "updated_at",
+      "overrides": {
+        "/scratch": "separate"
+      },
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-one",
+          "members": [
+            "scratch-one",
+            "scratch-two"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "repository",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-one",
+          "members": [
+            "scratch-one",
+            "scratch-two"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "repository",
+      "sort": "created_at",
+      "overrides": {
+        "/scratch": "separate"
+      },
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-one",
+          "members": [
+            "scratch-one",
+            "scratch-two"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "repository",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-two",
+          "members": [
+            "scratch-two",
+            "scratch-one"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "repository",
+      "sort": "manual",
+      "overrides": {
+        "/scratch": "separate"
+      },
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-two",
+          "members": [
+            "scratch-two",
+            "scratch-one"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "repository_path",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-one",
+          "members": [
+            "scratch-one",
+            "scratch-two"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "repository_path",
+      "sort": "updated_at",
+      "overrides": {
+        "/scratch": "separate"
+      },
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-one",
+          "members": [
+            "scratch-one",
+            "scratch-two"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "repository_path",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-one",
+          "members": [
+            "scratch-one",
+            "scratch-two"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "repository_path",
+      "sort": "created_at",
+      "overrides": {
+        "/scratch": "separate"
+      },
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-one",
+          "members": [
+            "scratch-one",
+            "scratch-two"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "repository_path",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-two",
+          "members": [
+            "scratch-two",
+            "scratch-one"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "repository_path",
+      "sort": "manual",
+      "overrides": {
+        "/scratch": "separate"
+      },
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-two",
+          "members": [
+            "scratch-two",
+            "scratch-one"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "separate",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-one",
+          "members": [
+            "scratch-one",
+            "scratch-two"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "separate",
+      "sort": "updated_at",
+      "overrides": {
+        "/scratch": "separate"
+      },
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-one",
+          "members": [
+            "scratch-one",
+            "scratch-two"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "separate",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-one",
+          "members": [
+            "scratch-one",
+            "scratch-two"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "separate",
+      "sort": "created_at",
+      "overrides": {
+        "/scratch": "separate"
+      },
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-one",
+          "members": [
+            "scratch-one",
+            "scratch-two"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "separate",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-two",
+          "members": [
+            "scratch-two",
+            "scratch-one"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4,
+      "mode": "separate",
+      "sort": "manual",
+      "overrides": {
+        "/scratch": "separate"
+      },
+      "preferred": [
+        "/ordinary",
+        "/other-scratch",
+        "/scratch"
+      ],
+      "expected": [
+        {
+          "id": "local:/ordinary",
+          "name": "No project",
+          "representative": "ordinary",
+          "members": [
+            "ordinary"
+          ],
+          "projectIDs": [
+            "ordinary"
+          ]
+        },
+        {
+          "id": "\u0000no-project",
+          "name": "无项目",
+          "representative": "scratch-two",
+          "members": [
+            "scratch-two",
+            "scratch-one"
+          ],
+          "projectIDs": [
+            "scratch-one",
+            "scratch-two"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "repository",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "repository",
+      "sort": "updated_at",
+      "overrides": {
+        "/a": "separate"
+      },
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "repository",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "repository",
+      "sort": "created_at",
+      "overrides": {
+        "/a": "separate"
+      },
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "repository",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "repository",
+      "sort": "manual",
+      "overrides": {
+        "/a": "separate"
+      },
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "repository_path",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "repository_path",
+      "sort": "updated_at",
+      "overrides": {
+        "/a": "separate"
+      },
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "repository_path",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "repository_path",
+      "sort": "created_at",
+      "overrides": {
+        "/a": "separate"
+      },
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "repository_path",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "repository_path",
+      "sort": "manual",
+      "overrides": {
+        "/a": "separate"
+      },
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "separate",
+      "sort": "updated_at",
+      "overrides": {},
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "separate",
+      "sort": "updated_at",
+      "overrides": {
+        "/a": "separate"
+      },
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "separate",
+      "sort": "created_at",
+      "overrides": {},
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "separate",
+      "sort": "created_at",
+      "overrides": {
+        "/a": "separate"
+      },
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "separate",
+      "sort": "manual",
+      "overrides": {},
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "mode": "separate",
+      "sort": "manual",
+      "overrides": {
+        "/a": "separate"
+      },
+      "preferred": [
+        "/c",
+        "/b",
+        "/a"
+      ],
+      "expected": [
+        {
+          "id": "local:/c",
+          "name": "Café",
+          "representative": "empty-c",
+          "members": [
+            "empty-c"
+          ],
+          "projectIDs": [
+            "empty-c"
+          ]
+        },
+        {
+          "id": "local:/b",
+          "name": "same",
+          "representative": "empty-b",
+          "members": [
+            "empty-b"
+          ],
+          "projectIDs": [
+            "empty-b"
+          ]
+        },
+        {
+          "id": "local:/a",
+          "name": "same",
+          "representative": "empty-a",
+          "members": [
+            "empty-a"
+          ],
+          "projectIDs": [
+            "empty-a"
+          ]
+        }
+      ]
+    }
+  ],
+  "threadSorts": [
+    {
+      "order": "updated_at",
+      "expected": [
+        "archived",
+        "d",
+        "c",
+        "b",
+        "z",
+        "a"
+      ]
+    },
+    {
+      "order": "created_at",
+      "expected": [
+        "archived",
+        "d",
+        "c",
+        "b",
+        "z",
+        "a"
+      ]
+    }
+  ]
+}

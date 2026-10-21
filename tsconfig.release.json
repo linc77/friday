@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "noEmit": false, "rootDir": ".", "outDir": "dist/runtime" },
-  "include": ["server/src/**/*.ts"]
+  "compilerOptions": { "noEmit": false, "rootDir": ".", "outDir": "dist/runtime", "allowJs": true, "checkJs": false },
+  "include": ["server/src/**/*.ts", "server/src/**/*.mjs"]
 }

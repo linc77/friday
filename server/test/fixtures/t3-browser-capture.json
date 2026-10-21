@@ -1,0 +1,2277 @@
+{
+  "source": "pingdotgg/t3code@8cd9641f76874f2ce17d6c80acd71fab1f0b99d3 RecordingInput.ts + Manager.ts",
+  "keys": [
+    {
+      "input": {
+        "key": "",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Dead",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Dead",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Dead",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Dead",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Dead",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Dead",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Dead",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Dead",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Process",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Process",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Process",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Process",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Process",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Process",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Process",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Process",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Unidentified",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Unidentified",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Unidentified",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Unidentified",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Unidentified",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Unidentified",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Unidentified",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "Unidentified",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": null
+    },
+    {
+      "input": {
+        "key": "a",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "A"
+    },
+    {
+      "input": {
+        "key": "a",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "A"
+    },
+    {
+      "input": {
+        "key": "a",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃A"
+    },
+    {
+      "input": {
+        "key": "a",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + A"
+    },
+    {
+      "input": {
+        "key": "a",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧A"
+    },
+    {
+      "input": {
+        "key": "a",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + A"
+    },
+    {
+      "input": {
+        "key": "a",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘A"
+    },
+    {
+      "input": {
+        "key": "a",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + A"
+    },
+    {
+      "input": {
+        "key": "z",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "Z"
+    },
+    {
+      "input": {
+        "key": "z",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Z"
+    },
+    {
+      "input": {
+        "key": "z",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃Z"
+    },
+    {
+      "input": {
+        "key": "z",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + Z"
+    },
+    {
+      "input": {
+        "key": "z",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧Z"
+    },
+    {
+      "input": {
+        "key": "z",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + Z"
+    },
+    {
+      "input": {
+        "key": "z",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘Z"
+    },
+    {
+      "input": {
+        "key": "z",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + Z"
+    },
+    {
+      "input": {
+        "key": "ß",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "SS"
+    },
+    {
+      "input": {
+        "key": "ß",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "SS"
+    },
+    {
+      "input": {
+        "key": "ß",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃SS"
+    },
+    {
+      "input": {
+        "key": "ß",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + SS"
+    },
+    {
+      "input": {
+        "key": "ß",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧SS"
+    },
+    {
+      "input": {
+        "key": "ß",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + SS"
+    },
+    {
+      "input": {
+        "key": "ß",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘SS"
+    },
+    {
+      "input": {
+        "key": "ß",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + SS"
+    },
+    {
+      "input": {
+        "key": "🙂",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "🙂"
+    },
+    {
+      "input": {
+        "key": "🙂",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "🙂"
+    },
+    {
+      "input": {
+        "key": "🙂",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃🙂"
+    },
+    {
+      "input": {
+        "key": "🙂",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + 🙂"
+    },
+    {
+      "input": {
+        "key": "🙂",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧🙂"
+    },
+    {
+      "input": {
+        "key": "🙂",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + 🙂"
+    },
+    {
+      "input": {
+        "key": "🙂",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘🙂"
+    },
+    {
+      "input": {
+        "key": "🙂",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + 🙂"
+    },
+    {
+      "input": {
+        "key": "Enter",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "↵"
+    },
+    {
+      "input": {
+        "key": "Enter",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "↵"
+    },
+    {
+      "input": {
+        "key": "Enter",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃↵"
+    },
+    {
+      "input": {
+        "key": "Enter",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + ↵"
+    },
+    {
+      "input": {
+        "key": "Enter",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧↵"
+    },
+    {
+      "input": {
+        "key": "Enter",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + ↵"
+    },
+    {
+      "input": {
+        "key": "Enter",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘↵"
+    },
+    {
+      "input": {
+        "key": "Enter",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + ↵"
+    },
+    {
+      "input": {
+        "key": "Tab",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⇥"
+    },
+    {
+      "input": {
+        "key": "Tab",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "⇥"
+    },
+    {
+      "input": {
+        "key": "Tab",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃⇥"
+    },
+    {
+      "input": {
+        "key": "Tab",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + ⇥"
+    },
+    {
+      "input": {
+        "key": "Tab",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧⇥"
+    },
+    {
+      "input": {
+        "key": "Tab",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + ⇥"
+    },
+    {
+      "input": {
+        "key": "Tab",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘⇥"
+    },
+    {
+      "input": {
+        "key": "Tab",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + ⇥"
+    },
+    {
+      "input": {
+        "key": "Backspace",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌫"
+    },
+    {
+      "input": {
+        "key": "Backspace",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "⌫"
+    },
+    {
+      "input": {
+        "key": "Backspace",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃⌫"
+    },
+    {
+      "input": {
+        "key": "Backspace",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + ⌫"
+    },
+    {
+      "input": {
+        "key": "Backspace",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧⌫"
+    },
+    {
+      "input": {
+        "key": "Backspace",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + ⌫"
+    },
+    {
+      "input": {
+        "key": "Backspace",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘⌫"
+    },
+    {
+      "input": {
+        "key": "Backspace",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + ⌫"
+    },
+    {
+      "input": {
+        "key": "Delete",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌦"
+    },
+    {
+      "input": {
+        "key": "Delete",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "⌦"
+    },
+    {
+      "input": {
+        "key": "Delete",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃⌦"
+    },
+    {
+      "input": {
+        "key": "Delete",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + ⌦"
+    },
+    {
+      "input": {
+        "key": "Delete",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧⌦"
+    },
+    {
+      "input": {
+        "key": "Delete",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + ⌦"
+    },
+    {
+      "input": {
+        "key": "Delete",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘⌦"
+    },
+    {
+      "input": {
+        "key": "Delete",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + ⌦"
+    },
+    {
+      "input": {
+        "key": "Escape",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "Esc"
+    },
+    {
+      "input": {
+        "key": "Escape",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Esc"
+    },
+    {
+      "input": {
+        "key": "Escape",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃Esc"
+    },
+    {
+      "input": {
+        "key": "Escape",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + Esc"
+    },
+    {
+      "input": {
+        "key": "Escape",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧Esc"
+    },
+    {
+      "input": {
+        "key": "Escape",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + Esc"
+    },
+    {
+      "input": {
+        "key": "Escape",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘Esc"
+    },
+    {
+      "input": {
+        "key": "Escape",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + Esc"
+    },
+    {
+      "input": {
+        "key": "ArrowUp",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "↑"
+    },
+    {
+      "input": {
+        "key": "ArrowUp",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "↑"
+    },
+    {
+      "input": {
+        "key": "ArrowUp",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃↑"
+    },
+    {
+      "input": {
+        "key": "ArrowUp",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + ↑"
+    },
+    {
+      "input": {
+        "key": "ArrowUp",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧↑"
+    },
+    {
+      "input": {
+        "key": "ArrowUp",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + ↑"
+    },
+    {
+      "input": {
+        "key": "ArrowUp",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘↑"
+    },
+    {
+      "input": {
+        "key": "ArrowUp",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + ↑"
+    },
+    {
+      "input": {
+        "key": "ArrowDown",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "↓"
+    },
+    {
+      "input": {
+        "key": "ArrowDown",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "↓"
+    },
+    {
+      "input": {
+        "key": "ArrowDown",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃↓"
+    },
+    {
+      "input": {
+        "key": "ArrowDown",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + ↓"
+    },
+    {
+      "input": {
+        "key": "ArrowDown",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧↓"
+    },
+    {
+      "input": {
+        "key": "ArrowDown",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + ↓"
+    },
+    {
+      "input": {
+        "key": "ArrowDown",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘↓"
+    },
+    {
+      "input": {
+        "key": "ArrowDown",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + ↓"
+    },
+    {
+      "input": {
+        "key": "ArrowLeft",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "←"
+    },
+    {
+      "input": {
+        "key": "ArrowLeft",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "←"
+    },
+    {
+      "input": {
+        "key": "ArrowLeft",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃←"
+    },
+    {
+      "input": {
+        "key": "ArrowLeft",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + ←"
+    },
+    {
+      "input": {
+        "key": "ArrowLeft",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧←"
+    },
+    {
+      "input": {
+        "key": "ArrowLeft",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + ←"
+    },
+    {
+      "input": {
+        "key": "ArrowLeft",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘←"
+    },
+    {
+      "input": {
+        "key": "ArrowLeft",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + ←"
+    },
+    {
+      "input": {
+        "key": "ArrowRight",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "→"
+    },
+    {
+      "input": {
+        "key": "ArrowRight",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "→"
+    },
+    {
+      "input": {
+        "key": "ArrowRight",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃→"
+    },
+    {
+      "input": {
+        "key": "ArrowRight",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + →"
+    },
+    {
+      "input": {
+        "key": "ArrowRight",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧→"
+    },
+    {
+      "input": {
+        "key": "ArrowRight",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + →"
+    },
+    {
+      "input": {
+        "key": "ArrowRight",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘→"
+    },
+    {
+      "input": {
+        "key": "ArrowRight",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + →"
+    },
+    {
+      "input": {
+        "key": " ",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "Space"
+    },
+    {
+      "input": {
+        "key": " ",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Space"
+    },
+    {
+      "input": {
+        "key": " ",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃Space"
+    },
+    {
+      "input": {
+        "key": " ",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + Space"
+    },
+    {
+      "input": {
+        "key": " ",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧Space"
+    },
+    {
+      "input": {
+        "key": " ",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + Space"
+    },
+    {
+      "input": {
+        "key": " ",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘Space"
+    },
+    {
+      "input": {
+        "key": " ",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + Space"
+    },
+    {
+      "input": {
+        "key": "Space",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "Space"
+    },
+    {
+      "input": {
+        "key": "Space",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Space"
+    },
+    {
+      "input": {
+        "key": "Space",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃Space"
+    },
+    {
+      "input": {
+        "key": "Space",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + Space"
+    },
+    {
+      "input": {
+        "key": "Space",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧Space"
+    },
+    {
+      "input": {
+        "key": "Space",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + Space"
+    },
+    {
+      "input": {
+        "key": "Space",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘Space"
+    },
+    {
+      "input": {
+        "key": "Space",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win + Space"
+    },
+    {
+      "input": {
+        "key": "Control",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃"
+    },
+    {
+      "input": {
+        "key": "Control",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl"
+    },
+    {
+      "input": {
+        "key": "Control",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃"
+    },
+    {
+      "input": {
+        "key": "Control",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl"
+    },
+    {
+      "input": {
+        "key": "Control",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧"
+    },
+    {
+      "input": {
+        "key": "Control",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift"
+    },
+    {
+      "input": {
+        "key": "Control",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘"
+    },
+    {
+      "input": {
+        "key": "Control",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win"
+    },
+    {
+      "input": {
+        "key": "Alt",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥"
+    },
+    {
+      "input": {
+        "key": "Alt",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt"
+    },
+    {
+      "input": {
+        "key": "Alt",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃⌥"
+    },
+    {
+      "input": {
+        "key": "Alt",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt"
+    },
+    {
+      "input": {
+        "key": "Alt",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧"
+    },
+    {
+      "input": {
+        "key": "Alt",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift"
+    },
+    {
+      "input": {
+        "key": "Alt",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘"
+    },
+    {
+      "input": {
+        "key": "Alt",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win"
+    },
+    {
+      "input": {
+        "key": "Shift",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⇧"
+    },
+    {
+      "input": {
+        "key": "Shift",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Shift"
+    },
+    {
+      "input": {
+        "key": "Shift",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃⇧"
+    },
+    {
+      "input": {
+        "key": "Shift",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + Shift"
+    },
+    {
+      "input": {
+        "key": "Shift",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧"
+    },
+    {
+      "input": {
+        "key": "Shift",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift"
+    },
+    {
+      "input": {
+        "key": "Shift",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘"
+    },
+    {
+      "input": {
+        "key": "Shift",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win"
+    },
+    {
+      "input": {
+        "key": "Meta",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌘"
+    },
+    {
+      "input": {
+        "key": "Meta",
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Win"
+    },
+    {
+      "input": {
+        "key": "Meta",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌃⌘"
+    },
+    {
+      "input": {
+        "key": "Meta",
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Ctrl + Win"
+    },
+    {
+      "input": {
+        "key": "Meta",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": true,
+      "expected": "⌥⇧⌘"
+    },
+    {
+      "input": {
+        "key": "Meta",
+        "ctrlKey": false,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": false
+      },
+      "mac": false,
+      "expected": "Alt + Shift + Win"
+    },
+    {
+      "input": {
+        "key": "Meta",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": true,
+      "expected": "⌃⌥⇧⌘"
+    },
+    {
+      "input": {
+        "key": "Meta",
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": true,
+        "metaKey": true
+      },
+      "mac": false,
+      "expected": "Ctrl + Alt + Shift + Win"
+    }
+  ],
+  "pictures": [
+    {
+      "size": [
+        480,
+        320
+      ],
+      "aspect": 1.7777777777777777,
+      "expected": [
+        523,
+        294
+      ]
+    },
+    {
+      "size": [
+        480,
+        320
+      ],
+      "aspect": 0.5625,
+      "expected": [
+        294,
+        523
+      ]
+    },
+    {
+      "size": [
+        480,
+        320
+      ],
+      "aspect": 1,
+      "expected": [
+        392,
+        392
+      ]
+    },
+    {
+      "size": [
+        480,
+        320
+      ],
+      "aspect": 2.5,
+      "expected": [
+        620,
+        248
+      ]
+    },
+    {
+      "size": [
+        523,
+        294
+      ],
+      "aspect": 1.7777777777777777,
+      "expected": [
+        523,
+        294
+      ]
+    },
+    {
+      "size": [
+        523,
+        294
+      ],
+      "aspect": 0.5625,
+      "expected": [
+        294,
+        523
+      ]
+    },
+    {
+      "size": [
+        523,
+        294
+      ],
+      "aspect": 1,
+      "expected": [
+        392,
+        392
+      ]
+    },
+    {
+      "size": [
+        523,
+        294
+      ],
+      "aspect": 2.5,
+      "expected": [
+        620,
+        248
+      ]
+    },
+    {
+      "size": [
+        294,
+        523
+      ],
+      "aspect": 1.7777777777777777,
+      "expected": [
+        523,
+        294
+      ]
+    },
+    {
+      "size": [
+        294,
+        523
+      ],
+      "aspect": 0.5625,
+      "expected": [
+        294,
+        523
+      ]
+    },
+    {
+      "size": [
+        294,
+        523
+      ],
+      "aspect": 1,
+      "expected": [
+        392,
+        392
+      ]
+    },
+    {
+      "size": [
+        294,
+        523
+      ],
+      "aspect": 2.5,
+      "expected": [
+        620,
+        248
+      ]
+    },
+    {
+      "size": [
+        1,
+        1
+      ],
+      "aspect": 1.7777777777777777,
+      "expected": [
+        284,
+        160
+      ]
+    },
+    {
+      "size": [
+        1,
+        1
+      ],
+      "aspect": 0.5625,
+      "expected": [
+        240,
+        427
+      ]
+    },
+    {
+      "size": [
+        1,
+        1
+      ],
+      "aspect": 1,
+      "expected": [
+        240,
+        240
+      ]
+    },
+    {
+      "size": [
+        1,
+        1
+      ],
+      "aspect": 2.5,
+      "expected": [
+        400,
+        160
+      ]
+    },
+    {
+      "size": [
+        800,
+        600
+      ],
+      "aspect": 1.7777777777777777,
+      "expected": [
+        924,
+        520
+      ]
+    },
+    {
+      "size": [
+        800,
+        600
+      ],
+      "aspect": 0.5625,
+      "expected": [
+        520,
+        924
+      ]
+    },
+    {
+      "size": [
+        800,
+        600
+      ],
+      "aspect": 1,
+      "expected": [
+        693,
+        693
+      ]
+    },
+    {
+      "size": [
+        800,
+        600
+      ],
+      "aspect": 2.5,
+      "expected": [
+        1095,
+        438
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "page": "https://EXAMPLE.com/a?q=private",
+      "expected": "example-com"
+    },
+    {
+      "page": "http://localhost:3000/",
+      "expected": "localhost"
+    },
+    {
+      "page": "http://[::1]:3000/",
+      "expected": "1"
+    },
+    {
+      "page": "invalid",
+      "expected": "site"
+    },
+    {
+      "page": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com/",
+      "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-aaaaaaaaaaaaaaaa"
+    },
+    {
+      "page": "https://中文.example/",
+      "expected": "xn-fiq228c-example"
+    }
+  ]
+}

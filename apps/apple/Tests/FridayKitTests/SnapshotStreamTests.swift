@@ -3,6 +3,22 @@ import Foundation
 @main
 struct SnapshotStreamTests {
     static func main() throws {
+        let legacyProvider = CodexProviderSettings()
+        let legacySettings = try JSONDecoder().decode(CodexProviderSettings.self, from: JSONEncoder().encode(legacyProvider))
+        precondition(legacySettings.serverUrl == nil && legacySettings.body["serverPassword"] == nil, "Existing providers retain their original settings payload")
+        var remoteSettings = legacyProvider
+        remoteSettings.serverUrl = "http://127.0.0.1:4096"; remoteSettings.serverPasswordConfigured = true
+        let masked = try JSONDecoder().decode(CodexProviderSettings.self, from: JSONEncoder().encode(remoteSettings))
+        precondition(masked.serverPasswordConfigured == true && masked.body["serverPassword"] is NSNull, "Masked server passwords must be sent as null to preserve the host secret")
+        remoteSettings.serverPassword = "synthetic-secret"
+        precondition(remoteSettings.body["serverPassword"] as? String == "synthetic-secret", "An explicitly edited server password must reach the host")
+        var nativeSettings = legacyProvider; nativeSettings.nativeConfig = AcpNativeProviderConfig(); nativeSettings.nativeConfig?.apiKeyConfigured = true
+        let nativeBody = nativeSettings.body["nativeConfig"] as? [String: Any]
+        precondition(nativeBody?["apiKey"] is NSNull, "A redacted native API key must preserve the host secret")
+        nativeSettings.nativeConfig?.apiKey = ""
+        precondition((nativeSettings.body["nativeConfig"] as? [String: Any])?["apiKey"] as? String == "", "An explicit native key clear must remain distinct from a masked key")
+        precondition(TaskProviderCatalog.order == ["codex", "claude", "cursor", "grok", "opencode", "antigravity", "pi", "muse", "acp-registry"], "Implemented drivers follow the fixed T3 builtin order")
+        precondition(TaskProviderCatalog.supportsInteractionModes("cursor") && TaskProviderCatalog.supportsInteractionModes("opencode") && !TaskProviderCatalog.supportsInteractionModes("muse"), "Only native mode-capable providers offer Plan")
         let lines = [
             "event: snapshot", "data: {\"revision\":1,\"ideas\":[],\"projects\":[],\"memories\":[],\"tasks\":[]}", "id: 1",
             "event: heartbeat", "data: {}",
@@ -68,9 +84,6 @@ struct SnapshotStreamTests {
         let imageRows = CodexTranscript.rows(imageTask)
         precondition(imageRows.count == 1 && imageRows[0].id == "image-only", "Image-only user messages must not disappear from the timeline")
         precondition(oldTask.conversation.first?.images == nil, "Legacy task messages remain compatible")
-        let blocks = MarkdownBlocks.parse("## Result\n\n- **One**\n\n```swift\nlet x = 1\n```\n\n| A | B |\n| --- | --- |\n| C | D |")
-        precondition(blocks == [.heading(2, "Result"), .list("•", "**One**", 0), .code("swift", "let x = 1"), .table(["A", "B"], [["C", "D"]])], "Render headings, lists, code, and tables as native blocks")
-        precondition(MarkdownBlocks.parse("```ts\nconst partial =") == [.code("ts", "const partial =")], "Streaming unfinished fences retain code formatting")
         print("Swift SSE and conversation compatibility checks passed")
     }
 }

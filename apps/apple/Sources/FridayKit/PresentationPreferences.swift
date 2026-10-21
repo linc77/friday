@@ -23,4 +23,13 @@ enum FridayLanguage: String, CaseIterable, Identifiable {
 enum FridayPreferenceKeys {
     static let appearance = "friday.appearance"
     static let language = "friday.language"
+    static let workingShelfEnabled = "friday.tasks.workingShelfEnabled"
+    static let legacySidebar = "friday.tasks.legacySidebar"
+    static let projectSort = "friday.tasks.projectSort"
+    static let projectGrouping = "friday.tasks.projectGrouping"
+    static let projectGroupingOverrides = "friday.tasks.projectGroupingOverrides"
+    static let projectOrder = "friday.tasks.projectOrder"
+    static let projectScope = "friday.tasks.projectScope"
+    static let threadSort = "friday.tasks.threadSort"
+    static let threadPreviewCount = "friday.tasks.threadPreviewCount"
 }

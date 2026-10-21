@@ -1,24 +1,90 @@
 import { CodexRpc } from './codex-rpc.js';
+import { realpath } from 'node:fs/promises';
+import { ProviderWorkspaceCache, type ProviderWorkspace } from './provider-workspace.js';
+import type { WorkItem } from './types.js';
 import { codexRuntime, loadCodexSettings, saveCodexSettings, validateSettings, type CodexSettings } from './codex-settings.js';
 import { appendCustomModels, type ProviderModel } from './provider-models.js';
+import { codexUsageLimits, providerDigest, providerUsageIdentity, providerFingerprint, ProviderResetError, type ProviderResetScope, type ProviderResetOutcome, type ProviderUsageLimits } from './provider-usage-limits.js';
 
 export type CodexModel = ProviderModel;
 type Probe = { connected: boolean; installed: boolean; version: string | null; account: { type: string; email: string | null; plan: string | null } | null; models: CodexModel[]; checkedAt: string; error: string | null };
 export type ModelStatus = Omit<Probe, 'connected'> & {
   provider: string; displayName: string; enabled: boolean; model: string; connected: boolean; loginPending: boolean;
-  settings: (Omit<CodexSettings, 'environment'> & { environment: { name: string; value: null; hasValue: boolean }[] }) | null;
+  supportsPlan?: boolean;
+  settings: (Omit<CodexSettings, 'environment'> & { environment: { name: string; value: null; hasValue: boolean }[]; serverUrl?: string; serverPassword?: null; serverPasswordConfigured?: boolean; nativeConfig?: import('./acp-provider-settings.js').AcpProviderPublicConfig }) | null;
 };
 
 export class CodexConnection {
+  onConfigurationChanged?: () => Promise<void>;
+  private workspaceCache = new ProviderWorkspaceCache();
+  private usageIdentitySnapshot?: { fingerprint: string; identity: import('./provider-usage-limits.js').ProviderUsageIdentity };
+  usageIdentity(fingerprint: string | undefined) { return fingerprint && this.usageIdentitySnapshot?.fingerprint === fingerprint ? this.usageIdentitySnapshot.identity : undefined; }
+  private usageCache = new ProviderWorkspaceCache<ProviderUsageLimits>(60_000);
   private cached?: Probe;
   private cachedKey = '';
   private pending?: Promise<Probe>;
   private pendingKey = '';
   private saving = false;
+  private resetting = false;
   private clients = new Set<CodexRpc>();
   private loginClient?: CodexRpc;
   private loginTimer?: NodeJS.Timeout;
   constructor(private directory: string) {}
+  async usageLimits(reload = false, task?: WorkItem): Promise<ProviderUsageLimits> {
+    const settings = await loadCodexSettings(this.directory), configured = await codexRuntime(settings);
+    if (!settings.enabled) throw new Error('请先启用 Codex 后读取账号配额。');
+    if (task?.codexHome && task.codexHome !== configured.home) throw new Error('请恢复这条会话使用的 Codex 账号目录');
+    return this.usageCache.read(JSON.stringify(settings), reload, async () => {
+      const { rpc } = await this.client(settings);
+      try {
+        const [account, response] = await Promise.all([rpc.call('account/read', { refreshToken: false }, 8000), rpc.call('account/rateLimits/read', null, 8000)]);
+        const result = { ...codexUsageLimits(response), credentialFingerprint: providerFingerprint('codex', account.account, configured.home) };
+        if (JSON.stringify(await loadCodexSettings(this.directory)) !== JSON.stringify(settings)) throw new Error('Codex 配置已经改变，请重新加载');
+        this.usageIdentitySnapshot = { fingerprint: result.credentialFingerprint, identity: providerUsageIdentity(account.account) };
+        return result;
+      } catch { throw new Error('无法读取 Codex 账号配额，请稍后重试'); }
+      finally { this.release(rpc); }
+    });
+  }
+  async resetScope(): Promise<ProviderResetScope> {
+    const limits = await this.usageLimits(), settings = await loadCodexSettings(this.directory), runtime = await codexRuntime(settings);
+    if (!limits.credentialFingerprint || !limits.resetCredits) throw new ProviderResetError('当前 Codex 账号没有可用的重置信息信息。', true);
+    return { provider: 'codex', accountKey: providerDigest(['codex', await realpath(runtime.home).catch(() => runtime.home), limits.credentialFingerprint]), settingsDigest: providerDigest(settings), fingerprint: limits.credentialFingerprint };
+  }
+  async consumeResetCredit(scope: ProviderResetScope, idempotencyKey: string): Promise<ProviderResetOutcome> {
+    if (this.saving || this.resetting) throw new ProviderResetError('Codex 配置或账号操作正在进行，请稍后重试。', true);
+    this.resetting = true; let rpc: CodexRpc | undefined;
+    try {
+      const settings = await loadCodexSettings(this.directory), runtime = await codexRuntime(settings);
+      if (!settings.enabled || providerDigest(settings) !== scope.settingsDigest) throw new ProviderResetError('Codex 账号配置已经改变，请重新确认。', true);
+      rpc = (await this.client(settings)).rpc;
+      const account = await rpc.call('account/read', { refreshToken: false }, 8000);
+      if (providerFingerprint('codex', account.account, runtime.home) !== scope.fingerprint || providerDigest(await loadCodexSettings(this.directory)) !== scope.settingsDigest) throw new ProviderResetError('Codex 账号已经改变，请重新确认。', true);
+      const response = await rpc.call('account/rateLimitResetCredit/consume', { idempotencyKey }, 20_000);
+      if (!['reset', 'nothingToReset', 'noCredit', 'alreadyRedeemed'].includes(response?.outcome)) throw new ProviderResetError('无法确认重置结果，请先检查，再重试。');
+      this.usageCache.invalidate(JSON.stringify(settings)); return response.outcome;
+    } catch (error) { if (error instanceof ProviderResetError) throw error; throw new ProviderResetError('无法确认 Codex 重置结果，请检查后重试。'); }
+    finally { if (rpc) this.release(rpc); this.resetting = false; }
+  }
+  async workspace(cwd: string, reload = false, task?: WorkItem): Promise<ProviderWorkspace> {
+    const settings = await loadCodexSettings(this.directory), configured = await this.runtime();
+    if (task?.codexHome && task.codexHome !== configured.home) throw new Error('请恢复这条会话使用的 Codex 账号目录');
+    const key = JSON.stringify([settings, cwd]);
+    return this.workspaceCache.read(key, reload, async () => {
+      const { rpc } = await this.client(settings);
+      try {
+        const response = await rpc.call('skills/list', { cwds: [cwd], forceReload: reload });
+        const entry = response?.data?.find((value: { cwd: string }) => value.cwd === cwd);
+        if (!entry || !Array.isArray(entry.skills)) throw new Error('Codex 未返回这个 Workspace 的 Skill 列表');
+        const skills = entry.skills.flatMap((value: any) => value && typeof value.name === 'string' && typeof value.path === 'string' && typeof value.enabled === 'boolean'
+          ? [{ name: value.name, path: value.path, enabled: value.enabled, ...(typeof value.description === 'string' ? { description: value.description } : {}),
+            ...(typeof value.shortDescription === 'string' ? { shortDescription: value.shortDescription } : {}), ...(typeof value.interface?.displayName === 'string' ? { displayName: value.interface.displayName } : {}), ...(typeof value.scope === 'string' ? { scope: value.scope } : {}) }] : []);
+        if (JSON.stringify(await loadCodexSettings(this.directory)) !== JSON.stringify(settings)) throw new Error('Codex 配置已经改变，请重新加载');
+        return { provider: 'codex', cwd, checkedAt: new Date().toISOString(), skills, commands: [{ name: 'compact', description: 'Summarize the conversation and reduce context usage', builtin: true },
+          { name: 'goal', description: 'Set, inspect, pause, resume, or clear a persistent goal', builtin: true }, { name: 'feedback', description: 'Send feedback and thread logs to OpenAI', builtin: true }] };
+      } finally { this.release(rpc); }
+    });
+  }
 
   private async client(settings: CodexSettings) {
     const runtime = await codexRuntime(settings);
@@ -96,21 +162,28 @@ export class CodexConnection {
     if (effort && selected && !selected.reasoningEfforts.includes(effort)) throw new Error('当前模型不支持所选推理强度，请在 Providers 的 Codex 页面中重新选择。');
     return { ...await codexRuntime(settings), model: model || undefined, effort: effort || selected?.defaultReasoningEffort || undefined, permissionMode: settings.permissionMode };
   }
+  async feedbackRuntime(task: { codexHome?: string }) {
+    const settings = await loadCodexSettings(this.directory);
+    if (!settings.enabled || this.saving) throw new Error('Codex 当前不可用');
+    const runtime = await codexRuntime(settings);
+    if (task.codexHome && runtime.home !== task.codexHome) throw new Error('请恢复这条会话使用的 Codex 账号后提交反馈');
+    return runtime;
+  }
   async save(value: unknown) {
-    if (this.saving || this.loginClient) throw new Error('Codex 配置或登录正在处理中，请稍候。');
-    this.saving = true;
+    if (this.saving || this.resetting || this.loginClient) throw new Error('Codex 配置或登录正在处理中，请稍候。');
+    this.saving = true; let changed = false;
     try {
       await this.pending;
       const settings = validateSettings(value, await loadCodexSettings(this.directory));
-      await saveCodexSettings(this.directory, settings); this.cached = undefined;
+      await saveCodexSettings(this.directory, settings); this.cached = undefined; changed = true;
       return await this.status(true, true);
-    } finally { this.saving = false; }
+    } finally { this.saving = false; if (changed) await this.onConfigurationChanged?.(); }
   }
   async login() {
-    if (this.saving || this.loginClient) throw new Error('Codex 配置或登录正在处理中，请稍候。');
+    if (this.saving || this.resetting || this.loginClient) throw new Error('Codex 配置或登录正在处理中，请稍候。');
     const { rpc } = await this.client(await loadCodexSettings(this.directory));
     this.loginClient = rpc;
-    const end = () => { if (this.loginClient === rpc) this.loginClient = undefined; this.cached = undefined; this.release(rpc); clearTimeout(this.loginTimer); };
+    const end = () => { if (this.loginClient === rpc) this.loginClient = undefined; this.cached = undefined; this.release(rpc); clearTimeout(this.loginTimer); void this.onConfigurationChanged?.().catch(() => {}); };
     this.loginTimer = setTimeout(end, 5 * 60_000);
     rpc.onExit = end;
     rpc.onMessage = message => { if (message.method === 'account/login/completed') end(); };

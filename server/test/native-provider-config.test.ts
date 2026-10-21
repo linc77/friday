@@ -1,0 +1,44 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, rm, symlink, stat } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { nativeProviderDefaults, nativeProviderSettings, nativeProviderAccount, nativeProviderEnvironment } from '../src/native-provider-config.js';
+import { cursorSkills, rewriteCursorSkills } from '../src/cursor-skills.js';
+import { CursorConnection } from '../src/cursor-provider.js';
+import { CursorExecutor } from '../src/cursor.js';
+import { MuseConnection } from '../src/muse-provider.js';
+import { MuseExecutor } from '../src/muse.js';
+import { OpenCodeConnection } from '../src/opencode-provider.js';
+import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
+import { chmod } from 'node:fs/promises';
+import type { WorkItem } from '../src/types.js';
+test('Native settings preserve private OpenCode passwords through a masked round trip and honor native effort/mode boundaries', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-native-config-')); const connection = new OpenCodeConnection(directory); t.after(async () => { await connection.close(); await rm(directory, { recursive: true, force: true }); });
+  const saved = await connection.save({ ...nativeProviderDefaults('opencode'), serverUrl: 'http://127.0.0.1:41111/', serverPassword: 'private-fixture-password' }); assert.equal(saved.settings?.serverPassword, null); assert.equal(saved.settings?.serverPasswordConfigured, true); assert.ok(!JSON.stringify(saved).includes('private-fixture-password'));
+  await connection.save({ ...saved.settings, serverPassword: null }); const settings = nativeProviderSettings('opencode', { ...saved.settings, serverPassword: null }, { ...nativeProviderDefaults('opencode'), serverPassword: 'original' }); assert.equal(settings.serverPassword, 'original'); assert.equal(settings.serverUrl, 'http://127.0.0.1:41111'); assert.equal((await stat(join(directory, 'opencode-provider.json'))).mode & 0o777, 0o600);
+  assert.throws(() => nativeProviderSettings('opencode', { ...nativeProviderDefaults('opencode'), serverUrl: 'https://user:secret@example.test' }));
+  assert.throws(() => nativeProviderSettings('muse', { ...nativeProviderDefaults('muse'), reasoningEffort: 'invented' }));
+  assert.equal(nativeProviderSettings('cursor', { ...nativeProviderDefaults('cursor'), reasoningEffort: 'x'.repeat(64) }).reasoningEffort.length, 64);
+  const base = nativeProviderDefaults('muse'); assert.equal(nativeProviderEnvironment('muse', { ...base, environment: [{ name: 'mEtA_aPi_KeY', value: 'must-not-reach-muse' }] }).mEtA_aPi_KeY, undefined);
+  assert.equal(nativeProviderAccount('muse', { ...base, environment: [{ name: 'A', value: 'a' }, { name: 'B', value: 'b' }] }), nativeProviderAccount('muse', { ...base, environment: [{ name: 'B', value: 'b' }, { name: 'A', value: 'a' }] }));
+});
+test('Cursor native Skill discovery observes project precedence, recursive roots, YAML visibility and linked package boundaries without launching an agent', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-cursor-skills-')), cwd = join(directory, 'repo'), home = join(directory, 'home'); t.after(() => rm(directory, { recursive: true, force: true }));
+  const skill = async (path: string, content: string) => { await mkdir(path, { recursive: true }); await writeFile(join(path, 'SKILL.md'), content); };
+  await skill(join(cwd, '.cursor/skills/category/review'), '---\nname: Review display\ndescription: Project review\nuser-invocable: off\ndisable-model-invocation: yes\n---\n');
+  await skill(join(home, '.agents/skills/review'), '---\ndescription: User must not win\n---\n'); await skill(join(cwd, '.agents/skills/gui'), '---\nmetadata:\n  surfaces: [web]\n---\n');
+  const linked = join(directory, 'library'); await skill(linked, '---\ndescription: Linked library\n---\n'); await skill(join(linked, 'private-child'), 'No scan outside linked package'); await symlink(linked, join(cwd, '.cursor/skills/linked'), 'dir');
+  const values = await cursorSkills(cwd, { HOME: home }); assert.deepEqual(values.map(value => value.name), ['linked', 'review']); assert.equal(values[1]?.description, 'Project review'); assert.equal(values[1]?.userInvocable, false); assert.equal(values[1]?.userInvocationOnly, true);
+  assert.equal(rewriteCursorSkills('use $review and €linked $100K $1e6 $unknown', new Set(values.map(value => value.name))), 'use /review and /linked $100K $1e6 $unknown');
+});
+test('Cursor and Muse native session configuration reaches a real authenticated HTTP MCP tool endpoint', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-native-mcp-')), calls: any[] = [], server = createServer(async (req, res) => { let text = ''; for await (const chunk of req) text += chunk; calls.push({ authorization: req.headers.authorization, body: JSON.parse(text) }); res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: 'done' }] } })); }); await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  await mkdir(join(directory, 'cursor')); await mkdir(join(directory, 'muse'));
+  const cursor = new CursorConnection(join(directory, 'cursor'), { sdkModule: fileURLToPath(new URL('./fixtures/cursor-sdk.cjs', import.meta.url)) }), muse = new MuseConnection(join(directory, 'muse')), cursorExecutor = new CursorExecutor(cursor), museExecutor = new MuseExecutor(muse); const binary = fileURLToPath(new URL('./fixtures/muse.mjs', import.meta.url)); await chmod(binary, 0o755);
+  t.after(async () => { await cursorExecutor.close(); await museExecutor.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); await rm(directory, { recursive: true, force: true }); });
+  await cursor.save({ ...nativeProviderDefaults('cursor'), enabled: true, environment: [{ name: 'CURSOR_API_KEY', value: 'fixture-native-key' }] }); await muse.save({ ...nativeProviderDefaults('muse'), enabled: true, binaryPath: binary, environment: [{ name: 'MUSE_TEST_HOME', value: join(directory, 'muse-sessions') }] });
+  for (const [provider, executor, model] of [['cursor', cursorExecutor, 'native-model'], ['muse', museExecutor, 'muse-native']] as const) await executor.run({ task: { id: provider, agent: provider, cwd: directory, model, currentRunId: 'mcp' } as WorkItem, prompt: 'mcp', signal: new AbortController().signal, update: async () => {}, taskMcp: { url: 'http://127.0.0.1:' + (server.address() as any).port, headers: { Authorization: 'Bearer fixture-private-tool' } } as any });
+  assert.equal(calls.length, 2); assert.ok(calls.every(value => value.authorization === 'Bearer fixture-private-tool' && value.body.method === 'tools/call')); assert.deepEqual(calls.map(value => value.body.params.arguments.text), ['cursor-native', 'muse-native']);
+});
