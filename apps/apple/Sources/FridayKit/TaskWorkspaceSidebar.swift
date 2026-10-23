@@ -489,55 +489,6 @@ struct TaskWorkspaceSidebar: View {
 
 }
 
-#if os(macOS)
-private struct TaskWorkspacePages<Page: View>: View {
-    let pages: [String?]
-    let selection: String?
-    let context: String
-    let select: (String?) -> Void
-    let page: (String?) -> Page
-    @State private var drag: CGFloat = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
-
-    init(pages: [String?], selection: String?, context: String, select: @escaping (String?) -> Void, @ViewBuilder page: @escaping (String?) -> Page) {
-        self.pages = pages; self.selection = selection; self.context = context; self.select = select; self.page = page
-    }
-    private var index: Int { pages.firstIndex(of: selection) ?? 0 }
-    private var motion: Animation? { reduceMotion || scenePhase != .active ? nil : FridayTheme.motion }
-    private var identity: String {
-        let data = try? JSONEncoder().encode([Optional(context), selection, scenePhase == .active ? "active" : "inactive"] + pages)
-        return data.flatMap { String(data: $0, encoding: .utf8) } ?? context
-    }
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                ForEach(pages.indices.filter { abs($0 - index) <= 1 }, id: \.self) { offset in
-                    page(pages[offset])
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .offset(x: CGFloat(offset - index) * geometry.size.width + (reduceMotion ? 0 : drag))
-                        .allowsHitTesting(offset == index && drag == 0)
-                        .accessibilityHidden(offset != index)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
-            .background(WorkspaceScrollGesture(changed: { delta in
-                let edge = index == 0 && delta > 0 || index == pages.count - 1 && delta < 0
-                drag = max(-geometry.size.width * 0.85, min(geometry.size.width * 0.85, delta * (edge ? 0.22 : 1)))
-            }, ended: { swipe, cancelled in
-                let destination = swipe.destination(index: index, count: pages.count, cancelled: cancelled)
-                withAnimation(motion) {
-                    if pages.indices.contains(destination), destination != index { select(pages[destination]) }
-                    drag = 0
-                }
-            }, identity: identity))
-        }
-        .onChange(of: identity) { _, _ in drag = 0 }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { drag = 0 } }
-    }
-}
-#endif
-
 private struct TaskProjectTreeDrag: ViewModifier {
     let enabled: Bool
     let id: String

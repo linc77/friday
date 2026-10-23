@@ -23,7 +23,9 @@ enum FridayTheme {
     }
     static let contentWidth: CGFloat = 780
     static let cornerRadius: CGFloat = 20
-    static let motion = Animation.spring(response: 0.28, dampingFraction: 0.86)
+    static let motionResponse = 0.28
+    static let motionDamping = 0.86
+    static let motion = Animation.spring(response: motionResponse, dampingFraction: motionDamping)
     #if os(macOS)
     static let sidebarWidth: CGFloat = 60
     static let trafficLightSize: CGFloat = 13.2

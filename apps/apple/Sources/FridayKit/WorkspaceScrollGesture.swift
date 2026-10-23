@@ -1,22 +1,7 @@
 #if os(macOS)
 import AppKit
-import SwiftUI
-
 /// A local monitor sees trackpad scrolling over the SwiftUI ScrollView without
 /// an overlay stealing clicks, focus, or vertical scrolling from its children.
-struct WorkspaceScrollGesture: NSViewRepresentable {
-    let changed: (Double) -> Void
-    let ended: (WorkspaceSwipe, Bool) -> Void
-    var identity = ""
-
-    func makeNSView(context: Context) -> WorkspaceScrollView { WorkspaceScrollView() }
-    func updateNSView(_ view: WorkspaceScrollView, context: Context) {
-        view.updateIdentity(identity)
-        view.changed = changed; view.ended = ended
-    }
-    static func dismantleNSView(_ view: WorkspaceScrollView, coordinator: ()) { view.stop() }
-}
-
 final class WorkspaceScrollView: NSView {
     var changed: ((Double) -> Void)?
     var ended: ((WorkspaceSwipe, Bool) -> Void)?
