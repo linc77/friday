@@ -79,6 +79,12 @@ async function command(record) {
       emit({ type: 'message_end', message: { role: 'assistant', stopReason: 'error', errorMessage: 'Native model failure', content: [] } });
       streaming = false; emit({ type: 'agent_settled' }); return;
     }
+    if (message === 'children') {
+      const child = { agent: 'Native Pi child', task: 'Inspect the Pi child', model: 'fixture/child', step: 1, messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Pi child result' }] }] };
+      emit({ type: 'tool_execution_start', toolCallId: 'subagent-native', toolName: 'subagent', args: {} });
+      emit({ type: 'tool_execution_update', toolCallId: 'subagent-native', toolName: 'subagent', partialResult: { content: [], details: { results: [{ ...child, finished: false }] } } });
+      emit({ type: 'tool_execution_end', toolCallId: 'subagent-native', toolName: 'subagent', result: { content: [], details: { results: [{ ...child, exitCode: 0 }] } }, isError: false });
+    }
     if (!process.argv.includes('--no-tools')) emit({ type: 'tool_execution_start', toolCallId: 'native-bash', toolName: 'bash', args: { command: 'printf fixture' } });
     if (!process.argv.includes('--no-tools')) emit({ type: 'tool_execution_end', toolCallId: 'native-bash', toolName: 'bash', result: { content: [{ type: 'text', text: 'fixture' }] }, isError: false });
     finish('Pi reply café\u2028line\u2029end'); return;

@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { CursorConnection } from './cursor-provider.js';
 import { NativeTurnProjection } from './native-turn-projection.js';
+import { NativeSubagentProjection, cursorChildMessages } from './native-subagent-projection.js';
 import { acpRecord, type AcpRecord, type AcpProcess } from './acp-process.js';
 import { taskPlanSteps } from './task-event-data.js';
 import type { ExecutionRequest, Executor, ExecutionImage } from './types.js';
@@ -26,7 +27,8 @@ export class CursorExecutor implements Executor {
     const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions });
     if (task.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条 Cursor 会话使用的账号');
     signal.throwIfAborted(); const client = await this.connection.client(runtime.settings, task.cwd);
-    let projection: NativeTurnProjection | undefined, runId = '', sessionId = task.threadId ?? '', chain = Promise.resolve(), interruption: Promise<unknown> | undefined, terminal = false;
+    let projection: NativeTurnProjection | undefined, children: NativeSubagentProjection | undefined, runId = '', sessionId = task.threadId ?? '', chain = Promise.resolve(), interruption: Promise<unknown> | undefined, terminal = false;
+    const executionSessionId = randomUUID();
     let resolve!: (result: AcpRecord) => void, reject!: (error: Error) => void;
     const completion = new Promise<AcpRecord>((yes, no) => { resolve = yes; reject = no; }); void completion.catch(() => {});
     const finish = (value?: AcpRecord, error?: Error) => { if (!terminal) { terminal = true; error ? reject(error) : resolve(value ?? {}); } };
@@ -43,6 +45,15 @@ export class CursorExecutor implements Executor {
         current = undefined; lastKind = '';
         const tool = acpRecord(change.toolCall); if (!tool || typeof change.callId !== 'string') return;
         const key = `tool:${change.callId}`, previous = projection.items.get(key), args = acpRecord(tool.args), result = acpRecord(tool.result), body = acpRecord(result?.value);
+        if (tool.type === 'task') {
+          if (change.type === 'partial-tool-call') return;
+          const completed = change.type === 'tool-call-completed', messages = cursorChildMessages(body?.conversationSteps);
+          const output = [...messages, ...(typeof body?.resultSuffix === 'string' ? [body.resultSuffix] : [])].join('\n');
+          await children?.observe({ nativeId: change.callId, title: args?.description, prompt: args?.prompt, model: args?.model,
+            status: completed ? result?.status === 'error' ? 'failed' : 'completed' : 'running',
+            ...(output ? completed ? { result: output } : { progress: output } : {}), messages });
+          return;
+        }
         const kind = tool.type === 'shell' ? 'command' : ['write', 'edit', 'delete', 'generateImage'].includes(tool.type) ? 'files' : ['read', 'grep', 'glob', 'ls', 'semSearch', 'readLints'].includes(tool.type) ? 'search' : 'tool';
         const detail = result?.status === 'error' ? result.error?.message ?? result.error ?? 'Cursor 工具执行失败' : typeof body?.stdout === 'string' ? body.stdout + (body.stderr ?? '') : typeof body?.text === 'string' ? body.text : typeof body?.content === 'string' ? body.content : previous?.detail;
         if (tool.type === 'shell') lastShell = key;
@@ -62,22 +73,23 @@ export class CursorExecutor implements Executor {
     try {
       const opened = await client.call('cursor/open', { ...(task.threadId ? { agentId: task.threadId } : {}), fingerprint: runtime.fingerprint, readOnly: !!request.purpose, cwd: task.cwd, stateRoot: request.purpose ? join(dirname(task.cwd), 'state') : this.connection.stateRoot(task.cwd), model: runtime.nativeModel, name: `Friday ${task.id}`, fullAccess: !request.purpose && runtime.settings.permissionMode === 'fullAccess', mode: request.purpose || task.interactionMode === 'plan' ? 'plan' : 'agent', ...(request.taskMcp ? { mcpServers: { friday: { type: 'http', url: request.taskMcp.url, headers: request.taskMcp.headers } } } : {}) });
       if (typeof opened.agentId !== 'string' || !opened.agentId || task.threadId && task.threadId !== opened.agentId) throw new Error('Cursor 返回了不同或无效的原生会话 ID');
-      sessionId = opened.agentId; await update({ kind: 'session', threadId: sessionId, model: runtime.model, reasoningEffort: runtime.effort, nativeProviderAccount: runtime.account, executionSessionId: randomUUID() });
+      sessionId = opened.agentId; await update({ kind: 'session', threadId: sessionId, model: runtime.model, reasoningEffort: runtime.effort, nativeProviderAccount: runtime.account, executionSessionId });
       if (task.threadId) await update({ kind: 'resumeApplied' }); await request.beforeStart?.(); if (signal.aborted) throw cancelled();
       const text = request.command === 'compact' ? '/compress' : request.prompt, images = [];
       for (const image of request.images ?? []) images.push({ data: (await readFile(image.path)).toString('base64'), mimeType: image.mediaType });
       const nativeText = /(^|\s)\p{Sc}(?=[a-zA-Z0-9:_-]*[a-zA-Z])/u.test(text) ? rewriteCursorSkills(text, new Set((await cursorSkills(task.cwd, runtime.env)).map(skill => skill.name))) : text;
       const started = await client.call('cursor/send', { message: images.length ? { text: nativeText, images } : nativeText, model: runtime.nativeModel, mode: request.purpose || task.interactionMode === 'plan' ? 'plan' : 'agent', idempotencyKey: `friday:${task.id}:${task.currentRunId ?? randomUUID()}` });
       if (typeof started.runId !== 'string' || started.agentId !== sessionId) throw new Error('Cursor 未确认原生执行回合');
-      runId = started.runId; projection = new NativeTurnProjection(request, runId); await update({ kind: 'turn', turnId: runId }); await update({ kind: 'ready', canSteer: false }); active = true;
+      runId = started.runId; projection = new NativeTurnProjection(request, runId); children = new NativeSubagentProjection(request, 'cursor', executionSessionId, sessionId, runId); await update({ kind: 'turn', turnId: runId }); await update({ kind: 'ready', canSteer: false }); active = true;
       for (const [method, value] of buffered) enqueue(method, value); buffered.length = 0;
       const result = await completion; await chain;
       if (signal.aborted || result.status === 'cancelled') throw cancelled();
       if (result.status !== 'finished') throw new Error(result.error?.message ?? 'Cursor SDK 原生执行失败');
+      await children?.finish('completed');
       if (!projection.output && typeof result.result === 'string' && result.result) projection.put('final', 'message', result.result);
       if (request.purpose) { if (typeof result.result !== 'string' || !result.result.trim()) throw new Error('Cursor 文字生成没有返回原生结果'); await projection.finish('completed'); return result.result; }
       return await projection.finish('completed');
-    } catch (error) { await projection?.finish(signal.aborted ? 'interrupted' : 'failed'); throw signal.aborted ? cancelled() : error; }
+    } catch (error) { await children?.finish(signal.aborted ? 'interrupted' : 'failed'); await projection?.finish(signal.aborted ? 'interrupted' : 'failed'); throw signal.aborted ? cancelled() : error; }
     finally { active = false; signal.removeEventListener('abort', cancel); projection?.dispose(); await interruption; await this.connection.release(client); await chain; this.runs.delete(task.id); }
   }
   async answer(): Promise<void> { throw new Error('Cursor SDK 不提供交互式审批回调；请在 Providers 中选择原生审核或完全访问'); }

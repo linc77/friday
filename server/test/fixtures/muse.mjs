@@ -13,7 +13,7 @@ const fail = (request, kind, message) => send({ id: request.id, error: { code: -
 const notice = (method, params) => send({ method, params: { sessionId: session, ...(turn ? { turnId: turn } : {}), ...params } });
 const item = value => notice(value.status === 'completed' ? 'item/completed' : 'item/started', { item: { turnId: turn, ...value } });
 const complete = () => { item({ itemId: 'answer', revision: 3, status: 'completed', kind: 'agentMessage', text: 'Muse reply café\u2028line\u2029end' }); notice('turn/completed', { turnId: turn, terminal: 'completed' }); };
-let mcp;
+let mcp, childPermission;
 const approvals = [{ choiceId: 'allow', label: 'Allow', decision: 'approved', scope: 'once' }, { choiceId: 'session', label: 'Session', decision: 'approvedForSession', scope: 'session' }, { choiceId: 'persistent', label: 'Always', decision: 'approvedPolicyAmendment', scope: 'localPersistent' }, { choiceId: 'abort', label: 'Reject', decision: 'abort', scope: 'once' }];
 async function handle(request) {
   const params = request.params ?? {}; trace({ method: request.method, params, receivedMetaKey: process.env.META_API_KEY !== undefined });
@@ -32,7 +32,7 @@ async function handle(request) {
   if (request.method === 'session/compact') { reply(request, { status: 'accepted' }); item({ itemId: 'compact', revision: 1, kind: 'compaction', status: 'completed', outcome: 'compacted', reason: 'Native compacted' }); return; }
   if (request.method === 'turn/interrupt') { trace({ interrupted: params.turnId }); reply(request, {}); notice('turn/completed', { turnId: params.turnId, terminal: 'cancelled' }); return; }
   if (request.method === 'turn/steer') { if (params.expectedTurnId !== turn || 'turnId' in params) return fail(request, 'invalidParams', 'Wrong native steer identity'); trace({ steered: params.input }); reply(request, { turnId: turn }); if (process.env.MUSE_TEST_STEER_SETTLES === '1') complete(); return; }
-  if (request.method === 'approval/decide') { if (params.requirementId?.sourceIndex !== 1 || !approvals.some(choice => choice.choiceId === params.choiceId)) return fail(request, 'invalidParams', 'Wrong native permission choice'); reply(request, { approvalId: 'write', terminal: true }); notice('approval/resolved', { approvalId: 'write' }); complete(); return; }
+  if (request.method === 'approval/decide') { if (params.requirementId?.sourceIndex !== 1 || !approvals.some(choice => choice.choiceId === params.choiceId)) return fail(request, 'invalidParams', 'Wrong native permission choice'); reply(request, { approvalId: 'write', terminal: true }); notice('approval/resolved', { approvalId: 'write' }); if (childPermission) { item({ itemId: 'native-child-item', revision: 2, status: 'completed', kind: 'subagent', subagentId: 'native-child', role: 'Native Muse child', objective: 'Inspect the Muse child', result: { text: 'Muse child result' } }); childPermission = false; } complete(); return; }
   if (request.method === 'userInput/answer') { reply(request, {}); notice('userInput/settled', { userInputId: 'question' }); complete(); return; }
   if (request.method !== 'turn/start') return fail(request, 'methodNotFound', 'Unknown fixture method');
   turn = params.commandId; const text = params.input.filter(part => part.type === 'text').map(part => part.text).join('\n'), prompt = text.match(/^Task: ([^\n]+)/m)?.[1] ?? text;
@@ -43,6 +43,12 @@ async function handle(request) {
   if (prompt === 'approval') { notice('approval/requested', { approvalId: 'write', currentRequirementId: { approvalId: 'write', sourceIndex: 1 }, availableChoices: approvals, toolName: 'write_file', rawArgs: '{"path":"fixture.txt"}', subject: { kind: 'write', path: 'fixture.txt' } }); return; }
   if (prompt === 'question') { notice('userInput/requested', { userInputId: 'question', questions: [{ id: 'target', header: 'Target', question: 'Choose a target', options: [{ label: 'One' }, { label: 'Two' }], selection: { mode: 'multiple', minSelections: 1, maxSelections: 2 } }] }); return; }
   if (prompt === 'error') { notice('turn/completed', { terminal: 'failed', error: { message: 'Native Muse failure' } }); return; }
+  if (prompt === 'children-approval') { childPermission = true; item({ itemId: 'native-child-item', revision: 1, status: 'inProgress', kind: 'subagent', subagentId: 'native-child', role: 'Native Muse child', objective: 'Inspect the Muse child' }); notice('approval/requested', { turnId: 'native-child-run', subagentOrigin: { subagentId: 'native-child', childSessionId: 'native-child-session', childRunId: 'native-child-run' }, approvalId: 'write', currentRequirementId: { approvalId: 'write', sourceIndex: 1 }, availableChoices: approvals, toolName: 'write_file', rawArgs: '{}', subject: { kind: 'write', path: 'child.txt' } }); return; }
+  if (prompt === 'children') {
+    item({ itemId: 'native-child-item', revision: 1, status: 'inProgress', kind: 'subagent', subagentId: 'native-child', role: 'Native Muse child', objective: 'Inspect the Muse child' });
+    item({ itemId: 'native-child-item', revision: 2, status: 'completed', kind: 'subagent', subagentId: 'native-child', childSessionId: 'child-session', role: 'Native Muse child', objective: 'Inspect the Muse child', result: { text: 'Muse child result' } });
+    item({ itemId: 'native-child-item', revision: 1, status: 'inProgress', kind: 'subagent', role: 'Stale child revision' });
+  }
   notice('turn/completed', { turnId: 'foreign-turn', terminal: 'completed' });
   send({ method: 'item/completed', params: { sessionId: 'foreign-session', turnId: turn, item: { itemId: 'foreign', revision: 1, kind: 'agentMessage', status: 'completed', text: 'Foreign Muse text' } } });
   item({ itemId: 'thought', revision: 1, kind: 'reasoning', status: 'inProgress', summary: ['Thinking'] }); notice('item/delta', { itemId: 'thought', field: 'summary.0', delta: ' carefully' });

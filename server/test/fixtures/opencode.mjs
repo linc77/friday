@@ -18,6 +18,15 @@ export async function openCodeFixture({ generation = 2, password = '私有密码
       emit('session.text.delta', { sessionID: 'foreign', assistantMessageID: 'foreign', ordinal: 0, delta: 'WRONG' });
       emit('session.execution.succeeded', { sessionID }); // stale completion before our delivery
       emit('session.inbox.delivered', { sessionID, inboxID: nativeId });
+      if (session?.lastPrompt === 'children') {
+        const id = 'child-tool-' + nativeId, childID = 'child-' + nativeId;
+        emit('session.tool.input.started', { sessionID, id, name: 'subagent' });
+        emit('session.tool.called', { sessionID, id, input: { prompt: 'Inspect OpenCode child', description: 'Native OpenCode child', model: 'native/child', background: true } });
+        emit('session.tool.progress', { sessionID, id, metadata: { sessionID: childID } });
+        emit('session.text.delta', { sessionID: childID, assistantMessageID: 'child-answer', ordinal: 0, delta: 'OpenCode child stream' });
+        emit('session.tool.success', { sessionID, id, metadata: { sessionID: childID, status: 'running' }, content: [{ type: 'text', text: 'Background child launch ACK' }] });
+        emit('session.synthetic', { sessionID, metadata: { source: 'subagent', childID, state: 'completed' }, text: '<subagent>\nOpenCode child result\n</subagent>' });
+      }
       emit('session.tool.input.started', { sessionID, id: 'shell-' + nativeId, name: 'shell' });
       emit('session.tool.called', { sessionID, id: 'shell-' + nativeId, input: { command: 'printf fixture' } });
       emit('session.tool.success', { sessionID, id: 'shell-' + nativeId, content: [{ type: 'text', text: 'native command output' }] });
@@ -29,6 +38,11 @@ export async function openCodeFixture({ generation = 2, password = '私有密码
     } else {
       const id = 'assistant-' + nativeId;
       emit('message.updated', { info: { id: nativeId, sessionID, role: 'user' } });
+      if (session?.lastPrompt === 'children') {
+        const part = { id: 'child-tool-' + nativeId, sessionID, messageID: id, type: 'tool', tool: 'task' }, input = { prompt: 'Inspect OpenCode child', description: 'Native OpenCode child', model: 'native/child' };
+        emit('message.part.updated', { part: { ...part, state: { status: 'running', input, metadata: { sessionID: 'child-' + nativeId } } } });
+        emit('message.part.updated', { part: { ...part, state: { status: 'completed', input, metadata: { sessionID: 'child-' + nativeId }, output: 'OpenCode child result' } } });
+      }
       emit('message.part.updated', { part: { id: 'text-' + nativeId, messageID: id, sessionID, type: 'text', text: text.slice(0, 7), time: { end: 5 } } });
       emit('message.part.delta', { sessionID, messageID: id, partID: 'text-' + nativeId, field: 'text', delta: text.slice(7) });
       emit('message.updated', { info: { id, sessionID, role: 'assistant', parentID: nativeId, time: { completed: 5 }, finish: 'stop', tokens: { input: 10, output: 5, reasoning: 3, cache: { read: 2, write: 1 } } } });
@@ -79,6 +93,7 @@ export async function openCodeFixture({ generation = 2, password = '私有密码
       if (suffix === '/prompt' || suffix === '/prompt_async' || suffix === '/compact' || suffix === '/summarize') {
         const nativeId = body.id ?? body.messageID ?? 'compact', raw = body.text ?? body.parts?.[0]?.text ?? '/compact', text = raw.match(/^Task: ([^\n]+)/m)?.[1] ?? raw;
         record({ prompt: text, sessionID, nativeId, pid: process.pid, generation });
+        session.lastPrompt = text;
         session.messages.push(generation === 2 ? { id: nativeId, type: 'user', content: [{ type: 'text', text: raw }] } : { info: { id: nativeId, sessionID, role: 'user' }, parts: body.parts ?? [] });
         if (body.delivery === 'steer') { json({ data: { id: nativeId } }); later(() => emit('session.inbox.delivered', { sessionID, inboxID: nativeId }), 40); return; }
         if (text === 'hold') { const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' }); children.add(child); record({ child: child.pid }); json(generation === 2 ? { data: { id: nativeId } } : true); return; }

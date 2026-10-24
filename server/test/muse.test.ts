@@ -10,6 +10,21 @@ import { nativeProviderDefaults } from '../src/native-provider-config.js';
 import type { WorkItem, ExecutionUpdate } from '../src/types.js';
 const binary = fileURLToPath(new URL('./fixtures/muse.mjs', import.meta.url));
 const task = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'muse-task', agent: 'muse', cwd, model: 'muse-native', reasoningEffort: 'high', threadId: null, currentRunId: 'muse-run', interactionMode: 'default', events: [], approvals: [], ...changes }) as WorkItem;
+test('Muse native subagent item revisions preserve one child identity when a native session appears only at completion', async t => {
+  const f = await setup(t), updates: ExecutionUpdate[] = [];
+  await f.executor.run({ task: task(f.directory), prompt: 'children', signal: AbortSignal.timeout(5000), update: async value => { updates.push(value); } });
+  const children = updates.filter(value => value.kind === 'subagent'), child = children.at(-1)!;
+  assert.equal(child.subagent.provider, 'muse'); assert.equal(child.subagent.nativeId, 'native-child-item');
+  assert.equal(child.subagent.title, 'Native Muse child'); assert.equal(child.subagent.status, 'completed'); assert.equal(child.subagent.result, 'Muse child result');
+  assert.equal(new Set(children.map(value => value.subagent.id)).size, 1); assert.ok(children.some(value => value.subagent.status === 'running'));
+});
+test('Muse child-plane approvals retain their native requirement and project onto the known parent-owned child', async t => {
+  const f = await setup(t), updates: ExecutionUpdate[] = []; let answer: Promise<void> | undefined;
+  await f.executor.run({ task: task(f.directory), prompt: 'children-approval', signal: AbortSignal.timeout(5000), update: async value => { updates.push(value); if (value.kind === 'approval') { assert.ok(value.approval.subagentId); answer = f.executor.answer('muse-task', value.approval.id, 'accept', {}); } } });
+  await answer;
+  assert.equal(updates.filter(value => value.kind === 'subagent').at(-1)!.subagent.result, 'Muse child result');
+  const reply = (await f.trace()).find(value => value.method === 'approval/decide'); assert.equal(reply.params.requirementId.sourceIndex, 1); assert.equal(reply.params.choiceId, 'allow');
+});
 test('Muse independent generation disables shell and writes, denies unmatched approvals and never resumes foreground history', async t => {
   const fixture = await setup(t);
   const result = await fixture.executor.generateText({ task: task(fixture.directory, { threadId: 'foreground', nativeProviderAccount: 'foreground-account' }), purpose: 'task_title', prompt: 'Title', signal: AbortSignal.timeout(5000), update: async () => {} });

@@ -7,13 +7,15 @@ import { AcpProcess, acpRecord, type AcpRecord } from './acp-process.js';
 import { acpConfigValues, acpEffortOption, acpModelOption, acpPermissionRequest, acpSessionServers } from './acp-protocol.js';
 import { acpMcpServer } from './acp-mcp.js';
 import { NativeTurnProjection } from './native-turn-projection.js';
+import { NativeSubagentProjection } from './native-subagent-projection.js';
+import { AcpSubagentProjection, type AcpSubagentFlavor } from './acp-subagent-projection.js';
 import { taskPlanSteps } from './task-event-data.js';
 import type { Approval, ExecutionImage, ExecutionRequest, Executor } from './types.js';
 import type { ApprovalDecision } from './provider-approvals.js';
 
 // Native ACP behavior follows T3 8cd9641f provider-acp/AcpSessionRuntime and
 // adapter. MIT Copyright (c) 2026 T3 Tools Inc.; vendor/t3code/LICENSE.
-export type AcpNativeRuntime = { provider: string; name: string; model: string; effort: string; account: string; command: string; args: string[]; env: NodeJS.ProcessEnv; authMethod?: string; authenticateEagerly?: boolean; resumeMethod?: 'load' | 'resume'; nativeMode?: string; defaultMode?: string; restoreBuildMode?: boolean; defaultModel?: string; compactCommand?: string; modelOptions?: Record<string, string | boolean>; clientFiles?: boolean; autoApprove?: boolean };
+export type AcpNativeRuntime = { provider: string; name: string; model: string; effort: string; account: string; command: string; args: string[]; env: NodeJS.ProcessEnv; authMethod?: string; authenticateEagerly?: boolean; resumeMethod?: 'load' | 'resume'; nativeMode?: string; defaultMode?: string; restoreBuildMode?: boolean; defaultModel?: string; compactCommand?: string; modelOptions?: Record<string, string | boolean>; clientFiles?: boolean; autoApprove?: boolean; registrySubagents?: AcpSubagentFlavor };
 export type AcpNativeLease = { client: AcpProcess; initialized: AcpRecord; authorizationURL?: string; close(): Promise<void> };
 export type AcpNativePermission = { questions?: Approval['questions']; options?: Approval['options']; decisions: ApprovalDecision[]; respond(decision: ApprovalDecision, answers: Record<string, string[]>): AcpRecord };
 export interface AcpNativeConnection {
@@ -84,11 +86,12 @@ export class AcpNativeExecutor implements Executor {
     if (request.purpose) { runtime.clientFiles = false; runtime.autoApprove = false; }
     if (task.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条原生 ACP 会话使用的工具与账号配置');
     if (request.command === 'compact' && !runtime.compactCommand) throw new Error('此 ACP 工具未声明原生压缩命令');
-    signal.throwIfAborted(); const lease = await this.connection.client(runtime, task.cwd), { client, initialized } = lease, turn = randomUUID(), projection = new NativeTurnProjection(request, turn);
+    signal.throwIfAborted(); const lease = await this.connection.client(runtime, task.cwd), { client, initialized } = lease, turn = randomUUID(), executionSessionId = randomUUID(), projection = new NativeTurnProjection(request, turn);
+    let children: NativeSubagentProjection | undefined, childAdapter: AcpSubagentProjection | undefined;
     let sessionId = task.threadId ?? '', bound = false, active = false, terminal = false, started: Promise<void> | undefined, interruption: Promise<unknown> | undefined, chain = Promise.resolve(), block = 0, current: string | undefined, previousKind = '';
     let resolve!: (value: AcpRecord) => void, reject!: (error: Error) => void; const completion = new Promise<AcpRecord>((yes, no) => { resolve = yes; reject = no; }); void completion.catch(() => {});
     const finish = (value?: AcpRecord, error?: Error) => { if (!terminal) { terminal = true; error ? reject(error) : resolve(value ?? {}); } };
-    const bind = async (id: unknown) => { if (typeof id !== 'string' || !id || id.length > 2000 || sessionId && sessionId !== id) throw new Error('ACP 返回了不同或无效的原生会话标识'); sessionId = id; if (!bound) { await update({ kind: 'session', threadId: sessionId, nativeProviderAccount: runtime.account, model: runtime.model, reasoningEffort: runtime.effort, executionSessionId: randomUUID() }); bound = true; } };
+    const bind = async (id: unknown) => { if (typeof id !== 'string' || !id || id.length > 2000 || sessionId && sessionId !== id) throw new Error('ACP 返回了不同或无效的原生会话标识'); sessionId = id; if (!bound) { await update({ kind: 'session', threadId: sessionId, nativeProviderAccount: runtime.account, model: runtime.model, reasoningEffort: runtime.effort, executionSessionId }); bound = true; } };
     const start = () => started ??= (async () => { if (!bound) throw new Error('ACP 原生会话尚未持久保存'); signal.throwIfAborted(); await request.beforeStart?.(); })();
     const pending = new Map<string, Pending>();
     const apply = async (params: AcpRecord) => {
@@ -109,21 +112,30 @@ export class AcpNativeExecutor implements Executor {
       else if (initialized.protocolGeneration === 2 && kind === 'state_update' && change.state === 'idle') finish({ stopReason: change.stopReason ?? 'end_turn' });
     };
     const enqueue = (work: () => Promise<void>) => { chain = chain.then(work).catch(error => finish(undefined, error instanceof Error ? error : new Error('ACP 输出失败'))); };
-    client.onNotification = (method, params) => { if (method === 'session/update' && acpRecord(params)) enqueue(() => apply(params as AcpRecord)); };
+    client.onNotification = (method, params) => { if (!acpRecord(params)) return; enqueue(async () => {
+      if (!active || terminal) return;
+      if (runtime.registrySubagents) {
+        children ??= new NativeSubagentProjection(request, this.connection.provider as 'acp-registry', executionSessionId, sessionId, turn);
+        childAdapter ??= new AcpSubagentProjection(runtime.registrySubagents, sessionId, children);
+        const routed = await childAdapter.notification(method, params as AcpRecord); if (routed) await apply(routed);
+      } else if (method === 'session/update') await apply(params as AcpRecord);
+    }); };
     client.onExit = error => finish(undefined, error);
     client.onRequest = async context => {
       if (request.purpose) { const error = new Error('独立文字生成不接受工具或交互式请求'); finish(undefined, error); throw RequestError.invalidRequest(error.message); }
       if (terminal || signal.aborted) { if (context.method === 'session/request_permission') return { outcome: { outcome: 'cancelled' } }; throw RequestError.invalidRequest('Native turn has ended'); }
       const params = acpRecord(context.params); if (!params) throw RequestError.invalidParams();
+      await chain;
       if (params.sessionId && (!sessionId || params.sessionId === sessionId)) await bind(params.sessionId);
-      if (params.sessionId !== sessionId) throw RequestError.invalidParams('Request belongs to another session');
+      const childIdentity = typeof params.sessionId === 'string' ? children?.identityForNative(params.sessionId) : undefined;
+      if (params.sessionId !== sessionId && !(context.method === 'session/request_permission' && childIdentity)) throw RequestError.invalidParams('Request belongs to another session');
       if (['fs/read_text_file', 'fs/write_text_file'].includes(context.method) && runtime.clientFiles && this.connection.clientFile) { if (context.method === 'fs/write_text_file') await start(); return this.connection.clientFile(runtime, task.cwd, context.method, params); }
       if (context.method !== 'session/request_permission') throw RequestError.methodNotFound(context.method);
       const value = acpPermissionRequest(params, context.requestId), permission = this.connection.permission?.(value) ?? acpNativePermission(value), id = `${runtime.provider}:${turn}:${randomUUID()}`, receipt = client.watchReply(context.requestId);
       const automatic = ['accept', 'acceptForSession'].find(value => permission.decisions.includes(value as ApprovalDecision)) as ApprovalDecision | undefined;
       if (runtime.autoApprove && !permission.questions?.length && automatic) { await start(); receipt.dispose(); return permission.respond(automatic, {}); }
       let resolve!: (value: AcpRecord) => void; const result = new Promise<AcpRecord>(yes => { resolve = yes; }); pending.set(id, { resolve, ...receipt, permission, answering: false });
-      await projection.flush(); await update({ kind: 'approval', approval: { id, method: 'session/request_permission', title: value.toolCall?.title ?? '需要你的授权', detail: textContent(value.toolCall?.content) || JSON.stringify(value.toolCall?.rawInput ?? {}), questions: permission.questions ?? [], decisions: permission.decisions, ...(permission.options ? { options: permission.options } : {}), state: 'pending' } });
+      await projection.flush(); await update({ kind: 'approval', approval: { id, method: 'session/request_permission', title: value.toolCall?.title ?? '需要你的授权', detail: textContent(value.toolCall?.content) || JSON.stringify(value.toolCall?.rawInput ?? {}), questions: permission.questions ?? [], decisions: permission.decisions, ...(permission.options ? { options: permission.options } : {}), ...(childIdentity ? { subagentId: childIdentity, ownerRunId: task.currentRunId } : {}), state: 'pending' } });
       return result;
     };
     const cancel = () => { interruption ??= (async () => { try { if (sessionId) await client.notify('session/cancel', { sessionId }); } catch {} finally { await new Promise(resolve => setTimeout(resolve, 250)); await client.close(); finish(undefined, cancellation()); } })(); };
@@ -138,8 +150,8 @@ export class AcpNativeExecutor implements Executor {
       const prompt = client.call('session/prompt', { sessionId, prompt: [{ type: 'text', text: request.command === 'compact' ? '/' + runtime.compactCommand : request.prompt }, ...images], _meta: { promptId: turn } }, null);
       void prompt.then(value => { if (typeof value.stopReason === 'string') enqueue(async () => finish(value)); }, error => enqueue(async () => finish(undefined, error)));
       const result = await completion; await chain; if (signal.aborted || result.stopReason === 'cancelled') throw cancellation(); if (!result.stopReason || ['error', 'rate_limit'].includes(result.stopReason)) throw new Error(typeof result._meta?.message === 'string' ? result._meta.message : 'ACP 原生执行失败');
-      return await projection.finish('completed');
-    } catch (error) { await projection.finish(signal.aborted ? 'interrupted' : 'failed'); throw signal.aborted ? cancellation() : error; }
+      await children?.finish('completed', 'unknown'); return await projection.finish('completed');
+    } catch (error) { await children?.finish(signal.aborted ? 'interrupted' : 'failed'); await projection.finish(signal.aborted ? 'interrupted' : 'failed'); throw signal.aborted ? cancellation() : error; }
     finally { active = false; signal.removeEventListener('abort', cancel); for (const value of pending.values()) value.resolve({ outcome: { outcome: 'cancelled' } }); await interruption; projection.dispose(); await lease.close(); for (const value of pending.values()) value.dispose(); await chain; this.runs.delete(task.id); }
   }
   async answer(taskId: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) {

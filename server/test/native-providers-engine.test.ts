@@ -24,6 +24,22 @@ async function setup(t: { after(fn: () => Promise<unknown>): void }, provider: N
   const trace = async () => (await readFile(wire, 'utf8')).split('\n').filter(Boolean).map(line => JSON.parse(line));
   return { directory, cwd, wire, trace, connection: () => provider === 'cursor' ? engine!.cursorConnection : provider === 'muse' ? engine!.museConnection : engine!.opencodeConnection, current: () => engine!, close: async () => { await engine!.close(); engine = undefined; }, reopen: async () => engine = await open() };
 }
+for (const provider of ['cursor', 'muse'] as const) test(`${provider} native subagents persist navigable child output, inherit the exact instance and remain isolated after restart`, async t => {
+  const f = await setup(t, provider); let engine = f.current();
+  const id = await engine.createTask({ agent: provider, projectId: 'project', mode: 'code', prompt: 'children', requestId: 'native-children' });
+  let state = await until(() => engine.snapshot(), state => state.tasks.some(task => task.id === id && ['completed', 'failed'].includes(task.status)));
+  const root = state.tasks.find(task => task.id === id)!; assert.equal(root.status, 'completed', root.error ?? ''); assert.equal(root.subagents?.length, 1);
+  const metadata = root.subagents![0]!, child = state.tasks.find(task => task.id === metadata.childTaskId)!;
+  assert.equal(metadata.status, 'completed'); assert.equal(child.providerInstanceId, root.providerInstanceId);
+  assert.equal(child.subagentOrigin?.rootTaskId, id); assert.equal(child.subagentOrigin?.sessionId, root.executionSessionId);
+  assert.ok(child.result.includes(provider === 'cursor' ? 'Final child answer' : 'Muse child result'));
+  assert.ok(child.messages!.some(message => message.role === 'assistant' && message.text === child.result));
+  assert.equal(child.threadId, null, 'A projected child is not an executable native session takeover');
+  await assert.rejects(engine.createTask({ agent: provider, projectId: 'project', mode: 'code', prompt: 'do not take over', continueId: child.id, requestId: 'illegal-child' }), /子|父/);
+  await f.close(); engine = await f.reopen(); state = await engine.snapshot();
+  assert.equal(state.tasks.find(task => task.id === child.id)!.result, child.result);
+  assert.equal(state.tasks.find(task => task.id === id)!.subagents![0]!.id, metadata.id);
+});
 for (const provider of ['cursor', 'muse', 'opencode'] as const) {
   test(`${provider} Durable tasks persist native identity, deduplicate create/compact and continue the same session after a service restart`, async t => {
     const fixture = await setup(t, provider); let engine = fixture.current();

@@ -20,6 +20,18 @@ async function setup(t: { after: (fn: () => Promise<unknown>) => void }, environ
   return { directory, wire, home, connection, executor, trace };
 }
 async function until(read: () => Promise<boolean>) { const end = Date.now() + 5000; while (!await read()) { if (Date.now() > end) throw new Error('Grok fixture timed out'); await new Promise(resolve => setTimeout(resolve, 10)); } }
+test('Grok native background spawn ACK, hydration and completion share one child; child approval replies stay on that native request', async t => {
+  const f = await setup(t), updates: ExecutionUpdate[] = []; let answer: Promise<void> | undefined;
+  await f.executor.run({ task: work(f.directory), prompt: 'children-approval', signal: AbortSignal.timeout(8000), update: async value => {
+    updates.push(value); if (value.kind === 'approval') { assert.ok(value.approval.subagentId); answer = f.executor.answer('grok-task', value.approval.id, 'accept', {}); }
+  } });
+  await answer;
+  const children = updates.filter(value => value.kind === 'subagent'), child = children.at(-1)!;
+  assert.equal(new Set(children.map(value => value.subagent.id)).size, 1); assert.equal(child.subagent.status, 'completed');
+  assert.equal(child.subagent.title, 'Native Grok child'); assert.equal(child.subagent.result, 'Grok child final');
+  assert.ok(children.some(value => value.subagent.progress?.includes('Grok child stream')));
+  assert.ok((await f.trace()).some(value => value.childPermissionOutcome?.outcome?.optionId === 'allow'));
+});
 test('Grok independent generation starts its own native session in explicit default permissions and suppresses updater side effects', async t => {
   const fixture = await setup(t);
   const result = await fixture.executor.generateText({ task: work(fixture.directory, { threadId: 'foreground', grokHome: '/another-account', nativeProviderAccount: 'another-account' }), purpose: 'task_title', prompt: 'Title', signal: AbortSignal.timeout(5000), update: async () => {} });

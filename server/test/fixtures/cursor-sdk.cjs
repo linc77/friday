@@ -40,6 +40,13 @@ function open(options, agentId, operation) {
         if (finished) return;
         if (prompt === 'error') { finished = true; resolve({ id: runId, status: 'error', error: { message: 'Native Cursor failure' } }); return; }
         await emit({ type: 'thinking-delta', text: 'Native reasoning' }); await emit({ type: 'thinking-completed' });
+        if (prompt === 'children') {
+          const args = { description: 'Native child', prompt: 'Inspect the child fixture', model: 'child-model' };
+          await emit({ type: 'tool-call-started', callId: 'native-child', toolCall: { type: 'task', args } });
+          await emit({ type: 'partial-tool-call', callId: 'native-child', toolCall: { type: 'task', args: { description: 'Partial arguments must not rename a child' } } });
+          await emit({ type: 'tool-call-completed', callId: 'native-child', toolCall: { type: 'task', args, result: { status: 'success', value: { conversationSteps: [{ type: 'assistantMessage', message: { text: 'First child answer' } }, { assistantMessage: { text: 'Final child answer' } }], resultSuffix: 'Child summary' } } } });
+          await emit({ type: 'tool-call-started', callId: 'native-child', toolCall: { type: 'task', args: { description: 'Late start must not resurrect a completed child' } } });
+        }
         await emit({ type: 'tool-call-started', callId: 'shell', toolCall: { type: 'shell', args: { command: 'printf fixture' } } });
         await emit({ type: 'shell-output-delta', event: { data: 'native ' } });
         await emit({ type: 'tool-call-completed', callId: 'shell', toolCall: { type: 'shell', args: { command: 'printf fixture' }, result: { status: 'success', value: { stdout: 'native output', stderr: '', exitCode: 0 } } } });

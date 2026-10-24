@@ -7,6 +7,7 @@ import type { ApprovalDecision } from './provider-approvals.js';
 import { PiConnection } from './pi-provider.js';
 import { type PiRecord, PiRpc, piRecord } from './pi-rpc.js';
 import { forkPi, rewindPi, piActiveBranch, piReadOnlyArgs } from './pi-history.js';
+import { NativeSubagentProjection } from './native-subagent-projection.js';
 
 type PendingPrompt = { nativeId: string; method: string; key: string; approval: Approval; timer?: NodeJS.Timeout };
 type PiRun = { rpc: PiRpc; update: ExecutionRequest['update']; approvals: Map<string, PendingPrompt>; grants: Set<string>; active: boolean; generation: number; cancel: () => void };
@@ -77,9 +78,9 @@ export class PiExecutor implements Executor {
     const settle = (error?: Error) => { if (!done) { done = true; error ? fail(error) : complete(); } };
     const run: PiRun = { rpc, update, approvals: new Map(), grants: new Set(), active: false, generation: 0, cancel: () => settle(new Error('任务已中止')) };
     this.runs.set(task.id, run);
-    const turnId = `pi:${task.currentRunId ?? randomUUID()}`, items = new Map<string, TaskEvent>(), dirty = new Set<string>();
+    const turnId = `pi:${task.currentRunId ?? randomUUID()}`, executionSessionId = randomUUID(), items = new Map<string, TaskEvent>(), dirty = new Set<string>();
     let chain = Promise.resolve(), timer: NodeJS.Timeout | undefined, messageOrdinal = 0, result = '', latestText = '', failure: Error | undefined, sawActivity = false;
-    let outputDirty = false, sessionKey: string | undefined, baselineLeaf: string | null | undefined;
+    let outputDirty = false, sessionKey: string | undefined, baselineLeaf: string | null | undefined, children: NativeSubagentProjection | undefined;
     const flush = async () => {
       clearTimeout(timer); timer = undefined;
       const pending = [...dirty]; dirty.clear();
@@ -119,7 +120,7 @@ export class PiExecutor implements Executor {
         if (value.status === 'running') item(key, value.kind, value.text, { status: 'completed', completedAt: now() });
         if (value.kind === 'message' && key.startsWith(`${messageOrdinal}:`)) item(key, value.kind, value.text, { phase: 'final_answer' });
       }
-      await flush(); settle();
+      await children?.finish('completed', 'unknown'); await flush(); settle();
     };
     const prompt = async (event: PiRecord) => {
       if (!['confirm', 'select', 'input', 'editor'].includes(event.method) || typeof event.id !== 'string') return;
@@ -171,7 +172,18 @@ export class PiExecutor implements Executor {
         const kind = name === 'bash' ? 'command' : ['write', 'edit'].includes(name) ? 'files' : ['read', 'grep', 'find', 'ls'].includes(name) ? 'search' : 'tool';
         const text = args ? kind === 'command' ? String(args.command ?? name) : `${name}${args.path ? ': ' + args.path : ''}` : previous?.text ?? name;
         const detail = toolText(event.result ?? event.partialResult), final = event.type === 'tool_execution_end';
-        item(key, kind, text, { text, ...(detail ? { detail } : {}), ...(final ? { status: event.isError ? 'failed' : 'completed', completedAt: now() } : {}) }); return;
+        item(key, kind, text, { text, ...(detail ? { detail } : {}), ...(final ? { status: event.isError ? 'failed' : 'completed', completedAt: now() } : {}) });
+        const results = piRecord(event.result ?? event.partialResult)?.details?.results;
+        if (name === 'subagent' && Array.isArray(results)) for (const [index, child] of results.entries()) {
+          if (typeof child?.agent !== 'string' || typeof child.task !== 'string') continue;
+          const finished = final || child.finished === true, failed = (child.exitCode ?? 0) !== 0 || child.stopReason === 'error';
+          const messages = (Array.isArray(child.messages) ? child.messages : []).filter((message: PiRecord) => message?.role === 'assistant').map((message: PiRecord) => toolText(message)).filter(Boolean);
+          const output = failed ? child.errorMessage ?? child.stderr ?? messages.at(-1) ?? '' : messages.at(-1) ?? '';
+          await children?.observe({ nativeId: `${event.toolCallId}:subagent:${typeof child.step === 'number' && Number.isFinite(child.step) ? child.step : index}`, title: child.agent, prompt: child.task, model: child.model,
+            status: finished ? child.stopReason === 'aborted' ? 'interrupted' : failed ? 'failed' : 'completed' : 'running',
+            ...(typeof output === 'string' && output ? finished ? { result: output.slice(0, 10_000) } : { progress: output.slice(0, 200) } : {}), messages });
+        }
+        return;
       }
       if (event.type === 'auto_retry_end' && event.success === true) { failure = undefined; return; }
       if (event.type === 'auto_retry_end' && event.success === false) { failure = new Error(event.finalError ?? 'Pi 重试失败'); return; }
@@ -211,7 +223,8 @@ export class PiExecutor implements Executor {
         await rpc.request({ type: 'set_model', provider: runtime.model.slice(0, separator), modelId: runtime.model.slice(separator + 1) });
       }
       if (runtime.effort) await rpc.request({ type: 'set_thinking_level', level: runtime.effort });
-      await update({ kind: 'session', threadId: state.sessionFile, piHome: runtime.home, model: runtime.model, reasoningEffort: runtime.effort, executionSessionId: randomUUID() });
+      await update({ kind: 'session', threadId: state.sessionFile, piHome: runtime.home, model: runtime.model, reasoningEffort: runtime.effort, executionSessionId });
+      children = new NativeSubagentProjection(request, 'pi', executionSessionId, state.sessionFile, turnId);
       if (task.threadId) await update({ kind: 'resumeApplied' });
       const images = await piImages(request.images);
       await request.beforeStart?.();
@@ -228,6 +241,7 @@ export class PiExecutor implements Executor {
       return result;
     } catch (error) {
       if (sessionKey) this.sessionGrants.delete(sessionKey);
+      await children?.finish(signal.aborted ? 'interrupted' : 'failed');
       for (const [key, value] of items) if (value.status === 'running') item(key, value.kind, value.text, { status: signal.aborted ? 'interrupted' : 'failed', completedAt: now() });
       await flush(); throw error;
     } finally {

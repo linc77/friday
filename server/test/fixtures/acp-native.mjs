@@ -39,6 +39,19 @@ async function handle(request) {
     if (text === 'hold') { const stubborn = process.env.ACP_TEST_STUBBORN_CHILD === '1', child = spawn(process.execPath, ['-e', stubborn ? 'process.on("SIGTERM",()=>{});process.stdout.write("ready");setInterval(()=>{},1000)' : 'setInterval(()=>{},1000)'], { stdio: stubborn ? ['ignore', 'pipe', 'ignore'] : 'ignore' }); if (stubborn) child.stdout.once('data', () => trace({ child: child.pid })); else trace({ child: child.pid }); return; }
     if (text === 'permission') { pendingPermission = request; send({ id: 'permission-native', method: 'session/request_permission', params: { sessionId: session, toolCall: { toolCallId: 'write', title: 'Write', kind: 'edit' }, options } }); return; }
     if (text === 'error') { if (generation === 1) reply(request, { stopReason: 'error', _meta: { message: 'Native ACP failure' } }); else update({ sessionUpdate: 'state_update', state: 'idle', stopReason: 'error' }); return; }
+    if (text === 'children-devin') {
+      update({ sessionUpdate: 'tool_call', toolCallId: 'devin-tool', title: 'Tool', status: 'in_progress', _meta: { 'cognition.ai/subagent_started': { agentId: 'devin-child', title: 'Native Devin child', task: 'Inspect Devin child', model: 'devin-model' } } });
+      update({ sessionUpdate: 'agent_message_chunk', _meta: { 'cognition.ai/subagent_context': { parentAgentId: 'devin-child' } }, content: { type: 'text', text: 'Devin child stream' } });
+      update({ sessionUpdate: 'tool_call_update', toolCallId: 'devin-tool', status: 'completed', _meta: { 'cognition.ai/subagent_completed': { agentId: 'devin-child', summary: 'Devin child result', success: true } } });
+    }
+    if (text === 'children-copilot') {
+      update({ sessionUpdate: 'tool_call', toolCallId: 'copilot-task', title: 'Task', status: 'in_progress', rawInput: { agent_type: 'explore', prompt: 'Inspect Copilot child', description: 'Native Copilot child', mode: 'background' } });
+      send({ method: 'github.com/copilot/sessionEvent', params: { sessionId: session, type: 'subagent.started', agentId: 'copilot-child', data: { toolCallId: 'copilot-task' } } });
+      send({ method: 'github.com/copilot/sessionEvent', params: { sessionId: session, type: 'assistant.message_delta', data: { parentToolCallId: 'copilot-task', deltaContent: 'Copilot child result' } } });
+      update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Copilot child result' } });
+      update({ sessionUpdate: 'tool_call_update', toolCallId: 'copilot-task', status: 'completed', rawOutput: { content: 'Launch ACK must not finish a background child' } });
+      send({ method: 'github.com/copilot/sessionEvent', params: { sessionId: session, type: 'subagent.completed', agentId: 'copilot-child', data: { toolCallId: 'copilot-task' } } });
+    }
     finish();
   }
 }

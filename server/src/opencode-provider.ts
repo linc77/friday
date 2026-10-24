@@ -58,7 +58,7 @@ export class OpenCodeConnection extends NativeProviderConnection {
       const server = await current.promise;
       if (!server.available) { current.users--; await current.close(); return this.server(settings, cwd, owner); }
       let returned = false;
-      return { server, close: async () => { if (returned) return; returned = true; current.users--; if (current.users === 0) current.timer = setTimeout(() => { if (current.users === 0) void current.close(); }, 30_000); } };
+      return { server, close: async () => { if (returned) return; returned = true; current.users--; if (current.users === 0) { if (this.closed || !server.available) await current.close(); else current.timer = setTimeout(() => { if (current.users === 0) void current.close(); }, 30_000); } } };
     } catch (error) { current.users--; await current.close(); throw error; }
   }
   protected async probe(settings: NativeProviderSettings): Promise<ModelStatus> {

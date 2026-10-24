@@ -31,6 +31,14 @@ test('Pi independent generation disables tools/extensions, persists the actual r
   assert.ok(!trace.some(value => value.type === 'switch_session'));
   assert.ok(updates.some(value => value.kind === 'turn' && value.turnId === prompt.id));
 });
+test('Pi subagents use native details.results identity and lifecycle rather than tool output text', async t => {
+  const f = await setup(t), updates: ExecutionUpdate[] = [];
+  await f.executor.run({ task: work(f.directory), prompt: 'children', signal: AbortSignal.timeout(5000), update: async value => { updates.push(value); } });
+  const children = updates.filter(value => value.kind === 'subagent'), child = children.at(-1)!;
+  assert.equal(child.subagent.provider, 'pi'); assert.equal(child.subagent.nativeId, 'subagent-native:subagent:1');
+  assert.equal(child.subagent.status, 'completed'); assert.equal(child.subagent.result, 'Pi child result'); assert.equal(child.subagent.model, 'fixture/child');
+  assert.equal(new Set(children.map(value => value.subagent.id)).size, 1); assert.ok(children.some(value => value.subagent.status === 'running'));
+});
 
 test('Pi JSONL framing preserves Unicode separators and discards only an oversized LF frame', () => {
   const frame = piFramer(80);

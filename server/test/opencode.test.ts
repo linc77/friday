@@ -30,6 +30,37 @@ for (const generation of [1, 2] as const) test(`OpenCode ${generation} independe
   assert.deepEqual(generation === 2 ? created.body.permissions : created.body.permission, generation === 2 ? [{ action: '*', resource: '*', effect: 'deny' }] : [{ permission: '*', pattern: '*', action: 'deny' }]);
   assert.ok(!trace.some(value => value.path === '/session/foreground'));
 });
+for (const generation of [1, 2] as const) test(`OpenCode ${generation} uses its native task tool schema, preserves child identity and waits for the explicit background report`, async t => {
+  const f = await setup(t, generation), updates: ExecutionUpdate[] = [];
+  await f.executor.run({ task: task(f.directory), prompt: 'children', signal: AbortSignal.timeout(5000), update: async value => { updates.push(value); } });
+  const children = updates.filter(value => value.kind === 'subagent'), child = children.at(-1)!;
+  assert.equal(new Set(children.map(value => value.subagent.id)).size, 1); assert.equal(child.subagent.status, 'completed');
+  assert.equal(child.subagent.title, 'Native OpenCode child'); assert.equal(child.subagent.result, 'OpenCode child result');
+  if (generation === 2) { assert.ok(children.some(value => value.subagent.progress === 'Background child launch ACK' && value.subagent.status === 'running')); assert.ok(children.some(value => value.subagent.progress === 'OpenCode child stream')); }
+});
+test('OpenCode child session grants reply to the actual child and never become a parent session permission', async t => {
+  const f = await setup(t, 2), controller = new AbortController(); let sessionId = '', approval: any;
+  const running = f.executor.run({ task: task(f.directory), prompt: 'hold', signal: controller.signal, update: async value => { if (value.kind === 'session') sessionId = value.threadId; if (value.kind === 'approval') approval = value.approval; } }); void running.catch(() => {});
+  t.after(() => controller.abort());
+  await until(async () => (await f.trace()).some((value: any) => value.prompt === 'hold'));
+  const sent = (await f.trace()).find((value: any) => value.prompt === 'hold');
+  f.fixture.emit('session.inbox.delivered', { sessionID: sessionId, inboxID: sent.nativeId });
+  const runtime = await f.connection.runtime(), lease = await f.connection.server(runtime.settings, f.directory);
+  t.after(() => lease.close());
+  const child = await lease.server.v2!.session.create({ location: { directory: f.directory }, model: { providerID: 'native', id: 'model' } });
+  f.fixture.emit('session.tool.input.started', { sessionID: sessionId, id: 'owned-child-tool', name: 'subagent' });
+  f.fixture.emit('session.tool.called', { sessionID: sessionId, id: 'owned-child-tool', input: { prompt: 'Child prompt' } });
+  f.fixture.emit('session.tool.progress', { sessionID: sessionId, id: 'owned-child-tool', metadata: { sessionID: child.id } });
+  f.fixture.emit('permission.asked', { sessionID: child.id, id: 'child-permission', action: 'shell', resources: ['child-only'], save: ['child-only'] });
+  await until(async () => !!approval); assert.ok(approval.subagentId); await f.executor.answer('opencode-task', approval.id, 'acceptForSession', {});
+  approval = undefined; f.fixture.emit('permission.asked', { sessionID: sessionId, id: 'parent-permission', action: 'shell', resources: ['parent-only'], save: ['parent-only'] });
+  await until(async () => !!approval); assert.equal(approval.subagentId, undefined); await f.executor.answer('opencode-task', approval.id, 'acceptForSession', {});
+  const trace: any[] = await f.trace(), childUpdate = trace.find(value => value.method === 'PATCH' && value.path.endsWith('/' + child.id)), parentUpdate = trace.findLast(value => value.method === 'PATCH' && value.path.endsWith('/' + sessionId));
+  assert.ok(childUpdate.body.permissions.some((value: any) => value.resource === 'child-only'));
+  assert.ok(!parentUpdate.body.permissions.some((value: any) => value.resource === 'child-only'));
+  assert.ok(parentUpdate.body.permissions.some((value: any) => value.resource === 'parent-only'));
+  controller.abort(); await assert.rejects(running, /已中止/);
+});
 for (const generation of [1, 2] as const) test(`OpenCode ${generation} verifies paginated native history, maps copied IDs and never repeats an uncertain history operation`, async t => {
   const f = await setup(t, generation), turns: string[] = []; let threadId = '', account = '';
   for (const id of ['one', 'two']) await f.executor.run({ task: task(f.directory, { currentRunId: id, threadId: threadId || null }), prompt: id, signal: AbortSignal.timeout(5000), update: async update => {

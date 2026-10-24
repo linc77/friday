@@ -1,4 +1,5 @@
 import { isolatedTextGeneration } from './native-text-generation.js';
+import { NativeSubagentProjection } from './native-subagent-projection.js';
 import { randomUUID } from 'node:crypto';
 import { readFile, realpath } from 'node:fs/promises';
 import { MuseConnection, type MuseProcess } from './muse-provider.js';
@@ -51,16 +52,24 @@ export class MuseExecutor implements Executor {
     if (task.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条 Muse 会话使用的账号配置');
     signal.throwIfAborted();
     const cwd = await realpath(task.cwd), client = await this.connection.client(runtime.settings, cwd, !!request.purpose);
-    const sessionId = task.threadId ?? client.connection.mintCommandId(), nativeTurnId = client.connection.mintCommandId(), projection = new NativeTurnProjection(request, nativeTurnId);
+    const sessionId = task.threadId ?? client.connection.mintCommandId(), nativeTurnId = client.connection.mintCommandId(), executionSessionId = randomUUID(), projection = new NativeTurnProjection(request, nativeTurnId);
+    const children = new NativeSubagentProjection(request, 'muse', executionSessionId, sessionId, nativeTurnId);
     let resolve!: (value: AcpRecord) => void, reject!: (error: Error) => void, terminal = false, active = false, interruption: Promise<unknown> | undefined;
     const completion = new Promise<AcpRecord>((yes, no) => { resolve = yes; reject = no; }); void completion.catch(() => {});
     const finish = (value?: AcpRecord, error?: Error) => { if (!terminal) { terminal = true; error ? reject(error) : resolve(value ?? {}); } };
     let chain = Promise.resolve(); const enqueue = (work: () => Promise<void>) => { chain = chain.then(work).catch(error => finish(undefined, error instanceof Error ? error : new Error('Muse 更新失败'))); };
     const items = new Map<string, AcpRecord>(), pending = new Map<string, Pending>();
     const owned = (value: AcpRecord) => value.sessionId === sessionId && !value.subagentOrigin && (!value.turnId || value.turnId === nativeTurnId);
-    const publish = (item: AcpRecord) => {
+    const publish = async (item: AcpRecord) => {
       if (['userMessage', 'reminderChild'].includes(item.kind)) return;
       const text = item.text ?? item.summary?.join('\n') ?? item.fallbackText ?? '', state = status(item.status);
+      if (item.kind === 'subagent') {
+        const result = item.result?.text ?? item.result?.summary ?? item.failureReason;
+        await children.observe({ nativeId: item.itemId, ...(typeof item.subagentId === 'string' ? { nativeChildId: item.subagentId } : {}), title: item.role, prompt: item.objective ?? item.fallbackText,
+          status: item.status === 'pending' ? 'waiting' : state, ...(typeof result === 'string' ? { result, messages: [result] } : {}) });
+        children.bindNativeChild(item.itemId, item.childSessionId);
+        return;
+      }
       if (item.kind === 'agentMessage' || item.kind === 'reasoning') {
         projection.put(item.itemId, item.kind === 'agentMessage' ? 'message' : 'reasoning', text, { status: state }); return;
       }
@@ -73,7 +82,8 @@ export class MuseExecutor implements Executor {
     };
     const publishRequest = async (kind: 'approval' | 'question', value: AcpRecord) => {
       if (request.purpose) throw new Error('独立文字生成不接受工具授权或用户输入');
-      if (!active || terminal || !owned(value)) return;
+      const origin = acpRecord(value.subagentOrigin), childIdentity = typeof origin?.subagentId === 'string' ? children.identityForNative(origin.subagentId) : undefined;
+      if (!active || terminal || value.sessionId !== sessionId || (origin ? kind !== 'approval' || !childIdentity : !owned(value))) return;
       const nativeId = kind === 'approval' ? value.approvalId : value.userInputId;
       if (typeof nativeId !== 'string') throw new Error('Muse 返回了无效的问题标识');
       const id = `muse:${kind}:${nativeId}:${kind === 'approval' ? value.currentRequirementId?.sourceIndex ?? 0 : 0}`;
@@ -82,18 +92,20 @@ export class MuseExecutor implements Executor {
       if (kind === 'question' && (!Array.isArray(value.questions) || !value.questions.length)) throw new Error('Muse 返回了无效的问题');
       const approval: Approval = { id, method: kind === 'approval' ? 'muse/approval/request' : 'muse/userInput/request', title: kind === 'approval' ? '需要你的授权' : '需要你的补充', detail: kind === 'approval' ? [value.toolName, value.rawArgs, value.subject?.command, value.subject?.path].filter(Boolean).join('\n') : '', state: 'pending', questions: [],
         ...(kind === 'approval' ? { decisions } : { questions: value.questions.map((question: AcpRecord) => ({ id: question.id, header: question.header ?? '', question: question.question, multiSelect: question.selection?.mode === 'multiple', isOther: true, isSecret: false, options: question.options.map((option: AcpRecord) => ({ label: option.label, description: option.description ?? '' })) })) }) };
+      if (childIdentity) { approval.subagentId = childIdentity; approval.ownerRunId = task.currentRunId; }
       pending.set(id, { approval, value, kind, responding: false }); await projection.flush(); await update({ kind: 'approval', approval });
     };
     client.onNotification = (method, value) => enqueue(async () => {
       if (!active || terminal || value.sessionId !== sessionId) return;
       if (method === 'view/gap') throw new Error('Muse 原生事件流出现缺口，已停止；不会猜测缺失的执行结果');
+      if (value.subagentOrigin && ['approval/requested', 'approval/updated'].includes(method)) { await publishRequest('approval', value); return; }
       if (!owned(value)) return;
       if (['item/started', 'item/updated', 'item/completed'].includes(method)) {
         const item = acpRecord(value.item);
         if (!item || typeof item.itemId !== 'string' || !Number.isSafeInteger(item.revision) || item.revision < 1) throw new Error('Muse 原生输出格式无效');
         if (item.turnId && item.turnId !== nativeTurnId) return;
         if ((items.get(item.itemId)?.revision ?? 0) >= item.revision) return;
-        items.set(item.itemId, item); publish(item);
+        items.set(item.itemId, item); await publish(item);
         if (request.command === 'compact' && item.kind === 'compaction' && item.status !== 'inProgress') finish({ terminal: item.status === 'completed' && (!item.outcome || item.outcome === 'compacted') ? 'completed' : 'failed', reason: item.failureReason ?? item.reason });
       } else if (method === 'item/delta') {
         const previous = items.get(value.itemId); if (!previous || previous.status !== 'inProgress' || typeof value.delta !== 'string') return;
@@ -102,7 +114,7 @@ export class MuseExecutor implements Executor {
         else if (['visibleOutput', 'output'].includes(field)) item.visibleOutput = (item.visibleOutput ?? '') + value.delta;
         else if (/^summary\.\d+$/.test(field)) { const index = Number(field.slice(8)); if (index >= 100) return; item.summary = [...(item.summary ?? [])]; item.summary[index] = (item.summary[index] ?? '') + value.delta; }
         else return;
-        items.set(item.itemId, item); publish(item);
+        items.set(item.itemId, item); await publish(item);
       } else if (method === 'turn/completed' && value.turnId === nativeTurnId && request.command !== 'compact') finish(value);
       else if (['approval/requested', 'approval/updated'].includes(method)) await publishRequest('approval', value);
       else if (method === 'userInput/requested') await publishRequest('question', value);
@@ -119,7 +131,7 @@ export class MuseExecutor implements Executor {
     this.runs.set(task.id, { client, sessionId, turnId: nativeTurnId, pending, cancel, projection, model: runtime.model, effort: runtime.effort, cwd, steers: new Map() });
     signal.addEventListener('abort', cancel, { once: true });
     try {
-      await update({ kind: 'session', threadId: sessionId, model: runtime.model, reasoningEffort: runtime.effort, nativeProviderAccount: runtime.account, executionSessionId: randomUUID() });
+      await update({ kind: 'session', threadId: sessionId, model: runtime.model, reasoningEffort: runtime.effort, nativeProviderAccount: runtime.account, executionSessionId });
       if (signal.aborted) throw cancelled();
       if (request.taskMcp && !client.host!.initializeResult.grantedCapabilities.includes('sessionMcp')) throw new Error('Muse 尚未支持会话 MCP，请升级主机上的 Muse');
       const config = request.taskMcp ? { mcpServers: { friday: { transport: 'streamableHttp', mode: 'optional', url: request.taskMcp.url, headers: request.taskMcp.headers } } } : undefined;
@@ -142,8 +154,9 @@ export class MuseExecutor implements Executor {
       const result = await completion; await chain;
       if (signal.aborted || result.terminal === 'cancelled') throw cancelled();
       if (result.terminal !== 'completed') throw new Error(result.error?.message ?? result.reason ?? 'Muse 原生执行失败');
+      await children.finish('completed', 'unknown');
       return await projection.finish('completed');
-    } catch (error) { await projection.finish(signal.aborted ? 'interrupted' : 'failed'); throw signal.aborted ? cancelled() : error; }
+    } catch (error) { await children.finish(signal.aborted ? 'interrupted' : 'failed'); await projection.finish(signal.aborted ? 'interrupted' : 'failed'); throw signal.aborted ? cancelled() : error; }
     finally { signal.removeEventListener('abort', cancel); active = false; projection.dispose(); await interruption; await this.connection.release(client); await chain; this.runs.delete(task.id); }
   }
   async answer(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) {

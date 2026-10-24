@@ -27,6 +27,17 @@ test('Cursor sends context and boolean model parameters using their native SDK I
   const expected = [{ id: 'context', value: 'expanded' }, { id: 'fast', value: 'false' }, { id: 'effort', value: 'high' }];
   assert.deepEqual(created.options.model.params, expected); assert.deepEqual(sent.sendOptions.model.params, expected);
 });
+test('Cursor native Task lifecycle creates a scoped child, projects official conversation steps and rejects late partial resurrection', async t => {
+  const f = await setup(t), updates: ExecutionUpdate[] = [];
+  await f.executor.run({ task: task(f.directory), prompt: 'children', signal: AbortSignal.timeout(5000), update: async value => { updates.push(value); } });
+  const children = updates.filter(value => value.kind === 'subagent');
+  assert.ok(children.length >= 3); const last = children.at(-1)!;
+  assert.equal(last.subagent.provider, 'cursor'); assert.equal(last.subagent.status, 'completed'); assert.equal(last.subagent.title, 'Native child');
+  assert.equal(last.subagent.model, 'child-model'); assert.match(last.subagent.result!, /First child answer\nFinal child answer\nChild summary/);
+  assert.ok(children.every(value => value.subagent.id === last.subagent.id && value.subagent.runId === 'cursor-run'));
+  assert.ok(children.some(value => value.value?.kind === 'item' && value.value.item.text === 'Final child answer'));
+  const session = updates.find(value => value.kind === 'session')!; assert.equal(last.sessionId, session.executionSessionId); assert.equal(last.threadId, session.threadId);
+});
 test('Cursor independent generation uses an empty disposable workspace, separate native state and no inherited settings or MCP', async t => {
   const fixture = await setup(t);
   const result = await fixture.executor.generateText({ task: task(fixture.directory, { threadId: 'foreground', nativeProviderAccount: 'foreground-account' }), purpose: 'task_title', prompt: 'Title', taskMcp: { url: 'http://forbidden.invalid', headers: {} }, signal: AbortSignal.timeout(5000), update: async () => {} });

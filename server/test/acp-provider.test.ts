@@ -15,6 +15,20 @@ async function setup(t: { after(fn: () => Promise<unknown>): void }, provider: A
   const defaults = acpProviderDefaults(provider); await connection.save({ ...defaults, enabled: true, binaryPath: binary, nativeConfig: { ...defaults.nativeConfig, source: 'local', harnessPath: binary, authMethod: 'gemini-api-key', apiKey: 'fixture-gemini-secret' }, environment: [{ name: 'ACP_TEST_WIRE', value: wire }, { name: 'ACP_TEST_HOME', value: join(directory, 'native-sessions') }] });
   return { directory, cwd, connection, executor, trace: async () => (await readFile(wire, 'utf8')).split('\n').filter(Boolean).map(line => JSON.parse(line)) };
 }
+for (const flavor of ['devin', 'copilot'] as const) test(`Registry ${flavor} native metadata and opt-in events preserve child attribution without adding its text to the parent`, async t => {
+  const f = await setup(t, 'acp-registry'), runtime = f.connection.runtime.bind(f.connection);
+  // Exercise the native transport with an explicitly supplied registry flavor;
+  // no live Registry lookup or install is required by this protocol fixture.
+  f.connection.runtime = async selection => ({ ...await runtime(selection), registrySubagents: flavor });
+  const updates: ExecutionUpdate[] = [];
+  const result = await f.executor.run({ task: { id: 'parent', agent: 'acp-registry', currentRunId: 'parent-run', cwd: f.cwd, model: 'native-model', interactionMode: 'default', events: [], approvals: [] } as unknown as WorkItem, prompt: 'children-' + flavor, signal: AbortSignal.timeout(6000), update: async value => { updates.push(value); } });
+  const children = updates.filter(value => value.kind === 'subagent'), child = children.at(-1)!;
+  assert.equal(new Set(children.map(value => value.subagent.id)).size, 1); assert.equal(child.subagent.status, 'completed');
+  assert.equal(child.subagent.result, flavor === 'devin' ? 'Devin child result' : 'Copilot child result'); assert.ok(!result.includes(child.subagent.result!));
+  assert.equal(child.subagent.title, flavor === 'devin' ? 'Native Devin child' : 'Native Copilot child');
+  const initialize = (await f.trace()).find(value => value.method === 'initialize' && value.params.clientCapabilities?._meta);
+  assert.ok(initialize, 'The native client must opt in before relying on child attribution');
+});
 for (const provider of ['acp-registry', 'antigravity'] as const) {
   test(`${provider} independent generation follows its actual capability and cannot borrow a foreground session`, async t => {
     const fixture = await setup(t, provider);

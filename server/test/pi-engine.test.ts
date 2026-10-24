@@ -22,6 +22,16 @@ async function setup(t: { after: (fn: () => Promise<unknown>) => void }) {
   const trace = async () => (await readFile(wire, 'utf8')).split('\n').filter(Boolean).map(line => JSON.parse(line));
   return { directory, cwd, wire, trace, current: () => engine!, close: async () => { await engine!.close(); engine = undefined; }, reopen: async () => engine = await new Engine(directory, undefined, undefined, { changeRequestSyncIntervalMs: 0 }).open() };
 }
+test('Pi native subagent details become durable child conversations owned by the originating run', async t => {
+  const f = await setup(t), engine = f.current();
+  const id = await engine.createTask({ agent: 'pi', projectId: 'project', mode: 'code', prompt: 'children', requestId: 'pi-child' });
+  const state = await waitFor(() => engine.snapshot(), state => state.tasks.some(task => task.id === id && ['completed', 'failed'].includes(task.status)));
+  const root = state.tasks.find(task => task.id === id)!; assert.equal(root.status, 'completed', root.error ?? ''); assert.equal(root.subagents?.length, 1);
+  const metadata = root.subagents![0]!, child = state.tasks.find(task => task.id === metadata.childTaskId)!;
+  assert.equal(metadata.provider, 'pi'); assert.equal(metadata.runId, root.currentRunId); assert.equal(child.result, 'Pi child result');
+  assert.equal(child.providerInstanceId, root.providerInstanceId); assert.equal(child.subagentOrigin?.rootTaskId, id);
+  await f.close(); const restored = await f.reopen(); assert.equal((await restored.snapshot()).tasks.find(task => task.id === child.id)!.result, child.result);
+});
 test('Pi task creation, idempotent compaction and service restart retain the same native session through Pi Durable', async t => {
   const fixture = await setup(t); let engine = fixture.current();
   const input = { prompt: 'reply', title: 'Pi fixture', projectId: 'project', mode: 'code' as const, agent: 'pi' as const, model: 'fixture/small', requestId: 'pi-create' };

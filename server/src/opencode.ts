@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { OpenCodeConnection, openCodeData } from './opencode-provider.js';
 import { type OpenCodeServer } from './opencode-server.js';
 import { NativeTurnProjection } from './native-turn-projection.js';
+import { NativeSubagentProjection } from './native-subagent-projection.js';
 import { acpRecord, type AcpRecord } from './acp-process.js';
 import { taskPlanSteps } from './task-event-data.js';
 import type { ExecutionRequest, Executor, Approval, ExecutionImage } from './types.js';
@@ -24,7 +25,7 @@ export function openCodeRules(generation: 1 | 2, mode: string, plan: boolean, mc
   return [...(mode === 'auto' ? [{ action: '*', resource: '*', effect: 'allow' }] : ['shell', 'edit', 'external_directory'].map(action => ({ action, resource: '*', effect: 'ask' }))), ...(plan ? [{ action: 'edit', resource: '*', effect: 'deny' }] : []), ...(mcp ? [{ action: 'friday-*', resource: '*', effect: 'deny' }, { action: `${mcp}_*`, resource: '*', effect: 'allow' }] : [])];
 }
 type Pending = { value: AcpRecord; kind: 'permission' | 'question' | 'form'; approval: Approval; answering: boolean };
-type Live = { server: OpenCodeServer; sessionId: string; nativeId: string; pending: Map<string, Pending>; rules: AcpRecord[]; cancel: () => void; steers: Map<string, { body: string; promise: Promise<void>; resolve: () => void; reject: (error: Error) => void }> };
+type Live = { server: OpenCodeServer; sessionId: string; nativeId: string; pending: Map<string, Pending>; rules: AcpRecord[]; childRules: Map<string, AcpRecord[]>; cancel: () => void; steers: Map<string, { body: string; promise: Promise<void>; resolve: () => void; reject: (error: Error) => void }> };
 
 export class OpenCodeExecutor implements Executor {
   private runs = new Map<string, Live>();
@@ -41,7 +42,8 @@ export class OpenCodeExecutor implements Executor {
     const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions });
     if (task.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条 OpenCode 会话使用的账号配置');
     signal.throwIfAborted(); const lease = await this.connection.server(runtime.settings, task.cwd, task.id), server = lease.server, v1 = server.v1, v2 = server.v2;
-    let sessionId = task.threadId ?? '', nativeId = '', projection: NativeTurnProjection | undefined, active = false, delivered = false, admission = false, idle = false, succeeded = false, terminal = false, interruption: Promise<unknown> | undefined, chain = Promise.resolve();
+    let sessionId = task.threadId ?? '', nativeId = '', projection: NativeTurnProjection | undefined, children: NativeSubagentProjection | undefined, active = false, delivered = false, admission = false, idle = false, succeeded = false, terminal = false, interruption: Promise<unknown> | undefined, chain = Promise.resolve();
+    const executionSessionId = randomUUID();
     let resolve!: () => void, reject!: (error: Error) => void;
     const completion = new Promise<void>((yes, no) => { resolve = yes; reject = no; }); void completion.catch(() => {});
     const finish = (error?: Error) => { if (!terminal) { terminal = true; error ? reject(error) : resolve(); } };
@@ -50,18 +52,26 @@ export class OpenCodeExecutor implements Executor {
     const rules = request.purpose ? (server.generation === 2 ? [{ action: '*', resource: '*', effect: 'deny' }] : [{ permission: '*', pattern: '*', action: 'deny' }]) : openCodeRules(server.generation, runtime.settings.permissionMode, task.interactionMode === 'plan', mcp ? mcpName : undefined);
     const ownInfo = (id: string) => infos.get(id)?.role === 'assistant' && infos.get(id)?.parentID === nativeId;
     const settleV1 = () => { if (delivered && admission && idle && [...infos.values()].some(info => ownInfo(info.id) && info.time?.completed && info.finish !== 'tool-calls')) finish(); };
-    const publishPart = (part: AcpRecord) => {
+    const publishPart = async (part: AcpRecord) => {
       if (!projection || !ownInfo(part.messageID)) return;
       parts.set(part.id, part);
       if (part.type === 'text' || part.type === 'reasoning') projection.put(part.id, part.type === 'text' ? 'message' : 'reasoning', part.text ?? '', { status: part.time?.end ? 'completed' : 'running' });
       else if (part.type === 'tool') {
         const state = acpRecord(part.state), name = typeof part.tool === 'string' ? part.tool : 'Tool', input = acpRecord(state?.input), kind = name === 'bash' || name === 'shell' ? 'command' : /edit|write|patch/i.test(name) ? 'files' : /read|grep|glob|search|fetch/i.test(name) ? 'search' : 'tool';
+        if (name === 'task') {
+          const output = typeof state?.output === 'string' ? state.output : typeof state?.error === 'string' ? state.error : undefined;
+          const childId = state?.metadata?.sessionId ?? state?.metadata?.sessionID;
+          await children?.observe({ nativeId: part.id, ...(typeof childId === 'string' ? { nativeChildId: childId } : {}), title: state?.title ?? input?.description, prompt: input?.prompt, model: input?.model,
+            status: state?.status === 'completed' ? 'completed' : state?.status === 'error' ? 'failed' : 'running', ...(output !== undefined ? { result: output, messages: [output] } : {}) });
+          return;
+        }
         projection.put(part.id, kind, kind === 'command' ? input?.command ?? state?.title ?? name : state?.title ?? input?.path ?? name, { status: state?.status === 'completed' ? 'completed' : state?.status === 'error' ? 'failed' : 'running', detail: typeof state?.output === 'string' ? state.output : typeof state?.error === 'string' ? state.error : '', ...(typeof state?.metadata?.exit === 'number' ? { exitCode: state.metadata.exit } : {}) });
       }
     };
     const publishRequest = async (kind: Pending['kind'], value: AcpRecord) => {
       if (request.purpose) throw new Error('独立文字生成不接受工具授权或用户输入');
-      if (!active || terminal || value.sessionID !== sessionId) return;
+      const childIdentity = typeof value.sessionID === 'string' ? children?.identityForNative(value.sessionID) : undefined;
+      if (!active || terminal || value.sessionID !== sessionId && !childIdentity) return;
       const native = value.id, id = `opencode:${kind}:${native}`; if (typeof native !== 'string' || pending.has(id)) return;
       let questions: AcpRecord[] = [], decisions: ApprovalDecision[] | undefined;
       if (kind === 'permission') decisions = ['cancel', 'decline', ...(server.generation === 1 || value.save?.length ? ['acceptForSession' as const] : []), 'accept'];
@@ -73,13 +83,22 @@ export class OpenCodeExecutor implements Executor {
         }
       }
       const approval: Approval = { id, method: `opencode/${kind}`, title: kind === 'permission' ? '需要你的授权' : '需要你的补充', detail: kind === 'permission' ? [value.action ?? value.permission, ...(value.resources ?? value.patterns ?? [])].filter(Boolean).join('\n') : '', state: 'pending', questions: questions as Approval['questions'], ...(decisions ? { decisions } : {}) };
+      if (childIdentity) { approval.subagentId = childIdentity; approval.ownerRunId = task.currentRunId; }
       pending.set(id, { value, kind, approval, answering: false }); await projection?.flush(); await update({ kind: 'approval', approval });
     };
     const apply = async (event: AcpRecord) => {
       if (!active || terminal || !projection) return;
       const data = acpRecord(event.data ?? event.properties); if (!data) return;
       const eventSession = data.sessionID ?? data.part?.sessionID ?? data.info?.sessionID ?? data.form?.sessionID;
-      if (eventSession !== sessionId) return;
+      if (eventSession !== sessionId) {
+        if (typeof eventSession === 'string' && children?.knowsNative(eventSession)) {
+          if (event.type === 'permission.asked') await publishRequest('permission', data);
+          else if (event.type === 'question.asked') await publishRequest('question', data);
+          else if (event.type === 'form.created') await publishRequest('form', acpRecord(data.form) ?? data);
+        }
+        if (typeof eventSession === 'string' && children?.knowsNative(eventSession) && server.generation === 2 && ['session.text.delta', 'session.text.ended'].includes(event.type)) await children.nativeMessage(eventSession, event.type.endsWith('.ended') ? data.text ?? '' : data.delta ?? '', event.type.endsWith('.ended'));
+        return;
+      }
       if (server.generation === 2) {
         if (event.type === 'session.inbox.delivered') {
           if (data.inboxID === nativeId) delivered = true;
@@ -90,13 +109,26 @@ export class OpenCodeExecutor implements Executor {
         if (/^session\.(text|reasoning)\.(started|delta|ended)$/.test(event.type)) {
           const kind = event.type.startsWith('session.text.') ? 'message' : 'reasoning', key = `${kind}:${data.assistantMessageID}:${data.ordinal}`;
           projection.put(key, kind, typeof data.text === 'string' ? data.text : (projection.items.get(key)?.text ?? '') + (data.delta ?? ''), { status: event.type.endsWith('.ended') ? 'completed' : 'running' });
-        } else if (event.type === 'session.tool.input.started') tools.set(data.id, { name: data.name, input: {} });
+        } else if (event.type === 'session.tool.input.started') { tools.set(data.id, { name: data.name, input: {} }); if (data.name === 'subagent') await children?.observe({ nativeId: data.id, status: 'running' }); }
         else if (event.type === 'session.tool.input.ended') { const tool = tools.get(data.id); if (tool) tool.input = data.input; }
+        else if (event.type === 'session.tool.progress' && tools.get(data.id)?.name === 'subagent') {
+          const input = acpRecord(tools.get(data.id)?.input), childId = data.metadata?.sessionID;
+          await children?.observe({ nativeId: data.id, ...(typeof childId === 'string' ? { nativeChildId: childId } : {}), title: input?.description, prompt: input?.prompt, model: input?.model, status: 'running' });
+        }
         else if (['session.tool.called', 'session.tool.success', 'session.tool.failed'].includes(event.type)) {
           if (event.type === 'session.tool.called' && tools.has(data.id) && acpRecord(data.input)) tools.get(data.id)!.input = data.input;
           const tool = tools.get(data.id), name = tool?.name ?? 'Tool', input = acpRecord(tool?.input), kind = name === 'shell' ? 'command' : /edit|write|patch/.test(name) ? 'files' : /read|grep|glob|search/.test(name) ? 'search' : 'tool';
           const text = Array.isArray(data.content) ? data.content.filter((part: AcpRecord) => part.type === 'text').map((part: AcpRecord) => part.text).join('\n') : '';
+          if (name === 'subagent') {
+            const childId = data.metadata?.sessionID, failed = event.type === 'session.tool.failed', status = failed ? 'failed' : event.type === 'session.tool.success' && data.metadata?.status !== 'running' ? 'completed' : 'running';
+            const output = failed ? data.error?.message : text;
+            await children?.observe({ nativeId: data.id, ...(typeof childId === 'string' ? { nativeChildId: childId } : {}), title: input?.description, prompt: input?.prompt, model: input?.model, status, ...(typeof output === 'string' && output ? status === 'running' ? { progress: output } : { result: output, messages: [output] } : {}) });
+            return;
+          }
           projection.put(`tool:${data.id}`, kind, kind === 'command' ? input?.command ?? name : input?.path ?? name, { status: event.type === 'session.tool.success' ? 'completed' : event.type === 'session.tool.failed' ? 'failed' : 'running', detail: data.error?.message ?? text, ...(typeof data.metadata?.exitCode === 'number' ? { exitCode: data.metadata.exitCode } : {}) });
+        } else if (event.type === 'session.synthetic' && data.metadata?.source === 'subagent' && typeof data.metadata.childID === 'string') {
+          const outcome = data.metadata.state === 'error' ? 'failed' : data.metadata.state === 'cancelled' ? 'cancelled' : data.metadata.state === 'completed' ? 'completed' : undefined;
+          if (outcome) await children?.nativeFinish(data.metadata.childID, outcome, typeof data.text === 'string' ? /^<subagent\b[^>]*>\n?([\s\S]*?)\n?<\/subagent>$/.exec(data.text.trim())?.[1] ?? data.text : undefined);
         } else if (event.type === 'session.execution.succeeded') finish();
         else if (event.type === 'session.execution.interrupted') finish(cancelled());
         else if (event.type === 'session.execution.failed') finish(new Error(data.error?.message ?? 'OpenCode 原生执行失败'));
@@ -114,7 +146,7 @@ export class OpenCodeExecutor implements Executor {
           const info = acpRecord(data.info); if (!info || typeof info.id !== 'string') return; infos.set(info.id, info);
           if (info.id === nativeId && info.role === 'user') delivered = true;
           if (ownInfo(info.id)) {
-            for (const part of earlyParts.get(info.id) ?? []) publishPart(part); earlyParts.delete(info.id);
+            for (const part of earlyParts.get(info.id) ?? []) await publishPart(part); earlyParts.delete(info.id);
             if (info.error) finish(new Error(info.error.data?.message ?? info.error.name ?? 'OpenCode 原生执行失败'));
             const tokens = info.tokens, used = tokens ? (tokens.input ?? 0) + (tokens.output ?? 0) + (tokens.reasoning ?? 0) + (tokens.cache?.read ?? 0) + (tokens.cache?.write ?? 0) : undefined;
             if (Number.isFinite(used)) await update({ kind: 'contextUsage', usage: { usedTokens: used, maxTokens: runtime.contextWindow ?? null, updatedAt: new Date().toISOString(), model: runtime.model } });
@@ -123,9 +155,9 @@ export class OpenCodeExecutor implements Executor {
         } else if (event.type === 'message.part.updated') {
           const part = acpRecord(data.part); if (!part || typeof part.id !== 'string') return;
           parts.set(part.id, part);
-          if (ownInfo(part.messageID)) publishPart(part); else { const list = earlyParts.get(part.messageID) ?? []; list.push(part); earlyParts.set(part.messageID, list); }
+          if (ownInfo(part.messageID)) await publishPart(part); else { const list = earlyParts.get(part.messageID) ?? []; list.push(part); earlyParts.set(part.messageID, list); }
         } else if (event.type === 'message.part.delta') {
-          const previous = parts.get(data.partID); if (previous && typeof data.delta === 'string' && data.field === 'text') { const part: AcpRecord = { ...previous, text: (previous.text ?? '') + data.delta }; parts.set(part.id, part); if (ownInfo(part.messageID)) publishPart(part); else { const list = earlyParts.get(part.messageID) ?? []; list.push(part); earlyParts.set(part.messageID, list); } }
+          const previous = parts.get(data.partID); if (previous && typeof data.delta === 'string' && data.field === 'text') { const part: AcpRecord = { ...previous, text: (previous.text ?? '') + data.delta }; parts.set(part.id, part); if (ownInfo(part.messageID)) await publishPart(part); else { const list = earlyParts.get(part.messageID) ?? []; list.push(part); earlyParts.set(part.messageID, list); } }
         } else if (event.type === 'session.idle' || event.type === 'session.status' && data.status?.type === 'idle') {
           if (delivered) idle = true; settleV1();
         } else if (event.type === 'permission.asked' || event.type === 'permission.updated') await publishRequest('permission', data);
@@ -139,7 +171,7 @@ export class OpenCodeExecutor implements Executor {
     let subscription: Awaited<ReturnType<OpenCodeServer['subscribe']>>;
     try { subscription = await server.subscribe(enqueue, error => finish(error)); } catch (error) { await lease.close(); throw error; }
     const cancel = () => { interruption ??= (async () => { try { if (sessionId) { if (v2) await v2.session.interrupt({ sessionID: sessionId }, { signal: AbortSignal.timeout(1000) }); else await openCodeData(v1!.session.abort({ sessionID: sessionId }, { signal: AbortSignal.timeout(1000) })); } } catch {} finally { if (server.child) await server.close(); finish(cancelled()); } })(); };
-    const live: Live = { server, sessionId, nativeId, pending, rules, cancel, steers: new Map() }; this.runs.set(task.id, live); signal.addEventListener('abort', cancel, { once: true });
+    const live: Live = { server, sessionId, nativeId, pending, rules, childRules: new Map(), cancel, steers: new Map() }; this.runs.set(task.id, live); signal.addEventListener('abort', cancel, { once: true });
     try {
       signal.throwIfAborted();
       if (!request.purpose && v2 && (runtime.settings.permissionMode !== 'auto' || task.interactionMode === 'plan')) {
@@ -158,7 +190,8 @@ export class OpenCodeExecutor implements Executor {
         if (typeof session.id !== 'string' || !session.id) throw new Error('OpenCode 未返回原生会话 ID'); sessionId = session.id; live.sessionId = sessionId;
       }
       nativeId = promptId(sessionId, task.currentRunId ?? randomUUID()); live.nativeId = nativeId; projection = new NativeTurnProjection(request, nativeId);
-      await update({ kind: 'session', threadId: sessionId, nativeProviderAccount: runtime.account, model: runtime.model, reasoningEffort: runtime.effort, executionSessionId: randomUUID() });
+      children = new NativeSubagentProjection(request, 'opencode', executionSessionId, sessionId, nativeId);
+      await update({ kind: 'session', threadId: sessionId, nativeProviderAccount: runtime.account, model: runtime.model, reasoningEffort: runtime.effort, executionSessionId });
       if (mcp) {
         const config = { type: 'remote' as const, url: request.taskMcp!.url, headers: request.taskMcp!.headers, oauth: false as const };
         if (v2) await v2.mcp.add({ server: mcpName, location: { directory: task.cwd }, config }); else await openCodeData(v1!.mcp.add({ name: mcpName, config }));
@@ -178,25 +211,26 @@ export class OpenCodeExecutor implements Executor {
         const parts: any[] = [{ type: 'text', text: request.prompt }]; for (const image of request.images ?? []) parts.push({ type: 'file', mime: image.mediaType, filename: image.name, url: `data:${image.mediaType};base64,${(await readFile(image.path)).toString('base64')}` });
         await openCodeData(v1!.session.promptAsync({ sessionID: sessionId, messageID: nativeId, model: { providerID: runtime.providerID, modelID: runtime.modelID }, variant: runtime.effort || undefined, agent: task.interactionMode === 'plan' ? 'plan' : runtime.agent ?? 'build', parts })); admission = true; settleV1();
       }
-      await completion; await chain; if (signal.aborted) throw cancelled(); const result = await projection.finish('completed'); succeeded = true; return result;
-    } catch (error) { await projection?.finish(signal.aborted ? 'interrupted' : 'failed'); throw signal.aborted ? cancelled() : error; }
+      await completion; await chain; if (signal.aborted) throw cancelled(); await children?.finish('completed', 'unknown'); const result = await projection.finish('completed'); succeeded = true; return result;
+    } catch (error) { await children?.finish(server.child ? signal.aborted ? 'interrupted' : 'failed' : 'completed', 'unknown'); await projection?.finish(signal.aborted ? 'interrupted' : 'failed'); throw signal.aborted ? cancelled() : error; }
     finally { active = false; signal.removeEventListener('abort', cancel); projection?.dispose(); for (const steer of live.steers.values()) steer.reject(new Error('OpenCode 回合已经结束')); await interruption; await subscription.close(); if (v2 && mcp && server.available) await v2.mcp.remove({ server: mcpName, location: { directory: task.cwd } }, { signal: AbortSignal.timeout(3000) }).catch(() => {}); if (!succeeded && server.child) await server.close(); await lease.close(); await chain; this.runs.delete(task.id); }
   }
   async answer(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) {
     const run = this.runs.get(id), pending = run?.pending.get(approvalId); if (!run || !pending || pending.answering) throw new Error('OpenCode 请求已经结束或正在回答');
     const v1 = run.server.v1, v2 = run.server.v2, value = pending.value;
+    const nativeOwner = typeof value.sessionID === 'string' ? value.sessionID : run.sessionId;
     pending.answering = true;
     try {
       if (pending.kind === 'permission') {
         if (!pending.approval.decisions?.includes(decision)) throw new Error('OpenCode 未提供此授权选项');
         if (v2) {
-          if (decision === 'acceptForSession') { run.rules.push(...value.save.map((resource: string) => ({ action: value.action, resource, effect: 'allow' }))); await v2.session.update({ sessionID: run.sessionId, permissions: run.rules as any }); }
-          await v2.permission.reply({ sessionID: run.sessionId, requestID: value.id, decision: ['accept', 'acceptForSession'].includes(decision) ? 'once' : 'reject', ...(decision === 'decline' ? { message: 'The user declined this request.' } : {}) });
+          if (decision === 'acceptForSession') { const rules = nativeOwner === run.sessionId ? run.rules : run.childRules.get(nativeOwner) ?? [...run.rules]; rules.push(...value.save.map((resource: string) => ({ action: value.action, resource, effect: 'allow' }))); await v2.session.update({ sessionID: nativeOwner, permissions: rules as any }); if (nativeOwner !== run.sessionId) run.childRules.set(nativeOwner, rules); }
+          await v2.permission.reply({ sessionID: nativeOwner, requestID: value.id, decision: ['accept', 'acceptForSession'].includes(decision) ? 'once' : 'reject', ...(decision === 'decline' ? { message: 'The user declined this request.' } : {}) });
         } else await openCodeData(v1!.permission.reply({ requestID: value.id, reply: decision === 'accept' ? 'once' : decision === 'acceptForSession' ? 'always' : 'reject' }));
       } else if (pending.kind === 'question') {
         if (decision !== 'accept') await openCodeData(v1!.question.reject({ requestID: value.id }));
         else await openCodeData(v1!.question.reply({ requestID: value.id, answers: value.questions.map((_question: AcpRecord, index: number) => { const answer = answers[`q${index}`]; if (!answer?.length) throw new Error('请回答 OpenCode 的全部问题'); return answer; }) }));
-      } else if (decision !== 'accept') await v2!.session.form.cancel({ sessionID: run.sessionId, formID: value.id });
+      } else if (decision !== 'accept') await v2!.session.form.cancel({ sessionID: nativeOwner, formID: value.id });
       else {
         const answer: Record<string, string | string[]> = {};
         for (const field of value.fields) {
@@ -204,7 +238,7 @@ export class OpenCodeExecutor implements Executor {
           const values = raw.map(label => field.options?.find((option: AcpRecord) => (option.label || option.value) === label)?.value ?? label);
           answer[field.key] = field.type === 'multiselect' ? values : values.join(', ');
         }
-        await v2!.session.form.reply({ sessionID: run.sessionId, formID: value.id, answer });
+        await v2!.session.form.reply({ sessionID: nativeOwner, formID: value.id, answer });
       }
     } finally { pending.answering = false; }
   }

@@ -49,10 +49,12 @@ export class AcpProcess {
         // The NDJSON decoder accepts JSON-RPC batches. Deliver each native
         // record in wire order through the SDK's stable raw handler surface.
         for (const message of Array.isArray(value) ? value : [value]) {
-          // ClientApp's automatic v1 ActiveSession router validates updates
-          // before wildcard handlers, even without an attached session. Route
-          // native v2/extension updates untouched to the owning adapter.
-          if (message.method === 'session/update' && message.id === undefined) this.onNotification?.(message.method, message.params);
+          // Native attribution extensions and their following session chunks
+          // must reach the adapter in the same wire order. Mixing direct
+          // session updates with SDK-dispatched extension notifications can
+          // deliver a child's author marker after its text. No ActiveSession
+          // router is used by this raw transport; the SDK still owns RPCs.
+          if (typeof message.method === 'string' && message.id === undefined) this.onNotification?.(message.method, message.params);
           else controller.enqueue(message);
         }
       },

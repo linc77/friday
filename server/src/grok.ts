@@ -10,6 +10,8 @@ import { GrokConnection } from './grok-provider.js';
 import type { ApprovalDecision } from './provider-approvals.js';
 import type { Approval, ExecutionImage, ExecutionRequest, Executor, TaskEvent } from './types.js';
 import { taskPlanSteps } from './task-event-data.js';
+import { NativeSubagentProjection } from './native-subagent-projection.js';
+import { extractXAiAcpSubagentUpdate } from './vendor/t3-grok-subagents.mjs';
 
 type Pending = { approval: Approval; params: AcpRecord; kind: 'permission' | 'question'; replied: boolean; resolve: (response: AcpRecord) => void; written: Promise<void>; dispose: () => void };
 type Run = { client: AcpProcess; sessionId?: string; pending: Map<string, Pending>; start: () => Promise<void>; cancel: () => void };
@@ -57,7 +59,7 @@ export class GrokExecutor implements Executor {
     if (task.grokHome && task.grokHome !== runtime.home) throw new Error('请恢复这条 Grok 会话使用的配置目录');
     if (signal.aborted) throw cancelled();
     const client = this.connection.client(request.purpose ? { ...runtime, permissionMode: 'default', env: { ...runtime.env, GROK_DISABLE_AUTOUPDATER: '1' } } : runtime, task.cwd), turnId = `grok:${task.currentRunId ?? randomUUID()}`, executionSessionId = randomUUID();
-    let start: Promise<void> | undefined, sessionPersisted = false, active = false, terminal = false, nativeCancellation: Promise<void> | undefined, protocolGeneration = 1;
+    let start: Promise<void> | undefined, sessionPersisted = false, active = false, terminal = false, nativeCancellation: Promise<void> | undefined, protocolGeneration = 1, children: NativeSubagentProjection | undefined;
     let acknowledgeCancel!: () => void; const cancelAcknowledged = new Promise<void>(resolve => { acknowledgeCancel = resolve; });
     let rejectCompletion!: (error: Error) => void, resolveCompletion!: (response: AcpRecord) => void;
     const completion = new Promise<AcpRecord>((resolve, reject) => { resolveCompletion = resolve; rejectCompletion = reject; }); void completion.catch(() => {});
@@ -70,10 +72,11 @@ export class GrokExecutor implements Executor {
       if (typeof sessionId !== 'string' || !sessionId.trim() || sessionId.length > 2000 || run.sessionId && run.sessionId !== sessionId) throw new Error('Grok 返回了不同或无效的原生会话 ID，已停止执行');
       run.sessionId = sessionId;
       if (!sessionPersisted) { await update({ kind: 'session', threadId: sessionId, grokHome: runtime.home, model: runtime.model, reasoningEffort: runtime.effort, executionSessionId }); sessionPersisted = true; }
+      children ??= new NativeSubagentProjection(request, 'grok', executionSessionId, sessionId, turnId);
       return sessionId;
     };
     const items = new Map<string, TaskEvent>(), dirty = new Set<string>(), terminals = new Map<string, StringDecoder>(); let chain = Promise.resolve(), timer: NodeJS.Timeout | undefined, message = '', outputDirty = false, messageOrdinal = 0, currentBlock: string | undefined, finalMessage: string | undefined, lastKind: string | undefined;
-    const promptId = randomUUID();
+    const promptId = randomUUID(), nativeCalls = new Map<string, AcpRecord>();
     const put = (key: string, kind: string, text: string, changes: Partial<TaskEvent> = {}) => {
       const previous = items.get(key), item: TaskEvent = { id: `${turnId}:${key}`, itemId: key, turnId, kind, text, at: previous?.at ?? now(), status: 'running', ...(kind === 'message' ? { phase: 'commentary' as const } : {}), ...previous, ...changes };
       items.set(key, item); dirty.add(key); timer ??= setTimeout(() => enqueue(flush), 50); return item;
@@ -91,7 +94,14 @@ export class GrokExecutor implements Executor {
       return id === undefined || id === promptId;
     };
     const handleUpdate = async (params: AcpRecord) => {
-      if (!active || terminal || !isOwned(params) || !belongsToPrompt(params)) return;
+      if (!active || terminal) return;
+      const nativeChild = params.sessionId !== run.sessionId ? params.sessionId : params._meta?.childSessionId ?? params._meta?.child_session_id ?? params.update?.child_session_id;
+      if (typeof nativeChild === 'string' && children?.knowsNative(nativeChild)) {
+        const change = acpRecord(params.update);
+        if (change && ['agent_message_chunk', 'agent_message'].includes(change.sessionUpdate)) await children.nativeMessage(nativeChild, contentText(change.content), change.sessionUpdate === 'agent_message');
+        return;
+      }
+      if (!isOwned(params) || !belongsToPrompt(params)) return;
       const change = acpRecord(params.update); if (!change) return;
       const kind = change.sessionUpdate;
       if (['agent_message_chunk', 'agent_thought_chunk', 'agent_message', 'agent_thought'].includes(kind)) {
@@ -105,6 +115,13 @@ export class GrokExecutor implements Executor {
         if (!thought) { message = value; finalMessage = currentBlock; outputDirty = true; }
       } else if (kind === 'tool_call' || kind === 'tool_call_update') {
         const key = `tool:${change.toolCallId}`, previous = items.get(key); if (typeof change.toolCallId !== 'string') return;
+        const native = { ...nativeCalls.get(change.toolCallId), ...change }; nativeCalls.set(change.toolCallId, native);
+        const child = extractXAiAcpSubagentUpdate({ toolCallId: change.toolCallId, title: native.title, status: native.status, data: { rawInput: native.rawInput, rawOutput: native.rawOutput, content: native.content } });
+        if (child && (child.prompt || child.title || children?.knowsNative(child.childSessionId ?? child.nativeTaskId))) {
+          await children?.observe({ nativeId: child.nativeTaskId, ...(child.childSessionId ? { nativeChildId: child.childSessionId } : {}), title: child.title ?? undefined, prompt: child.prompt, model: child.model ?? undefined, status: child.status,
+            hydrationOnly: !child.prompt && !child.title, ...(child.result !== null ? { result: child.result, messages: [child.result] } : {}) });
+          return;
+        }
         const nativeKind = change.kind, type = nativeKind === 'execute' || previous?.kind === 'command' ? 'command' : ['edit', 'delete', 'move'].includes(nativeKind) ? 'files' : ['read', 'search', 'fetch'].includes(nativeKind) ? 'search' : previous?.kind ?? 'tool';
         const input = acpRecord(change.rawInput), text = type === 'command' && typeof input?.command === 'string' ? input.command : typeof change.title === 'string' ? change.title : previous?.text ?? change.toolCallId;
         const detail = contentText(change.content) || contentText(change.rawOutput), status = change.status === 'completed' ? 'completed' : change.status === 'failed' ? 'failed' : change.status === undefined ? previous?.status ?? 'running' : 'running';
@@ -139,6 +156,10 @@ export class GrokExecutor implements Executor {
     };
     client.onNotification = (method, input) => {
       const params = acpRecord(input); if (!params) return;
+      if (active && params.sessionId === run.sessionId && params.update?.sessionUpdate === 'subagent_finished' && typeof params.update.child_session_id === 'string' && ['completed', 'failed', 'cancelled'].includes(params.update.status)) enqueue(async () => {
+        const value = params.update;
+        await children?.nativeFinish(value.child_session_id, value.status, value.status === 'completed' ? typeof value.output === 'string' ? value.output : undefined : typeof value.error === 'string' ? value.error : undefined);
+      });
       if (signal.aborted && params.sessionId === run.sessionId && belongsToPrompt(params) && (params.update?.state === 'idle' || params.promptId === promptId)) acknowledgeCancel();
       if (method === 'session/update') enqueue(() => handleUpdate(params));
       if (['x.ai/session/prompt_complete', '_x.ai/session/prompt_complete', 'x.ai/session_notification', '_x.ai/session_notification', '_x.ai/session/update'].includes(method)) enqueue(async () => completeFromNotification(params));
@@ -150,8 +171,11 @@ export class GrokExecutor implements Executor {
       if (!permission && !question && method !== 'x.ai/exit_plan_mode') throw RequestError.methodNotFound(context.method);
       const unwrapped: AcpRecord = acpRecord(input.params) && typeof input.method === 'string' ? { ...input.params, _meta: { ...acpRecord(input._meta), ...acpRecord(input.params._meta) } } : input;
       const params = permission ? acpPermissionRequest(unwrapped, context.requestId) : unwrapped;
-      if (params._meta?.childSessionId || params.child_session_id || !belongsToPrompt(params)) throw RequestError.requestCancelled();
-      await bind(params.sessionId);
+      await chain;
+      const childNativeId = params._meta?.childSessionId ?? params.child_session_id ?? (run.sessionId && params.sessionId !== run.sessionId ? params.sessionId : undefined);
+      const childIdentity = typeof childNativeId === 'string' ? children?.identityForNative(childNativeId) : undefined;
+      if (childNativeId && !childIdentity || !childIdentity && !belongsToPrompt(params)) throw RequestError.requestCancelled();
+      if (!childIdentity) await bind(params.sessionId);
       if (method === 'x.ai/exit_plan_mode') {
         const text = typeof params.planContent === 'string' && params.planContent.trim() ? params.planContent.trim() : message.trim();
         if (!text) throw RequestError.invalidParams();
@@ -168,6 +192,7 @@ export class GrokExecutor implements Executor {
       let resolve!: (response: AcpRecord) => void;
       const response = new Promise<AcpRecord>(yes => { resolve = yes; });
       const pending: Pending = { approval, params: { ...params, options }, kind: permission ? 'permission' : 'question', replied: false, resolve, ...receipt };
+      if (childIdentity) { approval.subagentId = childIdentity; approval.ownerRunId = task.currentRunId; }
       run.pending.set(id, pending);
       const abort = () => { if (!pending.replied) { pending.replied = true; resolve(permission ? { outcome: { outcome: 'cancelled' } } : { outcome: 'cancelled' }); void update({ kind: 'approvalResolved', id }).catch(() => {}); } };
       context.signal.addEventListener('abort', abort, { once: true });
@@ -239,8 +264,9 @@ export class GrokExecutor implements Executor {
         if (value.status === 'running') put(key, value.kind, value.text, { status: 'completed', completedAt: now() });
         if (key === finalMessage && value.kind === 'message') put(key, value.kind, value.text, { phase: 'final_answer' });
       }
-      await flush(); return message;
+      await children?.finish('completed', 'unknown'); await flush(); return message;
     } catch (error) {
+      await children?.finish(signal.aborted ? 'interrupted' : 'failed');
       for (const [key, value] of items) if (value.status === 'running') put(key, value.kind, value.text, { status: signal.aborted ? 'interrupted' : 'failed', completedAt: now() });
       await flush(); throw signal.aborted ? cancelled() : error;
     } finally {

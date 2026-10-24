@@ -3,7 +3,7 @@ import type { NativeObservedUpdate } from './native-runtime-types.js';
 import type { TaskEvent, WorkItem } from './types.js';
 
 export type TaskSubagent = {
-  id: string; provider: 'claude' | 'codex'; nativeId: string; sessionId: string; threadId: string;
+  id: string; provider: Exclude<WorkItem['agent'], 'friday'>; nativeId: string; sessionId: string; threadId: string;
   runId: string; turnId: string; eventId: string; childTaskId: string;
   nativeRunId?: string; generation: number; childTurnId: string; toolUseId?: string;
   parentSubagentId?: string;
