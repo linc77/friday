@@ -1,3 +1,4 @@
+import { taskProviderInstance } from './provider-instances.js';
 /*
  * Adapted from T3 Code 8cd9641f provider/codexUsageLimits.ts,
  * provider/claudeUsageLimits.ts and provider-core/server/usageLimits.ts.
@@ -25,7 +26,7 @@ import type { Engine } from './engine.js';
 import { createHash } from 'node:crypto';
 export type ProviderResetCredits = { availableCount: number; nextExpiresAt?: string; nextCreditId?: string };
 export type ProviderResetOutcome = 'reset' | 'nothingToReset' | 'noCredit' | 'alreadyRedeemed';
-export type ProviderResetScope = { provider: 'codex' | 'claude'; accountKey: string; settingsDigest: string; fingerprint: string; creditId?: string };
+export type ProviderResetScope = { provider: 'codex' | 'claude'; providerInstanceId?: string; accountKey: string; settingsDigest: string; fingerprint: string; creditId?: string };
 export const providerDigest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 export function providerFingerprint(provider: string, account: any, fallback: string) {
   const identity = [account?.id ?? account?.accountId ?? account?.chatgptAccountId ?? null, account?.email ?? null, account?.organizationId ?? account?.organizationUuid ?? null];
@@ -85,12 +86,15 @@ export function claudeUsageLimits(response: unknown): ProviderUsageLimits {
   }
   return { checkedAt: new Date().toISOString(), windows: sorted(windows) };
 }
-export async function composerUsageLimits(engine: Engine, input: { provider: string; taskId?: string; reload?: boolean }) {
+export async function composerUsageLimits(engine: Engine, input: { provider: string; providerInstanceId?: string; taskId?: string; reload?: boolean }) {
   if (!['codex', 'claude'].includes(input.provider)) throw new Error('请选择 Codex 或 Claude');
   const task = input.taskId ? (await engine.snapshot()).tasks.find(task => task.id === input.taskId) : undefined;
   if (input.taskId && (!task || task.agent !== input.provider)) throw new Error('任务执行范围已经改变');
-  const value = input.provider === 'codex' ? await engine.codexConnection.usageLimits(input.reload === true, task) : await engine.claudeConnection.usageLimits(input.reload === true, task);
-  if (task && !(await engine.snapshot()).tasks.some(value => value.id === task.id && value.agent === task.agent && value.codexHome === task.codexHome && value.claudeHome === task.claudeHome)) throw new Error('任务执行范围已经改变');
-  await engine.publishProviderUsage(input.provider, value, (input.provider === 'codex' ? engine.codexConnection : engine.claudeConnection).usageIdentity(value.credentialFingerprint));
+  const id = task ? taskProviderInstance(task) : input.providerInstanceId ?? input.provider;
+  if (task && input.providerInstanceId !== undefined && input.providerInstanceId !== id) throw new Error('任务所属 Provider 实例已改变');
+  const connection = await engine.providerInstances.get(input.provider as 'codex' | 'claude', id, true);
+  const value = await connection.usageLimits(input.reload === true, task);
+  if (task && !(await engine.snapshot()).tasks.some(value => value.id === task.id && taskProviderInstance(value) === id && value.agent === task.agent && value.codexHome === task.codexHome && value.claudeHome === task.claudeHome)) throw new Error('任务执行范围已经改变');
+  await engine.publishProviderUsage(id, value, connection.usageIdentity(value.credentialFingerprint));
   return value;
 }

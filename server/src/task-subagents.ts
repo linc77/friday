@@ -114,7 +114,7 @@ export class TaskSubagents {
       let child = state.tasks.find(task => task.id === incoming.childTaskId);
       if (!child) {
         child = { id: incoming.childTaskId, title: incoming.title || 'Subagent', prompt: incoming.prompt, projectId: root.projectId, cwd: root.cwd,
-          agent: root.agent, mode: root.mode, status: childStatus(incoming.status), createdAt: at, updatedAt: incoming.updatedAt,
+          agent: root.agent, providerInstanceId: root.providerInstanceId ?? root.agent, mode: root.mode, status: childStatus(incoming.status), createdAt: at, updatedAt: incoming.updatedAt,
           durableId: null, threadId: null, turnId: incoming.childTurnId, result: '', error: null, events: [], approvals: [], messages: [],
           artifact: null, lastRequestId: '', canSteer: false, autoSettle: false, unread: false,
           ...(incoming.model || incoming.provider === 'claude' && root.model ? { model: incoming.model ?? root.model } : {}), ...(incoming.reasoningEffort ? { reasoningEffort: incoming.reasoningEffort } : {}),

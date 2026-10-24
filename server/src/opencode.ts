@@ -32,7 +32,7 @@ export class OpenCodeExecutor implements Executor {
   async run(request: ExecutionRequest) {
     const { task, signal, update } = request;
     if (this.runs.has(task.id)) throw new Error('OpenCode 会话仍在执行');
-    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort });
+    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions });
     if (task.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条 OpenCode 会话使用的账号配置');
     signal.throwIfAborted(); const lease = await this.connection.server(runtime.settings, task.cwd, task.id), server = lease.server, v1 = server.v1, v2 = server.v2;
     let sessionId = task.threadId ?? '', nativeId = '', projection: NativeTurnProjection | undefined, active = false, delivered = false, admission = false, idle = false, succeeded = false, terminal = false, interruption: Promise<unknown> | undefined, chain = Promise.resolve();
@@ -137,7 +137,7 @@ export class OpenCodeExecutor implements Executor {
       signal.throwIfAborted();
       if (v2 && (runtime.settings.permissionMode !== 'auto' || task.interactionMode === 'plan')) {
         const agents = await v2.agent.list({ location: { directory: task.cwd } }, { signal: AbortSignal.timeout(5000) }).catch(() => ({ data: [] }));
-        const paths = agents.data.filter(agent => [task.interactionMode === 'plan' ? 'plan' : 'build'].includes(agent.id)).flatMap(agent => agent.permissions.filter(rule => rule.effect === 'allow' && rule.resource !== '*' && ['edit', 'external_directory'].includes(rule.action)));
+        const paths = agents.data.filter(agent => [task.interactionMode === 'plan' ? 'plan' : runtime.agent ?? 'build'].includes(agent.id)).flatMap(agent => agent.permissions.filter(rule => rule.effect === 'allow' && rule.resource !== '*' && ['edit', 'external_directory'].includes(rule.action)));
         rules.splice(mcp ? rules.length - 2 : rules.length, 0, ...paths);
       }
       if (task.threadId) {
@@ -158,7 +158,7 @@ export class OpenCodeExecutor implements Executor {
       }
       if (v2) {
         await v2.session.switchModel({ sessionID: sessionId, model: { providerID: runtime.providerID, id: runtime.modelID, ...(runtime.effort ? { variant: runtime.effort } : {}) } });
-        await v2.session.switchAgent({ sessionID: sessionId, agent: task.interactionMode === 'plan' ? 'plan' : 'build' });
+        await v2.session.switchAgent({ sessionID: sessionId, agent: task.interactionMode === 'plan' ? 'plan' : runtime.agent ?? 'build' });
       }
       await request.beforeStart?.(); if (signal.aborted) throw cancelled(); await update({ kind: 'turn', turnId: nativeId }); active = true; await update({ kind: 'ready', canSteer: v2 !== undefined && request.command !== 'compact' });
       if (request.command === 'compact') {
@@ -169,7 +169,7 @@ export class OpenCodeExecutor implements Executor {
         const result = await v2.session.prompt({ sessionID: sessionId, id: nativeId, text: request.prompt, ...(files.length ? { files } : {}) }); if (result.id !== nativeId) throw new Error('OpenCode 未确认提示词标识');
       } else {
         const parts: any[] = [{ type: 'text', text: request.prompt }]; for (const image of request.images ?? []) parts.push({ type: 'file', mime: image.mediaType, filename: image.name, url: `data:${image.mediaType};base64,${(await readFile(image.path)).toString('base64')}` });
-        await openCodeData(v1!.session.promptAsync({ sessionID: sessionId, messageID: nativeId, model: { providerID: runtime.providerID, modelID: runtime.modelID }, variant: runtime.effort || undefined, agent: task.interactionMode === 'plan' ? 'plan' : 'build', parts })); admission = true; settleV1();
+        await openCodeData(v1!.session.promptAsync({ sessionID: sessionId, messageID: nativeId, model: { providerID: runtime.providerID, modelID: runtime.modelID }, variant: runtime.effort || undefined, agent: task.interactionMode === 'plan' ? 'plan' : runtime.agent ?? 'build', parts })); admission = true; settleV1();
       }
       await completion; await chain; if (signal.aborted) throw cancelled(); const result = await projection.finish('completed'); succeeded = true; return result;
     } catch (error) { await projection?.finish(signal.aborted ? 'interrupted' : 'failed'); throw signal.aborted ? cancelled() : error; }

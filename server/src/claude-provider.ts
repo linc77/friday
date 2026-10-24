@@ -1,3 +1,5 @@
+import { claudeOptionDescriptors, compileClaudeOptions } from './claude-model-options.js';
+import { selectedProviderOptions, type ProviderModelSelection } from './provider-models.js';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { access, readFile, realpath } from 'node:fs/promises';
 import { constants } from 'node:fs';
@@ -189,6 +191,9 @@ export class ClaudeConnection {
           isDefault: value.value === 'default', reasoningEfforts: efforts, defaultReasoningEffort: '',
           ...(typeof value.resolvedModel === 'string' ? { resolvedModel: value.resolvedModel } : {}),
         };
+        model.optionDescriptors = claudeOptionDescriptors(model, value);
+        const effortDescriptor = model.optionDescriptors.find(option => option.id === 'effort');
+        if (effortDescriptor?.type === 'select') model.reasoningEfforts = effortDescriptor.options.map(option => option.id);
         state.models.push(model);
       }
       state.model ||= state.models.find(model => model.isDefault)?.id ?? state.models[0]?.id ?? '';
@@ -215,7 +220,7 @@ export class ClaudeConnection {
     };
   }
 
-  async runtime(selection?: { model?: string; reasoningEffort?: string }) {
+  async runtime(selection?: ProviderModelSelection) {
     if (this.saving) throw new Error('正在保存 Claude 配置，请稍候。');
     const state = await this.status();
     if (!state.enabled) throw new Error('请先在「Providers → Claude」中启用 Claude。');
@@ -227,16 +232,17 @@ export class ClaudeConnection {
     }
     const model = selection?.model || settings.model || flags['--model'] || state.model;
     const selected = state.models.find(value => value.id === model);
-    const effort = selection?.reasoningEffort || (selection?.model ? '' : settings.reasoningEffort || flags['--effort']);
+    const options = selected ? selectedProviderOptions(selected, selection) : undefined;
+    const effort = options?.effort || (selection?.model ? '' : settings.reasoningEffort || flags['--effort']);
     if (!selected) throw new Error('当前 Claude 模型不可用，请重新选择。');
-    if (effort && (!selected.reasoningEfforts.includes(effort) || !['low', 'medium', 'high', 'xhigh', 'max'].includes(effort))) throw new Error('当前 Claude 模型不支持所选推理强度，请重新选择。');
+    if (effort && !selected.reasoningEfforts.includes(effort)) throw new Error('当前 Claude 模型不支持所选推理强度，请重新选择。');
     const binary = expandHome(settings.binaryPath);
     const command = isAbsolute(binary) ? binary : findExecutable(binary);
     if (!command) throw new Error('找不到 Claude Code，请检查可执行文件路径。');
     const home = resolve(expandHome(settings.homePath || process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')));
     const settingSources = (flags['--setting-sources'] ?? 'user,project,local').split(',').filter(Boolean);
     if (settingSources.some(value => !['user', 'project', 'local'].includes(value))) throw new Error('Claude 配置来源支持 user、project、local。');
-    return { command, home, env: { ...process.env, ...Object.fromEntries(settings.environment.map(value => [value.name, value.value])), CLAUDE_CONFIG_DIR: home }, model, effort: effort || undefined, permissionMode: settings.permissionMode as Exclude<CodexSettings['permissionMode'], 'fullAccess'>, settingSources: settingSources as ('user' | 'project' | 'local')[] };
+    return { command, home, env: { ...process.env, ...Object.fromEntries(settings.environment.map(value => [value.name, value.value])), CLAUDE_CONFIG_DIR: home }, ...compileClaudeOptions(selected, { ...selection, reasoningEffort: effort || undefined }), permissionMode: settings.permissionMode as Exclude<CodexSettings['permissionMode'], 'fullAccess'>, settingSources: settingSources as ('user' | 'project' | 'local')[] };
   }
 
   async save(value: unknown) {

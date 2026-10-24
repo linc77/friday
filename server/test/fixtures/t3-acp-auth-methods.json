@@ -1,0 +1,11 @@
+{
+  "source": "pingdotgg/t3code@8cd9641f76874f2ce17d6c80acd71fab1f0b99d3/packages/effect-acp/src/_generated/meta.gen.ts",
+  "agent": {
+    "auth_login": "auth/login",
+    "auth_logout": "auth/logout",
+    "session_new": "session/new"
+  },
+  "client": {
+    "elicitation_create": "elicitation/create"
+  }
+}

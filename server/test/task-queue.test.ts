@@ -11,7 +11,7 @@ import { IdeaImages } from '../src/ideas.js';
 import type { ExecutionRequest, Executor, Workspace } from '../src/types.js';
 
 class ControlledExecutor implements Executor {
-  calls: { id: string; text: string; model?: string; effort?: string; release: () => void }[] = [];
+  calls: { id: string; text: string; model?: string; effort?: string; modelOptions?: import('../src/provider-models.js').ProviderOptionSelection[]; release: () => void }[] = [];
   active = new Set<string>();
   steers: string[] = [];
   failSteer = false;
@@ -22,7 +22,7 @@ class ControlledExecutor implements Executor {
       await request.update({ kind: 'session', threadId: request.task.threadId ?? `thread-${request.task.id}` });
       await request.update({ kind: 'turn', turnId: randomUUID() });
       await new Promise<void>((resolve, reject) => {
-        this.calls.push({ id: request.task.id, text: request.prompt, model: request.task.model, effort: request.task.reasoningEffort, release: resolve });
+        this.calls.push({ id: request.task.id, text: request.prompt, model: request.task.model, effort: request.task.reasoningEffort, modelOptions: request.task.modelOptions, release: resolve });
         const abort = () => reject(new Error('aborted'));
         request.signal.addEventListener('abort', abort, { once: true });
         if (request.signal.aborted) abort();
@@ -33,6 +33,24 @@ class ControlledExecutor implements Executor {
   async steer(_id: string, text: string) { this.steers.push(text); if (this.failSteer) throw new Error('lost receipt'); }
   async answer() {}
 }
+test('queued model options are frozen independently, reach the dispatched run and survive restart', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-queue-options-')), executor = new ControlledExecutor();
+  let engine: Engine | undefined = await new Engine(directory, executor).open();
+  t.after(async () => { await engine?.close(); await rm(directory, { recursive: true, force: true }); });
+  const id = await engine.createTask({ prompt: 'first', title: 'Queue options', projectId: null, mode: 'auto', agent: 'codex', requestId: 'first' });
+  await until(engine, () => executor.calls.length === 1);
+  const options = [{ id: 'fastMode', value: false }];
+  await engine.taskQueue.enqueue(id, { text: 'next', model: 'another-model', modelOptions: options }, 'next');
+  options[0].value = true;
+  assert.equal((await engine.snapshot()).tasks.find(task => task.id === id)?.queue?.messages[0].modelOptions?.[0].value, false);
+  executor.calls[0].release(); await until(engine, () => executor.calls.length === 2);
+  assert.deepEqual(executor.calls[1].modelOptions, [{ id: 'fastMode', value: false }]);
+  executor.calls[1].release(); await until(engine, state => state.tasks.find(task => task.id === id)?.status === 'completed');
+  await engine.close(); engine = undefined; engine = await new Engine(directory, new ControlledExecutor()).open();
+  const task = (await engine.snapshot()).tasks.find(task => task.id === id)!;
+  assert.equal(task.model, 'another-model'); assert.deepEqual(task.modelOptions, [{ id: 'fastMode', value: false }]);
+  assert.deepEqual(task.runs?.at(-1)?.modelOptions, task.modelOptions);
+});
 
 async function until(engine: Engine, predicate: (state: Workspace) => boolean) {
   const deadline = Date.now() + 5000;

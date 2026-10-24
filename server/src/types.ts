@@ -92,7 +92,7 @@ export type TaskRun = {
   startedAt?: string;
   executionOrder?: number; executionMessagePosition?: number; executionExcludedAt?: string;
   status: TaskStatus; completedAt?: string; threadId?: string; turnId?: string; nativeHead?: string;
-  mode: TaskMode; interactionMode: TaskInteractionMode; model?: string; reasoningEffort?: string;
+  mode: TaskMode; interactionMode: TaskInteractionMode; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[];
   before?: TaskCheckpoint; after?: TaskCheckpoint; changes?: TaskRunFile[]; diffError?: string; revertedAt?: string;
   inheritedFrom?: { taskId: string; runId: string };
   workspacePreparation?: TaskWorkspacePreparation;
@@ -125,7 +125,7 @@ export type NativeRewindRequest = {
   started: (original: NativeRewindStart) => Promise<void>;
   candidate: (threadId: string) => Promise<void>;
 };
-export type TaskRewindEditor = { text: string; images: IdeaImage[]; contexts?: TaskContextReference[]; interactionMode: TaskInteractionMode; model?: string; reasoningEffort?: string };
+export type TaskRewindEditor = { text: string; images: IdeaImage[]; contexts?: TaskContextReference[]; interactionMode: TaskInteractionMode; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[] };
 export type TaskRewindOperation = {
   id: string; durableId: number; requestId: string; messageId: string; runId: string; removedRunIds: string[]; removedExecutionRunIds?: string[];
   status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted' | 'needs_review';
@@ -169,7 +169,7 @@ export type TaskEventPage = { taskId: string; epoch: string; sequence: number; e
 export type QueuedTaskMessage = {
   id: string; dispatchId: string; text: string; images: IdeaImage[]; createdAt: string;
   status: 'queued' | 'dispatching' | 'steering' | 'running' | 'completed' | 'cancelled' | 'uncertain' | 'failed';
-  model?: string; reasoningEffort?: string; runId?: number; error?: string | null;
+  model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; runId?: number; error?: string | null;
   interactionMode?: TaskInteractionMode;
   contexts?: TaskContextReference[];
   creationSource?: 'monitor'; notification?: import('./task-change-request-watch-types.js').WatchNotification;
@@ -193,6 +193,7 @@ export type WorkItem = {
   id: string; title: string; prompt: string; projectId: string | null; cwd: string;
   titleRegeneration?: { requestId: string; startedAt: string } | null;
   titleGenerationSupported?: boolean; // Read-only provider capability.
+  providerInstanceId?: string;
   agent: string; mode: TaskMode; status: TaskStatus; createdAt: string; updatedAt: string;
   durableId: number | null; threadId: string | null; turnId: string | null;
   result: string; error: string | null; events: TaskEvent[]; approvals: Approval[];
@@ -210,7 +211,7 @@ export type WorkItem = {
   claudeHome?: string;
   piHome?: string;
   grokHome?: string;
-  parentId?: string; model?: string; reasoningEffort?: string;
+  parentId?: string; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[];
   artifact: string | null; lastRequestId: string;
   workspaceRequest?: string | null;
   pinnedAt?: string | null; archivedAt?: string | null; settledAt?: string | null; unsettledAt?: string | null;
@@ -322,7 +323,7 @@ export type AgentInfo = { id: string; name: string; installed: boolean; executab
 export type ExecutionUpdate = NativeRuntimeUpdate | import('./task-subagent-types.js').SubagentRuntimeUpdate | import('./task-subagent-types.js').SubagentBackgroundUpdate
   | { kind: 'goal'; goal: import('./codex-goals.js').TaskGoal | null }
   | { kind: 'contextUsage'; usage: import('./task-context-usage.js').TaskContextUsage | null }
-  | { kind: 'session'; threadId: string; codexHome?: string; claudeHome?: string; piHome?: string; grokHome?: string; nativeProviderAccount?: string; model?: string; reasoningEffort?: string; executionSessionId?: string }
+  | { kind: 'session'; threadId: string; codexHome?: string; claudeHome?: string; piHome?: string; grokHome?: string; nativeProviderAccount?: string; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; executionSessionId?: string }
   | { kind: 'turn'; turnId: string }
   | { kind: 'nativeHead'; head: string }
   | { kind: 'resumeApplied' }

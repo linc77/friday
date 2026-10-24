@@ -77,6 +77,8 @@ struct TaskComposerSubmission {
     var planEventID: String? = nil
     var implementInNewThread = false
     var compactBeforeSend = false
+    var providerInstanceId: String? = nil
+    var modelOptions: [ProviderOptionSelection]? = nil
 }
 
 enum TaskExecutionPresentation {

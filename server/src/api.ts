@@ -1,10 +1,11 @@
+import { providerOptionSelections } from './provider-models.js';
+import { providerDrivers, providerInstanceID, taskProviderInstance } from './provider-instances.js';
 import { publicProviderState } from './provider-public-state.js';
 import { ProjectRepositoryIdentities } from './project-repository-identities.js';
 import { usagePoolSnapshot } from './usage-limit-pools.js';
 import { isApprovalDecision } from './provider-approvals.js';
 import { installProjectScriptAPI } from './project-script-api.js';
 import { creationSelection } from './task-change-request-creation.js';
-import { pendingReviewGuides } from './task-review-guides.js';
 import { installTaskHostBrowserAPI } from './task-host-browser-api.js';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -21,7 +22,6 @@ import type { Idea } from './types.js';
 import { projectChanges } from './projects.js';
 import { TaskGitContexts, gitRefreshInterval } from './git-context.js';
 import { ServiceMaintenance } from './maintenance.js';
-import { pendingTaskTitles } from './task-titles.js';
 import { TextGenerationSettingsConflict } from './text-generation-settings.js';
 import { workspaceOptions, workspaceSelection } from './task-workspace.js';
 import { taskMetadataChange } from './task-metadata.js';
@@ -151,84 +151,67 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     return c.json(await engine.modelConnection.saveKey(text(body.apiKey, 'API Key', 512)));
   });
   app.delete('/api/model/key', async c => { await engine.modelConnection.clearKey(); return c.json({ ok: true }); });
-  app.get('/api/agents/codex', async c => c.json(await engine.codexConnection.status(c.get('device') === 'owner')));
-  app.use('/api/agents/codex/*', async (c, next) => {
-    if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置 Codex' }, 403);
-    if (c.req.path !== '/api/agents/codex/check') {
-      const state = await engine.snapshot();
-      if (pendingReviewGuides(state, 'codex') || pendingTaskTitles(state, 'codex') || state.tasks.some(t => activeGitOperation(t.gitOperation) && t.gitOperation?.generationModelSelection?.agent === 'codex' || t.agent === 'codex' && (activeStatuses.includes(t.status) || activeGitOperation(t.gitOperation) || activeRewind(t.rewindOperation) || runningFork(t.forkOperation)))) return c.json({ error: '请先停止 Codex 任务并处理会话操作再修改工具配置' }, 409);
-    }
-    await next();
+  app.get('/api/provider-instances', async c => c.json({ instances: await engine.providerInstances.list() }));
+  app.put('/api/provider-instances', async c => {
+    if (c.get('device') !== 'owner') return c.json({ error: '请在主机配置 Provider 实例' }, 403);
+    return c.json({ instances: await engine.providerInstances.change(await c.req.json()) });
   });
-  app.put('/api/agents/codex/settings', async c => c.json(await engine.codexConnection.save(await c.req.json())));
-  app.post('/api/agents/codex/check', async c => c.json(await engine.codexConnection.status(true, true)));
-  app.post('/api/agents/codex/login', async c => c.json(await engine.codexConnection.login()));
-  app.get('/api/agents/claude', async c => c.json(await engine.claudeConnection.status(c.get('device') === 'owner')));
-  app.use('/api/agents/claude/*', async (c, next) => {
-    if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置 Claude' }, 403);
-    if (c.req.path !== '/api/agents/claude/check') {
-      const state = await engine.snapshot();
-      if (pendingReviewGuides(state, 'claude') || pendingTaskTitles(state, 'claude') || state.tasks.some(t => activeGitOperation(t.gitOperation) && t.gitOperation?.generationModelSelection?.agent === 'claude' || t.agent === 'claude' && (activeStatuses.includes(t.status) || activeGitOperation(t.gitOperation) || activeRewind(t.rewindOperation) || runningFork(t.forkOperation)))) return c.json({ error: '请先停止 Claude 任务并处理会话操作再修改工具配置' }, 409);
-    }
-    await next();
-  });
-  app.put('/api/agents/claude/settings', async c => c.json(await engine.claudeConnection.save(await c.req.json())));
-  app.post('/api/agents/claude/check', async c => c.json(await engine.claudeConnection.status(true, true)));
-  app.get('/api/agents/pi', async c => c.json(await engine.piConnection.status(c.get('device') === 'owner')));
-  app.use('/api/agents/pi/*', async (c, next) => {
-    if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置 Pi' }, 403);
-    if (c.req.path !== '/api/agents/pi/check') {
-      const state = await engine.snapshot();
-      if (state.tasks.some(task => task.agent === 'pi' && (activeStatuses.includes(task.status) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation)))) return c.json({ error: '请先停止 Pi 任务并处理会话操作再修改工具配置' }, 409);
-    }
-    await next();
-  });
-  app.put('/api/agents/pi/settings', async c => c.json(await engine.piConnection.save(await c.req.json())));
-  app.post('/api/agents/pi/check', async c => c.json(await engine.piConnection.status(true, true)));
-  app.get('/api/agents/grok', async c => c.json(await engine.grokConnection.status(c.get('device') === 'owner')));
-  app.use('/api/agents/grok/*', async (c, next) => {
-    if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置 Grok' }, 403);
-    if (c.req.path !== '/api/agents/grok/check') {
-      const state = await engine.snapshot();
-      if (state.tasks.some(task => task.agent === 'grok' && (activeStatuses.includes(task.status) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation)))) return c.json({ error: '请先停止 Grok 任务并处理会话操作再修改工具配置' }, 409);
-    }
-    await next();
-  });
-  app.put('/api/agents/grok/settings', async c => c.json(await engine.grokConnection.save(await c.req.json())));
-  app.post('/api/agents/grok/check', async c => c.json(await engine.grokConnection.status(true, true)));
-  for (const [provider, connection] of [['cursor', engine.cursorConnection], ['opencode', engine.opencodeConnection], ['muse', engine.museConnection]] as const) {
-    app.get(`/api/agents/${provider}`, async c => c.json(await connection.status(c.get('device') === 'owner')));
-    app.use(`/api/agents/${provider}/*`, async (c, next) => {
+  for (const provider of providerDrivers) {
+    const endpoint = `/api/agents/${provider}`, get = (id?: string) => engine.providerInstances.get(provider, id ?? provider);
+    app.get(endpoint, async c => c.json(await engine.providerInstances.status(provider, c.req.query('instanceId') ?? provider, c.get('device') === 'owner')));
+    app.use(endpoint + '/*', async (c, next) => {
       if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置此工具' }, 403);
-      if (c.req.path !== `/api/agents/${provider}/check`) {
+      const id = providerInstanceID(c.req.query('instanceId') ?? provider);
+      await get(id);
+      const metadata = c.req.path.endsWith('/check') || c.req.path.endsWith('/registry/search') || c.req.method === 'GET';
+      if (!metadata) {
         const state = await engine.snapshot();
-        if (state.tasks.some(task => task.agent === provider && (activeStatuses.includes(task.status) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation)))) return c.json({ error: '请先停止此工具的任务并处理会话操作再修改配置' }, 409);
+        const peers = c.req.path.endsWith('/login') || c.req.path.endsWith('/logout') ? await engine.providerInstances.credentialPeers(provider, id) : [id];
+        if (state.tasks.some(task => peers.includes(taskProviderInstance(task)) && (activeStatuses.includes(task.status) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation)) || activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id)
+          || Object.values(state.titleRequests ?? {}).some(request => request.status === 'pending' && (request.modelSelection?.providerInstanceId ?? request.modelSelection?.agent) === id)
+          || state.tasks.some(task => task.changeRequestGuideRuns?.some(run => ['queued', 'running'].includes(run.status) && (run.modelSelection.providerInstanceId ?? run.modelSelection.agent) === id))) return c.json({ error: '请先停止此实例的任务并处理会话操作再修改配置' }, 409);
       }
       await next();
     });
-    app.put(`/api/agents/${provider}/settings`, async c => c.json(await connection.save(await c.req.json())));
-    app.post(`/api/agents/${provider}/check`, async c => c.json(await connection.status(true, true)));
-  }
-  app.post('/api/agents/cursor/login', async c => c.json(await engine.cursorConnection.login()));
-  for (const [provider, connection] of [['acp-registry', engine.acpRegistryConnection], ['antigravity', engine.antigravityConnection]] as const) {
-    const endpoint = `/api/agents/${provider}`;
-    app.get(endpoint, async c => c.json(await connection.status(c.get('device') === 'owner')));
-    app.use(endpoint + '/*', async (c, next) => {
-      if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置此 ACP 工具' }, 403);
-      const metadata = c.req.path.endsWith('/check') || c.req.path.endsWith('/registry/search') || c.req.method === 'GET';
-      if (!metadata) { const state = await engine.snapshot(); if (state.tasks.some(task => task.agent === provider && (activeStatuses.includes(task.status) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation)))) return c.json({ error: '请先停止此 ACP 工具的任务并处理会话操作' }, 409); }
-      await next();
+    app.put(endpoint + '/settings', async c => c.json(await (await get(c.req.query('instanceId'))).save(await c.req.json())));
+    app.post(endpoint + '/check', async c => c.json(await engine.providerInstances.status(provider, c.req.query('instanceId') ?? provider, true, true)));
+    if (provider === 'codex' || provider === 'cursor') app.post(endpoint + '/login', async c => c.json(await (await engine.providerInstances.get(provider, c.req.query('instanceId') ?? provider)).login()));
+    if (provider !== 'acp-registry' && provider !== 'antigravity') continue;
+    const getAcp = (id?: string) => engine.providerInstances.get(provider, id ?? provider);
+    app.get(endpoint + '/login', async c => c.json((await getAcp(c.req.query('instanceId'))).loginState()));
+    app.get(endpoint + '/login/events', async c => { const connection = await getAcp(c.req.query('instanceId'));
+      const flowId = c.req.query('flowId');
+      if (!flowId || flowId.length > 128 || !('flowId' in connection.loginState()) || (connection.loginState() as { flowId?: string }).flowId !== flowId) return c.json({ error: '认证流程已改变，请刷新后重试' }, 409);
+      return streamSSE(c, async stream => {
+        let dirty = true, wake: (() => void) | undefined;
+        const unsubscribe = connection.subscribeLogin(flowId, () => { dirty = true; wake?.(); });
+        stream.onAbort(() => wake?.());
+        try {
+          while (!stream.aborted) {
+            if (dirty) {
+              dirty = false; const state = connection.loginState();
+              if (!('flowId' in state) || state.flowId !== flowId) return;
+              await stream.writeSSE({ event: 'auth', data: JSON.stringify(state) });
+              if (!state.pending) return;
+            }
+            let timer: NodeJS.Timeout | undefined;
+            await new Promise<void>(resolve => { wake = resolve; timer = setTimeout(resolve, 15000); if (dirty || stream.aborted) resolve(); });
+            clearTimeout(timer); wake = undefined;
+            if (!dirty && !stream.aborted) await stream.writeSSE({ event: 'ping', data: '{}' });
+          }
+        } finally { unsubscribe(); }
+      });
     });
-    app.put(endpoint + '/settings', async c => c.json(await connection.save(await c.req.json())));
-    app.post(endpoint + '/check', async c => c.json(await connection.status(true, true)));
-    app.get(endpoint + '/login', c => c.json(connection.loginState()));
-    app.post(endpoint + '/login', async c => c.json(await connection.login()));
-    app.post(endpoint + '/login/cancel', async c => c.json(await connection.cancelLogin()));
-    app.get(endpoint + '/install', async c => c.json(await connection.installState()));
-    app.post(endpoint + '/install', async c => c.json(await connection.startInstall()));
-    app.post(endpoint + '/install/cancel', async c => { const body = await c.req.json(); if (typeof body.operationId !== 'string' || body.operationId.length > 128) throw new Error('工具安装操作标识无效'); return c.json(await connection.cancelInstall(body.operationId)); });
+    app.get(endpoint + '/login/methods', async c => { const connection = await getAcp(c.req.query('instanceId')); return c.json(await connection.authenticationMethods()); });
+    app.post(endpoint + '/login', async c => { const connection = await getAcp(c.req.query('instanceId')); const raw = await c.req.text(), body = raw ? JSON.parse(raw) : {}; if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('认证请求格式无效'); if (body.methodId !== undefined && (typeof body.methodId !== 'string' || body.methodId.length > 128)) throw new Error('认证方式标识无效'); return c.json(await connection.login(body.methodId)); });
+    app.post(endpoint + '/login/respond', async c => { const connection = await getAcp(c.req.query('instanceId')); return c.json(connection.respondLogin(await c.req.json())); });
+    app.post(endpoint + '/logout', async c => { const connection = await getAcp(c.req.query('instanceId')); return c.json(await connection.logout()); });
+    app.post(endpoint + '/login/cancel', async c => { const connection = await getAcp(c.req.query('instanceId')); const raw = await c.req.text(), body = raw ? JSON.parse(raw) : {}; if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('认证请求格式无效'); if (body.flowId !== undefined && (typeof body.flowId !== 'string' || body.flowId.length > 128)) throw new Error('认证流程标识无效'); return c.json(await connection.cancelLogin(body.flowId)); });
+    app.get(endpoint + '/install', async c => { const connection = await getAcp(c.req.query('instanceId')); return c.json(await connection.installState()); });
+    app.post(endpoint + '/install', async c => { const connection = await getAcp(c.req.query('instanceId')); return c.json(await connection.startInstall()); });
+    app.post(endpoint + '/install/cancel', async c => { const connection = await getAcp(c.req.query('instanceId')); const body = await c.req.json(); if (typeof body.operationId !== 'string' || body.operationId.length > 128) throw new Error('工具安装操作标识无效'); return c.json(await connection.cancelInstall(body.operationId)); });
   }
-  app.post('/api/agents/acp-registry/registry/search', async c => { const body = await c.req.json(); if (typeof body.query !== 'string') throw new Error('ACP Registry 搜索内容无效'); return c.json(await engine.acpRegistryConnection.registry.search(body.query, body.reload === true)); });
+  app.post('/api/agents/acp-registry/registry/search', async c => { const body = await c.req.json(); if (typeof body.query !== 'string') throw new Error('ACP Registry 搜索内容无效'); return c.json(await (await engine.providerInstances.get('acp-registry', c.req.query('instanceId') ?? 'acp-registry')).registry.search(body.query, body.reload === true)); });
   app.get('/api/text-generation/settings', async c => c.json(await engine.textGeneration.snapshot(c.req.query('projectId') ?? null)));
   installSourceControlPreferencesAPI(app, engine);
   app.get('/api/task-settlement/settings', async c => c.json(await engine.taskSettlement.snapshot(c.req.query('projectId') ?? null)));
@@ -363,14 +346,14 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     const mode = body.mode ?? 'auto';
     if (!['auto', 'assistant', 'research', 'code'].includes(mode)) throw new Error('任务类型无效');
     const attached = await images.validate(body.images);
-    const id = await engine.createTask({ prompt: taskPrompt(body.prompt, attached), images: attached, contextIds: contextIDs(body.contextIds), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode, agent: body.agent ?? 'friday', model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), interactionMode: taskInteractionMode(body.interactionMode), requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined, workspace: workspaceSelection(body.workspace) });
+    const id = await engine.createTask({ prompt: taskPrompt(body.prompt, attached), images: attached, contextIds: contextIDs(body.contextIds), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode, agent: body.agent ?? 'friday', providerInstanceId: body.providerInstanceId === undefined ? undefined : providerInstanceID(body.providerInstanceId), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions), interactionMode: taskInteractionMode(body.interactionMode), requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined, workspace: workspaceSelection(body.workspace) });
     return c.json({ id }, 201);
   });
   app.post('/api/composer/capabilities', async c => {
     const body = await c.req.json();
     if (body.reload !== undefined && typeof body.reload !== 'boolean') throw new Error('刷新参数无效');
     const optional = (key: string) => body[key] === undefined ? undefined : text(body[key], '执行范围', 200);
-    return c.json(await composerWorkspace(engine, { provider: text(body.provider, '执行器', 20), taskId: optional('taskId'), projectId: optional('projectId'),
+    return c.json(await composerWorkspace(engine, { provider: text(body.provider, '执行器', 20), providerInstanceId: body.providerInstanceId === undefined ? undefined : providerInstanceID(body.providerInstanceId), taskId: optional('taskId'), projectId: optional('projectId'),
       preparationId: optional('preparationId'), reuseTaskId: optional('reuseTaskId'), reload: body.reload === true }));
   });
   app.post('/api/tasks/:id/workspace', async c => {
@@ -449,7 +432,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
   app.post('/api/composer/usage-limits', async c => {
     const body = await c.req.json();
     if (body.reload !== undefined && typeof body.reload !== 'boolean') throw new Error('刷新参数无效');
-    return c.json(await composerUsageLimits(engine, { provider: text(body.provider, '执行器', 20), taskId: body.taskId === undefined ? undefined : text(body.taskId, '任务 ID', 100), reload: body.reload === true }));
+    return c.json(await composerUsageLimits(engine, { provider: text(body.provider, '执行器', 20), providerInstanceId: body.providerInstanceId === undefined ? undefined : providerInstanceID(body.providerInstanceId), taskId: body.taskId === undefined ? undefined : text(body.taskId, '任务 ID', 100), reload: body.reload === true }));
   });
   app.post('/api/composer/reset-credit', async c => {
     if (c.get('device') !== 'owner') return c.json({ error: '只有主机可以使用账号重置凭证。' }, 403);
@@ -556,7 +539,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     const id = await engine.followUpPlan(c.req.param('id'), text(body.eventId, '方案 ID', 300), {
       text: refinement, newThread: body.newThread === true, requestId: text(body.requestId, '请求 ID', 100), images: attached,
       contextIds: contextIDs(body.contextIds),
-      model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort),
+      model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions),
     });
     return c.json({ id }, 201);
   });
@@ -617,6 +600,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     const body = await c.req.json(); const attached = await images.validate(body.images); const prompt = taskPrompt(body.text, attached); const requestId = text(body.requestId, '请求 ID', 100);
     const task = (await engine.snapshot()).tasks.find(t => t.id === c.req.param('id'));
     if (!task) throw new Error('任务不存在');
+    if (body.providerInstanceId !== undefined && providerInstanceID(body.providerInstanceId) !== taskProviderInstance(task)) throw new Error('不能切换会话所属 Provider 实例');
     const interactionMode = taskInteractionMode(body.interactionMode);
     const dispatch = body.dispatchMode ?? 'auto';
     if (!['auto', 'steer', 'queue'].includes(dispatch)) throw new Error('消息发送方式无效');
@@ -624,7 +608,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     if (body.compactBeforeSend === true) {
       const threadId = text(body.threadId, '原生会话 ID', 200);
       return c.json({ id: await compactTask(engine, task.id, { requestId, threadId, nextMessage: {
-        text: prompt, images: attached, contextIds: contextIDs(body.contextIds), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), interactionMode,
+        text: prompt, images: attached, contextIds: contextIDs(body.contextIds), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions), interactionMode,
       } }) });
     }
     if (task.agent !== 'friday' && prompt.trim().toLowerCase() === '/compact' && attached.length === 0 && contextIDs(body.contextIds).length === 0) {
@@ -638,12 +622,12 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
       (activeStatuses.includes(task.status) && (task.status === 'queued' || task.canSteer === false || (interactionMode !== undefined && interactionMode !== (task.interactionMode ?? 'default')))) ||
       (!activeStatuses.includes(task.status) && (task.queue?.dispatcherId != null || task.queue?.messages.some(item => item.status === 'queued')))
     ))) {
-      await engine.taskQueue.enqueue(task.id, { text: prompt, images: attached, contextIds: contextIDs(body.contextIds), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), interactionMode }, requestId);
+      await engine.taskQueue.enqueue(task.id, { text: prompt, images: attached, contextIds: contextIDs(body.contextIds), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions), interactionMode }, requestId);
     } else if (activeStatuses.includes(task.status)) {
-      if (body.model !== undefined || body.reasoningEffort !== undefined) throw new Error('请在当前执行结束后切换模型');
+      if (body.model !== undefined || body.reasoningEffort !== undefined || body.modelOptions !== undefined) throw new Error('请在当前执行结束后切换模型');
       await engine.steer(task.id, prompt, requestId, attached, contextIDs(body.contextIds));
     }
-    else await engine.createTask({ prompt, images: attached, contextIds: contextIDs(body.contextIds), requestId, projectId: task.projectId, mode: task.mode, continueId: task.id, model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), interactionMode });
+    else await engine.createTask({ prompt, images: attached, contextIds: contextIDs(body.contextIds), requestId, projectId: task.projectId, mode: task.mode, continueId: task.id, model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions), interactionMode });
     return c.json({ id: task.id });
   });
   app.patch('/api/tasks/:id/queue/:messageId', async c => {
@@ -651,7 +635,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     const attached = body.images === undefined ? undefined : await images.validate(body.images);
     const existing = (await engine.snapshot()).tasks.find(task => task.id === c.req.param('id'))?.queue?.messages.find(message => message.id === c.req.param('messageId'));
     const prompt = taskPrompt(body.text, attached ?? existing?.images);
-    await engine.taskQueue.edit(c.req.param('id'), c.req.param('messageId'), { text: prompt, images: attached, ...(body.contextIds !== undefined ? { contextIds: contextIDs(body.contextIds) } : {}), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), interactionMode: taskInteractionMode(body.interactionMode) });
+    await engine.taskQueue.edit(c.req.param('id'), c.req.param('messageId'), { text: prompt, images: attached, ...(body.contextIds !== undefined ? { contextIds: contextIDs(body.contextIds) } : {}), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions), interactionMode: taskInteractionMode(body.interactionMode) });
     return c.json({ ok: true });
   });
   app.delete('/api/tasks/:id/queue/:messageId', async c => {

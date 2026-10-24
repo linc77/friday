@@ -1,3 +1,4 @@
+import { selectedProviderOptions, type ProviderModelSelection } from './provider-models.js';
 import { createHash } from 'node:crypto';
 import { readFile, access } from 'node:fs/promises';
 import { constants } from 'node:fs';
@@ -66,14 +67,15 @@ export abstract class NativeProviderConnection {
     const { serverPassword, ...visible } = settings;
     return { ...value, models: appendCustomModels(value.models, settings.customModels), settings: owner ? { ...visible, ...(serverPassword !== undefined ? { serverPassword: null, serverPasswordConfigured: !!serverPassword } : {}), environment: settings.environment.map(entry => ({ name: entry.name, value: null, hasValue: true })) } : null };
   }
-  async runtime(selection?: { model?: string; reasoningEffort?: string }) {
+  async runtime(selection?: ProviderModelSelection) {
     if (this.closed || this.saving) throw new Error('工具连接正在关闭或保存配置');
     const state = await this.status(), settings = await loadNativeProviderSettings(this.directory, this.provider);
     if (!state.enabled || !state.connected) throw new Error(state.error ?? `请在 Providers 中启用并连接 ${nativeProviderName(this.provider)}`);
     const model = selection?.model || settings.model || state.model || state.models.find(model => model.isDefault)?.id || state.models[0]?.id;
-    const effort = selection?.reasoningEffort || (selection?.model ? '' : settings.reasoningEffort), selected: ProviderModel | undefined = state.models.find(value => value.id === model);
+    const selected: ProviderModel | undefined = state.models.find(value => value.id === model), options = selected ? selectedProviderOptions(selected, selection) : undefined;
+    const effort = options?.effort || (selection?.model ? '' : settings.reasoningEffort);
     if (!model || !selected || effort && !selected.reasoningEfforts.includes(effort)) throw new Error('工具模型或推理选项已经改变，请重新选择');
-    return { settings, model, effort, env: nativeProviderEnvironment(this.provider, settings), account: nativeProviderAccount(this.provider, settings) };
+    return { settings, model, effort, modelOptions: options?.values ?? {}, env: nativeProviderEnvironment(this.provider, settings), account: nativeProviderAccount(this.provider, settings) };
   }
   async save(value: unknown) {
     if (this.saving) throw new Error('正在保存工具配置'); this.saving = true;

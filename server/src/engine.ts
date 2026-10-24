@@ -1,3 +1,5 @@
+import { providerOptionSelections } from './provider-models.js';
+import { ProviderInstances, providerDrivers, taskProviderInstance } from './provider-instances.js';
 import { availableScratchRoot, ensureScratchRoot, isScratchProjectPath, planScratchWorkspace, verifyScratchWorkspace } from './managed-scratch-workspace.js';
 import { ManagedProjectFolders, verifyManagedProjectFolder } from './managed-project-folders.js';
 import {ProjectRepositoryOperations} from './project-repository-operations.js';
@@ -179,6 +181,7 @@ export class Engine extends EventEmitter {
   readonly executor: Executor;
   readonly modelConnection: ModelConnection;
   readonly assistant: FridayAssistant;
+  readonly providerInstances: ProviderInstances;
   readonly codexConnection: CodexConnection;
   readonly claudeConnection: ClaudeConnection;
   readonly piConnection: PiConnection;
@@ -203,25 +206,29 @@ export class Engine extends EventEmitter {
     this.taskSearch = new TaskSearch(directory);
     this.customExecutor = executor !== undefined;
     this.modelConnection = new ModelConnection(directory);
-    this.codexConnection = new CodexConnection(directory);
-    this.claudeConnection = new ClaudeConnection(directory);
-    this.piConnection = new PiConnection(directory);
-    this.grokConnection = new GrokConnection(directory);
-    this.cursorConnection = new CursorConnection(directory, providerOptions?.cursor);
-    this.museConnection = new MuseConnection(directory);
-    this.opencodeConnection = new OpenCodeConnection(directory);
-    this.acpRegistryConnection = new AcpProviderConnection(directory, 'acp-registry', providerOptions?.acpRegistry);
-    this.antigravityConnection = new AcpProviderConnection(directory, 'antigravity', providerOptions?.antigravity);
-    this.codexConnection.onConfigurationChanged = () => this.providerConfigurationChanged('codex');
-    this.claudeConnection.onConfigurationChanged = () => this.providerConfigurationChanged('claude');
-    this.piConnection.onConfigurationChanged = () => this.providerConfigurationChanged('pi');
-    this.grokConnection.onConfigurationChanged = () => this.providerConfigurationChanged('grok');
-    this.cursorConnection.onConfigurationChanged = () => this.providerConfigurationChanged('cursor');
-    this.museConnection.onConfigurationChanged = () => this.providerConfigurationChanged('muse');
-    this.opencodeConnection.onConfigurationChanged = () => this.providerConfigurationChanged('opencode');
-    this.acpRegistryConnection.onConfigurationChanged = () => this.providerConfigurationChanged('acp-registry');
-    this.antigravityConnection.onConfigurationChanged = () => this.providerConfigurationChanged('antigravity');
-    this.executor = executor ?? new LocalAgentExecutor({ codex: new CodexExecutor(undefined, this.codexConnection, () => this.snapshot()), claude: new ClaudeExecutor(this.claudeConnection), pi: new PiExecutor(this.piConnection), grok: new GrokExecutor(this.grokConnection), cursor: new CursorExecutor(this.cursorConnection), muse: new MuseExecutor(this.museConnection), opencode: new OpenCodeExecutor(this.opencodeConnection), 'acp-registry': new AcpNativeExecutor(this.acpRegistryConnection), antigravity: new AcpNativeExecutor(this.antigravityConnection) });
+    this.providerInstances = new ProviderInstances(directory, (driver, path) => {
+      switch (driver) {
+        case 'codex': { const connection = new CodexConnection(path); return { connection, executor: new CodexExecutor(undefined, connection, () => this.snapshot()) }; }
+        case 'claude': { const connection = new ClaudeConnection(path); return { connection, executor: new ClaudeExecutor(connection) }; }
+        case 'pi': { const connection = new PiConnection(path); return { connection, executor: new PiExecutor(connection) }; }
+        case 'grok': { const connection = new GrokConnection(path); return { connection, executor: new GrokExecutor(connection) }; }
+        case 'cursor': { const connection = new CursorConnection(path, providerOptions?.cursor); return { connection, executor: new CursorExecutor(connection) }; }
+        case 'muse': { const connection = new MuseConnection(path); return { connection, executor: new MuseExecutor(connection) }; }
+        case 'opencode': { const connection = new OpenCodeConnection(path); return { connection, executor: new OpenCodeExecutor(connection) }; }
+        case 'acp-registry': case 'antigravity': { const connection = new AcpProviderConnection(path, driver, { ...(driver === 'acp-registry' ? providerOptions?.acpRegistry : providerOptions?.antigravity), credentialDirectory: directory }); return { connection, executor: new AcpNativeExecutor(connection) }; }
+      }
+    }, async (id, driver) => { await this.providerConfigurationChanged(id); if (id !== driver) await this.providerConfigurationChanged(driver); },
+    async (id, activeOnly = false) => { const state = await this.snapshot(); return state.tasks.some(task => taskProviderInstance(task) === id && (!activeOnly || activeStatuses.includes(task.status) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation))) || Object.values(state.titleRequests ?? {}).some(request => request.status === 'pending' && (request.modelSelection?.providerInstanceId ?? request.modelSelection?.agent) === id) || state.tasks.some(task => activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id || task.changeRequestGuideRuns?.some(run => ['queued', 'running'].includes(run.status) && (run.modelSelection.providerInstanceId ?? run.modelSelection.agent) === id)) || Object.values(state.providerCreditResets ?? {}).some(receipt => ['queued', 'running', 'uncertain'].includes(receipt.status) && (receipt.scope.providerInstanceId ?? receipt.scope.provider) === id); });
+    this.codexConnection = this.providerInstances.default('codex');
+    this.claudeConnection = this.providerInstances.default('claude');
+    this.piConnection = this.providerInstances.default('pi');
+    this.grokConnection = this.providerInstances.default('grok');
+    this.cursorConnection = this.providerInstances.default('cursor');
+    this.museConnection = this.providerInstances.default('muse');
+    this.opencodeConnection = this.providerInstances.default('opencode');
+    this.acpRegistryConnection = this.providerInstances.default('acp-registry');
+    this.antigravityConnection = this.providerInstances.default('antigravity');
+    this.executor = executor ?? new LocalAgentExecutor(this.providerInstances.defaultExecutors(), { resolve: task => this.providerInstances.executor(task), close: () => this.providerInstances.close() });
     this.assistant = new FridayAssistant(this);
     this.response = this.createResponse();
     this.branchSwitch = defineBranchSwitch(this);
@@ -748,7 +755,7 @@ export class Engine extends EventEmitter {
     return id;
   }
 
-  async followUpPlan(id: string, eventID: string, input: { text: string; requestId: string; newThread: boolean; images?: IdeaImage[]; contextIds?: string[]; model?: string; reasoningEffort?: string }) {
+  async followUpPlan(id: string, eventID: string, input: { text: string; requestId: string; newThread: boolean; images?: IdeaImage[]; contextIds?: string[]; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[] }) {
     const state = await this.snapshot();
     if (Object.hasOwn(state.requests, input.requestId)) {
       const receipt = state.requests[input.requestId]; const target = state.tasks.find(value => value.id === receipt);
@@ -764,13 +771,13 @@ export class Engine extends EventEmitter {
     const title = event.text.match(/^\s{0,3}#{1,6}\s+(.+)$/m)?.[1]?.trim();
     return this.createTask({ prompt, images: input.images, contextIds: input.contextIds, requestId: input.requestId, continueId: input.newThread ? undefined : id,
       agent: source.agent as 'codex' | 'claude', projectId: source.projectId, mode: refine ? source.mode : 'code',
-      model: input.model ?? source.model, reasoningEffort: input.reasoningEffort ?? source.reasoningEffort,
+      model: input.model ?? source.model, reasoningEffort: input.reasoningEffort ?? source.reasoningEffort, modelOptions: input.modelOptions ?? source.modelOptions,
       interactionMode: refine ? 'plan' : 'default',
       planSource: { taskId: id, eventId: eventID, text: event.text, cwd: source.cwd },
       ...(input.newThread ? { title: title ? `Implement ${title}` : 'Implement plan' } : {}) });
   }
 
-  async createTask(input: { command?: 'compact'; commandThreadId?: string; commandMessage?: QueueMessageInput & { requestId: string }; prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; agent?: 'friday' | 'codex' | 'claude' | 'pi' | 'grok' | 'cursor' | 'muse' | 'opencode' | 'acp-registry' | 'antigravity'; parentId?: string; model?: string; reasoningEffort?: string; interactionMode?: TaskInteractionMode; workspace?: TaskWorkspaceSelection; images?: IdeaImage[]; contextIds?: string[]; queueMessageId?: string; queueDispatcherId?: number; title?: string; planSource?: { taskId: string; eventId: string; text: string; cwd: string } }) {
+  async createTask(input: { command?: 'compact'; commandThreadId?: string; commandMessage?: QueueMessageInput & { requestId: string }; prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; providerInstanceId?: string; agent?: 'friday' | 'codex' | 'claude' | 'pi' | 'grok' | 'cursor' | 'muse' | 'opencode' | 'acp-registry' | 'antigravity'; parentId?: string; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; interactionMode?: TaskInteractionMode; workspace?: TaskWorkspaceSelection; images?: IdeaImage[]; contextIds?: string[]; queueMessageId?: string; queueDispatcherId?: number; title?: string; planSource?: { taskId: string; eventId: string; text: string; cwd: string } }) {
     if (['__proto__', 'constructor', 'prototype'].includes(input.requestId)) throw new Error('请求 ID 无效');
     const snapshot = await this.snapshot();
     if (Object.hasOwn(snapshot.requests, input.requestId)) return snapshot.requests[input.requestId];
@@ -780,6 +787,11 @@ export class Engine extends EventEmitter {
     const interactionMode = taskInteractionMode(input.interactionMode) ?? previous?.interactionMode ?? 'default';
     const agent = previous?.agent ?? input.agent ?? 'friday';
     const native = agent === 'friday';
+    const modelOptions = providerOptionSelections(input.modelOptions ?? (input.model !== undefined && input.model !== previous?.model ? [] : previous?.modelOptions)) ?? [];
+    const providerInstanceId = previous ? taskProviderInstance(previous) : input.providerInstanceId ?? (planSource ? taskProviderInstance(planSource) : agent);
+    if (previous && input.providerInstanceId !== undefined && input.providerInstanceId !== providerInstanceId) throw new Error('不能切换会话所属 Provider 实例，请新建任务');
+    if (native && input.providerInstanceId !== undefined) throw new Error('Friday 主会话不使用任务 Provider 实例');
+    if (!native) await this.providerInstances.get(agent as import('./provider-instances.js').ProviderDriver, providerInstanceId, true);
     if (native && interactionMode === 'plan') throw new Error('计划模式用于本地 Agent 任务');
     if (agent === 'pi' && interactionMode === 'plan') throw new Error('Pi 未提供原生计划模式，请使用默认模式');
     if (agent === 'muse' && interactionMode === 'plan') throw new Error('Muse 未提供原生计划模式，请使用默认模式');
@@ -792,10 +804,10 @@ export class Engine extends EventEmitter {
     if (previous && input.agent && input.agent !== previous.agent) throw new Error('不能切换会话所属 Agent，请新建任务');
     if (native && !this.agentOptions) await this.modelConnection.ready();
     if (!native && !this.customExecutor) {
-      const connection = agent === 'acp-registry' ? this.acpRegistryConnection : agent === 'antigravity' ? this.antigravityConnection : agent === 'cursor' ? this.cursorConnection : agent === 'muse' ? this.museConnection : agent === 'opencode' ? this.opencodeConnection : agent === 'grok' ? this.grokConnection : agent === 'pi' ? this.piConnection : agent === 'claude' ? this.claudeConnection : agent === 'codex' ? this.codexConnection : undefined;
+      const connection = await this.providerInstances.get(agent as import('./provider-instances.js').ProviderDriver, providerInstanceId, true);
       if (!connection) throw new Error('此 Agent 尚未接入任务执行');
-      if (connection instanceof AcpProviderConnection) await connection.runtime({ model: input.model ?? previous?.model, reasoningEffort: input.reasoningEffort ?? previous?.reasoningEffort, interactionMode });
-      else await connection.runtime({ model: input.model ?? previous?.model, reasoningEffort: input.reasoningEffort ?? previous?.reasoningEffort });
+      if (connection instanceof AcpProviderConnection) await connection.runtime({ model: input.model ?? previous?.model, reasoningEffort: input.reasoningEffort ?? previous?.reasoningEffort, modelOptions, interactionMode });
+      else await connection.runtime({ model: input.model ?? previous?.model, reasoningEffort: input.reasoningEffort ?? previous?.reasoningEffort, modelOptions });
     }
     if (!native && input.mode === 'assistant') throw new Error('主对话由 Friday 处理，请从任务入口调用本地 Agent');
     const project = snapshot.projects.find(p => p.id === input.projectId);
@@ -874,7 +886,7 @@ export class Engine extends EventEmitter {
       const references = native ? [] : await this.contexts.references(input.prompt, input.contextIds, { task: work, project, inheritedTask: origin ?? reuseSource, preparationId: prepared?.saved.id });
       const task: WorkItem = work ?? {
         id: taskId, title: input.title?.slice(0, 200).replace(/[\uD800-\uDBFF]$/, '') ?? (displayContextText(input.prompt).trim().slice(0, 64).replace(/[\uD800-\uDBFF]$/, '') || '图片任务'), prompt: input.prompt, projectId: input.projectId,
-        cwd: executionWorkspace?.cwd ?? origin?.cwd ?? project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent,
+        cwd: executionWorkspace?.cwd ?? origin?.cwd ?? project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent, ...(!native ? { providerInstanceId } : {}),
         status: 'queued', createdAt: stamp, updatedAt: stamp, durableId: null, threadId: null, turnId: null,
         result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: input.requestId,
         messages: [], workspaceRequest: null,
@@ -897,6 +909,8 @@ export class Engine extends EventEmitter {
       if (!native) {
         if (input.model !== undefined) { if (task.model !== input.model) task.contextUsage = null; task.model = input.model; }
         if (input.reasoningEffort !== undefined) task.reasoningEffort = input.reasoningEffort;
+        if (JSON.stringify(task.modelOptions?.find(option => option.id === 'contextWindow')?.value) !== JSON.stringify(modelOptions.find(option => option.id === 'contextWindow')?.value)) task.contextUsage = null;
+        task.modelOptions = modelOptions;
       }
       task.mode = input.mode; if (!input.command) { task.result = ''; task.artifact = null; }
       const contextBeforeCompaction = input.command ? JSON.parse(JSON.stringify(task.contextUsage ?? null)) as import('./task-context-usage.js').TaskContextUsage | null : undefined;
@@ -940,7 +954,7 @@ export class Engine extends EventEmitter {
         const runID = String(durableId); const message = input.command ? undefined : task.messages.at(-1); if (message) message.runId = runID;
         task.currentRunId = runID; task.runs ??= [];
         task.runs.push({ id: runID, durableId, messageId: message?.id ?? '', ...(input.command ? { command: input.command } : {}), requestId: input.requestId, cwd: task.cwd, at: stamp,
-          status: 'queued', mode: task.mode, interactionMode, ...(task.model ? { model: task.model } : {}), ...(task.reasoningEffort ? { reasoningEffort: task.reasoningEffort } : {}) });
+          status: 'queued', mode: task.mode, interactionMode, modelOptions: task.modelOptions, ...(task.model ? { model: task.model } : {}), ...(task.reasoningEffort ? { reasoningEffort: task.reasoningEffort } : {}) });
       }
       if (native) workspace.assistantQueueTail = durableId;
       else workspace.queueTail = durableId;
@@ -1002,11 +1016,11 @@ export class Engine extends EventEmitter {
       acceptedRunID = runID ?? item.currentRunId;
       const run = item.runs?.find(run => run.id === (runID ?? item.currentRunId));
       if (update.kind === 'contextUsage') { item.contextUsage = update.usage; if (run) run.contextUsage = update.usage; }
-      if (update.kind === 'session' && run) { run.threadId = update.threadId; if (update.model) run.model = update.model; if (update.reasoningEffort !== undefined) run.reasoningEffort = update.reasoningEffort; }
+      if (update.kind === 'session' && run) { run.threadId = update.threadId; if (update.model) run.model = update.model; if (update.reasoningEffort !== undefined) run.reasoningEffort = update.reasoningEffort; if (update.modelOptions !== undefined) run.modelOptions = update.modelOptions; }
       if (update.kind === 'turn' && run) { run.turnId = update.turnId; if (item.agent === 'codex') { run.nativeTurnIds ??= []; if (!run.nativeTurnIds.includes(update.turnId)) run.nativeTurnIds.push(update.turnId); } }
       if (update.kind === 'nativeHead') { item.nativeHead = update.head; if (run) run.nativeHead = update.head; delete item.claudeResumeSessionAt; delete item.claudeResumePendingRun; }
       if (update.kind === 'resumeApplied') { delete item.claudeResumeSessionAt; delete item.claudeResumePendingRun; }
-      if (update.kind === 'session') { item.threadId = update.threadId; if (update.codexHome) item.codexHome = update.codexHome; if (update.claudeHome) item.claudeHome = update.claudeHome; if (update.piHome) item.piHome = update.piHome; if (update.grokHome) item.grokHome = update.grokHome; if (update.nativeProviderAccount) item.nativeProviderAccount = update.nativeProviderAccount; if (update.model) item.model = update.model; if (update.reasoningEffort !== undefined) item.reasoningEffort = update.reasoningEffort; if (update.executionSessionId) item.executionSessionId = update.executionSessionId; }
+      if (update.kind === 'session') { item.threadId = update.threadId; if (update.codexHome) item.codexHome = update.codexHome; if (update.claudeHome) item.claudeHome = update.claudeHome; if (update.piHome) item.piHome = update.piHome; if (update.grokHome) item.grokHome = update.grokHome; if (update.nativeProviderAccount) item.nativeProviderAccount = update.nativeProviderAccount; if (update.model) item.model = update.model; if (update.reasoningEffort !== undefined) item.reasoningEffort = update.reasoningEffort; if (update.modelOptions !== undefined) item.modelOptions = update.modelOptions; if (update.executionSessionId) item.executionSessionId = update.executionSessionId; }
       if (update.kind === 'turn') {
         item.turnId = update.turnId;
         if (item.agent === 'codex') item.canSteer = run?.command !== 'compact';
@@ -1163,6 +1177,7 @@ export class Engine extends EventEmitter {
     await this.taskQueue.hold();
     await this.taskSearch.close();
     await this.executor.close?.();
-    await this.modelConnection.close(); await this.codexConnection.close(); await this.claudeConnection.close(); await this.piConnection.close(); await this.grokConnection.close(); await this.cursorConnection.close(); await this.museConnection.close(); await this.opencodeConnection.close(); await this.acpRegistryConnection.close(); await this.antigravityConnection.close(); await this.sourceControl.close(); await this.harness.close(context); this.changeRequests.close(); this.reviewGuides.close(); await this.terminals.close(); this.contexts.close(); await this.watch?.stop(); this.lease.close(); this.removeAllListeners();
+    if (this.customExecutor) await this.providerInstances.close();
+    await this.modelConnection.close(); await this.sourceControl.close(); await this.harness.close(context); this.changeRequests.close(); this.reviewGuides.close(); await this.terminals.close(); this.contexts.close(); await this.watch?.stop(); this.lease.close(); this.removeAllListeners();
   }
 }

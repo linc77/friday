@@ -3,8 +3,11 @@ import SwiftUI
 struct TaskModelChoice: Identifiable {
     let provider: String
     let model: CodexProviderModel
-    var id: String { provider + ":" + model.id }
-    var providerName: String { TaskProviderCatalog.name(provider) }
+    var instanceId: String? = nil
+    var instanceName: String? = nil
+    var selectionId: String { instanceId ?? provider }
+    var id: String { selectionId + ":" + model.id }
+    var providerName: String { instanceName ?? TaskProviderCatalog.name(provider) }
 }
 
 struct TaskModelPicker: View {
@@ -14,6 +17,9 @@ struct TaskModelPicker: View {
     let lockedProvider: String?
     let provider: String
     let model: String
+    var instances: [ProviderInstanceInfo] = ProviderInstanceInfo.defaults
+    var instanceId: String? = nil
+    var lockedInstance: String? = nil
     let select: (TaskModelChoice) -> Void
     @ObservedObject private var preferences = ProviderModelPreferences.shared
     @State private var search = ""
@@ -26,16 +32,16 @@ struct TaskModelPicker: View {
     #endif
 
     private var choices: [TaskModelChoice] {
-        TaskProviderCatalog.order.filter { lockedProvider == nil || $0 == lockedProvider }.flatMap { value in
-            preferences.get(server: server, provider: value).sorted(states[value]?.models ?? [], includeHidden: false)
-                .map { TaskModelChoice(provider: value, model: $0) }
+        instances.filter { (lockedProvider == nil || $0.driver == lockedProvider) && (lockedInstance == nil || $0.id == lockedInstance) }.flatMap { value in
+            preferences.get(server: server, provider: value.id).sorted(states[value.id]?.models ?? [], includeHidden: false)
+                .map { TaskModelChoice(provider: value.driver, model: $0, instanceId: value.id, instanceName: value.name) }
         }.filter { choice in
-            (filter == "all" || filter == choice.provider || (filter == "favorites" && favorite(choice))) &&
+            (filter == "all" || filter == choice.selectionId || (filter == "favorites" && favorite(choice))) &&
             (search.isEmpty || [choice.model.name, choice.model.id, choice.model.resolvedModel ?? "", choice.providerName].contains { $0.localizedCaseInsensitiveContains(search) })
         }
     }
     private func favorite(_ choice: TaskModelChoice) -> Bool {
-        preferences.get(server: server, provider: choice.provider).favorites.contains(choice.model.id)
+        preferences.get(server: server, provider: choice.selectionId).favorites.contains(choice.model.id)
     }
 
     var body: some View {
@@ -44,8 +50,8 @@ struct TaskModelPicker: View {
                 filterButton("all", title: "全部模型", symbol: "square.stack")
                 filterButton("favorites", title: "收藏", symbol: "star")
                 Divider().padding(.horizontal, 8)
-                ForEach(TaskProviderCatalog.order.filter { states[$0] != nil && (lockedProvider == nil || lockedProvider == $0) }, id: \.self) { value in
-                    filterButton(value, title: LocalizedStringKey(TaskProviderCatalog.name(value)))
+                ForEach(instances.filter { states[$0.id] != nil && (lockedProvider == nil || lockedProvider == $0.driver) && (lockedInstance == nil || lockedInstance == $0.id) }) { value in
+                    filterButton(value.id, title: LocalizedStringKey(value.name))
                 }
                 Spacer()
             }.padding(8).frame(width: 54)
@@ -78,7 +84,7 @@ struct TaskModelPicker: View {
         .onChange(of: scope) { _, _ in dismiss() }
         #if os(macOS)
         .onAppear { installJumpContext() }
-        .onChange(of: choices.map { $0.id + ":" + String(states[$0.provider]?.connected == true) }) { _, _ in
+        .onChange(of: choices.map { $0.id + ":" + String(states[$0.selectionId]?.connected == true) }) { _, _ in
             if modelJump.wrappedValue?.owner == jumpOwner { installJumpContext() }
         }
         .onDisappear { if modelJump.wrappedValue?.owner == jumpOwner { modelJump.wrappedValue = nil } }
@@ -90,7 +96,7 @@ struct TaskModelPicker: View {
     private func installJumpContext() {
         let models = Array(choices.prefix(9))
         let revision = UUID()
-        let enabled = Set(models.indices.filter { states[models[$0].provider]?.connected == true })
+        let enabled = Set(models.indices.filter { states[models[$0].selectionId]?.connected == true })
         modelJump.wrappedValue = TaskModelJumpContext(owner: jumpOwner, revision: revision, titles: models.map { $0.providerName + " · " + $0.model.selectionName }, enabled: enabled) { index in
             guard enabled.contains(index), modelJump.wrappedValue?.owner == jumpOwner, modelJump.wrappedValue?.revision == revision else { return }
             modelJump.wrappedValue = nil; select(models[index])
@@ -104,7 +110,7 @@ struct TaskModelPicker: View {
                 if let symbol {
                     FridaySymbolImage(systemName: symbol).font(.system(size: 17, weight: .regular))
                 } else {
-                    AgentProviderIcon(provider: value, size: 22).foregroundStyle(.primary)
+                    AgentProviderIcon(provider: instances.first(where: { $0.id == value })?.driver ?? value, size: 22).foregroundStyle(.primary)
                 }
             }
                 .frame(width: 36, height: 36).foregroundStyle(filter == value ? FridayTheme.accent : .secondary)
@@ -114,8 +120,8 @@ struct TaskModelPicker: View {
     }
 
     private func modelRow(_ choice: TaskModelChoice) -> some View {
-        let selected = provider == choice.provider && model == choice.model.id
-        let available = states[choice.provider]?.connected == true
+        let selected = (instanceId ?? provider) == choice.selectionId && model == choice.model.id
+        let available = states[choice.selectionId]?.connected == true
         return HStack(spacing: 8) {
             Button { select(choice) } label: {
                 HStack(spacing: 10) {
@@ -123,6 +129,7 @@ struct TaskModelPicker: View {
                         Text(choice.model.selectionName).font(.callout).lineLimit(2)
                         HStack(spacing: 4) {
                             AgentProviderIcon(provider: choice.provider, size: 12)
+                            if let color = instances.first(where: { $0.id == choice.selectionId })?.accent { Circle().fill(color).frame(width: 5, height: 5).accessibilityHidden(true) }
                             Text(choice.providerName)
                             if !available { Text("·"); Text(friday: "未连接") }
                         }.font(.caption).foregroundStyle(.secondary)
@@ -137,7 +144,7 @@ struct TaskModelPicker: View {
                 }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(FridaySymbolButtonStyle()).disabled(!available)
             Button {
-                preferences.update(server: server, provider: choice.provider) { value in
+                preferences.update(server: server, provider: choice.selectionId) { value in
                     if value.favorites.contains(choice.model.id) { value.favorites.removeAll { $0 == choice.model.id } }
                     else { value.favorites.append(choice.model.id) }
                 }

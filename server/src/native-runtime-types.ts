@@ -14,7 +14,7 @@ export type NativeObservedUpdate =
   | { kind: 'approval'; approval: Approval }
   | { kind: 'approvalResolved'; id: string; expired?: boolean }
   | { kind: 'event'; eventKind: string; text: string };
-export type NativeTurnParameters = { cwd: string; mode: TaskMode; interactionMode?: TaskInteractionMode; model?: string; reasoningEffort?: string };
+export type NativeTurnParameters = { cwd: string; mode: TaskMode; interactionMode?: TaskInteractionMode; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[] };
 export type NativeRuntimeUpdate =
   | { kind: 'nativeBackground'; threadId: string; sessionId: string; tasks: Array<ClaudeBackgroundTask & { output?: { text: string; truncated: boolean } }>; connected?: boolean }
   | { kind: 'nativeBackgroundOutput'; threadId: string; sessionId: string; workId: string; delta: string; reset?: boolean; truncated?: boolean }

@@ -1,9 +1,11 @@
+import { providerOptionSelections } from './provider-models.js';
+import { providerInstanceID } from './provider-instances.js';
 import type { Engine } from './engine.js';
 import type { Workspace } from './types.js';
 import { loadCodexSettings } from './codex-settings.js';
 import { loadClaudeSettings } from './claude-provider.js';
 
-export type TextGenerationModelSelection = { agent: 'codex' | 'claude'; model: string; reasoningEffort: string };
+export type TextGenerationModelSelection = { agent: 'codex' | 'claude'; providerInstanceId?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; model: string; reasoningEffort: string };
 export type SourceControlWritingStyle = { mode: 'repo_conventions' | 'conventional_commits' | 'custom'; customInstructions: string; followChangeRequestTemplates: boolean };
 export const defaultSourceControlWritingStyle = (): SourceControlWritingStyle => ({ mode: 'repo_conventions', customInstructions: '', followChangeRequestTemplates: true });
 export type TextGenerationScope = { textGenerationModelSelection?: TextGenerationModelSelection; sourceControlWriterModelSelection?: TextGenerationModelSelection | null; sourceControlWritingStyle?: SourceControlWritingStyle; reviewGuidesEnabled?: boolean; reviewGuideModelSelection?: TextGenerationModelSelection | null; reviewGuideInstructions?: string };
@@ -28,10 +30,10 @@ function object(value: unknown): Record<string, unknown> {
 }
 function selection(value: unknown): TextGenerationModelSelection {
   const data = object(value);
-  if (Object.keys(data).some(key => !['agent', 'model', 'reasoningEffort'].includes(key)) || !['codex', 'claude'].includes(String(data.agent))) throw new Error('文字生成 Provider 无效');
+  if (Object.keys(data).some(key => !['agent', 'providerInstanceId', 'model', 'reasoningEffort', 'modelOptions'].includes(key)) || !['codex', 'claude'].includes(String(data.agent))) throw new Error('文字生成 Provider 无效');
   if (typeof data.model !== 'string' || !data.model.trim() || data.model.length > 160 || /[\x00-\x1f\x7f]/.test(data.model)) throw new Error('文字生成模型无效');
   if (typeof data.reasoningEffort !== 'string' || data.reasoningEffort.length > 30 || /[\x00-\x1f\x7f]/.test(data.reasoningEffort)) throw new Error('文字生成推理强度无效');
-  return { agent: data.agent as TextGenerationModelSelection['agent'], model: data.model.trim(), reasoningEffort: data.reasoningEffort.trim() };
+  return { agent: data.agent as TextGenerationModelSelection['agent'], ...(data.providerInstanceId !== undefined ? { providerInstanceId: providerInstanceID(data.providerInstanceId) } : {}), ...(data.modelOptions !== undefined ? { modelOptions: providerOptionSelections(data.modelOptions) } : {}), model: data.model.trim(), reasoningEffort: data.reasoningEffort.trim() };
 }
 export function textGenerationSettingsChange(value: unknown) {
   const body = object(value);
@@ -93,8 +95,14 @@ export function resolveTextGenerationSettings(state: Workspace, projectId: strin
 export class TextGenerationPreferences {
   constructor(private readonly engine: Engine) {}
   private async enabled() {
-    const [codex, claude] = await Promise.all([loadCodexSettings(this.engine.directory), loadClaudeSettings(this.engine.directory)]);
-    return { codex: codex.enabled, claude: claude.enabled };
+    const enabled = { codex: false, claude: false };
+    for (const instance of await this.engine.providerInstances.list()) {
+      if (!instance.enabled || !['codex', 'claude'].includes(instance.driver)) continue;
+      const path = await this.engine.providerInstances.configDirectory(instance.driver, instance.instanceId);
+      const settings = instance.driver === 'codex' ? await loadCodexSettings(path) : await loadClaudeSettings(path);
+      if (settings.enabled) enabled[instance.driver as 'codex' | 'claude'] = true;
+    }
+    return enabled;
   }
   async snapshot(projectId: string | null) {
     const state = await this.engine.snapshot();
@@ -105,7 +113,7 @@ export class TextGenerationPreferences {
     const settings = resolveTextGenerationSettings(state, projectId, await this.enabled());
     if (checkWriter && settings.sources.sourceControlWriterModelSelection !== 'text_generation') {
       const writer = settings.effective.sourceControlWriterModelSelection;
-      const status = await (writer.agent === 'codex' ? this.engine.codexConnection : this.engine.claudeConnection).status();
+      const status = await (await this.engine.providerInstances.get(writer.agent, writer.providerInstanceId ?? writer.agent, true)).status();
       if (!status.enabled || !status.installed || !status.connected) {
         settings.effective.sourceControlWriterModelSelection = settings.effective.textGenerationModelSelection;
         settings.sources.sourceControlWriterModelSelection = 'text_generation';
@@ -118,19 +126,20 @@ export class TextGenerationPreferences {
     const settings = await this.resolve(state, projectId, kind === 'source_control');
     const selected = kind === 'title' ? settings.effective.textGenerationModelSelection : settings.effective.sourceControlWriterModelSelection;
     if (!settings.enabled[selected.agent]) throw new Error('没有已启用的文字生成 Provider');
-    return selected;
+    await this.engine.providerInstances.get(selected.agent, selected.providerInstanceId ?? selected.agent, true);
+    return { ...selected, providerInstanceId: selected.providerInstanceId ?? selected.agent };
   }
   async reviewGuide(state: Workspace, projectId: string | null) {
     const settings = await this.resolve(state, projectId, true), effective = settings.effective;
     if (!effective.reviewGuidesEnabled) throw new Error('请先在文字生成设置中启用审查 Guide');
     if (!settings.enabled[effective.reviewGuideModelSelection.agent]) throw new Error('没有已启用的 Guide Provider');
-    return { modelSelection: effective.reviewGuideModelSelection, instructions: effective.reviewGuideInstructions };
+    return { modelSelection: { ...effective.reviewGuideModelSelection, providerInstanceId: effective.reviewGuideModelSelection.providerInstanceId ?? effective.reviewGuideModelSelection.agent }, instructions: effective.reviewGuideInstructions };
   }
   async sourceControl(state: Workspace, projectId: string | null) {
     const settings = await this.resolve(state, projectId, true);
     const modelSelection = settings.effective.sourceControlWriterModelSelection;
     if (!settings.enabled[modelSelection.agent]) throw new Error('没有已启用的文字生成 Provider');
-    return { modelSelection, writingStyle: settings.effective.sourceControlWritingStyle };
+    return { modelSelection: { ...modelSelection, providerInstanceId: modelSelection.providerInstanceId ?? modelSelection.agent }, writingStyle: settings.effective.sourceControlWritingStyle };
   }
   async save(value: unknown) {
     const change = textGenerationSettingsChange(value);

@@ -144,10 +144,10 @@ export class TaskForks {
       const durableId = await tx.createTask(this.definition, { id: targetID, operationId: operationID, attempt: 0 }, { ownership: { kind: 'conversation' } });
       const task: WorkItem = {
         id: targetID, title: input.title?.trim() ?? `${source.title.slice(0, 195)} fork`, prompt: source.prompt, projectId: source.projectId, cwd: source.cwd,
-        agent: source.agent, mode: source.mode, status: 'completed', createdAt: at, updatedAt: at,
+        agent: source.agent, providerInstanceId: source.providerInstanceId ?? source.agent, mode: source.mode, status: 'completed', createdAt: at, updatedAt: at,
         durableId: null, threadId: null, turnId: null, result, error: null, events: history.events, approvals: [], artifact: null, lastRequestId: input.requestId,
         messages: history.messages, runs: history.runs, currentRunId: history.runID, canSteer: false, unread: false, readAt: at,
-        interactionMode: source.interactionMode ?? 'default', model: source.model, reasoningEffort: source.reasoningEffort,
+        interactionMode: source.interactionMode ?? 'default', model: source.model, reasoningEffort: source.reasoningEffort, modelOptions: source.modelOptions,
         eventArchive: { count: 0, version: 0, coverage: source.eventArchive?.coverage ?? 'legacy', recent: [] },
         ...(source.executionWorkspace ? { executionWorkspace: copy(source.executionWorkspace) } : {}),
         ...(source.codexHome ? { codexHome: source.codexHome } : {}), ...(source.claudeHome ? { claudeHome: source.claudeHome } : {}),

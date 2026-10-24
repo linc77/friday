@@ -19,7 +19,7 @@ export class CursorExecutor implements Executor {
   async run(request: ExecutionRequest) {
     const { task, update, signal } = request;
     if (this.runs.has(task.id)) throw new Error('Cursor 会话仍在执行');
-    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort });
+    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions });
     if (task.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条 Cursor 会话使用的账号');
     signal.throwIfAborted(); const client = await this.connection.client(runtime.settings, task.cwd);
     let projection: NativeTurnProjection | undefined, runId = '', sessionId = task.threadId ?? '', chain = Promise.resolve(), interruption: Promise<unknown> | undefined, terminal = false;

@@ -3,6 +3,8 @@ import SwiftUI
 struct ProvidersView: View {
     @ObservedObject var store: FridayStore
     @State private var selection = "friday"
+    @State private var editingInstance: ProviderInstanceInfo?
+    @State private var addingInstance = false
 
     var body: some View {
         SettingsPage(title: "Providers", subtitle: "Friday 通过 API 处理主会话，本地 Agent 用于任务执行。", contentWidth: 1020) {
@@ -19,25 +21,32 @@ struct ProvidersView: View {
             #else
             Picker("Provider", selection: $selection) {
                 Text("Friday").tag("friday")
-                Text("Codex").tag("codex")
-                Text("Claude").tag("claude")
+                ForEach(store.providerInstances) { instance in Text(instance.name).tag(instance.id) }
+                ForEach(store.agents.filter { !TaskProviderCatalog.order.contains($0.id) }) { agent in Text(agent.name).tag(agent.id) }
                 if store.usageLimitSourcesSupported { Text(friday: "额度来源").tag("usage-sources") }
-                ForEach(store.agents.filter { !["codex", "claude"].contains($0.id) }) { agent in Text(agent.name).tag(agent.id) }
             }.pickerStyle(.menu)
             details
             #endif
         }
+        .task(id: store.connectionIdentity + ":" + String(store.connected) + ":" + store.providerConfigurationVersions.sorted(by: { $0.key < $1.key }).map { $0.key + String($0.value) }.joined()) { if store.connected { await store.loadProviderInstances() } }
+        .onChange(of: store.connectionIdentity) { _, _ in selection = "friday"; editingInstance = nil; addingInstance = false }
+        .sheet(isPresented: $addingInstance) { ProviderInstanceEditor(store: store) { selection = $0 } }
+        .sheet(item: $editingInstance) { instance in ProviderInstanceEditor(store: store, instance: instance) { selection = $0 } }
     }
 
     private var providerList: some View {
         VStack(alignment: .leading, spacing: 4) {
             providerRow(id: "friday", name: "Friday", icon: "sparkles", detail: "主会话 · API")
-            providerRow(id: "codex", name: "Codex", icon: "cpu", detail: "任务 · 本地")
-            providerRow(id: "claude", name: "Claude", icon: "sparkle", detail: "任务 · 本地")
+            ForEach(store.providerInstances) { instance in
+                providerRow(id: instance.id, name: instance.name, icon: "terminal", detail: TaskProviderCatalog.name(instance.driver), status: instance.enabled ? nil : "已停用")
+            }
+            ForEach(store.agents.filter { !TaskProviderCatalog.order.contains($0.id) }) { agent in
+                providerRow(id: agent.id, name: agent.name, icon: "terminal", detail: "任务 · 本地", status: agent.installed ? "尚未接入" : "未安装")
+            }
             if store.usageLimitSourcesSupported { providerRow(id: "usage-sources", name: "额度来源", icon: "server.rack", detail: "共享账号配额") }
-            ForEach(store.agents.filter { !["codex", "claude"].contains($0.id) }) { agent in
-                providerRow(id: agent.id, name: agent.name, icon: "terminal", detail: "任务 · 本地",
-                            status: agent.executableSupported ? nil : agent.installed ? "尚未接入" : "未安装")
+            if store.deviceId == "owner" {
+                Button(friday: "添加实例", systemImage: "plus") { addingInstance = true }
+                    .buttonStyle(FridayButtonStyle(compact: true)).disabled(!store.connected).padding(10)
             }
         }.padding(10)
     }
@@ -47,7 +56,10 @@ struct ProvidersView: View {
             HStack(alignment: .top, spacing: 10) {
                 FridaySymbolImage(systemName: icon).font(.system(size: 16)).frame(width: 20)
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(fridayString: name).font(.system(size: 13, weight: .medium))
+                    HStack(spacing: 6) {
+                        if let color = store.providerInstances.first(where: { $0.id == id })?.accent { Circle().fill(color).frame(width: 6, height: 6).accessibilityHidden(true) }
+                        Text(fridayString: name).font(.system(size: 13, weight: .medium))
+                    }
                     Text(fridayString: detail).font(.system(size: 11)).foregroundStyle(.secondary)
                     if let status { Text(fridayString: status).font(.system(size: 11)).foregroundStyle(.tertiary) }
                 }.frame(maxWidth: .infinity, alignment: .leading)
@@ -59,16 +71,20 @@ struct ProvidersView: View {
     }
 
     @ViewBuilder private var details: some View {
-        switch selection {
-        case "friday": ModelSettingsView(store: store)
-        case "codex": CodexSettingsView(store: store).id("codex")
-        case "claude": CodexSettingsView(store: store, provider: "claude").id("claude")
-        case "pi": CodexSettingsView(store: store, provider: "pi").id("pi")
-        case "grok": CodexSettingsView(store: store, provider: "grok").id("grok")
-        case "usage-sources": UsageSourceSettingsView(store: store)
-        default:
-            if let agent = store.agents.first(where: { $0.id == selection }) { localAgentDetails(agent) }
-        }
+        if selection == "friday" { ModelSettingsView(store: store) }
+        else if selection == "usage-sources" { UsageSourceSettingsView(store: store) }
+        else if let instance = store.providerInstances.first(where: { $0.id == selection }) {
+            VStack(alignment: .leading, spacing: 14) {
+                if store.deviceId == "owner" {
+                    HStack {
+                        Text(instance.name).font(.headline)
+                        Spacer()
+                        Button(friday: "实例设置") { editingInstance = instance }.buttonStyle(FridayButtonStyle(compact: true))
+                    }
+                }
+                CodexSettingsView(store: store, provider: instance.driver, instanceId: instance.id).id(store.connectionIdentity + ":" + instance.id)
+            }
+        } else if let agent = store.agents.first(where: { $0.id == selection }) { localAgentDetails(agent) }
     }
 
     private func localAgentDetails(_ agent: AgentInfo) -> some View {

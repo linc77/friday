@@ -1,3 +1,4 @@
+import { providerInstanceID } from './provider-instances.js';
 import { randomUUID } from 'node:crypto';
 import { defineTask, type TaskId } from '@earendil-works/pi-durable';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
@@ -9,7 +10,7 @@ type Status = 'queued' | 'running' | 'completed' | 'uncertain' | 'rejected';
 export type ProviderCreditReset = { requestId: string; digest: string; scope: ProviderResetScope; durableId: number; status: Status; createdAt: string; completedAt?: string; nativeCreditId?: string; outcome?: ProviderResetOutcome; error?: string; warning?: string; limits?: ProviderUsageLimits };
 export type ProviderCreditAccount = { tail: number; pendingKey?: string; pendingCreditId?: string; pendingUncertain?: boolean };
 type Input = { requestId: string; scope: ProviderResetScope; predecessor: number | null };
-type Change = { provider: string; fingerprint: string; requestId: string; confirmed: boolean };
+type Change = { provider: string; providerInstanceId?: string; fingerprint: string; requestId: string; confirmed: boolean };
 const stamp = () => new Date().toISOString();
 const live = (status: Status) => status === 'queued' || status === 'running';
 
@@ -44,7 +45,7 @@ export class ProviderCreditResets {
               key = account.pendingKey; creditId = account.pendingCreditId; receipt.status = 'running'; if (creditId) receipt.nativeCreditId = creditId;
             });
             await runtime.memo('key', key!, ctx); if (creditId) await runtime.memo('creditId', creditId, ctx); await runtime.memo('started', true, ctx);
-            const connection = input.scope.provider === 'codex' ? engine.codexConnection : engine.claudeConnection;
+            const connection = await engine.providerInstances.get(input.scope.provider, input.scope.providerInstanceId ?? input.scope.provider, true);
             outcome = await connection.consumeResetCredit({ ...input.scope, ...(creditId ? { creditId } : {}) }, key!);
             await runtime.memo('outcome', outcome, ctx);
             await engine.mutate(state => { const receipt = state.providerCreditResets?.[input.requestId]; if (receipt) receipt.outcome = outcome; });
@@ -54,7 +55,7 @@ export class ProviderCreditResets {
                 await engine.mutate(state => {
                   const receipt = state.providerCreditResets?.[input.requestId]; if (receipt) receipt.limits = limits;
                 });
-                await engine.publishProviderUsage(input.scope.provider, limits, connection.usageIdentity?.(limits.credentialFingerprint));
+                await engine.publishProviderUsage(input.scope.providerInstanceId ?? input.scope.provider, limits, connection.usageIdentity?.(limits.credentialFingerprint));
               }
             } catch { await engine.mutate(state => { const receipt = state.providerCreditResets?.[input.requestId]; if (receipt) receipt.warning = '重置结果已保存，配额刷新暂未成功；请稍后刷新，不要重复消费。'; }); }
             await this.finish(input, 'completed', key, { outcome }, true);
@@ -77,11 +78,12 @@ export class ProviderCreditResets {
   }
   async start(change: Change) {
     if (!['codex', 'claude'].includes(change.provider) || change.confirmed !== true || !/^[a-f0-9]{64}$/.test(change.fingerprint) || !/^[A-Za-z0-9_-]{1,100}$/.test(change.requestId) || ['__proto__', 'constructor', 'prototype'].includes(change.requestId)) throw new Error('请确认账号和重置信息后重试。');
-    const digest = providerDigest([change.provider, change.fingerprint]);
+    const id = providerInstanceID(change.providerInstanceId ?? change.provider);
+    const digest = providerDigest([change.provider, change.fingerprint, ...(id !== change.provider ? [id] : [])]);
     const existing = (await this.engine.snapshot()).providerCreditResets?.[change.requestId];
     if (existing) { if (existing.digest !== digest) throw new Error('重置请求 ID 已用于其他账号。'); return this.result(existing); }
-    const connection = change.provider === 'codex' ? this.engine.codexConnection : this.engine.claudeConnection;
-    const scope = await connection.resetScope(); if (scope.fingerprint !== change.fingerprint) throw new Error('账号已经改变，请刷新配额后重新确认。');
+    const connection = await this.engine.providerInstances.get(change.provider as 'codex' | 'claude', id, true);
+    const scope = { ...await connection.resetScope(), ...(id !== change.provider ? { providerInstanceId: id } : {}) }; if (scope.fingerprint !== change.fingerprint) throw new Error('账号已经改变，请刷新配额后重新确认。');
     let receipt!: ProviderCreditReset;
     await this.engine.root.commit(async tx => {
       const state = await tx.doc(WorkspaceDoc); state.providerCreditResets ??= {}; state.providerCreditAccounts ??= {};

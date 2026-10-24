@@ -1,8 +1,9 @@
+import { taskProviderInstance } from './provider-instances.js';
 import { realpath } from 'node:fs/promises';
 import type { Engine } from './engine.js';
 import type { ProviderSkill } from './claude-skills.js';
 export type ProviderCommand = { name: string; description?: string; argumentHint?: string; builtin?: boolean };
-export type ProviderWorkspace = { provider: string; cwd: string; checkedAt: string; skills: ProviderSkill[]; commands: ProviderCommand[]; supportsPlan?: boolean };
+export type ProviderWorkspace = { provider: string; providerInstanceId?: string; cwd: string; checkedAt: string; skills: ProviderSkill[]; commands: ProviderCommand[]; supportsPlan?: boolean };
 
 export class ProviderWorkspaceCache<T extends { checkedAt: string } = ProviderWorkspace> {
   private values = new Map<string, T>();
@@ -40,7 +41,7 @@ export const providerCommands = (value: unknown): ProviderCommand[] => {
     ...(typeof value.builtin === 'boolean' ? { builtin: value.builtin } : {}) }] : []);
 };
 
-export async function composerWorkspace(engine: Engine, input: { provider: string; taskId?: string; projectId?: string; preparationId?: string; reuseTaskId?: string; reload?: boolean }) {
+export async function composerWorkspace(engine: Engine, input: { provider: string; providerInstanceId?: string; taskId?: string; projectId?: string; preparationId?: string; reuseTaskId?: string; reload?: boolean }) {
   if (!['codex', 'claude', 'pi', 'grok', 'cursor', 'muse', 'opencode', 'acp-registry', 'antigravity'].includes(input.provider)) throw new Error('请选择已接入的任务执行器');
   const state = await engine.snapshot(), task = input.taskId ? state.tasks.find(task => task.id === input.taskId) : undefined;
   const project = state.projects.find(project => project.id === (task?.projectId ?? input.projectId));
@@ -53,11 +54,13 @@ export async function composerWorkspace(engine: Engine, input: { provider: strin
   if (reused) cwd = reused.cwd;
   if (input.preparationId) cwd = (await engine.changeRequestCheckouts.adopt(project!.id, input.preparationId)).plan.cwd;
   cwd = await realpath(cwd);
-  const value = input.provider === 'acp-registry' ? await engine.acpRegistryConnection.workspace(cwd, input.reload === true, task) : input.provider === 'antigravity' ? await engine.antigravityConnection.workspace(cwd, input.reload === true, task) : input.provider === 'cursor' ? await engine.cursorConnection.workspace(cwd, input.reload === true, task) : input.provider === 'muse' ? await engine.museConnection.workspace(cwd, input.reload === true, task) : input.provider === 'opencode' ? await engine.opencodeConnection.workspace(cwd, input.reload === true, task) : input.provider === 'codex' ? await engine.codexConnection.workspace(cwd, input.reload === true, task)
-    : input.provider === 'pi' ? await engine.piConnection.workspace(cwd, input.reload === true, task) : input.provider === 'grok' ? await engine.grokConnection.workspace(cwd, input.reload === true, task) : await engine.claudeConnection.workspace(cwd, input.reload === true, task);
+  const instanceId = task ? taskProviderInstance(task) : input.providerInstanceId ?? input.provider;
+  if (task && input.providerInstanceId !== undefined && input.providerInstanceId !== instanceId) throw new Error('任务所属 Provider 实例已改变');
+  const connection = await engine.providerInstances.get(input.provider as import('./provider-instances.js').ProviderDriver, instanceId, true);
+  const value = await connection.workspace(cwd, input.reload === true, task);
   const latest = await engine.snapshot();
   if (task && !latest.tasks.some(value => value.id === task.id && value.cwd === task.cwd && value.agent === task.agent)
     || !task && !latest.projects.some(value => value.id === project!.id && value.path === project!.path)
     || reused && !latest.tasks.some(value => value.id === reused.id && value.cwd === reused.cwd && value.projectId === project!.id)) throw new Error('执行范围已经改变，请重新加载');
-  return value;
+  return { ...value, providerInstanceId: instanceId };
 }

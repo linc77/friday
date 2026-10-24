@@ -332,7 +332,7 @@ export class CodexExecutor implements Executor {
         }
       }
       signal.throwIfAborted();
-      const turn = await rpc.call('turn/start', { threadId: run.threadId, model, effort: effort ?? undefined, summary: 'detailed',
+      const turn = await rpc.call('turn/start', { threadId: run.threadId, model, effort: effort ?? undefined, serviceTier: configured?.serviceTier ?? null, summary: 'detailed',
         ...(investigating ? { outputSchema: REVIEW_GUIDE_OUTPUT_SCHEMA } : purpose === 'task_title' ? { outputSchema: TASK_TITLE_OUTPUT_SCHEMA } : {}),
         // Explicit default also clears a plan-mode preset retained by a resumed thread.
         ...(model ? { collaborationMode: { mode: planning ? 'plan' : 'default', settings: { model, reasoning_effort: effort, developer_instructions: null } } } : {}),

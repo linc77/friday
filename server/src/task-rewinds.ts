@@ -160,7 +160,7 @@ export class TaskRewinds {
         status: 'queued', phase: 'native', restoreFiles: input.restoreFiles, cwd: work.cwd, fingerprint: input.fingerprint, fingerprintVersion: 2,
         createdAt: stamp(), updatedAt: stamp(), sourceThreadId: work.threadId, sourceTurnId: work.turnId, targetTurnId: removeTurns[0] ?? null, removeTurns, keepTurns,
         ...(executionRemoved[0]?.before ? { checkpoint: copy(executionRemoved[0].before) } : {}), ...(input.fileFingerprint ? { fileFingerprint: input.fileFingerprint } : {}), ...(input.newSession ? { resolution: 'new_session' } : {}), attempt: 0,
-        editor: { text: message.text, images: copy(message.images ?? []), ...(message.contexts?.length ? { contexts: copy(message.contexts) } : {}), interactionMode: target.interactionMode, ...(target.model ? { model: target.model } : {}), ...(target.reasoningEffort ? { reasoningEffort: target.reasoningEffort } : {}) } };
+        editor: { text: message.text, images: copy(message.images ?? []), ...(message.contexts?.length ? { contexts: copy(message.contexts) } : {}), interactionMode: target.interactionMode, modelOptions: target.modelOptions ?? [], ...(target.model ? { model: target.model } : {}), ...(target.reasoningEffort ? { reasoningEffort: target.reasoningEffort } : {}) } };
       state.rewindRequests ??= {}; state.rewindRequests[input.requestId] = { taskId: id, operationId: operationID }; state.revision++;
     }, context);
     this.engine.harness.resume();

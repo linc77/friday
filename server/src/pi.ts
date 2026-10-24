@@ -29,7 +29,7 @@ export class PiExecutor implements Executor {
     const { task, update, signal } = request;
     if (this.runs.has(task.id)) throw new Error('这条 Pi 会话仍在执行');
     if (task.interactionMode === 'plan') throw new Error('Pi 未提供原生计划模式，请使用默认模式');
-    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort });
+    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions });
     if (task.piHome && task.piHome !== runtime.home) throw new Error('请恢复这条 Pi 会话使用的配置目录');
     if (signal.aborted) throw new Error('任务已中止');
     const extension = await this.connection.extension(), token = request.taskMcp?.headers.Authorization?.match(/^Bearer (.+)$/i)?.[1];

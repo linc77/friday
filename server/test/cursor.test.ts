@@ -19,6 +19,14 @@ async function setup(t: { after: (fn: () => Promise<unknown>) => void }, environ
   return { directory, connection, executor, trace };
 }
 async function until(read: () => Promise<boolean>) { const end = Date.now() + 5000; while (!await read()) { if (Date.now() > end) throw new Error('Cursor fixture timed out'); await new Promise(resolve => setTimeout(resolve, 10)); } }
+test('Cursor sends context and boolean model parameters using their native SDK IDs on both create and send', async t => {
+  const fixture = await setup(t, { CURSOR_TEST_OPTIONS: '1' });
+  const modelOptions = [{ id: 'contextWindow', value: 'expanded' }, { id: 'fastMode', value: false }];
+  await fixture.executor.run({ task: task(fixture.directory, { modelOptions }), prompt: 'reply', signal: AbortSignal.timeout(5000), update: async () => {} });
+  const trace = await fixture.trace(), created = trace.find(value => value.operation === 'create'), sent = trace.find(value => value.sent);
+  const expected = [{ id: 'context', value: 'expanded' }, { id: 'fast', value: 'false' }, { id: 'effort', value: 'high' }];
+  assert.deepEqual(created.options.model.params, expected); assert.deepEqual(sent.sendOptions.model.params, expected);
+});
 test('The installed Cursor SDK exposes the pinned APIs and opens its real private SQLite store without contacting a model', async t => {
   const require = createRequire(import.meta.url), sdk = require('@cursor/sdk') as typeof import('@cursor/sdk'), sqlite = require('@cursor/sdk/sqlite') as typeof import('@cursor/sdk/sqlite');
   assert.equal(typeof sdk.Agent.create, 'function'); assert.equal(typeof sdk.Agent.resume, 'function'); assert.equal(typeof sdk.Cursor.auth.login, 'function');

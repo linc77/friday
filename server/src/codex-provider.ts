@@ -1,3 +1,4 @@
+import { selectedProviderOptions, type ProviderModelSelection, type ProviderOptionDescriptor } from './provider-models.js';
 import { CodexRpc } from './codex-rpc.js';
 import { realpath } from 'node:fs/promises';
 import { ProviderWorkspaceCache, type ProviderWorkspace } from './provider-workspace.js';
@@ -13,6 +14,13 @@ export type ModelStatus = Omit<Probe, 'connected'> & {
   supportsPlan?: boolean;
   settings: (Omit<CodexSettings, 'environment'> & { environment: { name: string; value: null; hasValue: boolean }[]; serverUrl?: string; serverPassword?: null; serverPasswordConfigured?: boolean; nativeConfig?: import('./acp-provider-settings.js').AcpProviderPublicConfig }) | null;
 };
+
+export function codexServiceTierOptions(model: any): ProviderOptionDescriptor[] {
+  const reported = Array.isArray(model.serviceTiers) && model.serviceTiers.length ? model.serviceTiers : (Array.isArray(model.additionalSpeedTiers) ? model.additionalSpeedTiers : []).map((id: string) => ({ id, name: id }));
+  const tiers: { id: string; label: string; description?: string; isDefault?: boolean }[] = [], seen = new Set<string>(['default']);
+  for (const tier of reported) if (typeof tier?.id === 'string' && tier.id.trim() && tier.id.length <= 128 && !seen.has(tier.id)) { seen.add(tier.id); tiers.push({ id: tier.id, label: tier.name || tier.id, ...(typeof tier.description === 'string' ? { description: tier.description } : {}), ...(model.defaultServiceTier === tier.id ? { isDefault: true } : {}) }); }
+  return tiers.length ? [{ id: 'serviceTier', label: 'Service Tier', type: 'select', options: [{ id: 'default', label: 'Standard', isDefault: !seen.has(model.defaultServiceTier) || model.defaultServiceTier === 'default' }, ...tiers], currentValue: seen.has(model.defaultServiceTier) ? model.defaultServiceTier : 'default' }] : [];
+}
 
 export class CodexConnection {
   onConfigurationChanged?: () => Promise<void>;
@@ -112,6 +120,7 @@ export class CodexConnection {
         const page = await rpc.call('model/list', { limit: 100, includeHidden: false, ...(cursor ? { cursor } : {}) });
         for (const value of page.data ?? []) if (!value.hidden && !base.models.some(m => m.id === value.model)) base.models.push({
           id: value.model, name: value.displayName ?? value.model, description: value.description ?? '', isDefault: value.isDefault === true,
+          optionDescriptors: codexServiceTierOptions(value),
           reasoningEfforts: (value.supportedReasoningEfforts ?? []).map((e: any) => e.reasoningEffort), defaultReasoningEffort: value.defaultReasoningEffort ?? '',
         });
         cursor = page.nextCursor ?? null;
@@ -152,15 +161,16 @@ export class CodexConnection {
     if (!state.enabled) throw new Error('请先在「Providers → Codex」中启用 Codex。');
     if (!state.connected) throw new Error(state.error ?? '请先在「Providers → Codex」中连接 Codex。');
   }
-  async runtime(selection?: { model?: string; reasoningEffort?: string }) {
+  async runtime(selection?: ProviderModelSelection) {
     await this.ready();
     const settings = await loadCodexSettings(this.directory); const state = await this.status();
     const model = selection?.model || state.model;
-    const effort = selection?.reasoningEffort || (selection?.model ? '' : settings.reasoningEffort);
+    let effort = selection?.reasoningEffort || (selection?.model ? '' : settings.reasoningEffort);
     const selected = state.models.find(m => m.id === model);
     if (model && !selected) throw new Error('当前 Codex 模型不可用，请重新选择。');
+    const options = selected ? selectedProviderOptions(selected, selection) : { values: {}, effort: undefined }; effort = options.effort ?? effort;
     if (effort && selected && !selected.reasoningEfforts.includes(effort)) throw new Error('当前模型不支持所选推理强度，请在 Providers 的 Codex 页面中重新选择。');
-    return { ...await codexRuntime(settings), model: model || undefined, effort: effort || selected?.defaultReasoningEffort || undefined, permissionMode: settings.permissionMode };
+    return { ...await codexRuntime(settings), model: model || undefined, effort: effort || selected?.defaultReasoningEffort || undefined, permissionMode: settings.permissionMode, ...(typeof options.values['serviceTier'] === 'string' ? { serviceTier: options.values['serviceTier'] === 'default' ? null : options.values['serviceTier'] } : {}) };
   }
   async feedbackRuntime(task: { codexHome?: string }) {
     const settings = await loadCodexSettings(this.directory);

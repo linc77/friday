@@ -44,7 +44,7 @@ export class MuseExecutor implements Executor {
     const { task, signal, update } = request;
     if (this.runs.has(task.id)) throw new Error('Muse 会话仍在执行');
     if (task.interactionMode === 'plan') throw new Error('Muse 未提供专用计划模式');
-    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort });
+    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions });
     if (task.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条 Muse 会话使用的账号配置');
     signal.throwIfAborted();
     const cwd = await realpath(task.cwd), client = await this.connection.client(runtime.settings, cwd);

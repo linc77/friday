@@ -1,3 +1,4 @@
+import { providerOptionSelections } from './provider-models.js';
 import { randomUUID } from 'node:crypto';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import { defineTask, type TaskId } from '@earendil-works/pi-durable';
@@ -24,7 +25,7 @@ const localTask = (task: WorkItem | undefined): WorkItem => {
 };
 type QueueInput = { id: string; predecessor: number | null; explicit: boolean };
 type Checkpoint = { phase: 'wait' | 'dispatch' } | { phase: 'after'; messageId: string };
-export type QueueMessageInput = { text: string; images?: IdeaImage[]; contextIds?: string[]; model?: string; reasoningEffort?: string; interactionMode?: TaskInteractionMode };
+export type QueueMessageInput = { text: string; images?: IdeaImage[]; contextIds?: string[]; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; interactionMode?: TaskInteractionMode };
 
 /** Durable owns waiting and recovery; the workspace document is the queue projection. */
 export class TaskQueue {
@@ -72,7 +73,7 @@ export class TaskQueue {
             if (runId === undefined) {
               await engine.createTask({ continueId: work.id, prompt: entry.text, images: entry.images, contextIds: entry.contexts?.map(ref => ref.id),
                 projectId: work.projectId, mode: work.mode, requestId: entry.dispatchId,
-                model: entry.model, reasoningEffort: entry.reasoningEffort, interactionMode: entry.interactionMode,
+                model: entry.model, reasoningEffort: entry.reasoningEffort, modelOptions: entry.modelOptions, interactionMode: entry.interactionMode,
                 queueMessageId: entry.id, queueDispatcherId: task.id });
               const current = (await engine.snapshot()).tasks.find(item => item.id === work!.id);
               runId = current?.queue?.messages.find(item => item.id === entry!.id)?.runId;
@@ -158,7 +159,7 @@ export class TaskQueue {
       task.queue.messages.push({ id: requestId, dispatchId: randomUUID(), text: input.text, images, createdAt: stamp(), status: 'queued',
         ...(references.length ? { contexts: references } : {}),
         interactionMode: input.interactionMode ?? task.interactionMode ?? 'default',
-        ...(input.model !== undefined ? { model: input.model } : {}), ...(input.reasoningEffort !== undefined ? { reasoningEffort: input.reasoningEffort } : {}) });
+        ...(input.model !== undefined ? { model: input.model } : {}), ...(input.reasoningEffort !== undefined ? { reasoningEffort: input.reasoningEffort } : {}), ...(input.modelOptions !== undefined ? { modelOptions: providerOptionSelections(input.modelOptions) } : {}) });
       state.requests[requestId] = id;
       if (!task.queue.paused) task.queue.error = null;
       if (task.queue.dispatcherId === null && !task.queue.paused) {
@@ -180,7 +181,7 @@ export class TaskQueue {
     task.queue.paused = false; task.queue.error = null; delete task.queue.heldByRunId; delete task.queue.heldOnRestart;
     task.queue.messages.push({ id: input.requestId, dispatchId: randomUUID(), text: input.text, images: input.images ?? [], createdAt: stamp(), status: 'queued',
       ...(references.length ? { contexts: references } : {}), interactionMode: input.interactionMode ?? task.interactionMode ?? 'default',
-      ...(input.model !== undefined ? { model: input.model } : {}), ...(input.reasoningEffort !== undefined ? { reasoningEffort: input.reasoningEffort } : {}) });
+      ...(input.model !== undefined ? { model: input.model } : {}), ...(input.reasoningEffort !== undefined ? { reasoningEffort: input.reasoningEffort } : {}), ...(input.modelOptions !== undefined ? { modelOptions: providerOptionSelections(input.modelOptions) } : {}) });
     state.requests[input.requestId] = task.id;
     task.queue.dispatcherId = await tx.createTask(this.definition, { id: task.id, predecessor: task.durableId, explicit: false }, { ownership: { kind: 'conversation' } });
   }
@@ -196,6 +197,7 @@ export class TaskQueue {
       message.text = input.text; if (images !== undefined) message.images = images; message.error = null;
       if (input.model !== undefined) message.model = input.model;
       if (input.reasoningEffort !== undefined) message.reasoningEffort = input.reasoningEffort;
+      if (input.modelOptions !== undefined) message.modelOptions = providerOptionSelections(input.modelOptions);
       if (input.interactionMode !== undefined) message.interactionMode = input.interactionMode;
       state.revision++;
     }, context);

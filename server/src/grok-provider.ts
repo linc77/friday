@@ -1,3 +1,4 @@
+import { selectedProviderOptions, type ProviderModelSelection } from './provider-models.js';
 import { access, readFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { homedir } from 'node:os';
@@ -128,12 +129,13 @@ export class GrokConnection {
     if (JSON.stringify(await loadGrokSettings(this.directory)) !== key) throw new Error('Grok 配置已经改变，请重新加载');
     return { ...value, models: appendCustomModels(value.models, settings.customModels), settings: owner ? { ...settings, environment: settings.environment.map(entry => ({ name: entry.name, value: null, hasValue: true })) } : null };
   }
-  async runtime(selection?: { model?: string; reasoningEffort?: string }) {
+  async runtime(selection?: ProviderModelSelection) {
     if (this.saving) throw new Error('正在保存 Grok 配置');
     const state = await this.status(), settings = await loadGrokSettings(this.directory);
     if (!state.enabled || !state.connected) throw new Error(state.enabled ? state.error ?? 'Grok 尚未就绪' : '请先在「Providers → Grok」中启用 Grok');
     const model = selection?.model || settings.model || state.model, selected = model === 'grok-build' ? defaultModel() : state.models.find(value => value.id === model);
-    const effort = selection?.reasoningEffort || (selection?.model ? '' : settings.reasoningEffort);
+    const options = selected ? selectedProviderOptions(selected, selection) : undefined;
+    const effort = options?.effort || (selection?.model ? '' : settings.reasoningEffort);
     if (!selected || effort && !selected.reasoningEfforts.includes(effort)) throw new Error('Grok 模型或推理选项已不可用，请重新选择');
     return { ...await this.configured(settings), model, effort };
   }

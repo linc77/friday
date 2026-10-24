@@ -3,6 +3,7 @@ import SwiftUI
 struct AcpSettingsFields: View {
     @ObservedObject var store: FridayStore
     let provider: String
+    var instanceId: String? = nil
     @Binding var draft: CodexProviderSettings
     let dirty: Bool
     let busy: Bool
@@ -15,9 +16,16 @@ struct AcpSettingsFields: View {
     @State private var working = false
     @State private var openedURL: String?
     @State private var error: String?
-    private var endpoint: String { "/api/agents/\(provider)" }
+    @State private var authMethods: [AcpNativeAuthMethods.Method] = []
+    @State private var selectedAuthMethod = ""
+    @State private var loginState: AcpNativeLoginState?
+    @State private var authScope = ""
+    @StateObject private var terminal = AcpAuthTerminalState()
+    private func endpoint(_ path: String = "") -> String { TaskProviderCatalog.endpoint(provider, instance: instanceId, path: path) }
+    private var context: String { store.connectionIdentity + ":" + (instanceId ?? provider) }
     private var config: AcpNativeProviderConfig { draft.nativeConfig ?? AcpNativeProviderConfig() }
     private var registry: Bool { provider == "acp-registry" }
+    private var selectedMethod: AcpNativeAuthMethods.Method? { authMethods.first { $0.id == selectedAuthMethod } ?? (selectedAuthMethod.isEmpty ? authMethods.first : nil) }
     private var installedLabel: String {
         switch installation?.phase { case "downloading": "正在下载…"; case "extracting": "正在解包…"; case "verifying": "正在核对工具…"; case "complete": "工具已准备"; case "cancelled": "已取消"; case "failed": "准备失败"; default: "准备工具" }
     }
@@ -48,38 +56,79 @@ struct AcpSettingsFields: View {
             SettingsGroup("账号") {
                 SettingsRow("连接账号", detail: registry ? "使用工具声明的认证方式；也可在主机的原生工具中登录。" : "Google 账号与凭据保存在此主机的独立配置中。") {
                     HStack(spacing: 8) {
-                        Button(friday: authenticating ? "等待浏览器登录…" : "登录") { Task { await login() } }.disabled(working || authenticating || busy || dirty || !draft.enabled)
+                        Button(friday: authenticating ? "正在认证…" : "登录") { Task { await login() } }.disabled(working || authenticating || busy || dirty || !draft.enabled)
                         if authenticating { Button(friday: "取消") { Task { await cancelLogin() } }.disabled(working) }
+                        if registry, !authenticating { Button(friday: "退出登录") { Task { await logout() } }.disabled(working || busy || dirty) }
                     }
                 }
                 if registry {
                     SettingsDivider()
-                    SettingsRow("认证方式 ID", detail: "留空使用工具提供的 Agent 管理认证。") {
-                        TextField("auto", text: text(\.authMethodId)).textFieldStyle(.roundedBorder).frame(maxWidth: 210).disabled(busy || working)
+                    SettingsRow("认证方式", detail: "读取工具声明的浏览器、终端或环境变量认证方式。") {
+                        VStack(alignment: .trailing, spacing: 7) {
+                            Picker(selection: $selectedAuthMethod) {
+                                Text(friday: "默认").tag("")
+                                ForEach(authMethods) { method in Text(verbatim: method.name).tag(method.id) }
+                                if !selectedAuthMethod.isEmpty && !authMethods.contains(where: { $0.id == selectedAuthMethod }) { Text(verbatim: selectedAuthMethod).tag(selectedAuthMethod) }
+                            } label: { Text(friday: "认证方式") }
+                                .labelsHidden().frame(maxWidth: 230).fridayInteractiveCursor().disabled(busy || working || authenticating)
+                            Button(friday: "读取认证方式") { Task { await loadAuthMethods() } }.font(.caption).disabled(busy || working || authenticating || dirty || !draft.enabled)
+                        }
                     }
+                    if let method = selectedMethod {
+                        VStack(alignment: .leading, spacing: 7) {
+                            if let description = method.description { Text(verbatim: description).font(.caption).foregroundStyle(.secondary) }
+                            if let names = method.envVarNames, !names.isEmpty { Text(friday: "请先在此工具的环境变量设置中保存：\(names.joined(separator: ", "))").font(.caption).foregroundStyle(.secondary) }
+                            if let link = method.link, let url = URL(string: link) { Button(friday: "打开凭据页面") { openURL(url) }.buttonStyle(FridayButtonStyle(compact: true)) }
+                        }.padding(14)
+                    }
+                }
+            }
+            if let interaction = loginState?.interaction {
+                if interaction.type == "browser", let raw = interaction.url, let url = URL(string: raw), ["https", "http"].contains(url.scheme?.lowercased() ?? "") {
+                    VStack(alignment: .leading, spacing: 9) {
+                        Text(friday: "工具请求在浏览器中完成认证").font(.callout)
+                        Text(verbatim: raw).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                        HStack {
+                            Button(friday: "打开浏览器并继续") { openURL(url); Task { try? await respondLogin(action: "accept") } }.buttonStyle(FridayButtonStyle(compact: true)).disabled(working)
+                            Button(friday: "拒绝") { Task { try? await respondLogin(action: "decline") } }.buttonStyle(FridayButtonStyle(compact: true)).disabled(working)
+                        }
+                    }.padding(14)
+                } else if interaction.type == "terminal" {
+                    AcpAuthTerminalSurface(state: terminal).frame(height: 280).clipShape(RoundedRectangle(cornerRadius: 8))
+                    if let problem = terminal.inputProblem { Text(fridayString: problem).font(.caption).foregroundStyle(.orange) }
                 }
             }
             if let message = error ?? installation?.error { Text(verbatim: message).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
         }
-        .task(id: store.connectionIdentity) { installation = nil; authenticating = false; openedURL = nil; error = nil; guard store.connected else { return }; await updateInstall() }
-        .task(id: store.connectionIdentity + ":" + query) { guard registry, store.connected else { return }; agents = []; do { try await Task.sleep(for: .milliseconds(300)) } catch { return }; await search() }
+        .task(id: context) {
+            authScope = context; working = false; installation = nil; authenticating = false; openedURL = nil; loginState = nil; authMethods = []; selectedAuthMethod = config.authMethodId; terminal.clear(); error = nil
+            guard store.connected else { return }; await updateInstall()
+            let scope = context, connection = store.connection
+            if let state = try? await connection.decode(AcpNativeLoginState.self, endpoint("/login")), authScope == scope, !Task.isCancelled { acceptLogin(state) }
+        }
+        .onDisappear { terminal.clear() }
+        .task(id: context + ":" + query) { guard registry, store.connected else { return }; agents = []; do { try await Task.sleep(for: .milliseconds(300)) } catch { return }; await search() }
         .task(id: installation?.operationId) {
             while !Task.isCancelled && installation?.active == true { do { try await Task.sleep(for: .seconds(1)) } catch { return }; await updateInstall() }
             if installation?.phase == "complete" { await refresh() }
         }
         .task(id: authenticating) {
             guard authenticating else { return }
-            let identity = store.connectionIdentity, connection = store.connection
+            let identity = context, connection = store.connection
+            if registry, let flowId = loginState?.flowId {
+                await streamLogin(flowId: flowId, connection: connection, scope: context)
+                return
+            }
             while !Task.isCancelled && authenticating {
                 do {
                     try await Task.sleep(for: .seconds(1))
-                    guard identity == store.connectionIdentity else { return }
-                    let value = try await connection.decode(AcpNativeLoginState.self, endpoint + "/login")
-                    guard identity == store.connectionIdentity else { return }
+                    guard identity == context else { return }
+                    let value = try await connection.decode(AcpNativeLoginState.self, endpoint("/login"))
+                    guard identity == context else { return }
                     if let url = value.url, url != openedURL, let target = URL(string: url) { openedURL = url; openURL(target) }
                     if !value.pending { await refresh() }
                     authenticating = value.pending
-                } catch { if identity == store.connectionIdentity && !Task.isCancelled { self.error = error.localizedDescription; authenticating = false }; return }
+                } catch { if identity == context && !Task.isCancelled { self.error = error.localizedDescription; authenticating = false }; return }
             }
         }
     }
@@ -147,10 +196,79 @@ struct AcpSettingsFields: View {
             SettingsRow("Harness 路径", detail: "留空使用 ACP 程序旁的原生 Harness。") { TextField(friday: "可选", text: text(\.harnessPath)).textFieldStyle(.roundedBorder).frame(maxWidth: 300).disabled(busy || working) }
         }
     }
-    @MainActor private func search() async { let expected = query, identity = store.connectionIdentity; do { let value = try await store.connection.decode(AcpRegistrySearchResult.self, endpoint + "/registry/search", method: "POST", body: ["query": expected]); guard expected == query && identity == store.connectionIdentity else { return }; agents = value.agents } catch { if identity == store.connectionIdentity { self.error = error.localizedDescription } } }
-    @MainActor private func updateInstall() async { let identity = store.connectionIdentity, connection = store.connection; do { let value = try await connection.decode(NativeToolInstallState.self, endpoint + "/install"); guard identity == store.connectionIdentity else { return }; installation = value } catch { if identity == store.connectionIdentity && !Task.isCancelled { self.error = error.localizedDescription } } }
-    @MainActor private func install() async { let identity = store.connectionIdentity, connection = store.connection; working = true; defer { working = false }; do { let value = try await connection.decode(NativeToolInstallState.self, endpoint + "/install", method: "POST", body: [:]); guard identity == store.connectionIdentity else { return }; installation = value; error = nil } catch { if identity == store.connectionIdentity { self.error = error.localizedDescription } } }
-    @MainActor private func cancelInstall() async { guard let operation = installation?.operationId else { return }; let identity = store.connectionIdentity, connection = store.connection; working = true; defer { working = false }; do { let value = try await connection.decode(NativeToolInstallState.self, endpoint + "/install/cancel", method: "POST", body: ["operationId": operation]); guard identity == store.connectionIdentity else { return }; installation = value } catch { if identity == store.connectionIdentity { self.error = error.localizedDescription } } }
-    @MainActor private func login() async { let identity = store.connectionIdentity, connection = store.connection; working = true; defer { working = false }; do { let value = try await connection.decode(AcpNativeLoginState.self, endpoint + "/login", method: "POST", body: [:]); guard identity == store.connectionIdentity else { return }; authenticating = value.pending; if let url = value.url, let target = URL(string: url) { openedURL = url; openURL(target) }; error = nil; await refresh() } catch { if identity == store.connectionIdentity { self.error = error.localizedDescription } } }
-    @MainActor private func cancelLogin() async { let identity = store.connectionIdentity, connection = store.connection; working = true; defer { working = false }; do { _ = try await connection.decode(AcpNativeLoginState.self, endpoint + "/login/cancel", method: "POST", body: [:]); guard identity == store.connectionIdentity else { return }; authenticating = false; error = nil; await refresh() } catch { if identity == store.connectionIdentity { self.error = error.localizedDescription } } }
+    @MainActor private func search() async { let expected = query, identity = context; do { let value = try await store.connection.decode(AcpRegistrySearchResult.self, endpoint("/registry/search"), method: "POST", body: ["query": expected]); guard expected == query && identity == context else { return }; agents = value.agents } catch { if identity == context { self.error = error.localizedDescription } } }
+    @MainActor private func updateInstall() async { let identity = context, connection = store.connection; do { let value = try await connection.decode(NativeToolInstallState.self, endpoint("/install")); guard identity == context else { return }; installation = value } catch { if identity == context && !Task.isCancelled { self.error = error.localizedDescription } } }
+    @MainActor private func install() async { let identity = context, connection = store.connection; working = true; defer { working = false }; do { let value = try await connection.decode(NativeToolInstallState.self, endpoint("/install"), method: "POST", body: [:]); guard identity == context else { return }; installation = value; error = nil } catch { if identity == context { self.error = error.localizedDescription } } }
+    @MainActor private func cancelInstall() async { guard let operation = installation?.operationId else { return }; let identity = context, connection = store.connection; working = true; defer { working = false }; do { let value = try await connection.decode(NativeToolInstallState.self, endpoint("/install/cancel"), method: "POST", body: ["operationId": operation]); guard identity == context else { return }; installation = value } catch { if identity == context { self.error = error.localizedDescription } } }
+    @MainActor private func acceptLogin(_ value: AcpNativeLoginState) {
+        guard value.accepts(after: loginState) else { return }
+        loginState = value; authenticating = value.pending; error = value.error
+        terminal.receive(value) { data, cols, rows in try await respondLogin(data: data, cols: cols, rows: rows) }
+    }
+    @MainActor private func loadAuthMethods() async {
+        let scope = context, connection = store.connection; working = true
+        defer { if authScope == scope { working = false } }
+        do {
+            let value = try await connection.decode(AcpNativeAuthMethods.self, endpoint("/login/methods"))
+            guard authScope == scope else { return }; authMethods = value.methods; error = nil
+            if selectedAuthMethod.isEmpty, let preferred = value.defaultMethodId, value.methods.contains(where: { $0.id == preferred }) { selectedAuthMethod = preferred }
+        } catch { if authScope == scope { self.error = error.localizedDescription } }
+    }
+    @MainActor private func login() async {
+        let scope = context, connection = store.connection; working = true
+        defer { if authScope == scope { working = false } }
+        do {
+            let body: [String: Any] = registry && !selectedAuthMethod.isEmpty ? ["methodId": selectedAuthMethod] : [:]
+            let value = try await connection.decode(AcpNativeLoginState.self, endpoint("/login"), method: "POST", body: body)
+            guard authScope == scope else { return }; acceptLogin(value)
+            if !registry, let url = value.url, let target = URL(string: url) { openedURL = url; openURL(target) }
+            await refresh()
+        } catch { if authScope == scope { self.error = error.localizedDescription } }
+    }
+    @MainActor private func respondLogin(action: String? = nil, data: String? = nil, cols: Int? = nil, rows: Int? = nil) async throws {
+        guard let state = loginState, let flow = state.flowId, let interaction = state.interaction else { throw ConnectionError.message("认证交互已改变，请刷新后重试") }
+        let scope = context, connection = store.connection
+        var body: [String: Any] = ["flowId": flow, "interactionId": interaction.id]
+        if let action { body["action"] = action }; if let data { body["data"] = data }
+        if let cols, let rows { body["cols"] = cols; body["rows"] = rows }
+        do {
+            let value = try await connection.decode(AcpNativeLoginState.self, endpoint("/login/respond"), method: "POST", body: body)
+            guard authScope == scope, loginState?.flowId == flow else { return }; acceptLogin(value)
+        } catch { if authScope == scope, loginState?.flowId == flow { self.error = error.localizedDescription }; throw error }
+    }
+    @MainActor private func cancelLogin() async {
+        let scope = context, connection = store.connection; working = true
+        defer { if authScope == scope { working = false } }
+        do {
+            let value = try await connection.decode(AcpNativeLoginState.self, endpoint("/login/cancel"), method: "POST", body: loginState?.flowId.map { ["flowId": $0] } ?? [:])
+            guard authScope == scope else { return }; acceptLogin(value); await refresh()
+        } catch { if authScope == scope { self.error = error.localizedDescription } }
+    }
+    @MainActor private func logout() async {
+        let scope = context, connection = store.connection; working = true
+        defer { if authScope == scope { working = false } }
+        do {
+            let value = try await connection.decode(AcpNativeLoginState.self, endpoint("/logout"), method: "POST", body: [:])
+            guard authScope == scope else { return }; acceptLogin(value); terminal.clear(); await refresh()
+        } catch { if authScope == scope { self.error = error.localizedDescription } }
+    }
+    @MainActor private func streamLogin(flowId: String, connection: Connection, scope: String) async {
+        while authenticating, !Task.isCancelled, authScope == scope, loginState?.flowId == flowId {
+            do {
+                var request = try connection.request(endpoint("/login/events") + (instanceId == nil ? "?" : "&") + "flowId=" + flowId)
+                request.timeoutInterval = 30; request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                if (response as? HTTPURLResponse)?.statusCode == 409 { authenticating = false; loginState = nil; terminal.clear(); error = "认证流程已改变，请重新打开设置读取当前状态。"; return }
+                guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw ConnectionError.message("认证连接暂时不可用") }
+                for try await line in bytes.lines {
+                    guard !Task.isCancelled, authScope == scope, loginState?.flowId == flowId else { return }
+                    if line.hasPrefix("data: "), let raw = line.dropFirst(6).data(using: .utf8), let value = try? JSONDecoder().decode(AcpNativeLoginState.self, from: raw), value.flowId == flowId {
+                        acceptLogin(value)
+                        if !value.pending { await refresh(); return }
+                    }
+                }
+            } catch { if Task.isCancelled || authScope != scope { return }; self.error = error.localizedDescription }
+            if authenticating { do { try await Task.sleep(for: .seconds(1)) } catch { return } }
+        }
+    }
 }

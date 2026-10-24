@@ -6,6 +6,7 @@ import AppKit
 struct CodexSettingsView: View {
     @ObservedObject var store: FridayStore
     var provider = "codex"
+    var instanceId: String? = nil
     @ObservedObject private var modelPreferences = ProviderModelPreferences.shared
     @Environment(\.openURL) private var openURL
     @State private var state: CodexConnectionState?
@@ -33,8 +34,8 @@ struct CodexSettingsView: View {
     }
     private var homeVariable: String { provider == "grok" ? "GROK_HOME" : provider == "pi" ? "PI_CODING_AGENT_DIR" : provider == "codex" ? "CODEX_HOME" : "CLAUDE_CONFIG_DIR" }
     private var homePlaceholder: String { provider == "grok" ? "~/.grok" : provider == "pi" ? "~/.pi/agent" : provider == "codex" ? "~/.codex" : "~/.claude" }
-    private var endpoint: String { "/api/agents/\(provider)" }
-    private var preferences: ModelPickerPreferences { modelPreferences.get(server: store.connection.server, provider: provider) }
+    private func endpoint(_ path: String = "") -> String { TaskProviderCatalog.endpoint(provider, instance: instanceId, path: path) }
+    private var preferences: ModelPickerPreferences { modelPreferences.get(server: store.connection.server, provider: instanceId ?? provider) }
     private var models: [CodexProviderModel] {
         let discovered = (state?.models ?? []).filter { $0.isCustom != true }
         let ids = Set(discovered.map(\.id))
@@ -80,7 +81,7 @@ struct CodexSettingsView: View {
             details
             if let error { Text(error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
         }
-        .task(id: store.connected) { if store.connected { await refresh() } }
+        .task(id: store.connectionIdentity + ":" + String(store.connected) + ":" + (instanceId ?? provider)) { if store.connected { await refresh() } }
         .task(id: state?.loginPending) {
             guard state?.loginPending == true else { return }
             while !Task.isCancelled && state?.loginPending == true {
@@ -140,7 +141,7 @@ struct CodexSettingsView: View {
                     .font(.system(size: 12)).foregroundStyle(.secondary).textSelection(.enabled)
             }
             if owner && ["antigravity", "acp-registry"].contains(provider) {
-                AcpSettingsFields(store: store, provider: provider, draft: $draft, dirty: dirty, busy: busy) { await refresh(force: true) }
+                AcpSettingsFields(store: store, provider: provider, instanceId: instanceId, draft: $draft, dirty: dirty, busy: busy) { await refresh(force: true) }
             }
             if owner {
                 if provider != "cursor" && provider != "acp-registry" { SettingsGroup("运行配置") {
@@ -323,7 +324,7 @@ struct CodexSettingsView: View {
     }
 
     private func updatePreferences(_ change: (inout ModelPickerPreferences) -> Void) {
-        modelPreferences.update(server: store.connection.server, provider: provider, change)
+        modelPreferences.update(server: store.connection.server, provider: instanceId ?? provider, change)
     }
     private func moveModel(_ id: String, by offset: Int) {
         var ids = displayModels.map(\.id)
@@ -381,25 +382,31 @@ struct CodexSettingsView: View {
         }
     }
     @MainActor private func refresh(force: Bool = false) async {
+        let account = store.connectionIdentity
         busy = true; defer { busy = false }
         do {
-            apply(try await store.connection.decode(CodexConnectionState.self, force && owner ? endpoint + "/check" : endpoint, method: force && owner ? "POST" : "GET", body: force && owner ? [:] : nil))
+            let value = try await store.connection.decode(CodexConnectionState.self, force && owner ? endpoint("/check") : endpoint(), method: force && owner ? "POST" : "GET", body: force && owner ? [:] : nil)
+            guard store.connectionIdentity == account, !Task.isCancelled else { return }; apply(value)
             error = nil
-        } catch { self.error = error.localizedDescription }
+        } catch { if store.connectionIdentity == account { self.error = error.localizedDescription } }
     }
     @MainActor private func save() async {
+        let account = store.connectionIdentity
         busy = true; defer { busy = false }
         do {
-            let value = try await store.connection.decode(CodexConnectionState.self, endpoint + "/settings", method: "PUT", body: draft.body)
+            let value = try await store.connection.decode(CodexConnectionState.self, endpoint("/settings"), method: "PUT", body: draft.body)
+            guard store.connectionIdentity == account else { return }
             saved = value.settings; draft = value.settings ?? draft; state = value; error = nil
-        } catch { self.error = error.localizedDescription }
+        } catch { if store.connectionIdentity == account { self.error = error.localizedDescription } }
     }
     @MainActor private func login() async {
+        let account = store.connectionIdentity
         busy = true; defer { busy = false }
         do {
-            let response = try await store.connection.decode(CodexLoginResponse.self, endpoint + "/login", method: "POST", body: [:])
+            let response = try await store.connection.decode(CodexLoginResponse.self, endpoint("/login"), method: "POST", body: [:])
+            guard store.connectionIdentity == account else { return }
             if let url = URL(string: response.url) { openURL(url) }
-            apply(try await store.connection.decode(CodexConnectionState.self, endpoint)); error = nil
-        } catch { self.error = error.localizedDescription }
+            apply(try await store.connection.decode(CodexConnectionState.self, endpoint())); error = nil
+        } catch { if store.connectionIdentity == account { self.error = error.localizedDescription } }
     }
 }

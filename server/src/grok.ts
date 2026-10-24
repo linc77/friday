@@ -50,7 +50,7 @@ export class GrokExecutor implements Executor {
     const { task, update, signal } = request;
     if (this.runs.has(task.id)) throw new Error('这条 Grok 会话仍在执行');
     if (task.interactionMode === 'plan') throw new Error('Grok 未提供原生交互模式切换，请使用默认模式');
-    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort });
+    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions });
     if (task.grokHome && task.grokHome !== runtime.home) throw new Error('请恢复这条 Grok 会话使用的配置目录');
     if (signal.aborted) throw cancelled();
     const client = this.connection.client(runtime, task.cwd), turnId = `grok:${task.currentRunId ?? randomUUID()}`, executionSessionId = randomUUID();

@@ -10,6 +10,20 @@ enum TaskProviderCatalog {
     static func hasUsageLimits(_ provider: String) -> Bool { ["codex", "claude"].contains(provider) }
 }
 
+struct ProviderInstanceInfo: Codable, Equatable, Identifiable {
+    let instanceId: String; let driver: String; let displayName: String; let enabled: Bool
+    var accentColor: String? = nil
+    var id: String { instanceId }
+    var name: String { displayName == driver ? TaskProviderCatalog.name(driver) : displayName }
+    static var defaults: [Self] { TaskProviderCatalog.order.map { Self(instanceId: $0, driver: $0, displayName: TaskProviderCatalog.name($0), enabled: true) } }
+}
+struct ProviderInstancesResponse: Decodable { let instances: [ProviderInstanceInfo] }
+extension TaskProviderCatalog {
+    static func endpoint(_ provider: String, instance: String? = nil, path: String = "") -> String {
+        "/api/agents/\(provider)" + path + (instance.map { "?instanceId=" + $0 } ?? "")
+    }
+}
+
 struct TaskContextUsage: Codable, Equatable {
     let usedTokens: Double
     let maxTokens: Double?
@@ -46,9 +60,10 @@ struct TaskContextUsage: Codable, Equatable {
 
 
 struct TaskProviderResetSubmission: Codable {
+    var providerInstanceId: String? = nil
     let provider: String; let fingerprint: String
     var requestId = UUID().uuidString
-    var body: [String: Any] { ["provider": provider, "fingerprint": fingerprint, "requestId": requestId, "confirmed": true] }
+    var body: [String: Any] { var value: [String: Any] = ["provider": provider, "fingerprint": fingerprint, "requestId": requestId, "confirmed": true]; if let providerInstanceId { value["providerInstanceId"] = providerInstanceId }; return value }
 }
 struct TaskProviderResetReceipt: Decodable {
     let requestId: String; let status: String
@@ -184,6 +199,7 @@ struct TaskWorkspacePreparation: Codable {
 }
 struct TaskRunInheritance: Codable { let taskId: String; let runId: String }
 struct TaskRun: Codable, Identifiable {
+    var modelOptions: [ProviderOptionSelection]? = nil
     var nativeTurnIds: [String]? = nil
     var command: String? = nil
     var contextUsage: TaskContextUsage? = nil
@@ -209,6 +225,7 @@ struct TaskForkOperation: Codable, Identifiable {
     var running: Bool { ["queued", "running"].contains(status) }
 }
 struct TaskRewindEditor: Codable {
+    var modelOptions: [ProviderOptionSelection]? = nil
     let text: String; let images: [IdeaImage]; let interactionMode: String
     let model: String?; let reasoningEffort: String?
     var contexts: [TaskContextReference]? = nil
@@ -409,7 +426,26 @@ struct AcpNativeProviderConfig: Codable, Equatable {
     var authMethod = "oauth-personal"; var apiKey: String? = nil; var apiKeyConfigured = false
     var gcpProject = ""; var gcpLocation = ""
 }
-struct AcpNativeLoginState: Decodable { let pending: Bool; var url: String? = nil }
+struct AcpNativeLoginState: Decodable {
+    struct Interaction: Decodable { let id: String; let type: String; let url: String?; let output: String?; let outputOffset: Int? }
+    let pending: Bool
+    var url: String? = nil
+    var flowId: String? = nil
+    var revision: Int? = nil
+    var phase: String? = nil
+    var methodId: String? = nil
+    var interaction: Interaction? = nil
+    var error: String? = nil
+    func accepts(after previous: Self?) -> Bool {
+        guard let previous, previous.flowId == flowId, let old = previous.revision, let next = revision else { return true }
+        return next >= old
+    }
+}
+struct AcpNativeAuthMethods: Decodable {
+    struct Method: Decodable, Identifiable { let id: String; let name: String; let type: String; let description: String?; let envVarNames: [String]?; let link: String? }
+    let methods: [Method]
+    let defaultMethodId: String?
+}
 struct AcpRegistrySearchResult: Decodable {
     struct Agent: Decodable, Identifiable { let id: String; let name: String; let version: String; let description: String; let distribution: String; let integrity: String }
     let agents: [Agent]
@@ -461,16 +497,34 @@ struct CodexProviderSettings: Codable, Equatable {
         return body
     }
 }
+enum ProviderOptionValue: Codable, Equatable {
+    case text(String), flag(Bool)
+    init(from decoder: Decoder) throws { let container = try decoder.singleValueContainer(); if let value = try? container.decode(Bool.self) { self = .flag(value) } else { self = .text(try container.decode(String.self)) } }
+    func encode(to encoder: Encoder) throws { var container = encoder.singleValueContainer(); switch self { case .text(let value): try container.encode(value); case .flag(let value): try container.encode(value) } }
+    var body: Any { switch self { case .text(let value): value; case .flag(let value): value } }
+}
+struct ProviderOptionSelection: Codable, Equatable, Identifiable {
+    let id: String; var value: ProviderOptionValue
+    var body: [String: Any] { ["id": id, "value": value.body] }
+}
+struct ProviderOptionDescriptor: Codable, Identifiable, Equatable {
+    struct Choice: Codable, Identifiable, Equatable { let id: String; let label: String; var description: String? = nil; var isDefault: Bool? = nil }
+    let id: String; let label: String; let type: String
+    var description: String? = nil; var options: [Choice]? = nil; var currentValue: ProviderOptionValue? = nil
+    var isReasoning: Bool { ["reasoningEffort", "reasoning", "effort", "variant", "thinkingLevel"].contains(id) }
+}
+
 struct CodexProviderModel: Decodable, Identifiable {
     let id: String; let name: String; let description: String; let isDefault: Bool
     let reasoningEfforts: [String]; let defaultReasoningEffort: String
     var isCustom: Bool? = nil; var resolvedModel: String? = nil
+    var optionDescriptors: [ProviderOptionDescriptor]? = nil
     var selectionName: String { resolvedModel != nil && resolvedModel != id ? "\(name) (\(id))" : name }
 }
 struct CodexAccount: Decodable { let type: String; let email: String?; let plan: String? }
 struct ModelConnectionState: Decodable { let provider: String; let model: String; let connected: Bool }
 struct CodexConnectionState: Decodable {
-    let provider: String; let displayName: String; let enabled: Bool; let model: String; let connected: Bool
+    let provider: String; let displayName: String; var enabled: Bool; let model: String; var connected: Bool
     let installed: Bool; let version: String?; let account: CodexAccount?; let models: [CodexProviderModel]
     let checkedAt: String; let error: String?; let loginPending: Bool; let settings: CodexProviderSettings?
     var supportsPlan: Bool? = nil
@@ -490,6 +544,7 @@ struct TaskBranchChange: Codable {
     var active: Bool { status == "queued" || status == "running" }
 }
 struct QueuedTaskMessage: Codable, Identifiable {
+    var modelOptions: [ProviderOptionSelection]? = nil
     let id: String
     let text: String
     let images: [IdeaImage]
@@ -618,6 +673,9 @@ struct TaskFeedbackReceipt: Codable, Identifiable {
     var id: String { requestId }
 }
 struct WorkItem: Codable, Identifiable {
+    var modelOptions: [ProviderOptionSelection]? = nil
+    var providerInstanceId: String? = nil
+    var resolvedProviderInstance: String { providerInstanceId ?? agent }
     var goal: TaskProviderGoal? = nil
     var feedback: [TaskFeedbackReceipt]? = nil
     struct ArchiveCleanup: Codable { let id: String; let durableId: Int; let status: String; let startedAt: String; var completedAt: String? = nil; var error: String? = nil }
@@ -812,8 +870,10 @@ struct Snapshot: Decodable {
 }
 
 struct TextGenerationModelSelection: Codable, Equatable {
+    var modelOptions: [ProviderOptionSelection]? = nil
+    var providerInstanceId: String? = nil
     var agent: String; var model: String; var reasoningEffort: String
-    var body: [String: Any] { ["agent": agent, "model": model, "reasoningEffort": reasoningEffort] }
+    var body: [String: Any] { var value: [String: Any] = ["agent": agent, "model": model, "reasoningEffort": reasoningEffort]; if let providerInstanceId { value["providerInstanceId"] = providerInstanceId }; if let modelOptions { value["modelOptions"] = modelOptions.map(\.body) }; return value }
 }
 struct SourceControlWritingStyle: Codable, Equatable {
     var mode: String; var customInstructions: String; var followChangeRequestTemplates: Bool

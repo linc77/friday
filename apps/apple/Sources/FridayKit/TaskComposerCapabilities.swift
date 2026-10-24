@@ -16,11 +16,11 @@ import SwiftUI
         limits = value
     }
     private func resetCacheKey(_ store: FridayStore, provider: String, fingerprint: String) -> String { "provider-reset:" + store.connectionIdentity + ":" + provider + ":" + fingerprint }
-    func consume(store: FridayStore, provider: String, fingerprint: String, identity: String) async {
+    func consume(store: FridayStore, provider: String, fingerprint: String, identity: String, instanceID: String? = nil) async {
         guard !resetting, store.connected, store.deviceId == "owner", store.providerResetCreditsSupported, self.identity == identity, limits?.credentialFingerprint == fingerprint else { return }
-        let context = resetCacheKey(store, provider: provider, fingerprint: fingerprint), server = store.connection.server
-        let submission = resetPending ?? TaskDraftCache.load(TaskProviderResetSubmission.self, server: server, context: context) ?? .init(provider: provider, fingerprint: fingerprint)
-        guard submission.provider == provider, submission.fingerprint == fingerprint else { return }
+        let context = resetCacheKey(store, provider: instanceID ?? provider, fingerprint: fingerprint), server = store.connection.server
+        let submission = resetPending ?? TaskDraftCache.load(TaskProviderResetSubmission.self, server: server, context: context) ?? .init(providerInstanceId: instanceID, provider: provider, fingerprint: fingerprint)
+        guard (submission.providerInstanceId ?? submission.provider) == (instanceID ?? provider), submission.provider == provider, submission.fingerprint == fingerprint else { return }
         resetPending = submission; TaskDraftCache.save(submission, server: server, context: context)
         let token = UUID(); resetOperation = token; resetting = true; resetStatus = nil
         let connection = store.connection, account = store.connectionIdentity, service = store.taskStreamSession
@@ -38,19 +38,19 @@ import SwiftUI
             if resetOperation == token, self.identity == identity, store.connectionIdentity == account, store.taskStreamSession == service { resetStatus = "重置结果尚未确认，请先检查。重试会查询同一个重置请求。" }
         }
     }
-    func refresh(store: FridayStore, provider: String, taskID: String?, identity: String, reload: Bool = false) async {
+    func refresh(store: FridayStore, provider: String, taskID: String?, identity: String, reload: Bool = false, instanceID: String? = nil) async {
         guard store.connected, store.snapshotIdentity == store.connectionIdentity, store.taskComposerCommandsSupported else { reset(); return }
         if self.identity != identity { reset(); self.identity = identity }
         if !reload, let limits, let at = CodexTranscript.date(limits.checkedAt), Date().timeIntervalSince(at) < 60 { return }
         let token = UUID(); operation = token; loading = true; failure = nil
         let connection = store.connection, account = store.connectionIdentity, service = store.taskStreamSession
-        var body: [String: Any] = ["provider": provider, "reload": reload]; if let taskID { body["taskId"] = taskID }
+        var body: [String: Any] = ["provider": provider, "reload": reload]; if let instanceID { body["providerInstanceId"] = instanceID }; if let taskID { body["taskId"] = taskID }
         defer { if operation == token { loading = false } }
         do {
             let value = try await connection.decode(TaskProviderUsageLimits.self, "/api/composer/usage-limits", method: "POST", body: body)
             guard !Task.isCancelled, operation == token, self.identity == identity, store.connectionIdentity == account, store.taskStreamSession == service else { return }
             limits = value
-            if let fingerprint = value.credentialFingerprint { resetPending = TaskDraftCache.load(TaskProviderResetSubmission.self, server: store.connection.server, context: resetCacheKey(store, provider: provider, fingerprint: fingerprint)) }
+            if let fingerprint = value.credentialFingerprint { resetPending = TaskDraftCache.load(TaskProviderResetSubmission.self, server: store.connection.server, context: resetCacheKey(store, provider: instanceID ?? provider, fingerprint: fingerprint)) }
         } catch { if !Task.isCancelled, operation == token, store.connectionIdentity == account, store.taskStreamSession == service { failure = error.localizedDescription } }
     }
 }
@@ -133,13 +133,13 @@ struct TaskProviderUsagePanel: View {
     private var identity = ""
     private var operation = UUID()
     func reset() { identity = ""; operation = UUID(); catalog = nil; failure = nil; loading = false }
-    func refresh(store: FridayStore, scope: [String: Any], provider: String, identity: String, reload: Bool = false) async {
+    func refresh(store: FridayStore, scope: [String: Any], provider: String, identity: String, reload: Bool = false, instanceID: String? = nil) async {
         guard store.connected, store.snapshotIdentity == store.connectionIdentity, store.taskComposerCommandsSupported, !scope.isEmpty else { reset(); return }
         if self.identity != identity { reset(); self.identity = identity }
         if !reload, let catalog, catalog.provider == provider, let checked = CodexTranscript.date(catalog.checkedAt), Date().timeIntervalSince(checked) < 300 { return }
         let token = UUID(); operation = token; loading = true; failure = nil
         let connection = store.connection, account = store.connectionIdentity, service = store.taskStreamSession
-        var body = scope; body["provider"] = provider; body["reload"] = reload
+        var body = scope; body["provider"] = provider; body["reload"] = reload; if let instanceID { body["providerInstanceId"] = instanceID }
         defer { if operation == token { loading = false } }
         do {
             let value = try await connection.decode(TaskComposerCatalog.self, "/api/composer/capabilities", method: "POST", body: body)

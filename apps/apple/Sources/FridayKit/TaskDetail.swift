@@ -712,7 +712,7 @@ struct TaskDetail: View {
 
     private func sendAgentMessage(_ submission: TaskComposerSubmission) {
         if let eventID = submission.planEventID { followUpPlan(submission, eventID: eventID) }
-        else { sendMessage(model: submission.model, effort: submission.effort, dispatch: submission.dispatch, interactionMode: submission.interactionMode, compactBeforeSend: submission.compactBeforeSend) }
+        else { sendMessage(model: submission.model, effort: submission.effort, modelOptions: submission.modelOptions, dispatch: submission.dispatch, interactionMode: submission.interactionMode, compactBeforeSend: submission.compactBeforeSend) }
     }
 
     private func followUpPlan(_ submission: TaskComposerSubmission, eventID: String) {
@@ -723,7 +723,7 @@ struct TaskDetail: View {
             defer { sending = false }
             do {
                 let created = try await store.followUpPlan(taskID, eventID: eventID, text: text, images: attachments, requestID: requestID,
-                                                         newThread: submission.implementInNewThread, model: submission.model, effort: submission.effort, contexts: references)
+                                                         newThread: submission.implementInNewThread, model: submission.model, effort: submission.effort, modelOptions: submission.modelOptions, contexts: references)
                 if let saved = TaskDraftCache.load(TaskMessageDraft.self, server: server, context: "task:" + taskID), saved.requestId == requestID {
                     TaskDraftCache.save(Optional<TaskMessageDraft>.none, server: server, context: "task:" + taskID)
                 }
@@ -786,7 +786,7 @@ struct TaskDetail: View {
 
     private func sendMessage() { sendMessage(model: nil, effort: nil) }
 
-    private func sendMessage(model: String?, effort: String?, dispatch: TaskComposerDispatch = .auto, interactionMode: String? = nil, compactBeforeSend: Bool = false) {
+    private func sendMessage(model: String?, effort: String?, modelOptions: [ProviderOptionSelection]? = nil, dispatch: TaskComposerDispatch = .auto, interactionMode: String? = nil, compactBeforeSend: Bool = false) {
         guard !sending, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty else { return }
         let taskId = id; let submittedMessage = message; let submittedImages = images; let references = contexts; let requestId = messageId
         let active = task?.active == true
@@ -798,10 +798,10 @@ struct TaskDetail: View {
         Task {
             do {
                 if let queuedEdit {
-                    try await store.editQueuedMessage(taskId: taskId, messageId: queuedEdit.id, text: submittedMessage, images: submittedImages, model: model, effort: effort, interactionMode: interactionMode, contexts: references)
+                    try await store.editQueuedMessage(taskId: taskId, messageId: queuedEdit.id, text: submittedMessage, images: submittedImages, model: model, effort: effort, modelOptions: modelOptions, interactionMode: interactionMode, contexts: references)
                 } else {
                     try await store.sendTaskMessage(taskId: taskId, text: submittedMessage, requestId: requestId,
-                        images: submittedImages, model: active && dispatch != .queue ? nil : model, effort: active && dispatch != .queue ? nil : effort, dispatch: dispatch, interactionMode: interactionMode, contexts: references, compactThread: compactThread)
+                        images: submittedImages, model: active && dispatch != .queue ? nil : model, effort: active && dispatch != .queue ? nil : effort, modelOptions: active && dispatch != .queue ? nil : modelOptions, dispatch: dispatch, interactionMode: interactionMode, contexts: references, compactThread: compactThread)
                 }
                 if let saved = TaskDraftCache.load(TaskMessageDraft.self, server: server, context: "task:" + taskId), saved.requestId == requestId {
                     let restored = queuedEdit.map { TaskMessageDraft(message: $0.message, images: $0.images, requestId: $0.requestId, interactionMode: $0.interactionMode, contexts: $0.contexts, contextInsertion: $0.contextInsertion) }

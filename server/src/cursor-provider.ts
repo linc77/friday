@@ -1,3 +1,4 @@
+import { selectedProviderOptions, type ProviderModelSelection, type ProviderOptionDescriptor } from './provider-models.js';
 import { createHash } from 'node:crypto';
 import { readFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -12,6 +13,19 @@ import type { ProviderWorkspace } from './provider-workspace.js';
 import { cursorSkills } from './cursor-skills.js';
 
 export type CursorModel = ProviderModel & { nativeEffortId?: string };
+const cursorOptionID = (id: string) => id === 'context' ? 'contextWindow' : id === 'fast' ? 'fastMode' : id;
+const cursorParameterID = (id: string) => id === 'contextWindow' ? 'context' : id === 'fastMode' ? 'fast' : id;
+export function cursorOptionDescriptors(model: SDKModel): ProviderOptionDescriptor[] {
+  const result: ProviderOptionDescriptor[] = [], seen = new Set<string>();
+  for (const parameter of model.parameters ?? []) {
+    const id = cursorOptionID(parameter.id.trim()), choices = [...new Map(parameter.values.filter(value => value.value.trim()).map(value => [value.value, { id: value.value, label: value.displayName || value.value }])).values()];
+    if (!id || seen.has(id) || !choices.length) continue; seen.add(id);
+    const current = model.variants?.find(variant => variant.isDefault)?.params.find(value => value.id === parameter.id)?.value;
+    if (choices.length === 2 && choices.every(value => ['true', 'false'].includes(value.id))) result.push({ id, label: parameter.displayName || id, type: 'boolean', ...(['true', 'false'].includes(current ?? '') ? { currentValue: current === 'true' } : {}) });
+    else result.push({ id, label: parameter.displayName || id, type: 'select', options: choices.map(value => ({ ...value, ...(value.id === current ? { isDefault: true } : {}) })), ...(current ? { currentValue: current } : {}) });
+  }
+  return result;
+}
 export function cursorModels(value: unknown): CursorModel[] {
   if (!Array.isArray(value)) throw new Error('Cursor SDK 未返回模型列表');
   const seen = new Set<string>();
@@ -21,7 +35,7 @@ export function cursorModels(value: unknown): CursorModel[] {
     const effort = model.parameters?.find(parameter => ['effort', 'reasoning'].includes(parameter.id.trim()));
     const values = [...new Set(effort?.values.map(value => value.value.trim()).filter(Boolean) ?? [])];
     const preferred = model.variants?.find(variant => variant.isDefault)?.params.find(value => value.id === effort?.id)?.value;
-    return [{ id, name, description: model.description ?? '', isDefault: id === 'default', reasoningEfforts: values, defaultReasoningEffort: preferred && values.includes(preferred) ? preferred : '', ...(effort ? { nativeEffortId: effort.id } : {}) }];
+    return [{ id, name, optionDescriptors: cursorOptionDescriptors(model), description: model.description ?? '', isDefault: id === 'default', reasoningEfforts: values, defaultReasoningEffort: preferred && values.includes(preferred) ? preferred : '', ...(effort ? { nativeEffortId: effort.id } : {}) }];
   });
 }
 export class CursorConnection extends NativeProviderConnection {
@@ -62,12 +76,12 @@ export class CursorConnection extends NativeProviderConnection {
     finally { if (client) await this.release(client); }
     return state;
   }
-  async runtime(selection?: { model?: string; reasoningEffort?: string }) {
+  async runtime(selection?: ProviderModelSelection) {
     const value = await super.runtime(selection), auth = await this.credential(value.settings), state = await this.status();
     const nativeModel = state.models.find(model => model.id === value.model) as CursorModel | undefined;
     if (!nativeModel) throw new Error('Cursor 模型已经改变，请重新选择');
     return { ...value, account: createHash('sha256').update(JSON.stringify([nativeProviderAccount('cursor', value.settings), auth.fingerprint])).digest('hex'), fingerprint: auth.fingerprint,
-      nativeModel: { id: value.model === 'auto' ? 'default' : value.model, ...(value.effort && nativeModel?.nativeEffortId ? { params: [{ id: nativeModel.nativeEffortId, value: value.effort }] } : {}) } };
+      nativeModel: { id: value.model === 'auto' ? 'default' : value.model, ...((Object.keys(value.modelOptions).length || value.effort && nativeModel.nativeEffortId) ? { params: [...Object.entries(value.modelOptions).filter(([id]) => id !== 'reasoningEffort').map(([id, value]) => ({ id: cursorParameterID(id), value: String(value) })), ...(value.effort && nativeModel.nativeEffortId && !Object.hasOwn(value.modelOptions, nativeModel.nativeEffortId) ? [{ id: nativeModel.nativeEffortId, value: value.effort }] : [])] } : {}) } };
   }
   async accountIdentity(settings: NativeProviderSettings) { return createHash('sha256').update(JSON.stringify([nativeProviderAccount('cursor', settings), (await this.credential(settings)).fingerprint])).digest('hex'); }
   async save(value: unknown) {

@@ -1,3 +1,4 @@
+import { selectedProviderOptions, type ProviderModelSelection } from './provider-models.js';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { RequestError } from '@agentclientprotocol/sdk';
@@ -11,13 +12,13 @@ import type { ApprovalDecision } from './provider-approvals.js';
 
 // Native ACP behavior follows T3 8cd9641f provider-acp/AcpSessionRuntime and
 // adapter. MIT Copyright (c) 2026 T3 Tools Inc.; vendor/t3code/LICENSE.
-export type AcpNativeRuntime = { provider: string; name: string; model: string; effort: string; account: string; command: string; args: string[]; env: NodeJS.ProcessEnv; authMethod?: string; authenticateEagerly?: boolean; resumeMethod?: 'load' | 'resume'; nativeMode?: string; defaultMode?: string; restoreBuildMode?: boolean; defaultModel?: string; compactCommand?: string; clientFiles?: boolean; autoApprove?: boolean };
+export type AcpNativeRuntime = { provider: string; name: string; model: string; effort: string; account: string; command: string; args: string[]; env: NodeJS.ProcessEnv; authMethod?: string; authenticateEagerly?: boolean; resumeMethod?: 'load' | 'resume'; nativeMode?: string; defaultMode?: string; restoreBuildMode?: boolean; defaultModel?: string; compactCommand?: string; modelOptions?: Record<string, string | boolean>; clientFiles?: boolean; autoApprove?: boolean };
 export type AcpNativeLease = { client: AcpProcess; initialized: AcpRecord; authorizationURL?: string; close(): Promise<void> };
 export type AcpNativePermission = { questions?: Approval['questions']; options?: Approval['options']; decisions: ApprovalDecision[]; respond(decision: ApprovalDecision, answers: Record<string, string[]>): AcpRecord };
 export interface AcpNativeConnection {
   readonly provider: string;
   readonly directory: string;
-  runtime(selection?: { model?: string; reasoningEffort?: string; interactionMode?: string }): Promise<AcpNativeRuntime>;
+  runtime(selection?: ProviderModelSelection & { interactionMode?: string }): Promise<AcpNativeRuntime>;
   client(runtime: AcpNativeRuntime, cwd: string): Promise<AcpNativeLease>;
   normalize?(update: AcpRecord): AcpRecord;
   permission?(params: AcpRecord): AcpNativePermission;
@@ -31,7 +32,7 @@ export function acpNativePermission(params: AcpRecord): AcpNativePermission {
   return { decisions: ['cancel', 'decline', 'acceptForSession', 'accept'].filter(value => value === 'cancel' || selected.has(value as ApprovalDecision)) as ApprovalDecision[], respond: decision => { if (decision === 'cancel') return { outcome: { outcome: 'cancelled' } }; const option = selected.get(decision); if (!option) throw new Error('ACP 工具未提供此授权选项'); return { outcome: { outcome: 'selected', optionId: option.optionId } }; } };
 }
 const textContent = (value: unknown): string => typeof value === 'string' ? value : Array.isArray(value) ? value.map(value => textContent(value)).filter(Boolean).join('\n') : acpRecord(value)?.type === 'text' && typeof acpRecord(value)?.text === 'string' ? acpRecord(value)!.text : acpRecord(value)?.content ? textContent(acpRecord(value)!.content) : '';
-export async function acpNativeAuthenticate(client: AcpProcess, initialized: AcpRecord, method: string) { return client.call(initialized.protocolGeneration === 2 ? 'auth_login' : 'authenticate', { methodId: method }, 60000); }
+export async function acpNativeAuthenticate(client: AcpProcess, initialized: AcpRecord, method: string) { return client.call(initialized.protocolGeneration === 2 ? 'auth/login' : 'authenticate', { methodId: method }, 60000); }
 export async function acpNativeSession(client: AcpProcess, initialized: AcpRecord, input: { cwd: string; sessionId?: string | null; resumeMethod?: string; mcpServers: AcpRecord[] }) {
   const params = { cwd: input.cwd, mcpServers: acpSessionServers(input.mcpServers, initialized.protocolGeneration) };
   if (!input.sessionId) return client.call('session/new', params);
@@ -42,12 +43,19 @@ export async function acpNativeSession(client: AcpProcess, initialized: AcpRecor
   throw new Error('ACP 工具未声明原生会话恢复能力');
 }
 export async function acpNativeSelection(client: AcpProcess, initialized: AcpRecord, session: AcpRecord, runtime: AcpNativeRuntime) {
-  const sessionId = session.sessionId, modern = initialized.protocolGeneration === 2, model = acpModelOption(session), effort = acpEffortOption(session);
-  const set = (option: AcpRecord, value: string) => client.call('session/set_config_option', { sessionId, configId: option.configId ?? option.id, ...(modern ? { type: 'id' } : {}), value });
+  const sessionId = session.sessionId, modern = initialized.protocolGeneration === 2, model = acpModelOption(session);
+  const set = async (option: AcpRecord, value: string) => { const result = await client.call('session/set_config_option', { sessionId, configId: option.configId ?? option.id, ...(modern ? { type: 'id' } : {}), value }); if (Array.isArray(result.configOptions)) session.configOptions = result.configOptions; };
   const current = model?.currentValue ?? session.models?.currentModelId, target = runtime.model === runtime.defaultModel ? current : runtime.model;
   if (model && target && target !== current) { if (!acpConfigValues(model).includes(target)) throw new Error('ACP 原生模型已改变，请重新选择'); await set(model, target); }
-  else if (!model && target && target !== current) await client.call('session/set_model', { sessionId, modelId: target });
+  else if (!model && target && target !== current) { const result = await client.call('session/set_model', { sessionId, modelId: target }); if (Array.isArray(result.configOptions)) session.configOptions = result.configOptions; }
+  const effort = acpEffortOption(session);
   if (runtime.effort) { if (!effort || !acpConfigValues(effort).includes(runtime.effort)) throw new Error('ACP 工具未提供此原生推理选项'); if (effort.currentValue !== runtime.effort) await set(effort, runtime.effort); }
+  for (const [id, value] of Object.entries(runtime.modelOptions ?? {})) {
+    if (id === 'reasoningEffort') continue;
+    const option = (session.configOptions ?? []).find((option: AcpRecord) => (option.configId ?? option.id) === id && !['model', 'mode', 'collaboration_mode'].includes(option.category));
+    if (!option || typeof value !== 'string' || !acpConfigValues(option).includes(value)) throw new Error('ACP 原生模型选项已改变，请重新选择');
+    if (option.currentValue !== value) await set(option, value);
+  }
   let selectedMode = runtime.nativeMode;
   if (!selectedMode && runtime.restoreBuildMode) {
     const modeOption = session.configOptions?.find((value: AcpRecord) => ['mode', 'collaboration_mode'].includes(value.category)), current = session.modes?.currentModeId ?? modeOption?.currentValue;
@@ -69,7 +77,7 @@ export class AcpNativeExecutor implements Executor {
   deferredStart(agent: string) { return agent === this.connection.provider; }
   async run(request: ExecutionRequest) {
     const { task, signal, update } = request; if (this.runs.has(task.id)) throw new Error('ACP 会话仍在执行');
-    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, interactionMode: task.interactionMode });
+    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions, interactionMode: task.interactionMode });
     if (task.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条原生 ACP 会话使用的工具与账号配置');
     if (request.command === 'compact' && !runtime.compactCommand) throw new Error('此 ACP 工具未声明原生压缩命令');
     signal.throwIfAborted(); const lease = await this.connection.client(runtime, task.cwd), { client, initialized } = lease, turn = randomUUID(), projection = new NativeTurnProjection(request, turn);

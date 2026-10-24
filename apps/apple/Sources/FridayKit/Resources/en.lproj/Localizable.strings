@@ -2612,3 +2612,35 @@
 "手动确认保留工具的原生授权选项；自动审批允许本次工具调用。" = "Manual approval preserves the agent’s native choices. Automatic approval allows the current tool call.";
 
 "自动审批" = "Automatic approval";
+
+"正在认证…" = "Authenticating…";
+"读取工具声明的浏览器、终端或环境变量认证方式。" = "Read the browser, terminal, or environment sign-in methods advertised by the agent.";
+"读取认证方式" = "Read sign-in methods";
+"请先在此工具的环境变量设置中保存：%@" = "Save these variables in this provider’s environment settings first: %@";
+"工具请求在浏览器中完成认证" = "The agent requests browser sign-in";
+"打开浏览器并继续" = "Open browser and continue";
+"认证交互已改变，请刷新后重试" = "The sign-in interaction changed. Refresh and try again.";
+"认证终端输入结果尚未确认，不会自动重发；请检查主机状态或取消后重新登录。" = "Terminal input delivery is unconfirmed and will not be retried automatically. Check the host or cancel and sign in again.";
+"认证终端输入过长，请取消后重新登录。" = "Sign-in terminal input is too long. Cancel and sign in again.";
+"认证连接暂时不可用" = "The sign-in connection is temporarily unavailable.";
+"认证流程已改变，请重新打开设置读取当前状态。" = "The sign-in flow changed. Reopen settings to read its current state.";
+
+"打开凭据页面" = "Open credentials page";
+
+"退出登录" = "Sign out";
+
+"添加实例" = "Add instance";
+
+"实例设置" = "Instance settings";
+
+"实例 ID" = "Instance ID";
+
+"标识颜色（#RRGGBB，可选）" = "Accent color (#RRGGBB, optional)";
+
+"启用实例" = "Enable instance";
+
+"每个实例独立保存工具配置。工具原生账号由其配置目录或环境变量决定。" = "Each instance stores its own tool settings. Native credentials follow the tool configuration directory or environment.";
+
+"移除实例" = "Remove instance";
+
+"模型选项" = "Model options";

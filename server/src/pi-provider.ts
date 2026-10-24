@@ -1,3 +1,4 @@
+import { selectedProviderOptions, type ProviderModelSelection } from './provider-models.js';
 import { execFile } from 'node:child_process';
 import { access, mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises';
 import { constants } from 'node:fs';
@@ -103,12 +104,13 @@ export class PiConnection {
     if (JSON.stringify(await loadPiSettings(this.directory)) !== key) throw new Error('Pi 配置已经改变，请重新加载');
     return { ...value, models: appendCustomModels(value.models, settings.customModels), settings: owner ? { ...settings, environment: settings.environment.map(entry => ({ name: entry.name, value: null, hasValue: true })) } : null };
   }
-  async runtime(selection?: { model?: string; reasoningEffort?: string }) {
+  async runtime(selection?: ProviderModelSelection) {
     if (this.saving) throw new Error('正在保存 Pi 配置');
     const state = await this.status(), settings = await loadPiSettings(this.directory);
     if (!state.enabled || !state.connected) throw new Error(state.enabled ? state.error ?? 'Pi 尚未就绪' : '请先在「Providers → Pi」中启用 Pi');
     const model = selection?.model || settings.model || 'default', selected = state.models.find(value => value.id === model);
-    const effort = selection?.reasoningEffort || (selection?.model ? '' : settings.reasoningEffort);
+    const options = selected ? selectedProviderOptions(selected, selection) : undefined;
+    const effort = options?.effort || (selection?.model ? '' : settings.reasoningEffort);
     if (!selected || effort && !selected.reasoningEfforts.includes(effort)) throw new Error('Pi 模型或推理强度已不可用，请重新选择');
     return { ...await this.configured(settings), model, effort, permissionMode: settings.permissionMode };
   }

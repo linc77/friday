@@ -1,3 +1,4 @@
+import { selectedProviderOptions, type ProviderModelSelection, type ProviderOptionDescriptor } from './provider-models.js';
 import { NativeProviderConnection, loadNativeProviderSettings, type NativeProviderSettings } from './native-provider-config.js';
 import { OpenCodeServer, type OpenCodeGeneration } from './opencode-server.js';
 import { acpRecord, type AcpRecord } from './acp-process.js';
@@ -53,20 +54,27 @@ export class OpenCodeConnection extends NativeProviderConnection {
     try {
       lease = await this.server(settings, this.directory); const server = lease.server; state.installed = true; state.version = server.version;
       const models = server.generation === 2 ? await server.v2!.model.list({ location: { directory: this.directory } }, { signal: AbortSignal.timeout(5000) }) : await server.v1!.provider.list({}, { signal: AbortSignal.timeout(5000) }).then(value => value.data);
-      state.models = openCodeModels(models, server.generation); state.connected = state.models.length > 0;
+      state.models = openCodeModels(models, server.generation);
+      try {
+        const raw = server.generation === 2 ? await server.v2!.agent.list({ location: { directory: this.directory } }, { signal: AbortSignal.timeout(5000) }) : await server.v1!.app.agents(undefined, { signal: AbortSignal.timeout(5000) }).then(value => value.data);
+        const listed = Array.isArray(raw) ? raw : acpRecord(raw)?.data;
+        const agents = (Array.isArray(listed) ? listed : []).filter((agent: AcpRecord) => typeof agent.name === 'string' && agent.name && !agent.hidden && agent.mode !== 'subagent');
+        if (agents.length) for (const model of state.models) model.optionDescriptors = [{ id: 'agent', label: 'Agent', type: 'select', options: agents.map((agent: AcpRecord) => ({ id: agent.name, label: agent.name, ...(agent.name === 'build' ? { isDefault: true } : {}) })), currentValue: agents.some((agent: AcpRecord) => agent.name === 'build') ? 'build' : agents[0].name }];
+      } catch {}
+      state.connected = state.models.length > 0;
       state.model = settings.model || state.models.find(value => value.isDefault)?.id || state.models[0]?.id || '';
       if (!state.connected) state.error = 'OpenCode 没有返回已连接供应商的模型，请在主机完成账号配置';
     } catch (error) { state.error = error instanceof Error ? error.message : 'OpenCode 检测失败'; }
     finally { await lease?.close(); }
     return state;
   }
-  async runtime(selection?: { model?: string; reasoningEffort?: string }) {
+  async runtime(selection?: ProviderModelSelection) {
     const value = await super.runtime(selection), model = (await this.status()).models.find(model => model.id === value.model) as OpenCodeModel | undefined;
     // Custom model IDs stay explicit provider/model pairs; their server may
     // accept them, but no reasoning capability is inferred from the ID.
     const slash = value.model.indexOf('/'), providerID = model?.providerID ?? value.model.slice(0, slash), modelID = model?.nativeModelId ?? value.model.slice(slash + 1);
     if (slash < 1 || !modelID) throw new Error('OpenCode 模型需要使用 provider/model 标识');
-    return { ...value, providerID, modelID, contextWindow: model?.contextWindow };
+    return { ...value, providerID, modelID, ...(typeof value.modelOptions.agent === 'string' ? { agent: value.modelOptions.agent } : {}), contextWindow: model?.contextWindow };
   }
   async workspace(cwd: string, reload = false, task?: WorkItem): Promise<ProviderWorkspace> {
     const runtime = await this.runtime(); if (task?.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条 OpenCode 会话使用的账号配置');

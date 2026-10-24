@@ -57,7 +57,7 @@ export class ClaudeLiveSessions {
     // That SDK bookkeeping must not invalidate the first resident transport.
     const env: NodeJS.ProcessEnv = { ...configured.env }; delete env.CLAUDE_AGENT_SDK_VERSION;
     return createHash('sha256').update(JSON.stringify({ cwd: task.cwd, command: configured.command, home: configured.home, env,
-      settings: configured.settingSources, research: task.mode === 'research' })).digest('hex');
+      settings: configured.settingSources, thinking: configured.modelSettings.alwaysThinkingEnabled, research: task.mode === 'research' })).digest('hex');
   }
   private context(session: Session, task: WorkItem, update: Context['update'], native = false, key?: string, id = randomUUID()): Context {
     let resolve!: Context['resolve']; let reject!: Context['reject'];
@@ -93,7 +93,7 @@ export class ClaudeLiveSessions {
     context.activation = (async () => {
       await session.send({ kind: 'nativeTurnStart', key, sessionId: session.token, threadId: session.threadId, turnId: id,
         parameters: { cwd: session.task.cwd, mode: session.task.mode, interactionMode: session.task.interactionMode,
-          model: session.configuration.model, reasoningEffort: session.configuration.effort } });
+          model: session.configuration.model, reasoningEffort: session.configuration.effort, modelOptions: session.task.modelOptions } });
       await context.transcript.start(); await context.update({ kind: 'ready', canSteer: true }); context.accepting = true;
     })();
     await context.activation; return context;
@@ -106,7 +106,7 @@ export class ClaudeLiveSessions {
     let session = this.sessions.get(task.id); const identity = this.identity(task, configured);
     const forceResume = task.claudeResumeSessionAt && task.claudeResumePendingRun === task.currentRunId;
     if (session?.current?.native) await this.withSignal(session.current.done.catch(() => {}), request.signal);
-    if (session && (session.identity !== identity || forceResume || session.configuration.effort && !configured.effort)) {
+    if (session && (session.identity !== identity || forceResume || session.configuration.apiEffort && !configured.apiEffort)) {
       if (session.current || session.background.active().length || session.subagents.active()) throw new Error('Claude 仍有后台任务，请先停止后再切换执行范围或配置');
       await this.closeSession(session); session = undefined;
     }
@@ -136,7 +136,7 @@ export class ClaudeLiveSessions {
       if (!source.query) {
         source.configuration = configured; source.task = { ...task };
         source.query = query({ prompt: source.inputs, options: {
-          cwd: task.cwd, pathToClaudeCodeExecutable: configured.command, env: configured.env, model: configured.model, effort: configured.effort as EffortLevel | undefined,
+          cwd: task.cwd, pathToClaudeCodeExecutable: configured.command, env: configured.env, model: configured.apiModel, effort: configured.apiEffort as EffortLevel | undefined, settings: configured.modelSettings,
           ...(task.threadId ? { resume: source.threadId, ...(task.claudeResumeSessionAt ? { resumeSessionAt: task.claudeResumeSessionAt } : {}) } : { sessionId: source.threadId }),
           abortController: source.controller, includePartialMessages: true, permissionMode: task.interactionMode === 'plan' ? 'plan' : configured.permissionMode,
           settingSources: configured.settingSources, ...(task.mode === 'research' ? { tools: ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch'] } : {}),
@@ -150,8 +150,8 @@ export class ClaudeLiveSessions {
           const updated = await source.query.setMcpServers({ friday_tasks: { type: 'http', ...request.taskMcp } });
           if (Object.keys(updated.errors ?? {}).length) throw new Error('Friday 任务工具连接失败，请重试此轮');
         }
-        if (configured.model !== source.configuration.model) await source.query.setModel(configured.model);
-        if (configured.effort !== source.configuration.effort) await source.query.applyFlagSettings({ effortLevel: configured.effort as EffortLevel });
+        if (configured.apiModel !== source.configuration.apiModel) await source.query.setModel(configured.apiModel);
+        if (configured.apiEffort !== source.configuration.apiEffort || configured.modelSettings.fastMode !== source.configuration.modelSettings.fastMode || configured.modelSettings.ultracode !== source.configuration.modelSettings.ultracode) await source.query.applyFlagSettings({ ...(configured.apiEffort === undefined ? {} : { effortLevel: configured.apiEffort as EffortLevel }), fastMode: configured.modelSettings.fastMode ?? null, ultracode: configured.modelSettings.ultracode ?? null });
         await source.query.setPermissionMode(task.interactionMode === 'plan' ? 'plan' : configured.permissionMode);
         source.configuration = configured; source.task = { ...task };
       }
@@ -166,7 +166,8 @@ export class ClaudeLiveSessions {
       if (!request.command && !dispatch && slash && (await source.query.supportedCommands()).some(command => command.name === slash || command.aliases?.includes(slash))) {
         dispatch = { leadingText: request.contextText, commandText: request.userText! };
       }
-      const message = await claudeUserMessage(source.threadId, request.command === 'compact' ? '/compact' : request.prompt, context.id, request.images, dispatch);
+      if (configured.promptEffort && !request.command && dispatch) dispatch = { ...dispatch, leadingText: [configured.promptEffort, dispatch.leadingText].filter(Boolean).join('\n\n') };
+      const message = await claudeUserMessage(source.threadId, request.command === 'compact' ? '/compact' : configured.promptEffort ? configured.promptEffort + '\n\n' + request.prompt : request.prompt, context.id, request.images, dispatch);
       await request.beforeStart?.();
       if (request.signal.aborted || source.closing) throw new Error('任务已中止');
       await request.update({ kind: 'turn', turnId: context.id }); await context.transcript.start(); context.started = true;
