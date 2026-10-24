@@ -1,5 +1,5 @@
 // Derived without semantic edits from pingdotgg/t3code@8cd9641f76874f2ce17d6c80acd71fab1f0b99d3
-// packages/provider-grok/src/server/xaiAcpExtension.ts, pure subagent functions.
+// packages/provider-grok/src/server/xaiAcpExtension.ts, pure subagent and background functions.
 // MIT Copyright (c) 2026 T3 Tools Inc. Full license: ../../../vendor/t3code/LICENSE.
 const XAI_UUID_RE = "[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}";
 
@@ -311,4 +311,217 @@ export function extractXAiAcpSubagentUpdate(toolCall) {
 function trimmed(value) {
     const text = value?.trim();
     return text && text.length > 0 ? text : undefined;
+}
+const XAI_TASK_COMPLETED_PROMPT_ID_PREFIX = "task-completed-";
+export function isXAiTaskCompletedWakeNotification(notification) {
+    const promptId = notification._meta?.promptId;
+    return typeof promptId === "string" && promptId.startsWith(XAI_TASK_COMPLETED_PROMPT_ID_PREFIX);
+}
+function isXAiMonitorStartAck(output) {
+    if (output === undefined)
+        return false;
+    return /monitor started\s*\(\s*task\s+/i.test(output);
+}
+export function isXAiMonitorTool(toolCall) {
+    const title = titleKey(toolCall);
+    if (title === "monitor" || title.startsWith("monitor "))
+        return true;
+    const rawInput = unknownRecord(toolCall.data.rawInput);
+    const variant = nonEmptyString(rawInput?.variant)?.toLowerCase();
+    if (variant === "monitor")
+        return true;
+    // Live start ACKs often keep a generic title ("Tool") and only mark the
+    // structured envelope as Monitor; title rewrite to description must not
+    // prevent monitor registration / inProgress forcing.
+    const rawOutput = unknownRecord(toolCall.data.rawOutput);
+    const outputType = nonEmptyString(rawOutput?.type)?.toLowerCase();
+    if (outputType === "monitor")
+        return true;
+    // Released clients can wrap the start ACK as plain Text and omit the Monitor
+    // variant. The ACK is still unambiguous and contains the task id required for
+    // background tracking, even after a generic title is rewritten from
+    // rawInput.description.
+    return isXAiMonitorStartAck(xAiToolOutputText(toolCall));
+}
+function xAiBackgroundShellTaskId(toolCall) {
+    const rawOutput = unknownRecord(toolCall.data.rawOutput);
+    return nonEmptyString(rawOutput?.type) === "BackgroundTaskStarted"
+        ? nonEmptyString(rawOutput?.task_id)
+        : undefined;
+}
+export function extractXAiMonitorTaskId(toolCall) {
+    const backgroundShellTaskId = xAiBackgroundShellTaskId(toolCall);
+    if (backgroundShellTaskId !== undefined)
+        return backgroundShellTaskId;
+    if (!isXAiMonitorTool(toolCall))
+        return undefined;
+    const rawOutput = unknownRecord(toolCall.data.rawOutput);
+    if (rawOutput !== undefined && nonEmptyString(rawOutput.type)?.toLowerCase() === "monitor") {
+        const structured = nonEmptyString(rawOutput.taskId) ?? nonEmptyString(rawOutput.task_id);
+        if (structured !== undefined)
+            return structured;
+    }
+    const output = xAiToolOutputText(toolCall);
+    if (output !== undefined) {
+        const fromAck = firstUuidMatch(output, new RegExp(`monitor started\\s*\\(\\s*task\\s+(${XAI_UUID_RE})\\b`, "i"));
+        if (fromAck !== undefined)
+            return fromAck;
+    }
+    const rawInput = unknownRecord(toolCall.data.rawInput);
+    return (nonEmptyString(rawInput?.task_id) ??
+        nonEmptyString(rawInput?.taskId) ??
+        (Array.isArray(rawInput?.task_ids) ? nonEmptyString(rawInput.task_ids[0]) : undefined));
+}
+export function isXAiPersistentMonitor(toolCall) {
+    if (!isXAiMonitorTool(toolCall))
+        return false;
+    const rawOutput = unknownRecord(toolCall.data.rawOutput);
+    if (rawOutput !== undefined && nonEmptyString(rawOutput.type)?.toLowerCase() === "monitor") {
+        return rawOutput.persistent === true;
+    }
+    const rawInput = unknownRecord(toolCall.data.rawInput);
+    return rawInput?.persistent === true;
+}
+export function extractXAiBackgroundTaskCompletion(toolCall) {
+    const rawInput = unknownRecord(toolCall.data.rawInput);
+    if (!isXAiGetSubagentOutputTool(toolCall, rawInput))
+        return [];
+    const text = xAiToolOutputText(toolCall);
+    const status = statusFromGetOutputTool(toolCall, text);
+    const appendOutput = resultFromGetOutputTool(toolCall, text) ?? "";
+    // Prefer the completed identity from the result/header over the request list
+    // (one call can poll multiple task_ids).
+    const resultTaskId = resultTaskIdFromGetOutputTool(toolCall, text);
+    if (resultTaskId !== undefined) {
+        return [{ taskId: resultTaskId, status, appendOutput }];
+    }
+    const requestIds = [];
+    const push = (value) => {
+        const id = nonEmptyString(value);
+        if (id !== undefined && new RegExp(`^${XAI_UUID_RE}$`, "i").test(id)) {
+            requestIds.push(id);
+        }
+    };
+    if (Array.isArray(rawInput?.task_ids)) {
+        for (const entry of rawInput.task_ids)
+            push(entry);
+    }
+    push(rawInput?.task_id);
+    push(rawInput?.taskId);
+    const unique = [...new Set(requestIds)];
+    return unique.map((taskId) => ({ taskId, status, appendOutput }));
+}
+export function extractXAiKilledBackgroundTasks(toolCall) {
+    const title = titleKey(toolCall);
+    const rawInput = unknownRecord(toolCall.data.rawInput);
+    const variant = nonEmptyString(rawInput?.variant)?.toLowerCase();
+    if (!title.includes("kill_command_or_subagent") && variant !== "kill")
+        return [];
+    if (toolCall.status !== "completed")
+        return [];
+    const taskIds = [];
+    const push = (value) => {
+        const id = nonEmptyString(value);
+        if (id !== undefined)
+            taskIds.push(id);
+    };
+    if (Array.isArray(rawInput?.task_ids)) {
+        for (const entry of rawInput.task_ids)
+            push(entry);
+    }
+    push(rawInput?.task_id);
+    push(rawInput?.taskId);
+    return [...new Set(taskIds)].map((taskId) => ({
+        taskId,
+        status: "completed",
+        appendOutput: "",
+    }));
+}
+function xAiBackgroundTaskReport(update) {
+    const snapshot = update.task_snapshot;
+    const monitorDescription = nonEmptyString(update.monitor_description ?? undefined);
+    const displayCommand = nonEmptyString(snapshot?.display_command ?? undefined);
+    const isMonitor = snapshot?.kind === "monitor" ||
+        monitorDescription !== undefined ||
+        displayCommand?.startsWith("[monitor]") === true;
+    // Grok's snapshot defaults `kind` to bash; anything that carries a command is one.
+    const isCommand = snapshot?.kind === "bash" || snapshot?.command !== undefined || update.command !== undefined;
+    if (!isMonitor && !isCommand)
+        return undefined;
+    const label = monitorDescription ??
+        nonEmptyString(snapshot?.description ?? undefined) ??
+        nonEmptyString(update.description ?? undefined) ??
+        displayCommand?.replace(/^\[monitor\]\s*/, "") ??
+        nonEmptyString(snapshot?.command) ??
+        nonEmptyString(update.command);
+    const named = label === undefined ? {} : { label };
+    if (isMonitor)
+        return { kind: "monitor", ...named };
+    const exitCode = snapshot?.exit_code;
+    return { kind: "command", ...named, ...(typeof exitCode === "number" ? { exitCode } : {}) };
+}
+export function xAiBackgroundTaskLifecycleMutation(notification, status) {
+    const update = notification.update;
+    const taskId = nonEmptyString(update.task_snapshot?.task_id) ??
+        nonEmptyString(update.task_id) ??
+        nonEmptyString(update.tool_call_id);
+    if (taskId === undefined)
+        return null;
+    const exitCode = update.task_snapshot?.exit_code;
+    const output = update.task_snapshot?.output;
+    const report = xAiBackgroundTaskReport(update);
+    return {
+        sessionId: notification.sessionId,
+        taskId,
+        status: status === "completed" && typeof exitCode === "number" && exitCode !== 0 ? "failed" : status,
+        ...(output === undefined ? {} : { output }),
+        ...(report === undefined ? {} : { report }),
+    };
+}
+export function extractXAiAcpBackgroundToolMutation(text) {
+    const mutations = [];
+    const eventRe = new RegExp(`<monitor-event\\s+task_id=["']?(${XAI_UUID_RE})["']?\\s*>\\s*([\\s\\S]*?)\\s*</monitor-event>`, "gi");
+    for (const eventMatch of text.matchAll(eventRe)) {
+        if (eventMatch[1] === undefined)
+            continue;
+        const line = (eventMatch[2] ?? "").trim();
+        mutations.push({
+            taskId: eventMatch[1],
+            status: "running",
+            appendOutput: line.length > 0 ? `${line}\n` : "",
+        });
+    }
+    const batchedRe = new RegExp(`<monitor\\s[^>]*task_id=["']?(${XAI_UUID_RE})["']?[^>]*>\\s*([\\s\\S]*?)\\s*</monitor>`, "gi");
+    for (const batchedMatch of text.matchAll(batchedRe)) {
+        if (batchedMatch[1] === undefined)
+            continue;
+        const lines = (batchedMatch[2] ?? "").trim();
+        mutations.push({
+            taskId: batchedMatch[1],
+            status: "running",
+            appendOutput: lines.length > 0 ? `${lines}\n` : "",
+        });
+    }
+    const endedRe = new RegExp(`Monitor\\s+["']?(${XAI_UUID_RE})["']?\\s+ended`, "gi");
+    for (const endedMatch of text.matchAll(endedRe)) {
+        if (endedMatch[1] === undefined)
+            continue;
+        // Only the "Monitor … ended …" clause is outcome text. Description/output
+        // after the header can contain words like "error" without meaning failure.
+        const outcomeClause = (endedMatch[0] ?? "").trim();
+        const afterHeader = text.slice((endedMatch.index ?? 0) + endedMatch[0].length);
+        const outcomeTail = afterHeader.split(/\n/)[0] ?? "";
+        const outcome = `${outcomeClause}${outcomeTail}`;
+        const summary = text.replace(/<\/?system-reminder>/gi, "").trim();
+        mutations.push({
+            taskId: endedMatch[1],
+            status: /exited\s*\(\s*code\s*0\s*\)/i.test(outcome) || /ended cleanly/i.test(outcome)
+                ? "completed"
+                : /exited|failed|error|signal/i.test(outcome)
+                    ? "failed"
+                    : "completed",
+            appendOutput: summary.length > 0 ? `${summary}\n` : "Monitor ended.\n",
+        });
+    }
+    return mutations;
 }

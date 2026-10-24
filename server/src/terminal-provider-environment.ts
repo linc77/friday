@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { codexAccountEnvironment, expandHome, loadCodexSettings } from './codex-settings.js';
 import { loadClaudeSettings } from './claude-provider.js';
 import { loadPiSettings, piAccountEnvironment, piSessionAccount } from './pi-provider.js';
-import { loadGrokSettings, grokAccountEnvironment } from './grok-provider.js';
+import { loadGrokSettings, grokAccountEnvironment, grokSessionAccount } from './grok-provider.js';
 import { loadNativeProviderSettings, nativeProviderAccount, nativeProviderEnvironment, type NativeProvider } from './native-provider-config.js';
 import { CursorConnection } from './cursor-provider.js';
 import { AcpProviderConnection } from './acp-provider.js';
@@ -31,8 +31,8 @@ export async function terminalProviderEnvironment(directory: string, task?: Pick
     return nativeProviderEnvironment(provider, settings);
   }
   if (task?.agent === 'grok') {
-    const configured = grokAccountEnvironment(await loadGrokSettings(directory));
-    if (task.grokHome && task.grokHome !== configured.home) throw new Error('终端账号配置已改变，请恢复这条任务使用的 Grok 目录');
+    const settings = await loadGrokSettings(directory), configured = grokAccountEnvironment(settings);
+    if (task.grokHome && task.grokHome !== configured.home || task.nativeProviderAccount && task.nativeProviderAccount !== grokSessionAccount(settings)) throw new Error('终端账号配置已改变，请恢复这条任务使用的 Grok 目录');
     return configured.env;
   }
   if (task?.agent === 'pi') {

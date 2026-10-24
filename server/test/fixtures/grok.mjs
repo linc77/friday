@@ -78,6 +78,26 @@ async function handle(record) {
   if (command === 'hold') { const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' }); trace({ child: child.pid }); return; }
   if (command === 'error') { notify('_x.ai/session/prompt_complete', { sessionId, promptId, stopReason: 'error', agentResult: 'Native Grok failure' }); return; }
   if (command === 'compact' || command === '/compact') { update({ sessionUpdate: 'usage_update', used: 120, size: 8192 }); return respond(record, { stopReason: 'end_turn' }); }
+  if (command.startsWith('background')) {
+    const taskId = randomUUID(), child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' }); trace({ backgroundChild: child.pid, taskId });
+    update({ sessionUpdate: 'tool_call', toolCallId: 'monitor-start', title: 'monitor', kind: 'execute', status: 'completed', rawInput: { description: 'Native monitor', persistent: !command.includes('finite') }, rawOutput: { type: 'Monitor', taskId, persistent: !command.includes('finite') } });
+    update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Grok parent reply' } });
+    if (v2) { respond(record, {}); update({ sessionUpdate: 'state_update', state: 'idle', stopReason: 'end_turn' }); } else respond(record, { stopReason: 'end_turn' });
+    const wake = async () => {
+      notify('_x.ai/task_completed', { sessionId, update: { sessionUpdate: 'task_completed', task_id: taskId, task_snapshot: { task_id: taskId, output: 'Native monitor output', kind: 'monitor' } } });
+      const nativeId = 'task-completed-' + taskId, meta = { promptId: nativeId }; trace({ nativeWake: nativeId });
+      update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Grok native wake result' } }, meta);
+      if (command.includes('mcp')) {
+        const server = mcpServers[0]; if (server?.type !== 'http') throw Error('Wake fixture requires native HTTP MCP');
+        const response = await fetch(server.url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...Object.fromEntries(server.headers.map(value => [value.name, value.value])) }, body: JSON.stringify({ jsonrpc: '2.0', id: 'wake-mcp', method: 'tools/call', params: { name: 'list_thread_pull_requests', arguments: {} } }) });
+        trace({ wakeMcp: { status: response.status, body: await response.json() } });
+      }
+      if (command.includes('approval')) { const outcome = await requestClient('session/request_permission', { sessionId, _meta: meta, toolCall: { toolCallId: 'wake-write', title: 'Wake write' }, options: [{ kind: 'allow_once', optionId: 'wake-allow', name: 'Allow' }] }); trace({ wakePermission: outcome }); }
+      if (command.includes('hold-wake')) return;
+      notify('_x.ai/session_notification', { sessionId, update: { sessionUpdate: 'turn_completed', prompt_id: nativeId, stop_reason: 'end_turn' } });
+    };
+    const timer = setInterval(() => { if (existsSync(join(home, 'emit-wake'))) { clearInterval(timer); void wake(); } }, 10); return;
+  }
   if (command === 'children' || command === 'children-approval') {
     const child = '019a0000-1111-4222-8333-0123456789ab';
     update({ sessionUpdate: 'tool_call', toolCallId: 'spawn-native', title: 'spawn_subagent', status: 'in_progress', rawInput: { prompt: 'Inspect Grok child', description: 'Native Grok child', model: 'grok-child' } });

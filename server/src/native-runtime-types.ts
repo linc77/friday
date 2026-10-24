@@ -17,7 +17,7 @@ export type NativeObservedUpdate =
   | { kind: 'event'; eventKind: string; text: string };
 export type NativeTurnParameters = { cwd: string; mode: TaskMode; interactionMode?: TaskInteractionMode; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[] };
 type NativeTurnScope = { provider?: ProviderDriver; providerInstanceId?: string };
-export type ProviderBackgroundTask = Omit<ClaudeBackgroundTask, 'provider'> & { provider: ProviderDriver; canStop?: boolean; output?: { text: string; truncated: boolean } };
+export type ProviderBackgroundTask = Omit<ClaudeBackgroundTask, 'provider'> & { provider: ProviderDriver; canStop?: boolean; holdsCompletion?: boolean; output?: { text: string; truncated: boolean } };
 export type NativeRuntimeUpdate =
   | ({ kind: 'nativeBackground'; threadId: string; sessionId: string; tasks: ProviderBackgroundTask[]; connected?: boolean } & NativeTurnScope)
   | ({ kind: 'nativeBackgroundOutput'; threadId: string; sessionId: string; workId: string; delta: string; reset?: boolean; truncated?: boolean } & NativeTurnScope)
@@ -45,5 +45,5 @@ export const activeNativeBackground = (task: { nativeBackgroundWork?: NativeBack
 export const nativeCompletionPending = (task: { nativeBackgroundWork?: NativeBackgroundWork[]; executionSessionId?: string }) => {
   const latest = new Map<string, NativeBackgroundWork>();
   for (const work of task.nativeBackgroundWork ?? []) if (work.transportId === task.executionSessionId && (!latest.has(work.taskId) || latest.get(work.taskId)!.generation < work.generation)) latest.set(work.taskId, work);
-  return [...latest.values()].some(work => work.member && work.backgrounded && !work.ambient && work.kind !== 'command' && !claudeBackgroundEnded(work));
+  return [...latest.values()].some(work => work.member && work.backgrounded && !work.ambient && (work.holdsCompletion ?? work.kind !== 'command') && !claudeBackgroundEnded(work));
 };

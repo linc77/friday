@@ -1,4 +1,5 @@
 import { readGrokUsage } from './native-provider-usage.js';
+import { createHash } from 'node:crypto';
 import type { ProviderUsageLimits } from './provider-usage-limits.js';
 import { selectedProviderOptions, type ProviderModelSelection } from './provider-models.js';
 import { access, readFile } from 'node:fs/promises';
@@ -37,6 +38,9 @@ export async function loadGrokSettings(directory: string): Promise<CodexSettings
 export function grokAccountEnvironment(settings: CodexSettings) {
   const home = resolve(expandHome(settings.homePath || process.env.GROK_HOME || join(homedir(), '.grok')));
   return { home, env: { ...Object.fromEntries(settings.environment.map(entry => [entry.name, entry.value])), GROK_HOME: home } as NodeJS.ProcessEnv };
+}
+export function grokSessionAccount(settings: CodexSettings) {
+  return createHash('sha256').update(JSON.stringify([grokAccountEnvironment(settings).home, settings.binaryPath, [...settings.environment].sort((a, b) => a.name.localeCompare(b.name))])).digest('hex');
 }
 const defaultModel = (): ProviderModel => ({ id: 'grok-build', name: 'Grok Build', description: '', isDefault: false, reasoningEfforts: [], defaultReasoningEffort: '' });
 export function grokModelInventory(state: unknown): ProviderModel[] {
@@ -148,7 +152,7 @@ export class GrokConnection {
     const options = selected ? selectedProviderOptions(selected, selection) : undefined;
     const effort = options?.effort || (selection?.model ? '' : settings.reasoningEffort);
     if (!selected || effort && !selected.reasoningEfforts.includes(effort)) throw new Error('Grok 模型或推理选项已不可用，请重新选择');
-    return { ...await this.configured(settings), model, effort };
+    return { ...await this.configured(settings), model, effort, settings };
   }
   async workspace(cwd: string, reload = false, task?: WorkItem): Promise<ProviderWorkspace> {
     const settings = await loadGrokSettings(this.directory), configured = await this.runtime();

@@ -23,7 +23,7 @@ async function until(read: () => Promise<boolean>) { const end = Date.now() + 50
 test('Grok native background spawn ACK, hydration and completion share one child; child approval replies stay on that native request', async t => {
   const f = await setup(t), updates: ExecutionUpdate[] = []; let answer: Promise<void> | undefined;
   await f.executor.run({ task: work(f.directory), prompt: 'children-approval', signal: AbortSignal.timeout(8000), update: async value => {
-    updates.push(value); if (value.kind === 'approval') { assert.ok(value.approval.subagentId); answer = f.executor.answer('grok-task', value.approval.id, 'accept', {}); }
+    updates.push(value); if (value.kind === 'subagent' && value.value?.kind === 'approval') { assert.ok(value.value.approval.subagentId); answer = f.executor.answer('grok-task', value.value.approval.id, 'accept', {}); }
   } });
   await answer;
   const children = updates.filter(value => value.kind === 'subagent'), child = children.at(-1)!;
@@ -72,7 +72,10 @@ test('Grok saves its native ID before external start, negotiates ACP v1/v2, stre
     const first = session; updates.length = 0;
     assert.equal(await executor.run({ task: work(directory, { threadId: first, grokHome: home, currentRunId: 'continued' }), prompt: 'continue', signal: new AbortController().signal, update }), 'Grok reply café\u2028line\u2029end'); assert.equal(session, first);
     assert.ok(updates.every(value => !JSON.stringify(value).includes('Loaded history')));
-    const records = await trace(); assert.ok(records.some(value => value.method === (protocol === '2' ? 'session/resume' : 'session/load') && value.params.sessionId === first));
+    let records = await trace(); assert.equal(new Set(records.filter(value => value.method === 'session/prompt').map(value => value.pid)).size, 1); assert.ok(!records.some(value => ['session/resume', 'session/load'].includes(value.method)));
+    const transport = updates.find(value => value.kind === 'session')!; assert.equal(transport.kind, 'session'); await executor.stopNativeSession('grok-task', transport.executionSessionId!);
+    await executor.run({ task: work(directory, { threadId: first, grokHome: home, currentRunId: 'cold' }), prompt: 'cold resume', signal: new AbortController().signal, update });
+    records = await trace(); assert.ok(records.some(value => value.method === (protocol === '2' ? 'session/resume' : 'session/load') && value.params.sessionId === first));
     assert.ok(records.some(value => protocol === '2' ? value.method === 'session/set_config_option' && value.params.configId === 'native-effort' && value.params.value === 'high' : value.method === 'session/set_model' && value.params._meta.reasoningEffort === 'high'));
     await assert.rejects(executor.run({ task: work(directory, { grokHome: 'different' }), prompt: 'reply', signal: new AbortController().signal, update }), /配置目录/);
   }
@@ -137,9 +140,10 @@ test('Grok authenticates with the advertised native method and persists its sess
 });
 test('Grok preserves native image blocks despite legacy image:false and never replaces a failed resume with a new session', async t => {
   const { directory, executor, trace } = await setup(t, { GROK_TEST_FAIL_RESUME: '1' }), image = join(directory, 'fixture.png'), bytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jLmcAAAAASUVORK5CYII=', 'base64');
-  await writeFile(image, bytes); let sessionId = '';
-  await executor.run({ task: work(directory), prompt: 'reply', images: [{ id: 'fixture-image', name: 'fixture.png', path: image, mediaType: 'image/png' }], signal: new AbortController().signal, update: async value => { if (value.kind === 'session') sessionId = value.threadId; } });
+  await writeFile(image, bytes); let sessionId = '', transport = '';
+  await executor.run({ task: work(directory), prompt: 'reply', images: [{ id: 'fixture-image', name: 'fixture.png', path: image, mediaType: 'image/png' }], signal: new AbortController().signal, update: async value => { if (value.kind === 'session') { sessionId = value.threadId; transport = value.executionSessionId!; } } });
   const prompt = (await trace()).find(value => value.method === 'session/prompt'); assert.deepEqual(prompt.params.prompt[1], { type: 'image', data: bytes.toString('base64'), mimeType: 'image/png' });
+  await executor.stopNativeSession('grok-task', transport);
   await assert.rejects(executor.run({ task: work(directory, { threadId: sessionId }), prompt: 'continue', signal: new AbortController().signal, update: async () => {} }), /Native resume failed/);
   assert.equal((await trace()).filter(value => value.method === 'session/new').length, 1);
 });

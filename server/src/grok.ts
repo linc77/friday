@@ -7,8 +7,9 @@ import { AcpProcess, acpRecord, type AcpRecord } from './acp-process.js';
 import { acpMcpServer } from './acp-mcp.js';
 import { acpSessionServers, acpPermissionRequest, acpModelOption, acpEffortOption, acpConfigValues } from './acp-protocol.js';
 import { GrokConnection } from './grok-provider.js';
+import { GrokSessions, type GrokNativeSession } from './grok-sessions.js';
 import type { ApprovalDecision } from './provider-approvals.js';
-import type { Approval, ExecutionImage, ExecutionRequest, Executor, TaskEvent } from './types.js';
+import type { Approval, ExecutionImage, ExecutionRequest, Executor, TaskEvent, WorkItem } from './types.js';
 import { taskPlanSteps } from './task-event-data.js';
 import { NativeSubagentProjection } from './native-subagent-projection.js';
 import { extractXAiAcpSubagentUpdate } from './vendor/t3-grok-subagents.mjs';
@@ -46,24 +47,26 @@ const cancelled = () => new Error('任务已中止');
 
 export class GrokExecutor implements Executor {
   private runs = new Map<string, Run>();
-  constructor(private connection: GrokConnection) {}
+  private pendingResponses = new Map<string, { taskId: string; run: Run; pending: Pending }>();
+  private sessions: GrokSessions;
+  constructor(private connection: GrokConnection) { this.sessions = new GrokSessions(connection, (request, session, nativeId) => this.runNative(request, session, nativeId)); }
   supportsTaskTools(agent: string) { return agent === 'grok'; }
   deferredStart(agent: string) { return agent === 'grok'; }
   async generateText(request: import('./types.js').TextGenerationRequest) { return this.run(request); }
-  async run(request: ExecutionRequest): Promise<string> { return request.purpose ? isolatedTextGeneration(request, prepared => this.runNative(prepared)) : this.runNative(request); }
-  private async runNative(request: ExecutionRequest): Promise<string> {
+  async run(request: ExecutionRequest): Promise<string> { return request.purpose ? isolatedTextGeneration(request, prepared => this.sessions.run(prepared)) : this.sessions.run(request); }
+  private async runNative(request: ExecutionRequest, owned: GrokNativeSession, nativeId?: string): Promise<string> {
     const { task, update, signal } = request;
-    if (this.runs.has(task.id)) throw new Error('这条 Grok 会话仍在执行');
     if (task.interactionMode === 'plan') throw new Error('Grok 未提供原生交互模式切换，请使用默认模式');
-    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions });
+    const runtime = owned.runtime;
     if (task.grokHome && task.grokHome !== runtime.home) throw new Error('请恢复这条 Grok 会话使用的配置目录');
     if (signal.aborted) throw cancelled();
-    const client = this.connection.client(request.purpose ? { ...runtime, permissionMode: 'default', env: { ...runtime.env, GROK_DISABLE_AUTOUPDATER: '1' } } : runtime, task.cwd), turnId = `grok:${task.currentRunId ?? randomUUID()}`, executionSessionId = randomUUID();
-    let start: Promise<void> | undefined, sessionPersisted = false, active = false, terminal = false, nativeCancellation: Promise<void> | undefined, protocolGeneration = 1, children: NativeSubagentProjection | undefined;
+    const client = owned.client, turnId = nativeId ?? `grok:${task.currentRunId ?? randomUUID()}`, executionSessionId = owned.executionId;
+    let start: Promise<void> | undefined, sessionPersisted = !!nativeId, active = !!nativeId, terminal = false, nativeCancellation: Promise<void> | undefined, protocolGeneration = owned.initialized?.protocolGeneration ?? 1, children: NativeSubagentProjection | undefined, promptResult: AcpRecord | undefined;
     let acknowledgeCancel!: () => void; const cancelAcknowledged = new Promise<void>(resolve => { acknowledgeCancel = resolve; });
     let rejectCompletion!: (error: Error) => void, resolveCompletion!: (response: AcpRecord) => void;
     const completion = new Promise<AcpRecord>((resolve, reject) => { resolveCompletion = resolve; rejectCompletion = reject; }); void completion.catch(() => {});
     const finish = (response?: AcpRecord, error?: Error) => {
+      if (!error && response) { promptResult = response; if (owned.holds(task.currentRunId) || children?.hasPending()) return; }
       if (terminal) return; terminal = true; error ? rejectCompletion(error) : resolveCompletion(response ?? {});
     };
     const run: Run = { client, sessionId: task.threadId ?? undefined, pending: new Map(), start: () => start ??= Promise.resolve().then(async () => { if (!sessionPersisted) throw new Error('Grok 会话尚未持久化'); if (signal.aborted) throw cancelled(); await request.beforeStart?.(); }), cancel: () => finish(undefined, cancelled()) };
@@ -71,12 +74,13 @@ export class GrokExecutor implements Executor {
     const bind = async (sessionId: unknown) => {
       if (typeof sessionId !== 'string' || !sessionId.trim() || sessionId.length > 2000 || run.sessionId && run.sessionId !== sessionId) throw new Error('Grok 返回了不同或无效的原生会话 ID，已停止执行');
       run.sessionId = sessionId;
-      if (!sessionPersisted) { await update({ kind: 'session', threadId: sessionId, grokHome: runtime.home, model: runtime.model, reasoningEffort: runtime.effort, executionSessionId }); sessionPersisted = true; }
+      if (!sessionPersisted) { await update({ kind: 'session', threadId: sessionId, grokHome: runtime.home, nativeProviderAccount: owned.account, model: runtime.model, reasoningEffort: runtime.effort, executionSessionId }); sessionPersisted = true; }
+      owned.bind(sessionId);
       children ??= new NativeSubagentProjection(request, 'grok', executionSessionId, sessionId, turnId);
       return sessionId;
     };
     const items = new Map<string, TaskEvent>(), dirty = new Set<string>(), terminals = new Map<string, StringDecoder>(); let chain = Promise.resolve(), timer: NodeJS.Timeout | undefined, message = '', outputDirty = false, messageOrdinal = 0, currentBlock: string | undefined, finalMessage: string | undefined, lastKind: string | undefined;
-    const promptId = randomUUID(), nativeCalls = new Map<string, AcpRecord>();
+    const promptId = nativeId ?? randomUUID(), nativeCalls = new Map<string, AcpRecord>();
     const put = (key: string, kind: string, text: string, changes: Partial<TaskEvent> = {}) => {
       const previous = items.get(key), item: TaskEvent = { id: `${turnId}:${key}`, itemId: key, turnId, kind, text, at: previous?.at ?? now(), status: 'running', ...(kind === 'message' ? { phase: 'commentary' as const } : {}), ...previous, ...changes };
       items.set(key, item); dirty.add(key); timer ??= setTimeout(() => enqueue(flush), 50); return item;
@@ -94,18 +98,19 @@ export class GrokExecutor implements Executor {
       return id === undefined || id === promptId;
     };
     const handleUpdate = async (params: AcpRecord) => {
-      if (!active || terminal) return;
       const nativeChild = params.sessionId !== run.sessionId ? params.sessionId : params._meta?.childSessionId ?? params._meta?.child_session_id ?? params.update?.child_session_id;
       if (typeof nativeChild === 'string' && children?.knowsNative(nativeChild)) {
         const change = acpRecord(params.update);
         if (change && ['agent_message_chunk', 'agent_message'].includes(change.sessionUpdate)) await children.nativeMessage(nativeChild, contentText(change.content), change.sessionUpdate === 'agent_message');
         return;
       }
+      if (!active || terminal) return;
       if (!isOwned(params) || !belongsToPrompt(params)) return;
       const change = acpRecord(params.update); if (!change) return;
       const kind = change.sessionUpdate;
       if (['agent_message_chunk', 'agent_thought_chunk', 'agent_message', 'agent_thought'].includes(kind)) {
         const text = contentText(change.content), thought = kind.startsWith('agent_thought'), snapshot = !kind.endsWith('_chunk'), streamKind = thought ? 'reasoning' : 'message';
+        if (!thought) await owned.text(text);
         if (snapshot && !Object.hasOwn(change, 'content') || !snapshot && !text) return;
         if (typeof change.messageId === 'string') currentBlock = `${streamKind}:${change.messageId}`;
         else if (lastKind !== streamKind || !currentBlock) currentBlock = `message:${++messageOrdinal}`;
@@ -122,6 +127,7 @@ export class GrokExecutor implements Executor {
             hydrationOnly: !child.prompt && !child.title, ...(child.result !== null ? { result: child.result, messages: [child.result] } : {}) });
           return;
         }
+        await owned.tool({ toolCallId: change.toolCallId, title: native.title, status: native.status, data: { rawInput: native.rawInput, rawOutput: native.rawOutput, content: native.content } }, request, turnId);
         const nativeKind = change.kind, type = nativeKind === 'execute' || previous?.kind === 'command' ? 'command' : ['edit', 'delete', 'move'].includes(nativeKind) ? 'files' : ['read', 'search', 'fetch'].includes(nativeKind) ? 'search' : previous?.kind ?? 'tool';
         const input = acpRecord(change.rawInput), text = type === 'command' && typeof input?.command === 'string' ? input.command : typeof change.title === 'string' ? change.title : previous?.text ?? change.toolCallId;
         const detail = contentText(change.content) || contentText(change.rawOutput), status = change.status === 'completed' ? 'completed' : change.status === 'failed' ? 'failed' : change.status === undefined ? previous?.status ?? 'running' : 'running';
@@ -154,17 +160,21 @@ export class GrokExecutor implements Executor {
       const stopReason = params.stopReason ?? change?.stop_reason ?? change?.stopReason ?? 'end_turn', agentResult = params.agentResult ?? change?.agent_result;
       finish({ stopReason, _meta: { promptId, agentResult } });
     };
-    client.onNotification = (method, input) => {
+    const notification = (method: string, input: unknown) => {
       const params = acpRecord(input); if (!params) return;
-      if (active && params.sessionId === run.sessionId && params.update?.sessionUpdate === 'subagent_finished' && typeof params.update.child_session_id === 'string' && ['completed', 'failed', 'cancelled'].includes(params.update.status)) enqueue(async () => {
-        const value = params.update;
-        await children?.nativeFinish(value.child_session_id, value.status, value.status === 'completed' ? typeof value.output === 'string' ? value.output : undefined : typeof value.error === 'string' ? value.error : undefined);
-      });
       if (signal.aborted && params.sessionId === run.sessionId && belongsToPrompt(params) && (params.update?.state === 'idle' || params.promptId === promptId)) acknowledgeCancel();
-      if (method === 'session/update') enqueue(() => handleUpdate(params));
-      if (['x.ai/session/prompt_complete', '_x.ai/session/prompt_complete', 'x.ai/session_notification', '_x.ai/session_notification', '_x.ai/session/update'].includes(method)) enqueue(async () => completeFromNotification(params));
+      enqueue(async () => {
+        await owned.notice(method, params);
+        if (params.sessionId === run.sessionId && params.update?.sessionUpdate === 'subagent_finished' && typeof params.update.child_session_id === 'string' && ['completed', 'failed', 'cancelled'].includes(params.update.status)) {
+          const value = params.update;
+          await children?.nativeFinish(value.child_session_id, value.status, value.status === 'completed' ? typeof value.output === 'string' ? value.output : undefined : typeof value.error === 'string' ? value.error : undefined);
+        }
+        if (method === 'session/update') await handleUpdate(params);
+        if (['x.ai/session/prompt_complete', '_x.ai/session/prompt_complete', 'x.ai/session_notification', '_x.ai/session_notification', '_x.ai/session/update'].includes(method)) completeFromNotification(params);
+        if (promptResult && !terminal) finish(promptResult);
+      });
     };
-    client.onRequest = async context => {
+    const nativeRequest: NonNullable<AcpProcess['onRequest']> = async context => {
       if (request.purpose) { const error = new Error('独立文字生成不接受工具或交互式请求'); finish(undefined, error); throw RequestError.invalidRequest(error.message); }
       const input = acpRecord(context.params); if (!input) throw RequestError.invalidParams();
       const method = context.method.replace(/^_/, ''), permission = method === 'session/request_permission', question = method === 'x.ai/ask_user_question';
@@ -174,7 +184,7 @@ export class GrokExecutor implements Executor {
       await chain;
       const childNativeId = params._meta?.childSessionId ?? params.child_session_id ?? (run.sessionId && params.sessionId !== run.sessionId ? params.sessionId : undefined);
       const childIdentity = typeof childNativeId === 'string' ? children?.identityForNative(childNativeId) : undefined;
-      if (childNativeId && !childIdentity || !childIdentity && !belongsToPrompt(params)) throw RequestError.requestCancelled();
+      if (childNativeId && !childIdentity || !childIdentity && (!belongsToPrompt(params) || terminal)) throw RequestError.requestCancelled();
       if (!childIdentity) await bind(params.sessionId);
       if (method === 'x.ai/exit_plan_mode') {
         const text = typeof params.planContent === 'string' && params.planContent.trim() ? params.planContent.trim() : message.trim();
@@ -194,26 +204,31 @@ export class GrokExecutor implements Executor {
       const pending: Pending = { approval, params: { ...params, options }, kind: permission ? 'permission' : 'question', replied: false, resolve, ...receipt };
       if (childIdentity) { approval.subagentId = childIdentity; approval.ownerRunId = task.currentRunId; }
       run.pending.set(id, pending);
-      const abort = () => { if (!pending.replied) { pending.replied = true; resolve(permission ? { outcome: { outcome: 'cancelled' } } : { outcome: 'cancelled' }); void update({ kind: 'approvalResolved', id }).catch(() => {}); } };
+      this.pendingResponses.set(id, { taskId: task.id, run, pending });
+      const abort = () => { if (!pending.replied) { pending.replied = true; resolve(permission ? { outcome: { outcome: 'cancelled' } } : { outcome: 'cancelled' }); void (childIdentity ? children!.nativeApprovalResolved(childNativeId, id) : update({ kind: 'approvalResolved', id })).catch(() => {}); } };
       context.signal.addEventListener('abort', abort, { once: true });
-      try { await flush(); await update({ kind: 'approval', approval }); if (context.signal.aborted || signal.aborted) abort(); return await response; }
-      finally { context.signal.removeEventListener('abort', abort); run.pending.delete(id); }
+      try { await flush(); if (childIdentity) await children!.nativeApproval(childNativeId, approval); else await update({ kind: 'approval', approval }); if (context.signal.aborted || signal.aborted && !terminal) abort(); return await response; }
+      finally { context.signal.removeEventListener('abort', abort); run.pending.delete(id); this.pendingResponses.delete(id); }
     };
-    client.onExit = error => finish(undefined, error);
+    if (nativeId) children = new NativeSubagentProjection(request, 'grok', executionSessionId, owned.threadId!, turnId);
+    owned.listen({ notification, request: nativeRequest, exit: error => finish(undefined, error), done: () => terminal, knows: id => children?.knowsNative(id) === true, pending: () => children?.hasPending() === true || run.pending.size > 0,
+      close: async () => { for (const pending of run.pending.values()) { pending.resolve(pending.kind === 'permission' ? { outcome: { outcome: 'cancelled' } } : { outcome: 'cancelled' }); pending.dispose(); } await children?.finish('interrupted'); } }, nativeId);
     const cancel = () => {
       run.cancel();
       nativeCancellation ??= (async () => {
         let timer: NodeJS.Timeout | undefined;
         if (run.sessionId) await Promise.race([(async () => { await client.notify('session/cancel', { sessionId: run.sessionId, _meta: { cancelTrigger: 'ctrl_c' } }); await cancelAcknowledged; })().catch(() => {}), new Promise<void>(resolve => { timer = setTimeout(resolve, 250); })]);
-        clearTimeout(timer); await client.close();
+        clearTimeout(timer); await owned.close();
       })();
     };
     signal.addEventListener('abort', cancel, { once: true });
     try {
-      const initialized = await this.connection.initialize(client);
+      if (!nativeId) {
+      const initialized = owned.initialized ??= await this.connection.initialize(client);
       protocolGeneration = initialized.protocolGeneration;
       if (signal.aborted) throw cancelled();
-      const mcpServers = acpSessionServers(request.taskMcp ? [await acpMcpServer(this.connection.directory, request.taskMcp, initialized.agentCapabilities?.mcpCapabilities?.http === true)] : [], protocolGeneration);
+      const mcp = await owned.tools.connection(request);
+      const mcpServers = acpSessionServers(mcp ? [await acpMcpServer(this.connection.directory, mcp, initialized.agentCapabilities?.mcpCapabilities?.http === true)] : [], protocolGeneration);
       const setup = async () => {
         if (!task.threadId) return client.call('session/new', { cwd: task.cwd, mcpServers });
         const capabilities = initialized.agentCapabilities;
@@ -223,14 +238,14 @@ export class GrokExecutor implements Executor {
         throw new Error('Grok 未声明载入原会话的能力，已停止；不会另建会话');
       };
       let session: AcpRecord;
-      try { session = await setup(); }
+      try { session = owned.setup ??= await setup(); }
       catch (error) {
         if (!(error instanceof RequestError) || error.code !== -32000) throw error;
         const methodId = runtime.env.XAI_API_KEY?.trim() ? 'xai.api_key' : 'cached_token';
         const auth = initialized.authMethods?.find((value: AcpRecord) => value.id === methodId);
         if (Array.isArray(initialized.authMethods) && !auth) throw new Error('Grok 未声明当前账号的原生认证方式，请在主机完成登录');
         if (auth?.type && auth.type !== 'agent') throw new Error('Grok 需要在主机完成登录后再继续');
-        await client.call(protocolGeneration === 2 ? 'auth/login' : 'authenticate', { methodId }); session = await setup();
+        await client.call(protocolGeneration === 2 ? 'auth/login' : 'authenticate', { methodId }); session = owned.setup = await setup();
       }
       await bind(session.sessionId ?? task.threadId);
       if (task.threadId) await update({ kind: 'resumeApplied' });
@@ -255,6 +270,7 @@ export class GrokExecutor implements Executor {
         if (signal.aborted) acknowledgeCancel();
         if (typeof result.stopReason === 'string' && result._meta?.xAiStopReasonMissing !== true) enqueue(async () => finish(result));
       }, error => enqueue(async () => finish(undefined, error)));
+      } else await update({ kind: 'ready', canSteer: false });
       const response = await completion; await chain;
       const stop = response.stopReason;
       if (['error', 'rate_limit'].includes(stop)) throw new Error(typeof response._meta?.agentResult === 'string' ? response._meta.agentResult : stop === 'rate_limit' ? 'Grok 账号额度暂不可用' : 'Grok 原生执行失败');
@@ -264,19 +280,18 @@ export class GrokExecutor implements Executor {
         if (value.status === 'running') put(key, value.kind, value.text, { status: 'completed', completedAt: now() });
         if (key === finalMessage && value.kind === 'message') put(key, value.kind, value.text, { phase: 'final_answer' });
       }
-      await children?.finish('completed', 'unknown'); await flush(); return message;
+      await flush(); return message;
     } catch (error) {
       await children?.finish(signal.aborted ? 'interrupted' : 'failed');
       for (const [key, value] of items) if (value.status === 'running') put(key, value.kind, value.text, { status: signal.aborted ? 'interrupted' : 'failed', completedAt: now() });
       await flush(); throw signal.aborted ? cancelled() : error;
     } finally {
       signal.removeEventListener('abort', cancel); active = false; clearTimeout(timer);
-      for (const pending of run.pending.values()) { pending.resolve(pending.kind === 'permission' ? { outcome: { outcome: 'cancelled' } } : { outcome: 'cancelled' }); pending.dispose(); }
-      await nativeCancellation; await this.connection.release(client); await chain; this.runs.delete(task.id);
+      await nativeCancellation; await chain; if (this.runs.get(task.id) === run) this.runs.delete(task.id);
     }
   }
-  async answer(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) {
-    const run = this.runs.get(id), pending = run?.pending.get(approvalId);
+  private reply(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) {
+    const saved = this.pendingResponses.get(approvalId), run = saved?.taskId === id ? saved.run : undefined, pending = saved?.taskId === id ? saved.pending : undefined;
     if (!run || !pending || pending.replied) throw new Error('Grok 问题已结束或已回答');
     let response: AcpRecord;
     if (pending.kind === 'question') {
@@ -291,9 +306,20 @@ export class GrokExecutor implements Executor {
         if (!option) throw new Error('Grok 授权选项已失效'); response = { outcome: { outcome: 'selected', optionId: option.optionId } };
       }
     }
+    return { run, pending, response };
+  }
+  validateAnswer(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) { this.reply(id, approvalId, decision, answers); }
+  async answer(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) {
+    const { run, pending, response } = this.reply(id, approvalId, decision, answers);
     await run.start(); pending.replied = true; pending.resolve(response);
     try { await pending.written; } finally { pending.dispose(); }
   }
   async steer(_id: string, _text: string, _requestId: string, _images?: ExecutionImage[]): Promise<void> { throw new Error('Grok ACP 不支持原生 Steer，请使用队列'); }
-  async close() { for (const run of this.runs.values()) run.cancel(); await this.connection.close(); }
+  hasSession(id: string) { return this.sessions.has(id); }
+  waitNativeTurn(id: string, sessionId: string, key: string, signal: AbortSignal) { return this.sessions.wait(id, sessionId, key, signal); }
+  interruptNativeTurn(id: string, sessionId: string, _key: string) { return this.sessions.stop(id, sessionId); }
+  stopNativeSession(id: string, sessionId: string) { return this.sessions.stop(id, sessionId); }
+  settleNativeBackground(task: WorkItem) { return this.sessions.settle(task); }
+  async interruptExecution(task: WorkItem, runId: string) { if (task.currentRunId === runId) await this.sessions.stop(task.id, task.executionSessionId ?? ''); }
+  async close() { await this.sessions.close(); await this.connection.close(); }
 }

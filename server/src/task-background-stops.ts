@@ -41,7 +41,7 @@ export class TaskBackgroundStops {
           if (!this.engine.executor.hasSession?.(work.id)) {
             await this.interruptMissing(input); await finish('completed'); return;
           }
-          if (input.agent === 'claude' || input.agent === 'muse' || input.agent === 'pi') {
+          if (['claude', 'muse', 'pi', 'grok'].includes(input.agent)) {
             if (!await runtime.memo<boolean>('closed', ctx)) {
               if (await runtime.memo<boolean>('started', ctx)) { await finish('uncertain', '后台停止结果尚未确认，请检查后重试'); return; }
               if (!this.engine.executor.settleNativeBackground) throw new Error('Unsupported native background Stop');
@@ -86,7 +86,7 @@ export class TaskBackgroundStops {
       if (previous) { if (previous.taskId !== taskId || previous.sessionId !== sessionId || runId !== undefined && previous.runId !== runId) throw new Error('后台停止请求 ID 已被使用'); id = previous.durableId; return; }
       const task = state.tasks.find(task => task.id === taskId);
       const reconciliation = task?.backgroundStop?.status === 'uncertain' && task.backgroundStop.sessionId === sessionId;
-      if (!task || !['codex', 'claude', 'muse', 'pi'].includes(task.agent) || task.executionSessionId !== sessionId || runId !== undefined && task.currentRunId !== runId || !task.threadId || activeStatuses.includes(task.status) || queueRunning(task) || task.backgroundStop?.status === 'pending' || !pendingWork(task) && !reconciliation) throw new Error('当前后台工作不能停止，请刷新后重试');
+      if (!task || !['codex', 'claude', 'muse', 'pi', 'grok'].includes(task.agent) || task.executionSessionId !== sessionId || runId !== undefined && task.currentRunId !== runId || !task.threadId || activeStatuses.includes(task.status) || queueRunning(task) || task.backgroundStop?.status === 'pending' || !pendingWork(task) && !reconciliation) throw new Error('当前后台工作不能停止，请刷新后重试');
       id = await tx.createTask(this.definition, { taskId, sessionId, requestId, threadId: task.threadId, runId: task.currentRunId ?? null, agent: task.agent,
         commandIds: (task.backgroundCommands ?? []).filter(command => command.sessionId === sessionId && (!commandEnded(command.status) || command.stop?.status === 'pending')).map(command => command.id) }, { ownership: { kind: 'conversation' } });
       task.backgroundStop = { requestId, durableId: id, sessionId, runId: task.currentRunId ?? null, status: 'pending', startedAt: new Date().toISOString() };
@@ -104,7 +104,7 @@ export class TaskBackgroundStops {
   }
   private async interruptMissing(input: Input) {
     const task = (await this.engine.snapshot()).tasks.find(task => task.id === input.taskId); if (!task || !source(task, input)) return;
-    if (input.agent === 'claude' || input.agent === 'muse' || input.agent === 'pi') {
+    if (input.agent === 'claude' || input.agent === 'muse' || input.agent === 'pi' || input.agent === 'grok') {
       const stamp = new Date().toISOString();
       await this.engine.nativeBackground.update(task.id, { kind: 'nativeBackground', provider: input.agent, sessionId: input.sessionId, threadId: input.threadId, connected: false,
         tasks: (task.nativeBackgroundWork ?? []).filter(work => work.transportId === input.sessionId).map(work => claudeBackgroundEnded(work) ? { ...work, member: false } : { ...work, member: false, status: 'interrupted', completedAt: stamp, updatedAt: stamp }) });
