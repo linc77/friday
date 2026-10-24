@@ -5,7 +5,7 @@ import { defineTask } from '@earendil-works/pi-durable';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import type { Engine } from './engine.js';
 import { WorkspaceDoc } from './state.js';
-import { activeFork, activeGitOperation, activeRewind, activeStatuses, type NativeRewindResult, type TaskRewindOperation, type WorkItem, type Workspace } from './types.js';
+import { activeFork, headForkSourceBusy, activeGitOperation, activeRewind, activeStatuses, type NativeRewindResult, type TaskRewindOperation, type WorkItem, type Workspace } from './types.js';
 import { hasRunningBackgroundCommands } from './task-background-commands.js';
 import { branchBlocksTask, switchingBranch } from './branch-switch.js';
 import { assertIsolatedRestore, rewindFingerprint, rewindTarget } from './task-rewind-safety.js';
@@ -104,7 +104,7 @@ export class TaskRewinds {
   private assertIdle(state: Workspace, work: WorkItem, own = false) {
     if (work.settleCleanup?.status === 'pending') throw new Error('正在清理结束跟进的会话，请等待完成后回退');
     if (hasRunningBackgroundCommands(work)) throw new Error('请先停止后台命令再回退会话');
-    if (activeFork(work.forkOperation)) throw new Error('请先处理这条会话的分叉结果再回退');
+    if (activeFork(work.forkOperation) || headForkSourceBusy(state.tasks, work.id)) throw new Error('请先处理这条会话的分叉结果再回退');
     if (activeStatuses.includes(work.status) || activeGitOperation(work.gitOperation) || switchingBranch(work.branchChange)
       || work.queue?.dispatcherId != null || work.queue?.messages.some(message => ['queued', 'dispatching', 'steering', 'running'].includes(message.status))) throw new Error('请先停止任务并处理排队消息，再回退会话');
     if (!own && activeRewind(work.rewindOperation)) throw new Error('这条会话还有待处理的回退操作');

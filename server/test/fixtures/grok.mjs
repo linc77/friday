@@ -14,6 +14,7 @@ if (args[0] === 'models') { trace({ command: 'models' }); console.log((process.e
 if (args[0] === 'inspect') { trace({ command: 'inspect' }); console.log(JSON.stringify({ skills: [{ name: 'review', description: 'Review changes', userInvocable: true, source: { path: join(process.cwd(), '.grok/skills/review/SKILL.md'), type: 'project' } }, { name: 'hidden', userInvocable: false, source: { path: '/fixture/hidden/SKILL.md', type: 'plugin' } }], privateKey: 'must-not-be-public' })); process.exit(0); }
 if (!args.includes('agent') || !args.includes('stdio')) process.exit(2);
 const v2 = process.env.GROK_TEST_PROTOCOL === '2';
+const forkCapability = process.env.GROK_TEST_FORK === '1' ? { fork: {} } : {};
 const configOptions = [{ configId: 'native-model', name: 'Model', category: 'model', type: 'select', currentValue: 'grok-fast', options: [{ value: 'grok-fast', name: 'Fast' }, { value: 'grok-plain', name: 'Plain' }] }, { configId: 'native-effort', name: 'Thinking', category: 'thought_level', type: 'select', currentValue: 'low', options: [{ value: 'low', name: 'Low' }, { value: 'high', name: 'High' }, { value: 'native-effort', name: 'Native' }] }];
 let sessionId, authenticated = process.env.GROK_TEST_AUTH_REQUIRED !== '1', mcpServers = [], buffer = '', currentPrompt;
 const pending = new Map();
@@ -43,11 +44,16 @@ async function handle(record) {
     if (!params.info || !params.clientInfo || !params.capabilities || !params.clientCapabilities || params.protocolVersion !== 2) return error(record, -32602, 'Missing negotiating initialization fields');
     const authMethods = [{ [v2 ? 'methodId' : 'id']: 'cached_token', name: 'Grok', type: 'agent' }, { [v2 ? 'methodId' : 'id']: 'xai.api_key', name: 'API key', type: 'agent' }];
     return respond(record, { protocolVersion: process.env.GROK_TEST_PROTOCOL === '1' ? 1 : 2,
-      ...(v2 ? { info: { name: 'grok-fixture', version: '1.2.3' }, capabilities: { session: { prompt: { image: {} }, mcp: { stdio: {}, ...(process.env.GROK_TEST_MCP_HTTP === '1' ? { http: {} } : {}) } } } }
-        : { agentInfo: { name: 'grok-fixture', version: '1.2.3' }, agentCapabilities: { loadSession: process.env.GROK_TEST_RESUME !== '1', sessionCapabilities: { resume: {} }, promptCapabilities: { image: false }, mcpCapabilities: { http: process.env.GROK_TEST_MCP_HTTP === '1' } } }),
+      ...(v2 ? { info: { name: 'grok-fixture', version: '1.2.3' }, capabilities: { session: { prompt: { image: {} }, mcp: { stdio: {}, ...(process.env.GROK_TEST_MCP_HTTP === '1' ? { http: {} } : {}) }, ...forkCapability } } }
+        : { agentInfo: { name: 'grok-fixture', version: '1.2.3' }, agentCapabilities: { loadSession: process.env.GROK_TEST_RESUME !== '1', sessionCapabilities: { resume: {}, ...forkCapability }, promptCapabilities: { image: false }, mcpCapabilities: { http: process.env.GROK_TEST_MCP_HTTP === '1' } } }),
       authMethods, _meta: { modelState, availableCommands: [{ name: 'compact', description: 'Compact history' }, { name: 'native-command', description: 'Native command' }, { name: 'always-approve', description: 'Forbidden permission shortcut' }, { name: 'context', description: 'No ACP output' }] } });
   }
   if (record.method === (v2 ? 'auth/login' : 'authenticate')) { authenticated = true; return respond(record, {}); }
+  if (record.method === 'session/fork') {
+    const source = params.sessionId, file = join(home, 'sessions', source + '.json'); if (!forkCapability.fork || !existsSync(file)) return error(record, -32601, 'Native fork unavailable');
+    sessionId = 'fork-' + randomUUID(); writeFileSync(join(home, 'sessions', sessionId + '.json'), JSON.stringify({ ...JSON.parse(readFileSync(file)), forkedFrom: source }));
+    trace({ nativeFork: { source, session: sessionId } }); return respond(record, { sessionId, ...(v2 ? { configOptions } : { models: modelState }) });
+  }
   if (['session/new', 'session/load', 'session/resume'].includes(record.method)) {
     if (v2 && record.method === 'session/load') return error(record, -32601, 'v2 removed session/load');
     if (record.method !== 'session/new' && process.env.GROK_TEST_FAIL_RESUME === '1') return error(record, -32603, 'Native resume failed');

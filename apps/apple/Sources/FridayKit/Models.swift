@@ -692,6 +692,8 @@ struct WorkItem: Codable, Identifiable {
     var canSettle: Bool? = nil
     var contextUsage: TaskContextUsage? = nil
     var nativeHistory: TaskNativeHistory? = nil
+    var nativeHeadForkSupported: Bool? = nil
+    var nativeHeadForkPending: Bool? = nil
     var subagents: [TaskSubagent]? = nil
     var subagentOrigin: TaskSubagentOrigin? = nil
     var pendingSubagentRequest: String? = nil
@@ -776,7 +778,7 @@ struct WorkItem: Codable, Identifiable {
         let operation = backgroundStop.map { $0.sessionId == source && ($0.runId == nil || $0.runId == currentRunId) && ["pending", "uncertain"].contains($0.status) } == true
         return commands || native || operation
     }
-    var sessionBusy: Bool { rewindBusy || forkBusy || backgroundStopPending || archiveCleanup?.status == "pending" || settleCleanup?.status == "pending" }
+    var sessionBusy: Bool { rewindBusy || forkBusy || nativeHeadForkPending == true || backgroundStopPending || archiveCleanup?.status == "pending" || settleCleanup?.status == "pending" }
     var gitBusy: Bool { gitOperation?.active == true }
     var agentName: String { agent == "claude" ? "Claude Code" : TaskProviderCatalog.name(agent) }
     var conversation: [ChatMessage] {

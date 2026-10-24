@@ -6,8 +6,9 @@ import { RequestError } from '@agentclientprotocol/sdk';
 import { AcpProcess, acpRecord, type AcpRecord } from './acp-process.js';
 import { acpMcpServer } from './acp-mcp.js';
 import { acpSessionServers, acpPermissionRequest, acpModelOption, acpEffortOption, acpConfigValues } from './acp-protocol.js';
-import { GrokConnection } from './grok-provider.js';
+import { GrokConnection, grokSessionAccount } from './grok-provider.js';
 import { GrokSessions, type GrokNativeSession } from './grok-sessions.js';
+import { AcpSessions } from './acp-sessions.js';
 import type { ApprovalDecision } from './provider-approvals.js';
 import type { Approval, ExecutionImage, ExecutionRequest, Executor, TaskEvent, WorkItem } from './types.js';
 import { taskPlanSteps } from './task-event-data.js';
@@ -49,7 +50,18 @@ export class GrokExecutor implements Executor {
   private runs = new Map<string, Run>();
   private pendingResponses = new Map<string, { taskId: string; run: Run; pending: Pending }>();
   private sessions: GrokSessions;
-  constructor(private connection: GrokConnection) { this.sessions = new GrokSessions(connection, (request, session, nativeId) => this.runNative(request, session, nativeId)); }
+  private headForks: AcpSessions;
+  constructor(private connection: GrokConnection) {
+    this.sessions = new GrokSessions(connection, (request, session, nativeId) => this.runNative(request, session, nativeId));
+    this.headForks = new AcpSessions({ provider: 'grok', directory: connection.directory,
+      runtime: async selection => { const value = await connection.runtime(selection); return { ...value, provider: 'grok', name: 'Grok', account: grokSessionAccount(value.settings), args: [], authenticateEagerly: true, authMethod: value.env.XAI_API_KEY?.trim() ? 'xai.api_key' : 'cached_token' }; },
+      client: async (runtime, cwd) => { const client = connection.client({ command: runtime.command, env: runtime.env, permissionMode: 'default' }, cwd); try { return { client, initialized: await connection.initialize(client), close: () => connection.release(client) }; } catch (error) { await connection.release(client); throw error; } }, close: async () => {},
+    }, async () => { throw new Error('Grok 使用原有执行器'); });
+  }
+  async fork(request: import('./types.js').NativeForkRequest) {
+    const runtime = await this.connection.runtime(request.task); if (request.task.grokHome && request.task.grokHome !== runtime.home) throw new Error('请恢复这条 Grok 会话的账号配置目录');
+    await this.sessions.beforeHeadFork(request.task); return this.headForks.fork(request, false);
+  }
   supportsTaskTools(agent: string) { return agent === 'grok'; }
   deferredStart(agent: string) { return agent === 'grok'; }
   async generateText(request: import('./types.js').TextGenerationRequest) { return this.run(request); }
@@ -74,7 +86,7 @@ export class GrokExecutor implements Executor {
     const bind = async (sessionId: unknown) => {
       if (typeof sessionId !== 'string' || !sessionId.trim() || sessionId.length > 2000 || run.sessionId && run.sessionId !== sessionId) throw new Error('Grok 返回了不同或无效的原生会话 ID，已停止执行');
       run.sessionId = sessionId;
-      if (!sessionPersisted) { await update({ kind: 'session', threadId: sessionId, grokHome: runtime.home, nativeProviderAccount: owned.account, model: runtime.model, reasoningEffort: runtime.effort, executionSessionId }); sessionPersisted = true; }
+      if (!sessionPersisted) { await update({ kind: 'session', threadId: sessionId, grokHome: runtime.home, nativeProviderAccount: owned.account, nativeHeadForkSupported: !!acpRecord(owned.initialized?.agentCapabilities?.sessionCapabilities?.fork), model: runtime.model, reasoningEffort: runtime.effort, executionSessionId }); sessionPersisted = true; }
       owned.bind(sessionId);
       children ??= new NativeSubagentProjection(request, 'grok', executionSessionId, sessionId, turnId);
       return sessionId;
@@ -321,5 +333,5 @@ export class GrokExecutor implements Executor {
   stopNativeSession(id: string, sessionId: string) { return this.sessions.stop(id, sessionId); }
   settleNativeBackground(task: WorkItem) { return this.sessions.settle(task); }
   async interruptExecution(task: WorkItem, runId: string) { if (task.currentRunId === runId) await this.sessions.stop(task.id, task.executionSessionId ?? ''); }
-  async close() { await this.sessions.close(); await this.connection.close(); }
+  async close() { await this.sessions.close(); await this.headForks.close(); await this.connection.close(); }
 }

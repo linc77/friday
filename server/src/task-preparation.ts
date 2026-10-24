@@ -4,7 +4,7 @@ import type { Engine, ExecutionTaskInput } from './engine.js';
 import { assertCheckoutIdle, branchBlocksTask } from './branch-switch.js';
 import { WorkspaceDoc } from './state.js';
 import { retryWorkspacePlan } from './task-workspace.js';
-import { activeFork, activeGitOperation, activeRewind, activeStatuses, failedWorkspacePreparation } from './types.js';
+import { activeFork, headForkSourceBusy, activeGitOperation, activeRewind, activeStatuses, failedWorkspacePreparation } from './types.js';
 import { clearTaskSnooze } from './task-snooze.js';
 
 // A preparation retry continues the same run and original Durable input. A new
@@ -87,7 +87,7 @@ export class TaskPreparations {
       if (!task || !run || run.durableId !== failed.durableId || !task.executionWorkspace) throw new Error('准备状态已改变，请重新查看');
       if (task.archivedAt) throw new Error('请先恢复归档任务');
       if (activeStatuses.includes(task.status) || task.runs?.some(other => other.id !== runId && !other.revertedAt && activeStatuses.includes(other.status))) throw new Error('请等待当前执行结束后重试工作区准备');
-      if (activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || activeFork(task.forkOperation) || task.branchChange?.status === 'queued' || task.branchChange?.status === 'running') throw new Error('请先处理这条会话的工作区或会话操作');
+      if (activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || activeFork(task.forkOperation) || headForkSourceBusy(state.tasks, task.id) || task.branchChange?.status === 'queued' || task.branchChange?.status === 'running') throw new Error('请先处理这条会话的工作区或会话操作');
       if (branchBlocksTask(state, task.cwd)) throw new Error('当前工作区有操作正在进行，请完成后重试');
       const plan = await retryWorkspacePlan(JSON.parse(JSON.stringify(task.executionWorkspace)));
       if (plan.mode === 'checkout' && !plan.scratch && plan.state !== 'ready') assertCheckoutIdle({ ...state, tasks: state.tasks.filter(other => other.id !== id) }, plan.root);

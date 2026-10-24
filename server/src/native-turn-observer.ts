@@ -3,7 +3,7 @@ import type { ExecutionRequest, ExecutionUpdate } from './types.js';
 import type { ProviderDriver } from './provider-instances.js';
 import { nativeObservedRunId, type NativeObservedUpdate } from './native-runtime-types.js';
 
-type Slot = { nativeId: string; key: string; controller: AbortController; ready: Promise<ExecutionRequest>; done: Promise<void>; resolve(): void; started: boolean; completed: boolean; result: string };
+type Slot = { nativeId: string; key: string; controller: AbortController; ready: Promise<ExecutionRequest>; done: Promise<void>; resolve(): void; settled: Promise<void>; settle(): void; started: boolean; completed: boolean; result: string };
 const observedKinds = new Set(['contextUsage', 'item', 'commandOutput', 'output', 'nativeHead', 'ready', 'backgroundWaiting', 'approval', 'approvalResolved', 'event']);
 
 /** Observe a turn the provider started itself. The existing Durable native-turn
@@ -23,10 +23,10 @@ export class NativeTurnObserver {
     if (this.closed) throw new Error('原生后续连接已关闭');
     const source = this.source(), providerInstanceId = source.task.providerInstanceId ?? this.provider;
     const key = 'observed:' + createHash('sha256').update(JSON.stringify([this.provider, this.sessionId, nativeId])).digest('hex');
-    let resolve!: () => void; const done = new Promise<void>(yes => { resolve = yes; });
-    const slot: Slot = { nativeId, key, controller: new AbortController(), ready: undefined!, done, resolve, started: false, completed: false, result: '' };
+    let resolve!: () => void, settle!: () => void; const done = new Promise<void>(yes => { resolve = yes; }), settled = new Promise<void>(yes => { settle = yes; });
+    const slot: Slot = { nativeId, key, controller: new AbortController(), ready: undefined!, done, resolve, settled, settle, started: false, completed: false, result: '' };
     this.slots.set(nativeId, slot);
-    const previous = this.tail; this.tail = slot.done;
+    const previous = this.tail; this.tail = slot.settled;
     const scope = { provider: this.provider, providerInstanceId, threadId: this.threadId, sessionId: this.sessionId, key };
     slot.ready = (async () => {
       await Promise.race([Promise.all([source.finalized ?? Promise.resolve(), previous]), this.closeSignal]);
@@ -46,16 +46,19 @@ export class NativeTurnObserver {
       };
       return { ...source, task: { ...source.task, currentRunId: nativeObservedRunId(key), threadId: this.threadId, turnId: nativeId, executionSessionId: this.sessionId }, signal: slot.controller.signal, update, beforeStart: undefined, finalized: Promise.resolve(), taskMcp: undefined, command: undefined, prompt: '' };
     })();
-    void slot.ready.catch(() => { slot.completed = true; slot.resolve(); });
+    void slot.ready.catch(() => { slot.completed = true; slot.resolve(); slot.settle(); });
     return slot.ready;
   }
   async finish(nativeId: string, status: 'completed' | 'failed' | 'interrupted', result?: string, error?: string) {
     const slot = this.slots.get(nativeId); if (!slot || slot.completed) return;
+    let accepted = false;
     try {
       const request = await slot.ready;
       const providerInstanceId = request.task.providerInstanceId ?? this.provider;
       await this.source().update({ kind: 'nativeTurnFinish', provider: this.provider, providerInstanceId, threadId: this.threadId, sessionId: this.sessionId, key: slot.key, status, result: result ?? slot.result, ...(error ? { error } : {}) });
-    } finally { slot.completed = true; slot.controller.abort(); slot.resolve(); }
+      accepted = true;
+    } finally { slot.completed = true; slot.controller.abort(); slot.resolve(); if (!accepted) slot.settle(); }
+    try { await this.source().nativeTurnFinalized?.(this.sessionId, slot.key); } finally { slot.settle(); }
   }
   async wait(key: string, signal: AbortSignal) {
     const slot = [...this.slots.values()].find(slot => slot.key === key); if (!slot) throw new Error('原生后续连接不可用');
@@ -67,9 +70,9 @@ export class NativeTurnObserver {
   async close() {
     if (this.closed) return; this.closed = true; this.closing();
     await Promise.allSettled([...this.slots.values()].map(async slot => {
-      if (slot.completed) return;
+      if (slot.completed) { slot.settle(); return; }
       try { if (slot.started) await this.source().update({ kind: 'nativeTurnFinish', provider: this.provider, providerInstanceId: this.source().task.providerInstanceId ?? this.provider, threadId: this.threadId, sessionId: this.sessionId, key: slot.key, status: 'interrupted', result: slot.result, error: '原生连接已中断，未自动重放后续执行' }); }
-      finally { slot.completed = true; slot.controller.abort(); slot.resolve(); }
+      finally { slot.completed = true; slot.controller.abort(); slot.resolve(); slot.settle(); }
     }));
   }
 }

@@ -419,6 +419,11 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     const id = await engine.taskForks.start(c.req.param('id'), { requestId: text(body.requestId, '请求 ID', 100), runId: text(body.runId, '轮次 ID', 100), ...(body.title !== undefined ? { title: text(body.title, '分叉名称', 200) } : {}) });
     return c.json({ id }, 202);
   });
+  app.post('/api/tasks/:id/fork-head', async c => {
+    const body = await c.req.json();
+    const id = await engine.taskForks.head(c.req.param('id'), { requestId: text(body.requestId, '请求 ID', 100), ...(body.title !== undefined ? { title: text(body.title, '分叉名称', 200) } : {}) });
+    return c.json({ id }, 202);
+  });
   app.post('/api/tasks/:id/compact', async c => {
     const body = await c.req.json();
     const id = await compactTask(engine, c.req.param('id'), { requestId: text(body.requestId, '请求 ID', 100), threadId: text(body.threadId, '原生会话 ID', 200) });

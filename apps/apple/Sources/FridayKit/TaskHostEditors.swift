@@ -12,6 +12,7 @@ struct TaskHostEditorSnapshot: Decodable, Sendable {
     let platform: String
     let revealSupported: Bool
     let editors: [TaskHostEditor]
+    var remoteHost: String? = nil
 }
 struct TaskHostEditorAction: Sendable {
     let path: String
@@ -25,14 +26,17 @@ struct TaskHostEditorTransport: Sendable {
     let open: @Sendable (TaskHostEditorAction) async throws -> Void
     @MainActor static func task(store: FridayStore, task: WorkItem) throws -> Self {
         let root = task.cwd, scope = TaskContextScope(taskID: task.id)
+        let remoteHost = TaskRemoteEditors.alias(for: store.connection.server), localEditors = remoteHost == nil ? [] : TaskRemoteEditors.available()
         var query = URLComponents(); query.queryItems = [URLQueryItem(name: "workspaceRoot", value: root)]
         let list = try store.connection.request("/api/task-files/editors?" + scope.query + "&" + (query.percentEncodedQuery ?? ""))
         let template = try store.connection.request("/api/task-files/open")
         return Self(load: {
             let snapshot = try JSONDecoder().decode(TaskHostEditorSnapshot.self, from: await send(list))
             guard snapshot.workspaceRoot == root else { throw ConnectionError.message("文件所属工作区已改变，请重新打开文件") }
+            if let remoteHost { return TaskHostEditorSnapshot(workspaceRoot: root, platform: snapshot.platform, revealSupported: false, editors: localEditors, remoteHost: remoteHost) }
             return snapshot
         }, open: { action in
+            if let remoteHost { try await TaskRemoteEditors.open(action, root: root, host: remoteHost); return }
             var request = template; request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             var body: [String: Any] = ["scope": scope.body, "workspaceRoot": root, "path": action.path, "editor": action.editor, "reveal": action.reveal]
             if let line = action.line { body["line"] = line }; if let column = action.column { body["column"] = column }

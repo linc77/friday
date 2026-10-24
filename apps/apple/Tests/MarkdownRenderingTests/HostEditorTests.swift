@@ -15,6 +15,27 @@ private actor EditorGate<Value: Sendable> {
     func release(_ value: Value) { self.value = value; continuation?.resume(returning: value); continuation = nil }
 }
 @MainActor final class HostEditorTests: XCTestCase {
+    func testRemoteLinksMatchT3AcrossVSCodeZedJetBrainsAndWindowsPaths() {
+        func link(_ editor: String, _ path: String, _ host: String = "box") -> String? { TaskRemoteEditors.remoteURL(editor: editor, host: host, absolutePath: path)?.absoluteString }
+        XCTAssertEqual(link("vscode", "/home/theo/code/my repo", "sol.tail1234.ts.net"), "vscode://vscode-remote/ssh-remote+sol.tail1234.ts.net/home/theo/code/my%20repo")
+        XCTAssertEqual(link("cursor", "/tmp/x", "sol"), "cursor://vscode-remote/ssh-remote+sol/tmp/x")
+        XCTAssertEqual(link("vscode", #"C:\Users\theo"#, "sol"), "vscode://vscode-remote/ssh-remote+sol/C%3A/Users/theo")
+        XCTAssertEqual(link("zed", #"C:\Users\theo"#), "zed://ssh/box/Users/theo")
+        XCTAssertEqual(link("zed", #"D:\Users\theo"#), "zed://ssh/box/D%3A/Users/theo")
+        XCTAssertEqual(link("zed", "/C:/Users/theo"), "zed://ssh/box/C%3A/Users/theo")
+        XCTAssertEqual(link("idea", "/home/theo/my repo"), "jetbrains://gateway/ssh/environment?h=box&launchIde=true&ideHint=IU&projectHint=%2Fhome%2Ftheo%2Fmy+repo")
+        XCTAssertEqual(link("vscode", "/tmp/a#b?c"), "vscode://vscode-remote/ssh-remote+box/tmp/a%23b%3Fc")
+        XCTAssertNil(link("file-manager", "/tmp/x")); XCTAssertNil(link("javascript", "/tmp/x")); XCTAssertNil(link("vscode", "/tmp/x", "box\n--command"))
+    }
+    func testSSHAliasesAreLocalPreferencesScopedToOneServerAndCanBeCleared() throws {
+        let suite = "friday-editor-test-" + UUID().uuidString, defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        try TaskRemoteEditors.save("  work-box  ", for: "https://one", defaults: defaults)
+        XCTAssertEqual(TaskRemoteEditors.alias(for: "https://one", defaults: defaults), "work-box"); XCTAssertNil(TaskRemoteEditors.alias(for: "https://two", defaults: defaults))
+        XCTAssertThrowsError(try TaskRemoteEditors.save("bad/host", for: "https://one", defaults: defaults))
+        XCTAssertEqual(TaskRemoteEditors.alias(for: "https://one", defaults: defaults), "work-box")
+        try TaskRemoteEditors.save("", for: "https://one", defaults: defaults); XCTAssertNil(TaskRemoteEditors.alias(for: "https://one", defaults: defaults))
+    }
     private func snapshot(_ root: String, _ id: String = "vscode") -> TaskHostEditorSnapshot {
         TaskHostEditorSnapshot(workspaceRoot: root, platform: "darwin", revealSupported: true, editors: [TaskHostEditor(id: id, label: id)])
     }

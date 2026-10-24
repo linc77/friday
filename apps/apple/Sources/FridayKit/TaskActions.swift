@@ -20,6 +20,7 @@ extension View {
 }
 
 private struct TaskActions: ViewModifier {
+    private struct HeadForkRequest: Codable { let requestID: String }
     @ObservedObject var store: FridayStore
     let task: WorkItem
     let opensMenu: Bool
@@ -129,6 +130,11 @@ private struct TaskActions: ViewModifier {
 
     @ViewBuilder private var actions: some View {
         Group {
+            if task.nativeHeadForkSupported == true, task.subagentOrigin == nil {
+                Button(friday: "从当前会话分叉", systemImage: "arrow.triangle.branch") { forkHead() }
+                    .disabled(task.active || task.sessionBusy || task.backgroundStopAvailable)
+                Divider()
+            }
             if let newTaskOnBranch, store.taskExistingWorkspaceSupported, task.subagentOrigin == nil, task.git?.branch != nil, store.projects.contains(where: { $0.id == task.projectId }) {
                 Button(friday: "在此分支新建任务", systemImage: "square.and.pencil") { newTaskOnBranch(task) }
                 Divider()
@@ -201,6 +207,20 @@ private struct TaskActions: ViewModifier {
         }.disabled(busy || !store.connected)
     }
 
+    private func forkHead() {
+        let scope = TaskActionUndo.context(store); let token = UUID(); operation = token; busy = true
+        let server = store.connection.server; let context = "head-fork:\(task.id):\(task.currentRunId ?? "")"
+        let request = TaskDraftCache.load(HeadForkRequest.self, server: server, context: context) ?? HeadForkRequest(requestID: UUID().uuidString)
+        TaskDraftCache.save(request, server: server, context: context)
+        Task { @MainActor in
+            defer { if operation == token { busy = false } }
+            do {
+                let id = try await store.forkTaskHead(task.id, requestID: request.requestID)
+                TaskDraftCache.save(Optional<HeadForkRequest>.none, server: server, context: context)
+                if scope == TaskActionUndo.context(store), operation == token { lifecycle?.open(id) }
+            } catch { if scope == TaskActionUndo.context(store), operation == token { failure = error.localizedDescription } }
+        }
+    }
     private func change(_ changes: [String: Any], removesFromList: Bool = false) {
         let scope = TaskActionUndo.context(store); let token = UUID(); operation = token; busy = true
         let restoreArchive: (() -> Void)? = changes["archived"] as? Bool == true && lifecycle?.selectedID == task.id ? { lifecycle?.open(task.id) } : nil

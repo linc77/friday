@@ -6,7 +6,8 @@ import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import type { Engine } from './engine.js';
 import { WorkspaceDoc } from './state.js';
 import { allTaskChangeRequestLinks } from './task-change-request-links.js';
-import { activeFork, activeRewind, activeStatuses, type NativeForkResult, type TaskForkOperation, type TaskRun, type WorkItem } from './types.js';
+import { activeFork, headForkSourceBusy, activeRewind, activeStatuses, type NativeForkResult, type TaskForkOperation, type TaskRun, type WorkItem } from './types.js';
+import { backgroundWorkPending } from './native-runtime-types.js';
 import { clearExcludedExecution, executionPosition, executionRuns, forkMessageBoundary, hasExecution } from './task-run-order.js';
 import { nativeForkPrefix } from './task-native-fork.js';
 import { visibleSubagentIds } from './task-subagent-types.js';
@@ -96,8 +97,10 @@ export class TaskForks {
               run: { ...selected, status: operation.sourceStatus ?? selected?.status, threadId: operation.sourceThreadId, turnId: operation.sourceTurnId, nativeHead: operation.sourceHead },
               title: work.title, expectedTurns: operation.expectedTurns, candidateId: operation.candidateId, inspectOnly: !!operation.startedAt, signal: runtime.signal,
               prefixMode: operation.prefixMode, nativePrefix: operation.nativePrefix,
+              headOnly: operation.headOnly, targetTaskId: work.id,
+              ...(operation.headOnly && work.projectId && engine.executor.supportsTaskTools?.(work.agent) ? { createNativeTaskMcp: async (sessionId: string, currentRun: () => Promise<string | undefined>, signal: AbortSignal) => (await engine.runtimeTools.bind(work!, work!.currentRunId ?? 'native-fork', signal, { sessionId, currentRun })).connection } : {}),
               verifiedPrefix: async nativePrefix => { await this.patch(task.input, { nativePrefix }); },
-              started: async () => { await this.patch(task.input, { startedAt: stamp() }); await runtime.memo('native-started', true, ctx); },
+              started: async () => { if (operation.headOnly) await this.assertHead(operation); await this.patch(task.input, { startedAt: stamp() }); await runtime.memo('native-started', true, ctx); },
               candidate: async candidateId => { await this.patch(task.input, { candidateId }); },
             });
             if (!result.threadId || result.threadId === operation.sourceThreadId) throw new Error('分叉结果没有独立的原生会话 ID');
@@ -117,10 +120,22 @@ export class TaskForks {
     });
   }
 
-  async start(sourceID: string, input: { requestId: string; runId: string; title?: string }) {
+  private async assertHead(operation: TaskForkOperation) {
+    const source = (await this.engine.snapshot()).tasks.find(task => task.id === operation.sourceTaskId), last = source && executionRuns(source).at(-1);
+    if (!source || source.threadId !== operation.sourceThreadId || source.currentRunId !== operation.sourceRunId || last?.id !== operation.sourceRunId || activeStatuses.includes(source.status) || backgroundWorkPending(source)) throw new Error('原生会话头已经变化，未启动分叉');
+  }
+  async head(sourceID: string, input: { requestId: string; title?: string }) {
+    validID(input.requestId); const state = await this.engine.snapshot(), receipt = state.forkRequests?.[input.requestId];
+    if (receipt) {
+      const task = state.tasks.find(task => task.id === receipt.taskId); if (receipt.action || receipt.sourceTaskId !== sourceID || !task?.forkOperation?.headOnly || (input.title?.trim() ?? null) !== (task.forkOperation.requestedTitle ?? null)) throw new Error('请求 ID 已被其他分叉操作使用'); return receipt.taskId;
+    }
+    const source = state.tasks.find(task => task.id === sourceID), last = source && executionRuns(source).at(-1); if (!last) throw new Error('原生会话没有可分叉的已结束轮次');
+    return this.start(sourceID, { ...input, runId: last.id, headOnly: true });
+  }
+  async start(sourceID: string, input: { requestId: string; runId: string; title?: string; headOnly?: boolean }) {
     validID(input.requestId);
     if (input.title !== undefined && (!input.title.trim() || input.title.trim().length > 200 || /[\x00-\x1f]/.test(input.title))) throw new Error('分叉名称无效');
-    const intent = createHash('sha256').update(JSON.stringify([sourceID, input.runId, input.title ?? null])).digest('hex');
+    const intent = createHash('sha256').update(JSON.stringify([sourceID, input.runId, input.title ?? null, ...(input.headOnly ? ['head'] : [])])).digest('hex');
     const targetID = randomUUID(); const operationID = randomUUID();
     const id = await this.engine.root.commit(async tx => {
       const state = await tx.doc(WorkspaceDoc); const receipt = state.forkRequests?.[input.requestId];
@@ -131,6 +146,8 @@ export class TaskForks {
       if (Object.hasOwn(state.requests, input.requestId)) throw new Error('请求 ID 已被其他操作使用');
       let source = state.tasks.find(task => task.id === sourceID);
       if (!source || source.agent === 'friday') throw new Error('原任务不存在');
+      if (headForkSourceBusy(state.tasks, sourceID)) throw new Error('正在分叉当前原生会话头，请先处理结果');
+      if (input.headOnly && (!['grok', 'acp-registry', 'antigravity'].includes(source.agent) || source.nativeHeadForkSupported !== true || source.subagentOrigin || source.currentRunId !== input.runId || executionRuns(source).at(-1)?.id !== input.runId || activeStatuses.includes(source.status) || backgroundWorkPending(source) || source.queue?.messages.some(message => ['queued', 'dispatching', 'steering', 'running'].includes(message.status)))) throw new Error('请在已协商原生分叉且前后台空闲的当前会话头操作');
       if (source.subagentOrigin) {
         const origin = source.subagentOrigin, root = state.tasks.find(task => task.id === origin.rootTaskId);
         const agent = root?.subagents?.find(agent => agent.id === origin.subagentId && agent.nativeId === origin.nativeId && agent.childTaskId === sourceID);
@@ -143,7 +160,7 @@ export class TaskForks {
       if (activeFork(source.forkOperation) || activeRewind(source.rewindOperation)) throw new Error('请先处理原任务的会话操作，再分叉历史');
       const history = !source.runs?.some(run => run.id === input.runId) ? nativeForkPrefix(complete, input.runId) : prefix(complete, input.runId, targetID);
       const at = stamp(); const selected = history.selected;
-      const nativeHistory = ['codex', 'claude', 'opencode'].includes(source.agent) || source.agent === 'pi' && 'nativeHead' in selected && !!selected.nativeHead && history.expectedTurns.every(id => !id.startsWith('pi:'));
+      const nativeHistory = !!input.headOnly || ['codex', 'claude', 'opencode'].includes(source.agent) || source.agent === 'pi' && 'nativeHead' in selected && !!selected.nativeHead && history.expectedTurns.every(id => !id.startsWith('pi:'));
       const result = history.result;
       const durableId = await tx.createTask(this.definition, { id: targetID, operationId: operationID, attempt: 0 }, { ownership: { kind: 'conversation' } });
       const task: WorkItem = {
@@ -157,6 +174,7 @@ export class TaskForks {
         ...(source.codexHome ? { codexHome: source.codexHome } : {}), ...(source.claudeHome ? { claudeHome: source.claudeHome } : {}),
         ...(source.piHome ? { piHome: source.piHome } : {}), ...(source.grokHome ? { grokHome: source.grokHome } : {}),
         ...(source.nativeProviderAccount ? { nativeProviderAccount: source.nativeProviderAccount } : {}),
+        ...(input.headOnly ? { nativeHeadForkSupported: true } : {}),
         ...(source.autoSettle !== undefined ? { autoSettle: source.autoSettle } : {}),
         changeRequests: copy(allTaskChangeRequestLinks(source).map(({ watch, ...link }) => link)), changeRequestLinksRevision: 0,
         ...(source.changeRequestStacks ? { changeRequestStacks: copy(source.changeRequestStacks) } : {}),
@@ -164,10 +182,11 @@ export class TaskForks {
         forkOrigin: { taskId: source.id, runId: selected.id, title: source.title, rootTaskId: source.forkOrigin?.rootTaskId ?? source.subagentOrigin?.rootTaskId ?? source.id },
         forkOperation: { id: operationID, durableId, requestId: input.requestId, sourceTaskId: source.id, sourceRunId: selected.id,
           sourceThreadId: selected.threadId ?? null, sourceTurnId: selected.turnId, sourceHead: 'nativeHead' in selected ? selected.nativeHead : undefined, expectedTurns: history.expectedTurns, prefixMode: history.prefixMode, sourceStatus: selected.status,
-          status: 'queued', createdAt: at, updatedAt: at, attempt: 0, strategy: nativeHistory ? 'native' : 'visible_history' },
+          status: 'queued', createdAt: at, updatedAt: at, attempt: 0, strategy: nativeHistory ? 'native' : 'visible_history', ...(input.headOnly ? { headOnly: true, requestedTitle: input.title?.trim() } : {}) },
       };
       await this.engine.taskHistory.persist(tx, task);
       state.tasks.push(copy(task)); state.requests[input.requestId] = targetID; state.forkRequests ??= {};
+      if (input.headOnly) source.updatedAt = at;
       state.forkRequests[input.requestId] = { taskId: targetID, sourceTaskId: sourceID, sourceRunId: input.runId, operationId: operationID, intent }; state.revision++;
       return targetID;
     }, context);
@@ -196,7 +215,7 @@ export class TaskForks {
 
   private async patch(input: Input, change: Partial<TaskForkOperation>) {
     await this.engine.mutate(state => { const work = state.tasks.find(work => work.id === input.id); const operation = work?.forkOperation;
-      if (operation?.id === input.operationId && operation.attempt === input.attempt) { Object.assign(operation, change, { updatedAt: stamp() }); work!.updatedAt = stamp(); }
+      if (operation?.id === input.operationId && operation.attempt === input.attempt) { Object.assign(operation, change, { updatedAt: stamp() }); work!.updatedAt = stamp(); if (operation.headOnly) { const source = state.tasks.find(task => task.id === operation.sourceTaskId); if (source) source.updatedAt = stamp(); } }
     });
   }
   private async apply(input: Input, result?: NativeForkResult) {

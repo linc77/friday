@@ -475,6 +475,10 @@ final class FridayStore: ObservableObject {
         let response = try await connection.decode(IDResponse.self, "/api/tasks/\(id)/fork", method: "POST", body: ["requestId": requestID, "runId": runID])
         await refresh(); return response.id
     }
+    func forkTaskHead(_ id: String, requestID: String) async throws -> String {
+        let response = try await connection.decode(IDResponse.self, "/api/tasks/\(id)/fork-head", method: "POST", body: ["requestId": requestID])
+        await refresh(); return response.id
+    }
     func resolveTaskFork(_ id: String, requestID: String, action: String) async throws {
         _ = try await connection.data("/api/tasks/\(id)/fork/resolve", method: "POST", body: ["requestId": requestID, "action": action])
         await refresh()

@@ -781,6 +781,14 @@
 "引用未能添加，选区已保留；请检查任务输入框后重试。" = "The reference was not added. Your selection is preserved; check the task input and retry.";
 
 "从此回复分叉" = "Fork from this response";
+"从当前会话分叉" = "Fork current session";
+"SSH 编辑器" = "SSH editor";
+"SSH 编辑器…" = "SSH editor…";
+"SSH 主机别名" = "SSH host alias";
+"SSH 主机别名无效" = "Invalid SSH host alias";
+"填写本机 SSH 配置中的主机别名，通过本机编辑器打开远端目录。留空时在服务主机上打开。" = "Enter a host alias from your local SSH configuration to open remote files in a local editor. Leave empty to open on the service host.";
+"无法生成 SSH 编辑器链接" = "Could not create an SSH editor link";
+"本机未能打开远程编辑器，请检查应用和 SSH 配置" = "Could not open the remote editor. Check the local app and SSH configuration.";
 "保留到此轮为止的历史，在新任务中继续" = "Keep history through this turn and continue in a new task";
 "分叉自" = "Forked from";
 "打开原任务" = "Open source task";

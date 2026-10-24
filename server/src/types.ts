@@ -103,6 +103,7 @@ export type NativeForkResult = { threadId: string; turnIds: Record<string, strin
 export type NativeForkRequest = {
   task: WorkItem; run: Pick<TaskRun, 'threadId' | 'turnId' | 'nativeHead'> & { status?: TaskStatus }; expectedTurns: string[]; title: string; candidateId?: string; inspectOnly: boolean; signal: AbortSignal;
   prefixMode?: 'observed'; nativePrefix?: string[]; verifiedPrefix?: (turnIds: string[]) => Promise<void>;
+  headOnly?: boolean; targetTaskId?: string; createNativeTaskMcp?: ExecutionRequest['createNativeTaskMcp'];
   started: () => Promise<void>; candidate: (threadId: string) => Promise<void>;
 };
 export type TaskForkOperation = {
@@ -110,6 +111,7 @@ export type TaskForkOperation = {
   sourceTurnId?: string; sourceHead?: string; expectedTurns: string[];
   prefixMode?: 'observed'; nativePrefix?: string[];
   sourceStatus?: TaskStatus;
+  headOnly?: boolean; requestedTitle?: string;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted';
   createdAt: string; updatedAt: string; startedAt?: string; candidateId?: string; nativeResult?: NativeForkResult; error?: string;
   projectedAt?: string; projectedStrategy?: 'native' | 'visible_history';
@@ -117,6 +119,8 @@ export type TaskForkOperation = {
 };
 export const activeFork = (operation?: TaskForkOperation) => !!operation && operation.status !== 'completed';
 export const runningFork = (operation?: TaskForkOperation) => operation?.status === 'queued' || operation?.status === 'running';
+export const headForkSourceIDs = (tasks: readonly WorkItem[]) => new Set(tasks.flatMap(task => task.forkOperation?.headOnly && (runningFork(task.forkOperation) || !!task.forkOperation.startedAt && !task.forkOperation.projectedAt && activeFork(task.forkOperation)) ? [task.forkOperation.sourceTaskId] : []));
+export const headForkSourceBusy = (tasks: readonly WorkItem[], id: string) => headForkSourceIDs(tasks).has(id);
 export type NativeRewindStart = { threadId: string; turns: string[]; keep: string[] };
 export type NativeRewindResult = { state: 'applied' | 'unchanged'; threadId: string | null; turns?: string[]; turnIds?: Record<string, string>; headIds?: Record<string, string>; resumeSessionAt?: string };
 export type NativeRewindRequest = {
@@ -187,6 +191,8 @@ export type WorkItem = {
   canSettle?: boolean;
   contextUsage?: import('./task-context-usage.js').TaskContextUsage | null;
   nativeHistory?: { status: 'loading' | 'ready' | 'failed'; updatedAt: string; epoch?: string; canFork?: boolean };
+  nativeHeadForkSupported?: boolean;
+  nativeHeadForkPending?: boolean;
   subagents?: import('./task-subagent-types.js').TaskSubagent[];
   subagentOrigin?: import('./task-subagent-types.js').TaskSubagentOrigin;
   pendingSubagentRequest?: 'approval' | 'user_input';
@@ -323,7 +329,7 @@ export type AgentInfo = { id: string; name: string; installed: boolean; executab
 export type ExecutionUpdate = NativeRuntimeUpdate | import('./task-subagent-types.js').SubagentRuntimeUpdate | import('./task-subagent-types.js').SubagentBackgroundUpdate
   | { kind: 'goal'; goal: import('./codex-goals.js').TaskGoal | null }
   | { kind: 'contextUsage'; usage: import('./task-context-usage.js').TaskContextUsage | null }
-  | { kind: 'session'; threadId: string; codexHome?: string; claudeHome?: string; piHome?: string; grokHome?: string; nativeProviderAccount?: string; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; executionSessionId?: string }
+  | { kind: 'session'; threadId: string; codexHome?: string; claudeHome?: string; piHome?: string; grokHome?: string; nativeProviderAccount?: string; nativeHeadForkSupported?: boolean; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; executionSessionId?: string }
   | { kind: 'turn'; turnId: string }
   | { kind: 'nativeHead'; head: string; turnIds?: string[] }
   | { kind: 'resumeApplied' }
@@ -342,7 +348,7 @@ export type ExecutionUpdate = NativeRuntimeUpdate | import('./task-subagent-type
   | { kind: 'memory'; id: string; text: string }
   | { kind: 'note'; id: string; title: string; content: string };
 export type TaskMcpConnection = { url: string; headers: Record<string, string> };
-export type ExecutionRequest = { task: WorkItem; prompt: string; userText?: string; contextText?: string; command?: 'compact'; contextBeforeCompaction?: import('./task-context-usage.js').TaskContextUsage | null; images?: ExecutionImage[]; purpose?: 'git_text' | 'task_title' | 'review_guide'; signal: AbortSignal; update: (update: ExecutionUpdate) => Promise<void>; beforeStart?: () => Promise<void>; finalized?: Promise<void>; taskMcp?: TaskMcpConnection; createNativeTaskMcp?: (sessionId: string, currentRun: () => Promise<string | undefined>, signal: AbortSignal) => Promise<TaskMcpConnection> };
+export type ExecutionRequest = { task: WorkItem; prompt: string; userText?: string; contextText?: string; command?: 'compact'; contextBeforeCompaction?: import('./task-context-usage.js').TaskContextUsage | null; images?: ExecutionImage[]; purpose?: 'git_text' | 'task_title' | 'review_guide'; signal: AbortSignal; update: (update: ExecutionUpdate) => Promise<void>; beforeStart?: () => Promise<void>; finalized?: Promise<void>; nativeTurnFinalized?: (sessionId: string, key: string) => Promise<void>; taskMcp?: TaskMcpConnection; createNativeTaskMcp?: (sessionId: string, currentRun: () => Promise<string | undefined>, signal: AbortSignal) => Promise<TaskMcpConnection> };
 export type TextGenerationRequest = ExecutionRequest & { purpose: 'task_title' };
 export interface Executor {
   uploadFeedback?(task: WorkItem, reason: string | undefined, signal: AbortSignal): Promise<string>;

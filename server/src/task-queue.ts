@@ -6,7 +6,7 @@ import type { Engine } from './engine.js';
 import { WorkspaceDoc } from './state.js';
 import { IdeaImages } from './ideas.js';
 import { branchBlocksTask } from './branch-switch.js';
-import { activeFork, activeRewind, activeStatuses, failedWorkspacePreparation, taskExecutionScopeMatches, type TaskExecutionScope, type IdeaImage, type QueuedTaskMessage, type WorkItem, type TaskInteractionMode, type Workspace } from './types.js';
+import { activeFork, headForkSourceBusy, activeRewind, activeStatuses, failedWorkspacePreparation, taskExecutionScopeMatches, type TaskExecutionScope, type IdeaImage, type QueuedTaskMessage, type WorkItem, type TaskInteractionMode, type Workspace } from './types.js';
 import type { WatchNotification } from './task-change-request-watch-types.js';
 import { endPullRequestWatch } from './task-change-request-watch.js';
 
@@ -148,7 +148,7 @@ export class TaskQueue {
       const task = localTask(state.tasks.find(task => task.id === id));
       const references = await this.engine.contexts.references(input.text, input.contextIds, { task, project: state.projects.find(project => project.id === task.projectId) });
       if (activeRewind(task.rewindOperation)) throw new Error('请先处理会话回退，再发送排队消息');
-      if (activeFork(task.forkOperation)) throw new Error('请先处理会话分叉，再发送排队消息');
+      if (activeFork(task.forkOperation) || headForkSourceBusy(state.tasks, task.id)) throw new Error('请先处理会话分叉，再发送排队消息');
       if (task.claudeResumeSessionAt && task.claudeResumePendingRun) throw new Error('Claude 回退续接结果待核对，请先处理会话历史');
       if (task.archivedAt) throw new Error('请先恢复归档任务');
       task.queue ??= { dispatcherId: null, paused: false, messages: [] };

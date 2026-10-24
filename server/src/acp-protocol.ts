@@ -15,7 +15,7 @@ export function acpInitializeResponse(response: AcpRecord): AcpRecord {
   if (!acpRecord(response.info) || typeof response.info.name !== 'string') throw new Error('ACP 返回了无效的初始化信息');
   const capabilities = acpRecord(response.capabilities), session = acpRecord(capabilities?.session), prompt = acpRecord(session?.prompt), mcp = acpRecord(session?.mcp);
   return { ...response, protocolGeneration: 2, agentInfo: response.info,
-    agentCapabilities: { loadSession: !!session, sessionCapabilities: session ? { resume: {} } : {},
+    agentCapabilities: { loadSession: !!session, sessionCapabilities: session ? { resume: {}, ...(acpRecord(session.fork) ? { fork: session.fork } : {}) } : {},
       promptCapabilities: { image: prompt?.image != null, audio: prompt?.audio != null, embeddedContext: prompt?.embeddedContext != null },
       mcpCapabilities: { stdio: mcp?.stdio != null, http: mcp?.http != null } },
     ...(Array.isArray(response.authMethods) ? { authMethods: response.authMethods.map((method: AcpRecord) => ({ ...method, id: method.methodId })) } : {}) };

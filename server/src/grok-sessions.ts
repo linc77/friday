@@ -100,6 +100,7 @@ export class GrokNativeSession {
     if (!settings.enabled || grokSessionAccount(settings) !== this.account || settings.permissionMode !== this.runtime.permissionMode) throw new Error('Grok 后续回复所属账号或权限已改变');
   }
   hasBackground() { return [...this.background.values()].some(work => !ended(work)); }
+  busy() { return this.hasBackground() || this.observing.size > 0 || this.listener && !this.listener.done() || [...this.children, ...(this.listener ? [this.listener] : [])].some(value => value.pending()); }
   holds(runId?: string) { return [...this.background.values()].some(work => !ended(work) && work.holdsCompletion && work.origin?.runId === runId); }
   async notice(method: string, params: AcpRecord) {
     if (params.sessionId !== this.threadId || !/^_?x\.ai\/task_(backgrounded|completed)$/.test(method)) return;
@@ -163,5 +164,6 @@ export class GrokSessions {
   async wait(id: string, sessionId: string, key: string, signal: AbortSignal) { const session = this.sessions.get(id); if (!session || session.executionId !== sessionId) throw new Error('Grok 后续连接不可用'); await session.wait(key, signal); }
   async stop(id: string, sessionId: string) { const session = this.sessions.get(id); if (session?.executionId === sessionId) await session.close(); }
   async settle(task: WorkItem) { const session = this.sessions.get(task.id); if (session && task.executionSessionId !== session.executionId) throw new Error('Grok 后台连接范围已改变'); await session?.close(); }
+  async beforeHeadFork(task: WorkItem) { const session = this.sessions.get(task.id); if (session) { if (this.running.has(task.id) || session.threadId !== task.threadId || session.busy()) throw new Error('Grok 原生会话或后台工作仍在执行'); await session.close(); } }
   async close() { this.closed = true; await Promise.allSettled([...this.sessions.values()].map(session => session.close())); }
 }

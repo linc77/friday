@@ -13,6 +13,8 @@ struct TaskFilesPanel: View {
     @AppStorage("friday.files.renderHTML") private var renderHTML = true
     @AppStorage("friday.files.renderTable") private var renderTable = true
     @AppStorage("friday.files.wrap") private var wrapping = true
+    @AppStorage("friday.tasks.remoteEditorRevision") private var remoteEditorRevision = 0
+    private var hostEditorIdentity: String { identity + ":editors:" + String(store.connected) + ":" + String(remoteEditorRevision) }
     @State private var entries: [String: [TaskFileEntry]] = [:]
     @State private var loadedGeneration: [String: Int] = [:]
     @State private var expandAll = false
@@ -187,13 +189,18 @@ struct TaskFilesPanel: View {
         .onChange(of: directoryPaths) { _, paths in if expandAll, browseRoot == nil { state.expanded.formUnion(paths) } }
         .onChange(of: treeIdentity) { _, _ in entries = [:]; loadedGeneration = [:]; hostExpanded = [""]; expandAll = false; truncated = []; matches = []; query = ""; listingError = nil }
         .onChange(of: identity) { _, _ in entries = [:]; loadedGeneration = [:]; expandAll = false; truncated = []; matches = []; document = nil; imagePreview = nil }
-        .task(id: identity + ":editors:" + String(store.connected)) {
-            guard store.connected else { return }
-            if let transport = try? TaskHostEditorTransport.task(store: store, task: task) { await hostEditors.load(identity: identity, root: task.cwd, transport: transport) }
-        }
+        .task(id: hostEditorIdentity) { await loadHostEditors() }
         .onChange(of: hostEditors.error) { _, error in if let error { listingError = error } }
         .sheet(item: $imagePreview) { preview in MarkdownImageGalleryView(preview: preview, workspacePath: task.cwd, canOpenLocalFiles: store.deviceId == "owner") }
-        .task(id: copyID) { if copied { try? await Task.sleep(for: .milliseconds(1200)); if !Task.isCancelled { copied = false } } }
+        .task(id: copyID) { await clearCopiedIndicator() }
+    }
+    private func loadHostEditors() async {
+        guard store.connected else { return }
+        if let transport = try? TaskHostEditorTransport.task(store: store, task: task) { await hostEditors.load(identity: identity, root: task.cwd, transport: transport) }
+    }
+    private func clearCopiedIndicator() async {
+        guard copied else { return }
+        try? await Task.sleep(for: .milliseconds(1200)); if !Task.isCancelled { copied = false }
     }
     private var explorer: some View {
         let root = browseRoot, source = treeIdentity

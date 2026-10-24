@@ -37,7 +37,7 @@ import type { Models } from '@earendil-works/pi-ai/models';
 import { Harness, configure, createRegistry, defineExtension, defineTask, type Conversation, type ConversationId, type ModelRef, type TaskId, type DocumentWatch } from '@earendil-works/pi-durable';
 import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node';
 import type { Executor, ExecutionRequest, ExecutionUpdate, Workspace, WorkItem, TaskMode, TaskWorkspaceSelection, IdeaImage, TaskInteractionMode, TaskExecutionScope } from './types.js';
-import { activeFork, runningFork, activeGitOperation, activeRewind, activeStatuses, failedWorkspacePreparation, taskExecutionScopeMatches } from './types.js';
+import { activeFork, runningFork, headForkSourceBusy, headForkSourceIDs, activeGitOperation, activeRewind, activeStatuses, failedWorkspacePreparation, taskExecutionScopeMatches } from './types.js';
 import { IdeaImages } from './ideas.js';
 import { CodexExecutor } from './codex.js';
 import { fileURLToPath } from 'node:url';
@@ -356,7 +356,7 @@ export class Engine extends EventEmitter {
                 return (await this.runtimeTools.bind(current, runID, signal, { sessionId, currentRun })).connection;
               } : undefined;
               let result: string;
-              try { result = await this.executor.run({ task: work, prompt: task.input.prompt, ...(task.input.userText !== undefined ? { userText: task.input.userText } : {}), ...(task.input.contextText !== undefined ? { contextText: task.input.contextText } : {}), ...(task.input.command ? { command: task.input.command, contextBeforeCompaction: task.input.contextBeforeCompaction } : {}), images: executionImages, signal: runtime.signal, update: update => this.updateExecution(work.id, update, runID), beforeStart, finalized, ...(tools ? { taskMcp: tools.connection, createNativeTaskMcp } : {}) }); }
+              try { result = await this.executor.run({ task: work, prompt: task.input.prompt, ...(task.input.userText !== undefined ? { userText: task.input.userText } : {}), ...(task.input.contextText !== undefined ? { contextText: task.input.contextText } : {}), ...(task.input.command ? { command: task.input.command, contextBeforeCompaction: task.input.contextBeforeCompaction } : {}), images: executionImages, signal: runtime.signal, update: update => this.updateExecution(work.id, update, runID), beforeStart, finalized, nativeTurnFinalized: async (sessionId, key) => { const receipt = Object.values((await this.snapshot()).nativeTurnRequests ?? {}).find(receipt => receipt.taskId === work.id && receipt.sessionId === sessionId && receipt.key === key); if (receipt) await this.harness.waitForTask(receipt.durableId as TaskId, context); }, ...(tools ? { taskMcp: tools.connection, createNativeTaskMcp } : {}) }); }
               finally { tools?.release(); }
               receipt = { result, needsProject: !!(await this.snapshot()).tasks.find(t => t.id === work.id)?.workspaceRequest };
               await runtime.memo('external-result', receipt, ctx);
@@ -572,7 +572,9 @@ export class Engine extends EventEmitter {
     const tasksById = new Map(state.tasks.map(task => [task.id, task]));
     for (const task of state.tasks) if (!task.subagentOrigin && task.subagents) task.subagents = task.subagents.filter(agent => visibleChildren.has(agent.childTaskId));
     const snapshotAt = Date.now();
+    const headForkSources = headForkSourceIDs(state.tasks);
     for (const task of state.tasks) {
+      task.nativeHeadForkPending = headForkSources.has(task.id);
       for (const agent of task.subagents ?? []) {
         const work = task.nativeBackgroundWork?.find(work => work.taskId === agent.nativeId && work.transportId === agent.sessionId && work.nativeRunId === agent.nativeRunId);
         agent.canStop = agent.provider === 'codex'
@@ -689,7 +691,7 @@ export class Engine extends EventEmitter {
     if (task.settleCleanup?.status === 'pending') await this.harness.waitForTask(task.settleCleanup.durableId as TaskId, context);
     await this.backgroundStops.wait(id);
     await this.taskQueue.stop(id);
-    if (['muse', 'pi', 'grok', 'opencode'].includes(task.agent)) await this.backgroundStops.cancelSettled(task);
+    if (['muse', 'pi', 'grok', 'opencode', 'acp-registry', 'antigravity'].includes(task.agent)) await this.backgroundStops.cancelSettled(task);
     await this.subagents.stopBeforeDelete(id);
     if (hasRunningBackgroundCommands(task)) { await this.backgroundCommands.stopBeforeDelete(id); await this.nativeBackground.stopBeforeDelete(id); }
     await this.taskTitles.stop(id);
@@ -863,6 +865,7 @@ export class Engine extends EventEmitter {
       if (input.projectId && !workspace.projects.some(p => p.id === input.projectId)
           && (!work || work.projectId !== input.projectId) && (!origin || origin.projectId !== input.projectId)) throw new Error('项目不存在');
       if (prepared && !workspace.changeRequestCheckouts?.some(p => p.id === prepared.saved.id && p.status === 'ready' && p.projectId === project!.id) || prepared && workspace.projects.find(p => p.id === project!.id)?.path !== project!.path) throw new Error('PR／MR 准备目录已改变');
+      if (work && headForkSourceBusy(workspace.tasks, work.id)) throw new Error('正在分叉当前原生会话头，请等待分叉完成');
       if (!(executionWorkspace?.scratch && executionWorkspace.state !== 'ready') && branchBlocksTask(workspace, executionWorkspace?.cwd ?? work?.cwd ?? origin?.cwd ?? project?.path ?? join(this.directory, 'artifacts'))) throw new Error('当前工作区正在切换分支，请完成后再发送任务');
       if (input.continueId && !work) throw new Error('任务不存在');
       if (work?.backgroundStop?.status === 'pending') throw new Error('正在停止后台工作，请等待完成后继续');
@@ -872,7 +875,7 @@ export class Engine extends EventEmitter {
       if (work && activeStatuses.includes(work.status)) throw new Error('任务正在运行，请使用补充要求');
       if (work && failedWorkspacePreparation(work) && work.executionWorkspace?.state !== 'ready') throw new Error('请先重试工作区准备；补充要求可以保存在排队消息中');
       if (work && activeRewind(work.rewindOperation)) throw new Error('请先处理这条会话的回退结果再发送新要求');
-      if (work && activeFork(work.forkOperation)) throw new Error('请先处理这条会话的分叉结果再发送新要求');
+      if (work && (activeFork(work.forkOperation) || headForkSourceBusy(workspace.tasks, work.id))) throw new Error('请先处理这条会话的分叉结果再发送新要求');
       if (work?.claudeResumeSessionAt && work.claudeResumePendingRun) throw new Error('Claude 回退续接结果待核对，请从当前可见历史建立新会话后继续');
       const queueEntry = input.queueMessageId ? work?.queue?.messages.find(message => message.id === input.queueMessageId) : undefined;
       if (queueEntry?.creationSource === 'monitor' && (work?.archivedAt || work?.settledAt || work?.settledOverride === 'settled' || work?.subagentOrigin)) throw new Error('任务已结束，自动跟进不会重新启动任务');
@@ -1024,6 +1027,7 @@ export class Engine extends EventEmitter {
       const run = item.runs?.find(run => run.id === (runID ?? item.currentRunId));
       if (update.kind === 'contextUsage') { item.contextUsage = update.usage; if (run) run.contextUsage = update.usage; }
       if (update.kind === 'session' && run) { run.threadId = update.threadId; if (update.model) run.model = update.model; if (update.reasoningEffort !== undefined) run.reasoningEffort = update.reasoningEffort; if (update.modelOptions !== undefined) run.modelOptions = update.modelOptions; }
+      if (update.kind === 'session' && update.nativeHeadForkSupported !== undefined) item.nativeHeadForkSupported = update.nativeHeadForkSupported;
       if (update.kind === 'turn' && run) { run.turnId = update.turnId; if (item.agent === 'codex') { run.nativeTurnIds ??= []; if (!run.nativeTurnIds.includes(update.turnId)) run.nativeTurnIds.push(update.turnId); } }
       if (update.kind === 'nativeHead') { item.nativeHead = update.head; if (run) { run.nativeHead = update.head; if (update.turnIds) run.nativeTurnIds = update.turnIds; } delete item.claudeResumeSessionAt; delete item.claudeResumePendingRun; }
       if (update.kind === 'resumeApplied') { delete item.claudeResumeSessionAt; delete item.claudeResumePendingRun; }
