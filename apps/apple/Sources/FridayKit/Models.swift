@@ -694,7 +694,17 @@ struct TaskContextTransfer: Codable, Identifiable {
     let reference: TaskContextReference; let status: String; let createdAt: String
     var sourceRunId: String? = nil; var baseRunId: String? = nil; var runId: String? = nil
 }
+struct TaskDelegationOrigin: Codable {
+    let id: String; let parentTaskId: String; let parentRunId: String; let role: String; let isolation: String
+}
+struct TaskDelegation: Codable, Identifiable {
+    let id: String; let parentTaskId: String; let childTaskId: String; let status: String
+    var pendingChildren: Bool? = nil; var hasPendingQuestion: Bool? = nil; var suppressed: Bool? = nil
+    var active: Bool { suppressed != true && (["queued", "running", "waiting"].contains(status) || pendingChildren == true) }
+}
 struct WorkItem: Codable, Identifiable {
+    var delegationOrigin: TaskDelegationOrigin? = nil
+    var delegatedTasks: [TaskDelegation]? = nil
     var providerEpoch: String? = nil
     var sessionOperation: TaskSessionOperation? = nil
     var nativeSessionConnected: Bool? = nil

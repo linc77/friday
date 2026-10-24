@@ -40,7 +40,8 @@ export const nativeTurnReceiptKey = (id: string, session: string, key: string) =
 export const backgroundWorkPending = (task: WorkItem) => task.backgroundCommands?.some(work => work.sessionId === task.executionSessionId
   && (!['completed', 'failed', 'stopped', 'interrupted'].includes(work.status) || work.stop?.status === 'pending'))
   || task.nativeBackgroundWork?.some(work => work.transportId === task.executionSessionId && !work.ambient && (work.member || work.backgrounded) && (!claudeBackgroundEnded(work) || work.stop?.status === 'pending'))
-  || task.subagents?.some(agent => agent.sessionId === task.executionSessionId && (['running', 'waiting', 'unknown'].includes(agent.status) || (agent.backgroundCommands ?? 0) + (agent.unknownCommands ?? 0) > 0));
+  || task.subagents?.some(agent => agent.sessionId === task.executionSessionId && (['running', 'waiting', 'unknown'].includes(agent.status) || (agent.backgroundCommands ?? 0) + (agent.unknownCommands ?? 0) > 0))
+  || task.delegatedTasks?.some(child => !child.suppressed && (['queued','running','waiting'].includes(child.status) || child.pendingChildren));
 export const activeNativeBackground = (task: { nativeBackgroundWork?: NativeBackgroundWork[] }) => (task.nativeBackgroundWork ?? []).filter(work => work.member && !work.ambient && !claudeBackgroundEnded(work));
 export const nativeCompletionPending = (task: { nativeBackgroundWork?: NativeBackgroundWork[]; executionSessionId?: string }) => {
   const latest = new Map<string, NativeBackgroundWork>();

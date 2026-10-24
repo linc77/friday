@@ -101,7 +101,7 @@ export class TaskSessionActions {
     const intent = taskTransferDigest([taskId, input.kind, target]);
     const prior = state.taskSessionRequests?.[input.requestId];
     if (prior) { if (prior.taskId !== taskId || prior.intent !== intent) throw new Error('会话操作请求 ID 已被使用'); await this.engine.harness.waitForTask(prior.durableId as TaskId, BACKGROUND_CONTEXT); return; }
-    if (!work || work.agent === 'friday' || work.subagentOrigin || work.archivedAt) throw new Error('请选择可操作的本地 Agent 任务');
+    if (!work || work.agent === 'friday' || work.subagentOrigin || work.delegationOrigin || work.archivedAt) throw new Error('请选择可操作的本地 Agent 任务');
     if (target && target.agent === work.agent && target.providerInstanceId === taskProviderInstance(work)) throw new Error('请选择其他 Agent 或 Provider 实例');
     if (target && (activeStatuses.includes(work.status) || backgroundWorkPending(work) || work.queue?.dispatcherId != null || work.queue?.messages.some(message => ['queued','dispatching','steering','running'].includes(message.status)) || work.approvals.some(approval => approval.state === 'pending'))) throw new Error('请在前台、后台和队列均空闲时切换 Agent');
     if (target) await this.engine.validateTaskProviderSelection(target);

@@ -37,7 +37,7 @@ struct TaskBulkMenuContext {
             requests.reset(); operation = UUID(); busy = false; pendingDeletion = nil; customSnooze = nil
         }
         let available = store.snapshotIdentity == store.connectionIdentity
-            ? Set(store.tasks.filter { $0.localAgent && $0.subagentOrigin == nil && $0.archivedAt == nil }.map(\.id)) : []
+            ? Set(store.tasks.filter { $0.localAgent && $0.subagentOrigin == nil && $0.delegationOrigin == nil && $0.archivedAt == nil }.map(\.id)) : []
         selection.synchronize(context: context, available: available)
     }
     func retire() { requests.reset(); operation = UUID(); busy = false; pendingDeletion = nil; customSnooze = nil; selection.clear() }

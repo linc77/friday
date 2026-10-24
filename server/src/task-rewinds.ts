@@ -103,6 +103,7 @@ export class TaskRewinds {
   }
 
   private assertIdle(state: Workspace, work: WorkItem, own = false) {
+    if (work.delegationOrigin) throw new Error('委派子任务不接收历史编辑；下一轮请重新委派');
     if (nativeSessionActionBusy(work)) throw new Error('请先完成或核对 Agent 会话操作');
     if (work.settleCleanup?.status === 'pending') throw new Error('正在清理结束跟进的会话，请等待完成后回退');
     if (hasRunningBackgroundCommands(work)) throw new Error('请先停止后台命令再回退会话');

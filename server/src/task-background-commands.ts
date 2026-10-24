@@ -13,14 +13,14 @@ export type TaskBackgroundCommand = {
   startedAt: string; updatedAt: string; completedAt?: string; exitCode?: number;
   stop?: { requestId: string; durableId: number; status: 'pending' | 'completed' | 'failed' | 'uncertain'; error?: string };
 };
-export const hasRunningBackgroundCommands = (task: WorkItem) => task.backgroundStop?.status === 'pending' || (task.backgroundCommands?.some(command => command.status === 'running') ?? false) || activeNativeBackground(task).length > 0 || providerSubagentActive(task);
+export const hasRunningBackgroundCommands = (task: WorkItem) => task.backgroundStop?.status === 'pending' || (task.backgroundCommands?.some(command => command.status === 'running') ?? false) || activeNativeBackground(task).length > 0 || providerSubagentActive(task) || task.delegatedTasks?.some(child => !child.suppressed && (['queued','running','waiting'].includes(child.status) || child.pendingChildren)) === true;
 export const backgroundCommandActivity = (task: WorkItem) => {
   const native = activeNativeBackground(task); const unknown = (task.nativeBackgroundWork ?? []).filter(work => !work.ambient && work.backgrounded && work.status === 'unknown');
   const stop = task.backgroundStop;
   const children = (task.subagents ?? []).filter(agent => agent.provider !== 'claude' && agent.sessionId === task.executionSessionId);
   return { commands: (task.backgroundCommands?.filter(command => command.status === 'running').length ?? 0) + native.filter(work => work.kind === 'command').length + children.reduce((count, agent) => count + (agent.backgroundCommands ?? 0), 0),
     unknownCommands: (task.backgroundCommands?.filter(command => command.status === 'unknown').length ?? 0) + unknown.filter(work => work.kind === 'command').length + children.reduce((count, agent) => count + (agent.unknownCommands ?? 0), 0),
-    monitors: native.filter(work => work.kind === 'monitor').length, subagents: native.filter(work => work.kind === 'subagent').length + children.filter(agent => ['running', 'waiting'].includes(agent.status)).length,
+    monitors: native.filter(work => work.kind === 'monitor').length, subagents: native.filter(work => work.kind === 'subagent').length + children.filter(agent => ['running', 'waiting'].includes(agent.status)).length + (task.delegatedTasks ?? []).filter(child => !child.suppressed && (['queued','running','waiting'].includes(child.status) || child.pendingChildren)).length,
     backgroundTasks: native.filter(work => work.kind === 'background_task').length, unknownTasks: unknown.length + children.filter(agent => agent.status === 'unknown').length,
     canStop: Boolean(['codex', 'claude', 'muse', 'pi', 'grok', 'opencode', 'acp-registry', 'antigravity'].includes(task.agent) && (backgroundWorkPending(task) || stop && stop.sessionId === task.executionSessionId && (!stop.runId || stop.runId === task.currentRunId) && ['pending', 'uncertain'].includes(stop.status))),
     waiting: task.backgroundWaiting === true || nativeCompletionPending(task) && task.nativeBackgroundConnected === true };

@@ -55,7 +55,7 @@ export class TaskSettles {
     if (task.status === 'queued') task.status = 'cancelled';
     if (task.queue) {
       task.queue.paused = true;
-      for (const message of task.queue.messages) if (message.creationSource === 'monitor' && ['queued', 'dispatching'].includes(message.status)) { message.status = 'cancelled'; message.error = null; }
+      for (const message of task.queue.messages) if (message.creationSource !== undefined && ['queued', 'dispatching'].includes(message.status)) { message.status = 'cancelled'; message.error = null; }
     }
     if (task.settleCleanup?.status === 'pending') { recordTaskMetadata(state, task.id, change, task.settleCleanup.durableId); return task.settleCleanup.durableId; }
     if (!forceDetach && alreadySettled && task.settleCleanup?.status === 'completed') { recordTaskMetadata(state, task.id, change); return; }

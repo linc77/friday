@@ -11,7 +11,7 @@ import { TaskAttachmentFiles } from './task-attachments.js';
 import { IdeaImages } from './ideas.js';
 
 export type TaskContextTransfer = {
-  id: string; kind: 'provider_handoff' | 'merge_back'; sourceTaskId: string; targetTaskId: string;
+  id: string; kind: 'provider_handoff' | 'merge_back' | 'delegated_completion'; sourceTaskId: string; targetTaskId: string;
   sourceRunId?: string; baseRunId?: string; reference: TaskContextReference;
   status: 'pending' | 'consumed' | 'superseded'; createdAt: string; consumedAt?: string; runId?: string;
 };

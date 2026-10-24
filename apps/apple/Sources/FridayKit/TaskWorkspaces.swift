@@ -26,7 +26,7 @@ enum TaskWorkspaces {
     static func tasks(_ tasks: [WorkItem], scope: String?, projects: [Project], query: String = "", includeArchived: Bool = false) -> [WorkItem] {
         let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
         return tasks.filter { task in
-            task.localAgent && task.subagentOrigin == nil && (includeArchived || task.archivedAt == nil) && (scope == nil || project(for: task, in: projects)?.id == scope)
+            task.localAgent && task.subagentOrigin == nil && task.delegationOrigin == nil && (includeArchived || task.archivedAt == nil) && (scope == nil || project(for: task, in: projects)?.id == scope)
                 && (search.isEmpty || [task.title, name(for: task, in: projects), task.agentName]
                     .contains { $0.localizedStandardContains(search) })
         }.sorted { $0.updatedAt == $1.updatedAt ? $0.id < $1.id : $0.updatedAt > $1.updatedAt }
@@ -61,7 +61,7 @@ enum TaskWorkspaces {
     }
 
     static func shelfTasks(_ tasks: [WorkItem], shelf: Shelf, now: Date, workingShelfEnabled: Bool = false, returnedAt: [String: Date] = [:]) -> [WorkItem] {
-        tasks.filter { $0.subagentOrigin == nil && $0.archivedAt == nil && self.shelf($0, now: now, workingShelfEnabled: workingShelfEnabled) == shelf }.sorted {
+        tasks.filter { $0.subagentOrigin == nil && $0.delegationOrigin == nil && $0.archivedAt == nil && self.shelf($0, now: now, workingShelfEnabled: workingShelfEnabled) == shelf }.sorted {
             let left = $0; let right = $1
             if shelf == .working || shelf == .active && workingShelfEnabled {
                 let a = shelf == .working ? workingSentAt(left) : inboxReturnAt(left, observed: returnedAt[left.id])
@@ -93,7 +93,7 @@ enum TaskWorkspaces {
         let authored: Date?
         if let activity = task.sidebarActivity { authored = CodexTranscript.date(activity.latestUserAuthoredMessageAt) }
         else {
-            authored = task.messages?.filter { $0.role == "user" && $0.revertedAt == nil && $0.creationSource != "monitor" }.compactMap { CodexTranscript.date($0.at) }.max()
+            authored = task.messages?.filter { $0.role == "user" && $0.revertedAt == nil && $0.creationSource == nil }.compactMap { CodexTranscript.date($0.at) }.max()
                 ?? task.runs?.last(where: { $0.revertedAt == nil && $0.executionExcludedAt == nil }).flatMap { CodexTranscript.date($0.at) }
         }
         return max(CodexTranscript.date(task.createdAt) ?? .init(timeIntervalSince1970: 0), authored ?? .init(timeIntervalSince1970: 0))
@@ -109,7 +109,7 @@ enum TaskWorkspaces {
     private static func settledDate(_ task: WorkItem) -> Date {
         if let date = CodexTranscript.date(task.sidebarSettledAt ?? task.settledAt) { return date }
         let run = task.runs?.last { $0.revertedAt == nil && $0.executionExcludedAt == nil }
-        let user = task.messages?.last { $0.role == "user" && $0.revertedAt == nil && $0.delivery == nil && $0.creationSource != "monitor" }
+        let user = task.messages?.last { $0.role == "user" && $0.revertedAt == nil && $0.delivery == nil && $0.creationSource == nil }
         return [user?.at, run?.at, run?.startedAt, run?.completedAt].compactMap { CodexTranscript.date($0) }.max()
             ?? CodexTranscript.date(task.updatedAt) ?? .init(timeIntervalSince1970: 0)
     }

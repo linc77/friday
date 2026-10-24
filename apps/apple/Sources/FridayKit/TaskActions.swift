@@ -136,7 +136,7 @@ private struct TaskActions: ViewModifier {
                 Button(friday: "合并回原任务", systemImage: "arrow.turn.up.left") { mergeBack(run) }
                     .disabled(task.active || task.sessionBusy)
             }
-            if task.nativeSessionConnected == true, task.subagentOrigin == nil {
+            if task.nativeSessionConnected == true, task.subagentOrigin == nil, task.delegationOrigin == nil {
                 Button(friday: "断开 Agent 会话", systemImage: "powerplug") { disconnectSession() }.disabled(task.sessionBusy)
                 Divider()
             }

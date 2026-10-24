@@ -101,6 +101,9 @@ private struct CodexUserMessage: View {
                     if message?.creationSource == "monitor" {
                         FridaySymbolLabel(friday: "自动跟进", systemImage: "eye").font(.caption).foregroundStyle(.secondary)
                     }
+                    if message?.creationSource == "delegated" {
+                        FridaySymbolLabel(friday: "子任务结果", systemImage: "person.2").font(.caption).foregroundStyle(.secondary)
+                    }
                     if let images = message?.images, !images.isEmpty {
                         TaskImageRail(store: store, images: images, wraps: true).frame(maxWidth: 210)
                     }

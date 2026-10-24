@@ -52,7 +52,7 @@ struct TaskRelationshipsControl: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(verbatim: row.title).font(.system(size: 12, weight: .medium)).lineLimit(2)
                                     HStack(spacing: 6) {
-                                        Text(fridayString: row.parent ? "原任务" : "分叉任务")
+                                        Text(fridayString: row.delegated ? (row.parent ? "父任务" : "委派子任务") : (row.parent ? "原任务" : "分叉任务"))
                                         if let task = row.task {
                                             Text("·"); Text(fridayString: task.statusText)
                                             if task.archivedAt != nil { Text("·"); Text(friday: "已归档") }

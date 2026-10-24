@@ -27,6 +27,7 @@ export class TaskArchives {
           // Closing an owned handle is repeatable; never start/resume a native
           // process, replay stdin or run an initialization/settle script here.
           await engine.taskQueue.stop(work.id);
+          await engine.delegations.stopChildren(work.id);
           if (input.durableId != null && activeStatuses.includes(work.status)) {
             await engine.harness.abortTask(input.durableId as TaskId, ctx);
             await engine.harness.waitForTask(input.durableId as TaskId, ctx);

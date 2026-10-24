@@ -2693,3 +2693,9 @@
 "待合并上下文" = "Context ready to merge";
 "取消合并上下文" = "Discard pending context";
 "原生会话操作尚未确认" = "The native session action is not yet confirmed";
+
+"委派子任务" = "Delegated task";
+
+"新一轮任务请从父任务重新委派" = "Start a new round by delegating again from the parent task";
+
+"子任务结果" = "Child task result";

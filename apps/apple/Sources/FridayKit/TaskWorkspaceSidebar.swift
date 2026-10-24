@@ -64,7 +64,7 @@ struct TaskWorkspaceSidebar: View {
     }
     private var historyTasks: [WorkItem] {
         store.tasks.filter {
-            $0.localAgent && $0.subagentOrigin == nil && $0.archivedAt == nil && $0.projectId != nil && TaskWorkspaces.project(for: $0, in: store.projects) == nil
+            $0.localAgent && $0.subagentOrigin == nil && $0.delegationOrigin == nil && $0.archivedAt == nil && $0.projectId != nil && TaskWorkspaces.project(for: $0, in: store.projects) == nil
         }.sorted { $0.updatedAt > $1.updatedAt }
     }
     private var motion: Animation? { reduceMotion || scenePhase != .active ? nil : FridayTheme.motion }

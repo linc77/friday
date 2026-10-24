@@ -15,7 +15,7 @@ export type Project = { scripts?: import('./project-script-types.js').ProjectScr
 export type Memory = { id: string; text: string; updatedAt: string };
 export type Question = { id: string; header: string; question: string; options: { label: string; description: string; value?: string }[]; multiSelect?: boolean; isOther?: boolean; isSecret?: boolean };
 export type Approval = { id: string; method: string; title: string; detail: string; questions: Question[]; state: 'pending' | 'answered' | 'expired'; responseStatus?: 'sending' | 'uncertain' | 'sent'; decisions?: import('./provider-approvals.js').ApprovalDecision[]; options?: import('./codex-mcp-elicitation.js').ApprovalOption[]; appName?: string; decision?: import('./provider-approvals.js').ApprovalDecision; answers?: Record<string, string[]>; subagentId?: string; ownerRunId?: string };
-export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; at?: string; turnId?: string; images?: IdeaImage[]; contexts?: TaskContextReference[]; delivery?: 'sending' | 'sent' | 'uncertain'; interactionMode?: TaskInteractionMode; runId?: string; revertedAt?: string; historyOrder?: number; creationSource?: 'monitor'; notification?: import('./task-change-request-watch-types.js').WatchNotification };
+export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; at?: string; turnId?: string; images?: IdeaImage[]; contexts?: TaskContextReference[]; delivery?: 'sending' | 'sent' | 'uncertain'; interactionMode?: TaskInteractionMode; runId?: string; revertedAt?: string; historyOrder?: number; creationSource?: 'monitor' | 'delegated'; notification?: import('./task-change-request-watch-types.js').WatchNotification };
 export type ExecutionImage = IdeaImage & { path: string };
 export type TaskMode = 'auto' | 'assistant' | 'research' | 'code';
 export type TaskInteractionMode = 'default' | 'plan';
@@ -178,7 +178,7 @@ export type QueuedTaskMessage = {
   model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; runId?: number; error?: string | null;
   interactionMode?: TaskInteractionMode;
   contexts?: TaskContextReference[];
-  creationSource?: 'monitor'; notification?: import('./task-change-request-watch-types.js').WatchNotification;
+  creationSource?: 'monitor' | 'delegated'; notification?: import('./task-change-request-watch-types.js').WatchNotification;
 };
 export type TaskMessageQueue = { dispatcherId: number | null; paused: boolean; messages: QueuedTaskMessage[]; error?: string | null; heldByRunId?: string; heldOnRestart?: boolean };
 export type TaskSidebarActivity = { working: boolean; latestUserAuthoredMessageAt: string | null; latestRunRequestedAt: string | null; latestRunCompletedAt: string | null };
@@ -197,6 +197,8 @@ export type WorkItem = {
   nativeHeadForkPending?: boolean;
   subagents?: import('./task-subagent-types.js').TaskSubagent[];
   subagentOrigin?: import('./task-subagent-types.js').TaskSubagentOrigin;
+  delegationOrigin?: import('./task-delegations.js').TaskDelegationOrigin;
+  delegatedTasks?: Omit<import('./task-delegations.js').TaskDelegation, 'digest' | 'observerId'>[];
   pendingSubagentRequest?: 'approval' | 'user_input';
   id: string; title: string; prompt: string; projectId: string | null; cwd: string;
   titleRegeneration?: { requestId: string; startedAt: string } | null;
@@ -323,6 +325,7 @@ export type Workspace = {
   forkRequests?: Record<string, { taskId: string; sourceTaskId: string; sourceRunId: string; operationId: string; action?: string; intent?: string }>;
   taskSessionRequests?: Record<string, { taskId: string; durableId: number; intent: string }>;
   taskTransferRequests?: Record<string, { taskId: string; sourceTaskId: string; transferId: string; intent: string }>;
+  taskDelegations?: Record<string, import('./task-delegations.js').TaskDelegation>;
   preparationRequests?: Record<string, { taskId: string; runId: string; durableId: number }>;
   backgroundCommandRequests?: Record<string, { taskId: string; eventId: string; sessionId: string; durableId: number }>;
   nativeTurnRequests?: Record<string, NativeTurnReceipt>;

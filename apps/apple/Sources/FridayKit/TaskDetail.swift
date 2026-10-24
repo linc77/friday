@@ -216,6 +216,8 @@ struct TaskDetail: View {
                 if task.subagentOrigin != nil {
                     TaskBackgroundCommandsView(store: store, task: task)
                     TaskNativeSubagentBar(store: store, task: task, openTask: { onOpenTask?($0) })
+                } else if task.delegationOrigin != nil {
+                    TaskDelegatedBar(store: store, task: task, openTask: { onOpenTask?($0) })
                 } else if task.localAgent {
                     TaskBackgroundCommandsView(store: store, task: task)
                     AgentTaskComposer(store: store, task: task, embeddedInMobileDock: true, submissionError: sendError,
@@ -255,6 +257,8 @@ struct TaskDetail: View {
                     if task.subagentOrigin != nil {
                         TaskBackgroundCommandsView(store: store, task: task)
                         TaskNativeSubagentBar(store: store, task: task, openTask: { onOpenTask?($0) })
+                    } else if task.delegationOrigin != nil {
+                        TaskDelegatedBar(store: store, task: task, openTask: { onOpenTask?($0) })
                     } else {
                         TaskBackgroundCommandsView(store: store, task: task)
                         AgentTaskComposer(store: store, task: task, collapseRequest: composerCollapseRequest, expandRequest: composerExpandRequest, submissionError: sendError,
@@ -499,10 +503,10 @@ struct TaskDetail: View {
                     .font(.callout).foregroundStyle(.secondary).lineLimit(1)
                 Text("/").foregroundStyle(.tertiary)
                 #if os(macOS)
-                if task.subagentOrigin != nil { Text(task.title).font(.callout.weight(.medium)).lineLimit(1).textSelection(.enabled) }
+                if task.subagentOrigin != nil || task.delegationOrigin != nil { Text(task.title).font(.callout.weight(.medium)).lineLimit(1).textSelection(.enabled) }
                 else { TaskHeaderTitle(store: store, task: task) }
                 #else
-                if task.subagentOrigin != nil { Text(task.title).font(.callout.weight(.medium)).lineLimit(1) }
+                if task.subagentOrigin != nil || task.delegationOrigin != nil { Text(task.title).font(.callout.weight(.medium)).lineLimit(1) }
                 else { HStack(spacing: 6) {
                     Text(task.title).font(.callout.weight(.medium)).lineLimit(1)
                         .opacity(task.titleRegeneration == nil ? 1 : 0.55)

@@ -65,14 +65,15 @@ export function recordTaskMetadata(state: Workspace, taskId: string, change: Tas
   state.taskMetadataRequests ??= {}; state.taskMetadataRequests['metadata:' + change.requestId] = { taskId, digest: metadataDigest(change), ...(cleanupId !== undefined ? { cleanupId } : {}) };
 }
 
-export const automaticallyQueuedRun = (task: WorkItem, run: TaskRun) => !run.revertedAt && !run.executionExcludedAt && run.status === 'queued' && !run.startedAt && !run.before && !run.workspacePreparation && task.messages?.some(message => message.id === run.messageId && !message.revertedAt && message.creationSource === 'monitor') === true;
+export const automaticallyQueuedRun = (task: WorkItem, run: TaskRun) => !run.revertedAt && !run.executionExcludedAt && run.status === 'queued' && !run.startedAt && !run.before && !run.workspacePreparation && task.messages?.some(message => message.id === run.messageId && !message.revertedAt && message.creationSource !== undefined) === true;
 export function assertTaskCanSettle(task: WorkItem) {
   if (task.agent === 'friday' || task.subagentOrigin || task.archivedAt || task.archiveCleanup?.status === 'pending') throw new Error('当前任务不能结束跟进');
+  if (task.delegatedTasks?.some(child => !child.suppressed && (['queued','running','waiting'].includes(child.status) || child.pendingChildren))) throw new Error('请先停止委派子任务再结束跟进');
   if (task.approvals.some(approval => approval.state === 'pending') || task.pendingSubagentRequest) throw new Error('请先处理审批或问题再结束跟进');
   const runs = (task.runs ?? []).filter(run => !run.revertedAt && !run.executionExcludedAt);
   const automatic = new Set(runs.filter(run => automaticallyQueuedRun(task, run)).map(run => run.id));
   if (runs.some(run => ['running', 'waiting'].includes(run.status)) || ['running', 'waiting', 'needs_project'].includes(task.status) || task.status === 'queued' && !automatic.has(task.currentRunId ?? '')) throw new Error('请先停止正在运行的任务再结束跟进');
-  if (runs.some(run => run.status === 'queued' && !automatic.has(run.id)) || task.queue?.messages.some(message => ['queued', 'dispatching', 'steering', 'running', 'uncertain'].includes(message.status) && !(message.creationSource === 'monitor' && ['queued', 'dispatching'].includes(message.status) && message.runId === undefined)) || task.messages?.some(message => !message.revertedAt && message.creationSource !== 'monitor' && ['sending', 'uncertain'].includes(message.delivery ?? ''))) throw new Error('请先发送或移除排队消息再结束跟进');
+  if (runs.some(run => run.status === 'queued' && !automatic.has(run.id)) || task.queue?.messages.some(message => ['queued', 'dispatching', 'steering', 'running', 'uncertain'].includes(message.status) && !(message.creationSource !== undefined && ['queued', 'dispatching'].includes(message.status) && message.runId === undefined)) || task.messages?.some(message => !message.revertedAt && message.creationSource === undefined && ['sending', 'uncertain'].includes(message.delivery ?? ''))) throw new Error('请先发送或移除排队消息再结束跟进');
   if (activeGitOperation(task.gitOperation) || activeFork(task.forkOperation) || activeRewind(task.rewindOperation) || ['queued', 'running'].includes(task.branchChange?.status ?? '')) throw new Error('请先处理 Git 或会话操作再结束跟进');
 }
 export function taskCanSettle(task: WorkItem) { if (task.settleCleanup?.status === 'pending') return false; try { assertTaskCanSettle(task); return true; } catch { return false; } }

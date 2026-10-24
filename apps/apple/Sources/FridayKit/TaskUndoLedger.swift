@@ -28,7 +28,7 @@ enum TaskUndoKind: String, Hashable {
 enum TaskArchiveIndex {
     struct Group: Identifiable { let id: String; let project: Project?; let title: String; let tasks: [WorkItem] }
     static func canArchive(_ task: WorkItem, lifecycleSupported: Bool) -> Bool {
-        guard task.subagentOrigin == nil else { return false }
+        guard task.subagentOrigin == nil && task.delegationOrigin == nil else { return false }
         if task.archivedAt != nil { return true }
         guard !task.gitBusy, !task.sessionBusy, task.branchChange?.active != true else { return false }
         if !lifecycleSupported { return !task.active && task.queue?.pending.isEmpty != false }
@@ -37,7 +37,7 @@ enum TaskArchiveIndex {
         return true
     }
     static func groups(tasks: [WorkItem], projects: [Project], scope: String?) -> [Group] {
-        let archived = tasks.filter { $0.localAgent && $0.subagentOrigin == nil && $0.archivedAt != nil && (scope == nil || $0.projectId == scope) }
+        let archived = tasks.filter { $0.localAgent && $0.subagentOrigin == nil && $0.delegationOrigin == nil && $0.archivedAt != nil && (scope == nil || $0.projectId == scope) }
         var keys = projects.map(\.id), grouped: [String: [WorkItem]] = [:]
         for task in archived {
             let key = task.projectId ?? "unregistered:" + task.cwd

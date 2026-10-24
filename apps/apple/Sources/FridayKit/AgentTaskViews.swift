@@ -384,7 +384,7 @@ struct AgentTaskComposer: View {
     private var active: Bool { task?.active == true }
     private var canChangeProvider: Bool {
         guard let task, task.nativeSessionConnected != nil else { return false }
-        return !task.active && !task.sessionBusy && !task.gitBusy && !task.backgroundStopAvailable && task.archivedAt == nil && task.subagentOrigin == nil && editingQueuedMessageId == nil && task.queue?.dispatcherId == nil && task.queue?.messages.contains(where: { ["queued", "dispatching", "steering", "running"].contains($0.status) }) != true && task.subagents?.contains(where: { ["running", "waiting", "unknown"].contains($0.status) }) != true
+        return !task.active && !task.sessionBusy && !task.gitBusy && !task.backgroundStopAvailable && task.archivedAt == nil && task.subagentOrigin == nil && task.delegationOrigin == nil && editingQueuedMessageId == nil && task.queue?.dispatcherId == nil && task.queue?.messages.contains(where: { ["queued", "dispatching", "steering", "running"].contains($0.status) }) != true && task.subagents?.contains(where: { ["running", "waiting", "unknown"].contains($0.status) }) != true
     }
     private var stopping: Bool { stoppingTaskId != nil && stoppingTaskId == task?.id || task?.backgroundStopPending == true }
     private var backgroundStopAvailable: Bool { store.taskBackgroundSettlementSupported && task?.backgroundStopAvailable == true }
@@ -403,7 +403,7 @@ struct AgentTaskComposer: View {
     private var compactingContext: Bool { task.map { task in task.active && task.runs?.first(where: { $0.id == task.currentRunId })?.command == "compact" } ?? false }
     private var canCompactContext: Bool {
         guard let task else { return false }
-        return store.taskComposerCommandsSupported && store.connected && task.threadId != nil && task.subagentOrigin == nil && !task.active && !task.gitBusy && !task.sessionBusy && task.archivedAt == nil
+        return store.taskComposerCommandsSupported && store.connected && task.threadId != nil && task.subagentOrigin == nil && task.delegationOrigin == nil && !task.active && !task.gitBusy && !task.sessionBusy && task.archivedAt == nil
             && task.branchChange?.active != true && task.queue?.pending.isEmpty != false && !sending && !compaction.busy && editingQueuedMessageId == nil
     }
     private var resumeCompactionTokens: Double? {

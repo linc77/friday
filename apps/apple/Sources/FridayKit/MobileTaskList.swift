@@ -7,7 +7,7 @@ struct MobileTaskList: View {
     @State private var selecting = false
     private var tasks: [WorkItem] {
         store.snapshotIdentity == store.connectionIdentity
-            ? store.tasks.filter { $0.localAgent && $0.subagentOrigin == nil && $0.archivedAt == nil }.reversed() : []
+            ? store.tasks.filter { $0.localAgent && $0.subagentOrigin == nil && $0.delegationOrigin == nil && $0.archivedAt == nil }.reversed() : []
     }
     var body: some View {
         List {

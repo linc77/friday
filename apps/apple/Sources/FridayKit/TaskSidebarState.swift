@@ -145,6 +145,7 @@ enum TaskRelationships {
         let title: String
         let parent: Bool
         let task: WorkItem?
+        var delegated: Bool = false
         var id: String { taskID }
     }
     static func rows(for task: WorkItem, in tasks: [WorkItem]) -> [Row] {
@@ -152,19 +153,24 @@ enum TaskRelationships {
         let local = tasks.filter { $0.localAgent && $0.id != task.id }
         var rows: [Row] = []
         var seen = Set<String>()
-        if let origin = task.forkOrigin, origin.taskId != task.id {
+        if let origin = task.delegationOrigin, origin.parentTaskId != task.id {
+            let parent = local.first { $0.id == origin.parentTaskId }
+            rows.append(Row(taskID: origin.parentTaskId, title: parent?.title ?? origin.parentTaskId, parent: true, task: parent, delegated: true))
+            seen.insert(origin.parentTaskId)
+        }
+        if let origin = task.forkOrigin, origin.taskId != task.id, !seen.contains(origin.taskId) {
             let source = local.first { $0.id == origin.taskId }
             rows.append(Row(taskID: origin.taskId, title: source?.title ?? origin.title, parent: true, task: source))
             seen.insert(origin.taskId)
         }
-        let children = local.filter { $0.forkOrigin?.taskId == task.id }.sorted {
+        let children = local.filter { $0.forkOrigin?.taskId == task.id || $0.delegationOrigin?.parentTaskId == task.id }.sorted {
             let left = CodexTranscript.date($0.createdAt)
             let right = CodexTranscript.date($1.createdAt)
             if left != right { return (left ?? .distantPast) > (right ?? .distantPast) }
             return $0.id < $1.id
         }
         for child in children where seen.insert(child.id).inserted {
-            rows.append(Row(taskID: child.id, title: child.title, parent: false, task: child))
+            rows.append(Row(taskID: child.id, title: child.title, parent: false, task: child, delegated: child.delegationOrigin?.parentTaskId == task.id))
         }
         return rows
     }

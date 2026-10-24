@@ -82,7 +82,7 @@ struct TaskBulkSelection {
         }
     }
     init(tasks: [WorkItem], selected: Set<String>, ordered: [String]? = nil) {
-        let eligible = tasks.filter { selected.contains($0.id) && $0.localAgent && $0.subagentOrigin == nil && $0.archivedAt == nil }
+        let eligible = tasks.filter { selected.contains($0.id) && $0.localAgent && $0.subagentOrigin == nil && $0.delegationOrigin == nil && $0.archivedAt == nil }
         if let ordered {
             let byID = Dictionary(uniqueKeysWithValues: eligible.map { ($0.id, $0) })
             self.tasks = ordered.compactMap { byID[$0] }

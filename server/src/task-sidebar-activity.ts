@@ -30,16 +30,16 @@ export function taskSidebarActivity(task: WorkItem): TaskSidebarActivity {
   const publishedAuthored = task.messages === undefined
     ? task.events.reduce((latest, event) => event.kind === 'user' && !event.revertedAt ? Math.max(latest, time(event.at)) : latest, task.prompt.trim() ? time(task.createdAt) : 0)
     : task.messages.reduce((latest, message) => {
-      if (message.role !== 'user' || message.revertedAt || message.creationSource === 'monitor') return latest;
+      if (message.role !== 'user' || message.revertedAt || message.creationSource !== undefined) return latest;
       const queued = task.queue?.messages.find(queued => queued.id === message.id);
       return Math.max(latest, time(queued?.createdAt) || time(message.at));
     }, 0);
   // Accepted queue entries are human sends even before they become a visible
   // conversation message. Activation must not give an old send a new date.
   const reverted = new Set([...(task.messages ?? []).filter(message => message.revertedAt).map(message => message.id), ...(task.runs ?? []).filter(run => run.revertedAt).map(run => run.messageId)]);
-  const authored = (task.queue?.messages ?? []).reduce((latest, message) => message.creationSource !== 'monitor' && message.status !== 'cancelled' && !reverted.has(message.id) ? Math.max(latest, time(message.createdAt)) : latest, publishedAuthored);
-  const executing = ['queued', 'running', 'waiting'].includes(task.status) || task.queue?.dispatcherId != null && !task.queue.paused || task.changeRequests?.some(pr => pr.watch && !pr.dismissedAt && pr.linkSource !== 'stack-dismissed') === true;
-  return { working: task.agent !== 'friday' && executing && !task.backgroundWaiting && !task.approvals.some(approval => approval.state === 'pending'),
+  const authored = (task.queue?.messages ?? []).reduce((latest, message) => message.creationSource === undefined && message.status !== 'cancelled' && !reverted.has(message.id) ? Math.max(latest, time(message.createdAt)) : latest, publishedAuthored);
+  const executing = ['queued', 'running', 'waiting'].includes(task.status) || task.queue?.dispatcherId != null && !task.queue.paused || task.changeRequests?.some(pr => pr.watch && !pr.dismissedAt && pr.linkSource !== 'stack-dismissed') === true || task.delegatedTasks?.some(child => !child.suppressed && (['queued','running','waiting'].includes(child.status) || child.pendingChildren)) === true;
+  return { working: task.agent !== 'friday' && executing && !task.backgroundWaiting && !task.pendingSubagentRequest && !task.delegatedTasks?.some(child => !child.suppressed && child.status === 'waiting') && !task.approvals.some(approval => approval.state === 'pending'),
     latestUserAuthoredMessageAt: iso(authored), latestRunRequestedAt: iso(time(runRequest?.createdAt) || time(run?.at)), latestRunCompletedAt: iso(time(run?.completedAt)) };
 }
 export function sidebarInboxReturnAt(task: WorkItem): number {
