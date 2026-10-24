@@ -16,6 +16,7 @@ export class MuseExecutor implements Executor {
   deferredStart(agent: string) { return agent === 'muse'; }
   async generateText(request: import('./types.js').TextGenerationRequest) { return this.run(request); }
   async run(request: ExecutionRequest): Promise<string> { return request.purpose ? isolatedTextGeneration(request, prepared => this.sessions.run(prepared)) : this.sessions.run(request); }
+  validateAnswer(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) { this.sessions.validateAnswer(id, approvalId, decision, answers); }
   answer(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) { return this.sessions.answer(id, approvalId, decision, answers); }
   steer(id: string, text: string, requestId: string, images?: ExecutionImage[]) { return this.sessions.steer(id, text, requestId, images); }
   hasSession(id: string) { return this.sessions.hasSession(id); }

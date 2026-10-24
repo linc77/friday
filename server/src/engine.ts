@@ -17,6 +17,7 @@ import { TaskSearch } from './task-search.js';
 import { TaskTitles } from './task-titles.js';
 import { TaskNativeTurns } from './task-native-turns.js';
 import { TaskNativeBackground } from './task-native-background.js';
+import { backgroundWorkPending } from './native-runtime-types.js';
 import { TaskBackgroundStops } from './task-background-stops.js';
 import { TaskArchives } from './task-archive.js';
 import { TaskSettles } from './task-settle-lifecycle.js';
@@ -218,7 +219,7 @@ export class Engine extends EventEmitter {
         case 'acp-registry': case 'antigravity': { const connection = new AcpProviderConnection(path, driver, { ...(driver === 'acp-registry' ? providerOptions?.acpRegistry : providerOptions?.antigravity), credentialDirectory: directory }); return { connection, executor: new AcpNativeExecutor(connection) }; }
       }
     }, async (id, driver) => { await this.providerConfigurationChanged(id); if (id !== driver) await this.providerConfigurationChanged(driver); },
-    async (id, activeOnly = false) => { const state = await this.snapshot(); return state.tasks.some(task => taskProviderInstance(task) === id && (!activeOnly || activeStatuses.includes(task.status) || hasRunningBackgroundCommands(task) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation))) || Object.values(state.titleRequests ?? {}).some(request => request.status === 'pending' && (request.modelSelection?.providerInstanceId ?? request.modelSelection?.agent) === id) || state.tasks.some(task => activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id || task.changeRequestGuideRuns?.some(run => ['queued', 'running'].includes(run.status) && (run.modelSelection.providerInstanceId ?? run.modelSelection.agent) === id)) || Object.values(state.providerCreditResets ?? {}).some(receipt => ['queued', 'running', 'uncertain'].includes(receipt.status) && (receipt.scope.providerInstanceId ?? receipt.scope.provider) === id); });
+    async (id, activeOnly = false) => { const state = await this.snapshot(); return state.tasks.some(task => taskProviderInstance(task) === id && (!activeOnly || activeStatuses.includes(task.status) || backgroundWorkPending(task) || task.backgroundStop?.status === 'pending' || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation))) || Object.values(state.titleRequests ?? {}).some(request => request.status === 'pending' && (request.modelSelection?.providerInstanceId ?? request.modelSelection?.agent) === id) || state.tasks.some(task => activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id || task.changeRequestGuideRuns?.some(run => ['queued', 'running'].includes(run.status) && (run.modelSelection.providerInstanceId ?? run.modelSelection.agent) === id)) || Object.values(state.providerCreditResets ?? {}).some(receipt => ['queued', 'running', 'uncertain'].includes(receipt.status) && (receipt.scope.providerInstanceId ?? receipt.scope.provider) === id); });
     this.codexConnection = this.providerInstances.default('codex');
     this.claudeConnection = this.providerInstances.default('claude');
     this.piConnection = this.providerInstances.default('pi');
@@ -351,7 +352,7 @@ export class Engine extends EventEmitter {
               const tools = !task.input.command && work.projectId && !work.subagentOrigin && this.executor.supportsTaskTools?.(work.agent) ? await this.runtimeTools.bind(work, runID, runtime.signal) : undefined;
               const createNativeTaskMcp: ExecutionRequest['createNativeTaskMcp'] = tools ? async (sessionId, currentRun, signal) => {
                 const current = (await this.snapshot()).tasks.find(task => task.id === work.id);
-                if (!current || current.executionSessionId !== sessionId || current.agent !== work.agent || taskProviderInstance(current) !== taskProviderInstance(work) || current.cwd !== work.cwd || current.projectId !== work.projectId) throw new Error('原生任务工具的会话范围已改变');
+                if (!current || current.executionSessionId !== sessionId && (current.currentRunId !== runID || current.turnId != null) || current.agent !== work.agent || taskProviderInstance(current) !== taskProviderInstance(work) || current.cwd !== work.cwd || current.projectId !== work.projectId) throw new Error('原生任务工具的会话范围已改变');
                 return (await this.runtimeTools.bind(current, runID, signal, { sessionId, currentRun })).connection;
               } : undefined;
               let result: string;
@@ -388,7 +389,7 @@ export class Engine extends EventEmitter {
               item.unread = true;
               if (!item.messages?.some(message => message.role === 'assistant' && message.runId === runID)) item.messages?.push({ id: randomUUID(), role: 'assistant', text: result, at: now(), runId: runID, ...(item.turnId ? { turnId: item.turnId } : {}) });
               item.events.push(event('status', '成果已保存'));
-              item.approvals.forEach(a => { if (a.state === 'pending') a.state = 'expired'; });
+              item.approvals.forEach(a => { if (a.state === 'pending' && !(a.subagentId && item.subagents?.some(child => child.id === a.subagentId && child.sessionId === item.executionSessionId && ['running', 'waiting'].includes(child.status)))) a.state = 'expired'; });
             });
             await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'completed' } } }), ctx);
           } catch (error) {
@@ -688,7 +689,7 @@ export class Engine extends EventEmitter {
     if (task.settleCleanup?.status === 'pending') await this.harness.waitForTask(task.settleCleanup.durableId as TaskId, context);
     await this.backgroundStops.wait(id);
     await this.taskQueue.stop(id);
-    if (task.agent === 'muse') await this.backgroundStops.cancelSettled(task);
+    if (task.agent === 'muse' || task.agent === 'pi') await this.backgroundStops.cancelSettled(task);
     await this.subagents.stopBeforeDelete(id);
     if (hasRunningBackgroundCommands(task)) { await this.backgroundCommands.stopBeforeDelete(id); await this.nativeBackground.stopBeforeDelete(id); }
     await this.taskTitles.stop(id);
@@ -1047,7 +1048,7 @@ export class Engine extends EventEmitter {
       if (update.kind === 'approval') { item.approvals.push(update.approval); item.status = 'waiting'; }
       if (update.kind === 'approvalResolved') {
         const approval = item.approvals.find(a => a.id === update.id);
-        if (approval) approval.state = 'answered';
+        if (approval) approval.state = update.expired ? 'expired' : 'answered';
         if (!item.approvals.some(a => a.state === 'pending')) item.status = item.backgroundWaiting ? 'waiting' : 'running';
       }
     }, update.kind === 'item' ? [update.item.id] : []);
@@ -1085,10 +1086,11 @@ export class Engine extends EventEmitter {
       const task = state.tasks.find(task => task.id === id), approval = task?.approvals.find(value => value.id === approvalId);
       const childWaiting = approval?.subagentId && task?.subagents?.some(child => child.id === approval.subagentId && ['running','waiting'].includes(child.status));
       const nativeWaiting = Object.values(state.nativeTurnRequests ?? {}).some(receipt => receipt.taskId === id && receipt.status === 'running' && receipt.approvalIds?.includes(approvalId));
-      if (!task || !approval || approval.state !== 'pending' || approval.responseStatus === 'sending' || approval.responseStatus === 'uncertain' || !activeStatuses.includes(task.status) && !childWaiting && !nativeWaiting) throw new Error('授权请求已过期');
+      if (!task || !approval || approval.state !== 'pending' || approval.responseStatus === 'sending' || approval.responseStatus === 'uncertain' || task.currentRunId && task.lastStoppedRunId === task.currentRunId || task.backgroundStop?.status === 'pending' && task.backgroundStop.sessionId === task.executionSessionId || task.archivedAt || task.settledAt || task.settledOverride === 'settled' || task.archiveCleanup?.status === 'pending' || task.settleCleanup?.status === 'pending' || !activeStatuses.includes(task.status) && !childWaiting && !nativeWaiting) throw new Error('授权请求已过期');
       const supported = approval.options?.map(option => option.decision) ?? approval.decisions ?? ['accept','decline'];
       if (!supported.includes(decision)) throw new Error('此授权请求不支持这个决定');
       if (decision === 'accept' && approval.questions.some(question => !answers[question.id]?.some(value => value.trim()))) throw new Error('请回答所有问题');
+      if (!approval.method.startsWith('friday/')) this.executor.validateAnswer?.(id, approvalId, decision, answers);
       state.approvalResponses[requestId] = { taskId: id, approvalId, digest, decision, status: 'sending', createdAt: now() };
       approval.responseStatus = 'sending'; state.revision++;
     }, context);

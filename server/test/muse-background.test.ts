@@ -30,6 +30,17 @@ async function fixture(t: { after(fn: () => Promise<void>): void }) {
     start: async (prompt = 'background') => { id = await engine!.createTask({ projectId: 'project', title: 'Muse background', agent: 'muse', mode: 'code', prompt, requestId: 'first' }); return id; },
     reopen: async () => { await engine!.close(); engine = undefined; engine = await open(); return engine; } };
 }
+test('Muse local question validation permits correcting a selection without claiming or forwarding the invalid answer', async t => {
+  const f = await fixture(t), id = await f.start('question-two');
+  const task = await f.wait(task => task.status === 'waiting'), approval = task.approvals.find(value => value.state === 'pending')!;
+  await assert.rejects(f.current().answer(id, approval.id, 'accept', { target: ['One'] }, 'correctable-answer'), /选项数量/);
+  assert.equal((await f.task()).approvals.find(value => value.id === approval.id)!.responseStatus, undefined);
+  assert.equal((await f.current().snapshot()).approvalResponses?.['correctable-answer'], undefined);
+  assert.equal((await f.trace()).filter(value => value.method === 'userInput/answer').length, 0);
+  await f.current().answer(id, approval.id, 'accept', { target: ['One', 'Two'] }, 'correctable-answer');
+  await f.wait(task => task.status === 'completed');
+  const responses = (await f.trace()).filter(value => value.method === 'userInput/answer'); assert.equal(responses.length, 1); assert.deepEqual(responses[0]!.params.answers[0].selectedLabels, ['One', 'Two']);
+});
 test('Muse native wake in the same wire batch as the parent result waits for Durable finalization, persists a separate reply and never sends another prompt', async t => {
   const f = await fixture(t); await f.start('background immediate-wake');
   const task = await f.wait(task => task.status === 'completed' && task.messages?.filter(message => message.role === 'assistant').length === 2);
@@ -77,6 +88,14 @@ test('Muse Stop while a late child approval is pending expires it and closes own
   await f.current().cancel(id, { runId: pending.currentRunId!, sessionId: pending.executionSessionId! });
   const ended = await f.task(); assert.ok(ended.approvals.every(approval => approval.state !== 'pending')); assert.equal(ended.backgroundStop?.status, 'completed');
   assert.equal((await f.trace()).filter(value => value.method === 'approval/decide').length, 0);
+});
+test('Muse child approval received beside the parent terminal survives parent finalization until its native child is answered', async t => {
+  const f = await fixture(t); const id = await f.start('background early-approval');
+  const task = await f.wait(task => task.status === 'completed' && task.approvals.some(approval => approval.state === 'pending'));
+  const approval = task.approvals.find(approval => approval.state === 'pending')!; assert.ok(approval.subagentId); assert.equal(task.subagents!.find(child => child.id === approval.subagentId)!.status, 'waiting');
+  await f.current().answer(id, approval.id, 'accept', {}, 'early-child-approval');
+  const done = await f.wait(task => task.status === 'completed' && task.result === 'Native wake after background'); assert.equal(done.approvals.find(value => value.id === approval.id)!.state, 'answered');
+  assert.equal((await f.trace()).filter(value => value.method === 'approval/decide').length, 1); assert.equal((await f.trace()).filter(value => value.method === 'turn/start').length, 1);
 });
 test('Muse settled Stop closes the owning host and real child, and late workflow rows do not offer unsupported individual Stop', async t => {
   const f = await fixture(t); const id = await f.start('background hold'); const task = await f.wait(task => task.status === 'completed');

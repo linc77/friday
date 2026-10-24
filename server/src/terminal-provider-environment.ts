@@ -2,7 +2,7 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { codexAccountEnvironment, expandHome, loadCodexSettings } from './codex-settings.js';
 import { loadClaudeSettings } from './claude-provider.js';
-import { loadPiSettings, piAccountEnvironment } from './pi-provider.js';
+import { loadPiSettings, piAccountEnvironment, piSessionAccount } from './pi-provider.js';
 import { loadGrokSettings, grokAccountEnvironment } from './grok-provider.js';
 import { loadNativeProviderSettings, nativeProviderAccount, nativeProviderEnvironment, type NativeProvider } from './native-provider-config.js';
 import { CursorConnection } from './cursor-provider.js';
@@ -36,8 +36,9 @@ export async function terminalProviderEnvironment(directory: string, task?: Pick
     return configured.env;
   }
   if (task?.agent === 'pi') {
-    const configured = piAccountEnvironment(await loadPiSettings(directory));
+    const settings = await loadPiSettings(directory), configured = piAccountEnvironment(settings);
     if (task.piHome && task.piHome !== configured.home) throw new Error('终端账号配置已改变，请恢复这条任务使用的 Pi 目录');
+    if (task.nativeProviderAccount && task.nativeProviderAccount !== piSessionAccount(settings)) throw new Error('终端账号配置已改变，请恢复这条任务使用的 Pi 配置');
     return configured.env;
   }
   if (task?.agent === 'codex') {

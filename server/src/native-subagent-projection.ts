@@ -49,6 +49,7 @@ export class NativeSubagentProjection {
     }
   }
   knowsNative(id: string) { return this.entries.has(id) || this.aliases.has(id); }
+  hasPending() { return [...this.entries.values()].some(agent => !subagentEnded(agent.status)); }
   identityForNative(id: string) { return this.entries.get(this.aliases.get(id) ?? id)?.id; }
   bindNativeChild(id: string, child: unknown) {
     const nativeId = this.aliases.get(id) ?? id;

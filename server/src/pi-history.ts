@@ -1,5 +1,5 @@
 import { isAbsolute } from 'node:path';
-import type { PiConnection } from './pi-provider.js';
+import { piSessionAccount, type PiConnection } from './pi-provider.js';
 import { piRecord, type PiRpc, type PiRecord } from './pi-rpc.js';
 import type { NativeForkRequest, NativeForkResult, NativeRewindRequest, NativeRewindResult, WorkItem } from './types.js';
 
@@ -38,6 +38,7 @@ async function historyClient(connection: PiConnection, task: WorkItem, signal: A
   signal.throwIfAborted();
   const runtime = await connection.runtime(task);
   if (task.piHome && task.piHome !== runtime.home) throw new Error('请恢复这条 Pi 会话使用的配置目录');
+  if (task.nativeProviderAccount && task.nativeProviderAccount !== piSessionAccount(runtime.settings)) throw new Error('请恢复这条 Pi 会话使用的账号配置');
   const configured = { ...runtime, args: piReadOnlyArgs(runtime.args) }, clients: PiRpc[] = [];
   const client = (source?: string) => {
     const rpc = connection.client({ ...configured, args: [...configured.args, ...(source ? ['--fork', source] : [])] }, task.cwd, !source);

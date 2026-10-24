@@ -33,6 +33,7 @@ export class LocalAgentExecutor implements Executor {
     if (!executor) throw new Error('任务已结束，请继续会话后再操作。');
     return executor;
   }
+  validateAnswer(id: string, approvalId: string, decision: import('./provider-approvals.js').ApprovalDecision, answers: Record<string, string[]>) { this.current(id).validateAnswer?.(id, approvalId, decision, answers); }
   async answer(id: string, approvalId: string, decision: import('./provider-approvals.js').ApprovalDecision, answers: Record<string, string[]>) { await this.current(id).answer(id, approvalId, decision, answers); }
   async steer(id: string, text: string, requestId: string, images?: ExecutionImage[]) { await this.current(id).steer(id, text, requestId, images); }
   async rewind(request: NativeRewindRequest) {
@@ -72,7 +73,7 @@ export class LocalAgentExecutor implements Executor {
   }
   async interruptExecution(task: import('./types.js').WorkItem, runId: string) { await (await this.executor(task))?.interruptExecution?.(task, runId); }
   async settleNativeBackground(task: import('./types.js').WorkItem) {
-    const executor = await this.executor(task); if (!executor?.settleNativeBackground) throw new Error('此 Agent 不支持停止后台会话');
+    const executor = this.live.get(task.id) ?? this.retained.get(task.id) ?? await this.executor(task); if (!executor?.settleNativeBackground) throw new Error('此 Agent 不支持停止后台会话');
     await executor.settleNativeBackground(task);
   }
   async stopNativeBackground(task: import('./types.js').WorkItem, work: import('./native-runtime-types.js').NativeBackgroundWork) {

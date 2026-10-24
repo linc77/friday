@@ -115,7 +115,12 @@ test('Pi persists the native session before prompt, streams Unicode output and r
   assert.ok(updates.some(value => value.kind === 'contextUsage' && value.usage?.usedTokens === 123 && value.usage.maxTokens === 8192));
   await run(work(directory, { currentRunId: 'pi-run-2', threadId: first, piHome: join(directory, 'account') })); assert.equal(threadId, first);
   const records = await trace(), prompts = records.filter(value => value.type === 'prompt'); assert.equal(prompts.length, 2); assert.ok(prompts.every(value => value.sessionFile === first));
-  assert.ok(records.some(value => value.type === 'switch_session' && value.sessionPath === first));
+  assert.equal(new Set(prompts.map(value => value.pid)).size, 1, 'Warm continuation retains the native RPC process');
+  assert.equal(records.filter(value => value.type === 'switch_session').length, 0, 'A warm native file is not switched or replayed');
+  await executor.stopNativeSession('pi-task', updates.filter(value => value.kind === 'session').at(-1)!.executionSessionId!);
+  await run(work(directory, { currentRunId: 'pi-run-3', threadId: first, piHome: join(directory, 'account') }));
+  const cold = await trace(); assert.ok(cold.some(value => value.type === 'switch_session' && value.sessionPath === first));
+  assert.equal(cold.filter(value => value.type === 'prompt').length, 3);
   await assert.rejects(run(work(directory, { piHome: join(directory, 'other') })), /配置目录/);
 });
 test('Pi native approval and question responses retain native IDs and session grants survive continued rounds', async t => {
@@ -136,4 +141,10 @@ test('Pi cancellation terminates its real process group and native errors do not
   controller.abort(); await assert.rejects(running, /已中止/);
   await until(async () => { try { process.kill(child, 0); return false; } catch { return true; } });
   await assert.rejects(executor.run({ task: work(directory), prompt: 'error', signal: new AbortController().signal, update: async () => {} }), /Native model failure/);
+});
+test('Pi native settlement before the local question timeout cannot leave its run waiting forever', async t => {
+  const f = await setup(t), updates: ExecutionUpdate[] = [];
+  assert.equal(await f.executor.run({ task: work(f.directory), prompt: 'timeout', signal: AbortSignal.timeout(3000), update: async value => { updates.push(value); } }), '');
+  assert.ok(updates.some(value => value.kind === 'approvalResolved' && value.expired === true));
+  assert.equal((await f.trace()).filter(value => value.type === 'extension_ui_response').length, 0);
 });

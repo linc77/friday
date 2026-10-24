@@ -77,7 +77,9 @@ export class TaskRuntimeTools {
   const reply=(result:unknown)=>this.json(res,200,{jsonrpc:'2.0',id:message.id,result});
   if(message.method==='initialize'){reply({protocolVersion:['2025-03-26','2025-06-18','2025-11-25'].includes(message.params?.protocolVersion)?message.params.protocolVersion:'2025-03-26',capabilities:{tools:{listChanged:false}},serverInfo:{name:'friday_tasks',version:'1.0.0'},instructions:TASK_TOOL_INSTRUCTIONS});return;}
   if(message.method==='ping'){reply({});return;}
-  if(message.method==='tools/list'){await this.current(grant);reply({tools:taskRuntimeToolDefinitions});return;}
+  // Native extensions load the static catalog before discovering their session
+  // file. Only tools/call can read task data or act, and always checks admission.
+  if(message.method==='tools/list'){if(!grant.native)await this.current(grant);reply({tools:taskRuntimeToolDefinitions});return;}
   if(message.method!=='tools/call'){this.json(res,200,{jsonrpc:'2.0',id:message.id,error:{code:-32601,message:'Unsupported task tool method'}});return;}
   try{
    const scope=await this.current(grant),digest=JSON.stringify(message.params),key=JSON.stringify(grant.native?[scope.actor.runId,message.id]:message.id),previous=grant.calls.get(key);

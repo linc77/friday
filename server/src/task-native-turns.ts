@@ -100,7 +100,7 @@ export class TaskNativeTurns {
           if (index < 0) work.events.push(event); else work.events[index] = event;
         }
         if (value.kind === 'approval') { if (!work.approvals.some(approval => approval.id === value.approval.id)) work.approvals.push(value.approval); saved.approvalIds ??= []; if (!saved.approvalIds.includes(value.approval.id)) saved.approvalIds.push(value.approval.id); if (work.currentRunId === run.id) work.status = 'waiting'; }
-        if (value.kind === 'approvalResolved') { const approval = work.approvals.find(approval => approval.id === value.id); if (approval) approval.state = 'answered'; if (work.currentRunId === run.id && !work.approvals.some(approval => approval.state === 'pending')) work.status = work.backgroundWaiting ? 'waiting' : 'running'; }
+        if (value.kind === 'approvalResolved') { const approval = work.approvals.find(approval => approval.id === value.id); if (approval) approval.state = value.expired ? 'expired' : 'answered'; if (work.currentRunId === run.id && !work.approvals.some(approval => approval.state === 'pending')) work.status = work.backgroundWaiting ? 'waiting' : 'running'; }
       }
       work.updatedAt = stamp(); woke = reconcileTaskSnooze(work, Date.parse(work.updatedAt)); await this.engine.taskHistory.persist(tx, work, update.kind === 'nativeTurnUpdate' && update.value.kind === 'item' ? [update.value.item.id] : []);
       state.revision++; accepted = true;

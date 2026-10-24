@@ -14,7 +14,22 @@ let streaming = false, model = { provider: 'fixture', id: 'small', name: 'Fixtur
 const emit = value => process.stdout.write(JSON.stringify(value) + '\n');
 const response = (record, data, error) => emit({ type: 'response', id: record.id, command: record.type, success: !error, ...(error ? { error } : { data }) });
 const trace = record => { if (process.env.PI_TEST_WIRE) appendFileSync(process.env.PI_TEST_WIRE, JSON.stringify({ pid: process.pid, ...record }) + '\n'); };
-let lastText = '';
+async function nativeWake(prompt) {
+  streaming = true; emit({ type: 'agent_start' }); trace({ nativeWake: true });
+  appendMessage({ role: 'custom', content: [{ type: 'text', text: 'Native extension wake' }] });
+  if (prompt.includes('mcp')) {
+    const response = await fetch(process.env.FRIDAY_MCP_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.FRIDAY_MCP_BEARER_TOKEN }, body: JSON.stringify({ jsonrpc: '2.0', id: 'native-wake-tool', method: 'tools/call', params: { name: 'list_thread_pull_requests', arguments: {} } }) });
+    const body = await response.json(); trace({ wakeMcp: { status: response.status, body } });
+    if (response.status !== 200 || body.result?.isError !== false) throw new Error('Pi native wake did not own its task tools');
+  }
+  if (prompt.includes('approval')) { pending = randomUUID(); emit({ type: 'extension_ui_request', id: pending, method: 'confirm', title: 'Native wake permission', message: 'Allow native follow-up?' }); return; }
+  if (prompt.includes('hold-wake')) {
+    const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' }); trace({ wakeChild: child.pid });
+    emit({ type: 'message_start', message: { role: 'assistant' } }); emit({ type: 'message_update', assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'Pi native pending' } }); return;
+  }
+  finish('Pi native wake result');
+}
+let lastText = '', bootstrapped = false;
 const branch = data => { const all = new Map((data.entries ?? []).map(entry => [entry.id, entry])); const result = []; for (let id = data.leafId; id; id = all.get(id).parentId) result.push(all.get(id)); return result.reverse(); };
 function appendMessage(message) {
   if (!sessionFile) return;
@@ -49,7 +64,14 @@ async function command(record) {
     writeFileSync(sessionFile, JSON.stringify({ entries: retained, leafId: retained.at(-1)?.id ?? null, messages: retained.filter(entry => entry.message?.role === 'assistant').map(entry => entry.message.content[0].text) }));
     return response(record, { cancelled: false });
   }
-  if (record.type === 'get_state') return response(record, { model, thinkingLevel, sessionFile, isStreaming: streaming, pendingMessageCount: 0 });
+  if (record.type === 'get_state') {
+    if (!bootstrapped && process.env.PI_TEST_BOOTSTRAP_MCP === '1' && process.env.FRIDAY_MCP_URL) {
+      bootstrapped = true;
+      const rpc = async (method, params = {}) => { const response = await fetch(process.env.FRIDAY_MCP_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.FRIDAY_MCP_BEARER_TOKEN }, body: JSON.stringify({ jsonrpc: '2.0', id: method, method, params }) }); return { status: response.status, body: await response.json() }; };
+      trace({ bootstrapCatalog: await rpc('tools/list'), bootstrapAction: await rpc('tools/call', { name: 'list_thread_pull_requests', arguments: {} }) });
+    }
+    return response(record, { model, thinkingLevel, sessionFile, isStreaming: streaming, pendingMessageCount: 0 });
+  }
   if (record.type === 'get_available_models') return response(record, { models: [model, { provider: 'fixture', id: 'max', name: 'Fixture Max', reasoning: true, thinkingLevelMap: { high: null, xhigh: 'high', max: 9999 } }, { provider: 'fixture', id: 'plain', reasoning: false }] });
   if (record.type === 'get_commands') return response(record, { commands: [{ name: 'native-command', source: 'extension', description: 'Native command' }, { name: 'skill:fixture', source: 'skill', sourceInfo: { path: '/fixture/SKILL.md', scope: 'project' } }] });
   if (record.type === 'get_session_stats') return response(record, { contextUsage: { tokens: 123, contextWindow: 8192 } });
@@ -75,15 +97,25 @@ async function command(record) {
       pending = randomUUID();
       emit({ type: 'extension_ui_request', id: pending, method: message === 'approval' ? 'confirm' : 'select', title: message === 'approval' ? 'Allow write?' : 'Select target', message: 'fixture action', options: ['One', 'Two'] }); return;
     }
+    if (message === 'timeout') {
+      emit({ type: 'extension_ui_request', id: randomUUID(), method: 'confirm', title: 'Native timeout', message: 'Expired native question', timeout: 50 });
+      streaming = false; emit({ type: 'agent_settled' }); return;
+    }
     if (message === 'error') {
       emit({ type: 'message_end', message: { role: 'assistant', stopReason: 'error', errorMessage: 'Native model failure', content: [] } });
       streaming = false; emit({ type: 'agent_settled' }); return;
     }
-    if (message === 'children') {
+    if (message?.startsWith('background')) {
+      finish('Pi first result');
+      const timer = setInterval(() => { if (existsSync(join(home, 'emit-wake'))) { clearInterval(timer); void nativeWake(message).catch(error => { trace({ nativeWakeError: error.message }); streaming = false; emit({ type: 'extension_error', error: error.message }); emit({ type: 'agent_settled' }); }); } }, 10);
+      return;
+    }
+    if (message === 'children' || message === 'children-unfinished') {
       const child = { agent: 'Native Pi child', task: 'Inspect the Pi child', model: 'fixture/child', step: 1, messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Pi child result' }] }] };
       emit({ type: 'tool_execution_start', toolCallId: 'subagent-native', toolName: 'subagent', args: {} });
       emit({ type: 'tool_execution_update', toolCallId: 'subagent-native', toolName: 'subagent', partialResult: { content: [], details: { results: [{ ...child, finished: false }] } } });
-      emit({ type: 'tool_execution_end', toolCallId: 'subagent-native', toolName: 'subagent', result: { content: [], details: { results: [{ ...child, exitCode: 0 }] } }, isError: false });
+      if (message === 'children') emit({ type: 'tool_execution_end', toolCallId: 'subagent-native', toolName: 'subagent', result: { content: [], details: { results: [{ ...child, exitCode: 0 }] } }, isError: false });
+      else { const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' }); trace({ unfinishedChild: child.pid }); }
     }
     if (!process.argv.includes('--no-tools')) emit({ type: 'tool_execution_start', toolCallId: 'native-bash', toolName: 'bash', args: { command: 'printf fixture' } });
     if (!process.argv.includes('--no-tools')) emit({ type: 'tool_execution_end', toolCallId: 'native-bash', toolName: 'bash', result: { content: [{ type: 'text', text: 'fixture' }] }, isError: false });

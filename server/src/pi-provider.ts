@@ -4,7 +4,7 @@ import { access, mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises
 import { constants } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { findExecutable } from './agents.js';
 import { defaultCodexSettings, expandHome, parseLaunchArgs, saveProviderSettings, validateSettings, type CodexSettings } from './codex-settings.js';
 import { appendCustomModels, type ProviderModel } from './provider-models.js';
@@ -47,6 +47,10 @@ export async function loadPiSettings(directory: string): Promise<CodexSettings> 
 export function piAccountEnvironment(settings: CodexSettings) {
   const home = resolve(expandHome(settings.homePath || process.env.PI_CODING_AGENT_DIR || join(homedir(), '.pi/agent')));
   return { home, env: { ...Object.fromEntries(settings.environment.map(entry => [entry.name, entry.value])), PI_CODING_AGENT_DIR: home } as NodeJS.ProcessEnv };
+}
+export function piSessionAccount(settings: CodexSettings) {
+  return createHash('sha256').update(JSON.stringify([piAccountEnvironment(settings).home, settings.binaryPath, settings.launchArgs,
+    [...settings.environment].sort((a, b) => a.name.localeCompare(b.name))])).digest('hex');
 }
 export function piModelInventory(data: unknown, state: unknown): ProviderModel[] {
   if (!Array.isArray(piRecord(data)?.models)) throw new Error('Pi 未返回有效模型列表');
@@ -112,7 +116,7 @@ export class PiConnection {
     const options = selected ? selectedProviderOptions(selected, selection) : undefined;
     const effort = options?.effort || (selection?.model ? '' : settings.reasoningEffort);
     if (!selected || effort && !selected.reasoningEfforts.includes(effort)) throw new Error('Pi 模型或推理强度已不可用，请重新选择');
-    return { ...await this.configured(settings), model, effort, permissionMode: settings.permissionMode };
+    return { ...await this.configured(settings), model, effort, permissionMode: settings.permissionMode, settings };
   }
   client(configured: { command: string; args: string[]; env: NodeJS.ProcessEnv }, cwd?: string, ephemeral = false, extension?: string, environment?: NodeJS.ProcessEnv) {
     const rpc = new PiRpc(configured.command, ['--mode', 'rpc', ...(ephemeral ? ['--no-session'] : []), ...configured.args, ...(extension ? ['--extension', extension] : [])], cwd, { ...configured.env, ...environment });

@@ -90,7 +90,10 @@ class MuseSession {
         const ready = (async () => {
           const settings = await loadNativeProviderSettings(this.owner.connection.directory, 'muse');
           if (!settings.enabled || nativeProviderAccount('muse', settings) !== this.runtime.account) throw new Error('Muse 后续回复所属账号配置已改变');
-          return this.observer.open(nativeId);
+          const request = await this.observer.open(nativeId);
+          const current = await loadNativeProviderSettings(this.owner.connection.directory, 'muse');
+          if (!current.enabled || nativeProviderAccount('muse', current) !== this.runtime.account) throw new Error('Muse 后续回复所属账号配置已改变');
+          return request;
         })();
         context = this.context(nativeId, ready, false); this.latestNative = context;
       }
@@ -192,7 +195,7 @@ class MuseSession {
       ...(child ? { subagentId: child, ownerRunId: ready.request.task.currentRunId } : {}) };
     this.pending.set(id, { context, approval, value, kind, ...(origin ? { child: origin.subagentId } : {}), responding: false });
     await ready.projection.flush();
-    if (context.finished && child) await ready.children.nativeApproval(origin!.subagentId, approval);
+    if (child) await ready.children.nativeApproval(origin!.subagentId, approval);
     else await ready.request.update({ kind: 'approval', approval });
   }
   private async resolveInput(id: string, entry: Pending) {
@@ -254,9 +257,8 @@ class MuseSession {
     } catch (error) { await this.close(error instanceof Error ? error : new Error('Muse 原生执行失败')); throw request.signal.aborted ? cancelled() : error; }
     finally { request.signal.removeEventListener('abort', abort); if (this.foreground === context) this.foreground = undefined; this.scheduleIdle(); }
   }
-  async answer(id: string, decision: ApprovalDecision, answers: Record<string, string[]>) {
+  private reply(id: string, decision: ApprovalDecision, answers: Record<string, string[]>) {
     const pending = this.pending.get(id); if (!pending || pending.responding || this.closed) throw new Error('Muse 问题已经结束或正在回答');
-    await pending.context.ready;
     let method: string, params: AcpRecord;
     if (pending.kind === 'approval') {
       const choice = museApprovalChoices(pending.value).get(decision); if (!choice || !pending.approval.decisions?.includes(decision)) throw new Error('Muse 未提供此授权选项');
@@ -267,6 +269,12 @@ class MuseSession {
     }
     const body = JSON.stringify(params);
     if (pending.command && pending.command.body !== body) throw new Error('Muse 回答已经保存，不能替换为另一个回答');
+    return { pending, method, params, body };
+  }
+  validateAnswer(id: string, decision: ApprovalDecision, answers: Record<string, string[]>) { this.reply(id, decision, answers); }
+  async answer(id: string, decision: ApprovalDecision, answers: Record<string, string[]>) {
+    await this.reply(id, decision, answers).pending.context.ready;
+    const { pending, method, params, body } = this.reply(id, decision, answers);
     pending.command ??= { body, id: this.client.connection.mintCommandId() }; pending.responding = true;
     try { await this.client.call(method, params, true, pending.command.id); } finally { pending.responding = false; }
   }
@@ -344,6 +352,7 @@ export class MuseSessions {
       return await session.run(request, runtime);
     } finally { this.running.delete(request.task.id); if (request.purpose && session) await session.close(); else this.sessions.get(request.task.id)?.releaseLease(); }
   }
+  validateAnswer(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) { const session = this.sessions.get(id); if (!session) throw new Error('Muse 原生会话已结束'); session.validateAnswer(approvalId, decision, answers); }
   async answer(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) { const session = this.sessions.get(id); if (!session) throw new Error('Muse 原生会话已结束'); await session.answer(approvalId, decision, answers); }
   async steer(id: string, text: string, requestId: string, images?: ExecutionImage[]) { const session = this.sessions.get(id); if (!session) throw new Error('Muse 当前没有可补充的原生回合'); await session.steer(text, requestId, images); }
   async waitNativeTurn(id: string, sessionId: string, key: string, signal: AbortSignal) { const session = this.sessions.get(id); if (!session || session.executionId !== sessionId) throw new Error('Muse 原生后续连接不可用'); await session.observer.wait(key, signal); }

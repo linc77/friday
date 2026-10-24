@@ -21,8 +21,8 @@ export const backgroundCommandActivity = (task: WorkItem) => {
   return { commands: (task.backgroundCommands?.filter(command => command.status === 'running').length ?? 0) + native.filter(work => work.kind === 'command').length + children.reduce((count, agent) => count + (agent.backgroundCommands ?? 0), 0),
     unknownCommands: (task.backgroundCommands?.filter(command => command.status === 'unknown').length ?? 0) + unknown.filter(work => work.kind === 'command').length + children.reduce((count, agent) => count + (agent.unknownCommands ?? 0), 0),
     monitors: native.filter(work => work.kind === 'monitor').length, subagents: native.filter(work => work.kind === 'subagent').length + children.filter(agent => ['running', 'waiting'].includes(agent.status)).length,
-    backgroundTasks: native.filter(work => work.kind === 'background_task').length, unknownTasks: unknown.length,
-    canStop: Boolean(['codex', 'claude', 'muse'].includes(task.agent) && (backgroundWorkPending(task) || stop && stop.sessionId === task.executionSessionId && (!stop.runId || stop.runId === task.currentRunId) && ['pending', 'uncertain'].includes(stop.status))),
+    backgroundTasks: native.filter(work => work.kind === 'background_task').length, unknownTasks: unknown.length + children.filter(agent => agent.status === 'unknown').length,
+    canStop: Boolean(['codex', 'claude', 'muse', 'pi'].includes(task.agent) && (backgroundWorkPending(task) || stop && stop.sessionId === task.executionSessionId && (!stop.runId || stop.runId === task.currentRunId) && ['pending', 'uncertain'].includes(stop.status))),
     waiting: task.backgroundWaiting === true || nativeCompletionPending(task) && task.nativeBackgroundConnected === true };
 };
 type StopInput = { taskId: string; eventId: string; sessionId: string; requestId: string };

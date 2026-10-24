@@ -336,7 +336,7 @@ export type ExecutionUpdate = NativeRuntimeUpdate | import('./task-subagent-type
   | { kind: 'backgroundCommand'; sessionId: string; threadId: string; item: TaskEvent; disconnected?: boolean }
   | { kind: 'backgroundCommandOutput'; sessionId: string; threadId: string; eventId: string; delta: string }
   | { kind: 'approval'; approval: Approval }
-  | { kind: 'approvalResolved'; id: string }
+  | { kind: 'approvalResolved'; id: string; expired?: boolean }
   | { kind: 'workspace'; reason: string }
   | { kind: 'idea'; id: string; text: string }
   | { kind: 'memory'; id: string; text: string }
@@ -352,6 +352,8 @@ export interface Executor {
   deferredStart?(agent: string): boolean;
   run(request: ExecutionRequest): Promise<string>;
   generateText?(request: TextGenerationRequest): Promise<string>;
+  /** Synchronous local validation only; must not send commands or mutate durable state. */
+  validateAnswer?(taskId: string, approvalId: string, decision: import('./provider-approvals.js').ApprovalDecision, answers: Record<string, string[]>): void;
   answer(taskId: string, approvalId: string, decision: import('./provider-approvals.js').ApprovalDecision, answers: Record<string, string[]>): Promise<void>;
   steer(taskId: string, text: string, requestId: string, images?: ExecutionImage[]): Promise<void>;
   rewind?(request: NativeRewindRequest): Promise<NativeRewindResult>;

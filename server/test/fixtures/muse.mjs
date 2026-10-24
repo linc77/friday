@@ -46,7 +46,7 @@ async function handle(request) {
   if (prompt === 'mcp' && mcp) await fetch(mcp.url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...mcp.headers }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'fixture', arguments: { text: 'muse-native' } } }) });
   if (prompt === 'hold') { holding = true; const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' }); trace({ child: child.pid }); return; }
   if (prompt === 'approval') { notice('approval/requested', { approvalId: 'write', currentRequirementId: { approvalId: 'write', sourceIndex: 1 }, availableChoices: approvals, toolName: 'write_file', rawArgs: '{"path":"fixture.txt"}', subject: { kind: 'write', path: 'fixture.txt' } }); return; }
-  if (prompt === 'question') { notice('userInput/requested', { userInputId: 'question', questions: [{ id: 'target', header: 'Target', question: 'Choose a target', options: [{ label: 'One' }, { label: 'Two' }], selection: { mode: 'multiple', minSelections: 1, maxSelections: 2 } }] }); return; }
+  if (prompt === 'question' || prompt === 'question-two') { notice('userInput/requested', { userInputId: 'question', questions: [{ id: 'target', header: 'Target', question: 'Choose a target', options: [{ label: 'One' }, { label: 'Two' }], selection: { mode: 'multiple', minSelections: prompt === 'question-two' ? 2 : 1, maxSelections: 2 } }] }); return; }
   if (prompt === 'error') { notice('turn/completed', { terminal: 'failed', error: { message: 'Native Muse failure' } }); return; }
   if (prompt === 'joined' || prompt === 'joined-hold') {
     const rootTurn = turn, joinedTurn = 'native-joined-' + rootTurn;
@@ -80,6 +80,7 @@ async function handle(request) {
     const invokeWake = () => { void wake().catch(error => { trace({ wakeError: error.message }); notice('turn/completed', { terminal: 'failed', error: { message: error.message } }); }); };
     const ask = () => { childPermission = true; afterChildApproval = invokeWake; turn = rootTurn; notice('approval/requested', { turnId: 'native-child-run', subagentOrigin: { subagentId: 'native-child' }, approvalId: 'write', currentRequirementId: { approvalId: 'write', sourceIndex: 1 }, availableChoices: approvals, toolName: 'write_file', rawArgs: '{}', subject: { kind: 'write', path: 'late-child.txt' } }); };
     complete();
+    if (prompt.includes('early-approval')) { ask(); return; }
     if (prompt.includes('immediate-wake')) invokeWake();
     else { const timer = setInterval(() => { if (existsSync(join(home, 'emit-wake'))) { clearInterval(timer); if (prompt.includes('child-approval')) ask(); else invokeWake(); } }, 10); }
     return;

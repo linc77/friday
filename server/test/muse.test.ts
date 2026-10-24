@@ -21,7 +21,7 @@ test('Muse native subagent item revisions preserve one child identity when a nat
 });
 test('Muse child-plane approvals retain their native requirement and project onto the known parent-owned child', async t => {
   const f = await setup(t), updates: ExecutionUpdate[] = []; let answer: Promise<void> | undefined;
-  await f.executor.run({ task: task(f.directory), prompt: 'children-approval', signal: AbortSignal.timeout(5000), update: async value => { updates.push(value); if (value.kind === 'approval') { assert.ok(value.approval.subagentId); answer = f.executor.answer('muse-task', value.approval.id, 'accept', {}); } } });
+  await f.executor.run({ task: task(f.directory), prompt: 'children-approval', signal: AbortSignal.timeout(5000), update: async value => { updates.push(value); if (value.kind === 'subagent' && value.value?.kind === 'approval') { assert.ok(value.value.approval.subagentId); answer = f.executor.answer('muse-task', value.value.approval.id, 'accept', {}); } } });
   await answer;
   assert.equal(updates.filter(value => value.kind === 'subagent').at(-1)!.subagent.result, 'Muse child result');
   const reply = (await f.trace()).find(value => value.method === 'approval/decide'); assert.equal(reply.params.requirementId.sourceIndex, 1); assert.equal(reply.params.choiceId, 'allow');
