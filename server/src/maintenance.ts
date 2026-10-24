@@ -30,7 +30,7 @@ export class ServiceMaintenance {
       if (Object.values(state.providerCreditResets ?? {}).some(reset => ['queued', 'running'].includes(reset.status))) throw new Error('仍有配额重置正在确认，请等待完成后更新。');
       if (Object.values(state.taskFeedbackRequests ?? {}).some(value => ['queued', 'uploading'].includes(value.status))) throw new Error('仍有反馈正在提交，请等待完成后更新。');
       if (Object.values(state.usageSourceResetRequests ?? {}).some(value => ['queued', 'running'].includes(value.status))) throw new Error('仍有来源额度重置正在确认，请等待完成后更新。');
-      if (state.tasks.some(task => task.settleCleanup?.status === 'pending' || task.archiveCleanup?.status === 'pending')) throw new Error('仍有会话正在清理，请等待完成后更新。');
+      if (state.tasks.some(task => task.settleCleanup?.status === 'pending' || task.archiveCleanup?.status === 'pending' || task.sessionOperation?.status === 'pending')) throw new Error('仍有会话正在清理或交接，请等待完成后更新。');
       if (state.changeRequestCheckouts?.some(p => ['queued', 'running'].includes(p.status))) throw new Error('仍在准备 PR／MR 目录，请等待完成或停止后更新。');
       if (state.projectScriptTerminalsBusy || state.projectScriptRuns?.some(r => ['queued','running'].includes(r.status))) throw new Error('仍有项目脚本正在运行，请停止后更新。');
       if (pendingReviewGuides(state)) throw new Error('仍在生成审查 Guide，请等待完成或停止后更新。');

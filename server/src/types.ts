@@ -85,6 +85,7 @@ export type TaskWorkspacePreparation = {
   checkoutCompletedAt?: string; setupRunId?: string | null; setupResolvedAt?: string; cancelRequestedAt?: string;
 };
 export type TaskRun = {
+  agent?: string; providerInstanceId?: string; providerEpoch?: string; contextTransferIds?: string[];
   nativeTurnIds?: string[];
   command?: 'compact';
   contextUsage?: import('./task-context-usage.js').TaskContextUsage | null;
@@ -112,6 +113,7 @@ export type TaskForkOperation = {
   prefixMode?: 'observed'; nativePrefix?: string[];
   sourceStatus?: TaskStatus;
   headOnly?: boolean; requestedTitle?: string;
+  lazy?: boolean; dispatchPending?: boolean; dispatchRunId?: string; sourceAgent?: string; sourceProviderInstanceId?: string;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted';
   createdAt: string; updatedAt: string; startedAt?: string; candidateId?: string; nativeResult?: NativeForkResult; error?: string;
   projectedAt?: string; projectedStrategy?: 'native' | 'visible_history';
@@ -134,7 +136,7 @@ export type TaskRewindOperation = {
   id: string; durableId: number; requestId: string; messageId: string; runId: string; removedRunIds: string[]; removedExecutionRunIds?: string[];
   status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted' | 'needs_review';
   phase: 'native' | 'files' | 'completed'; restoreFiles: boolean; cwd: string; fingerprint: string;
-  fingerprintVersion?: 2; // Omitted records use the original v1 history fingerprint.
+  fingerprintVersion?: 2 | 3; // Omitted records use the original v1 history fingerprint.
   createdAt: string; updatedAt: string; error?: string; projectedAt?: string; filesStartedAt?: string; filesCompletedAt?: string;
   sourceThreadId: string | null; sourceTurnId: string | null; targetTurnId: string | null; removeTurns: string[]; keepTurns: string[];
   nativeStart?: NativeRewindStart; nativeCandidate?: string; nativeResult?: NativeRewindResult;
@@ -204,6 +206,11 @@ export type WorkItem = {
   durableId: number | null; threadId: string | null; turnId: string | null;
   result: string; error: string | null; events: TaskEvent[]; approvals: Approval[];
   executionSessionId?: string;
+  providerEpoch?: string;
+  providerHistory?: import('./task-session-actions.js').TaskProviderHistory[];
+  sessionOperation?: import('./task-session-actions.js').TaskSessionOperation;
+  nativeSessionConnected?: boolean; // Read-only owned transport state.
+  contextTransfers?: import('./task-transfers.js').TaskContextTransfer[];
   nativeProviderAccount?: string;
   lastStoppedRunId?: string;
   backgroundCommands?: TaskBackgroundCommand[];
@@ -314,6 +321,8 @@ export type Workspace = {
   changeRequestRequests?: Record<string, { taskId: string; operationId: string; digest: string }>;
   rewindRequests?: Record<string, { taskId: string; operationId: string }>;
   forkRequests?: Record<string, { taskId: string; sourceTaskId: string; sourceRunId: string; operationId: string; action?: string; intent?: string }>;
+  taskSessionRequests?: Record<string, { taskId: string; durableId: number; intent: string }>;
+  taskTransferRequests?: Record<string, { taskId: string; sourceTaskId: string; transferId: string; intent: string }>;
   preparationRequests?: Record<string, { taskId: string; runId: string; durableId: number }>;
   backgroundCommandRequests?: Record<string, { taskId: string; eventId: string; sessionId: string; durableId: number }>;
   nativeTurnRequests?: Record<string, NativeTurnReceipt>;

@@ -20,7 +20,14 @@ async function fixture(t: { after(fn: () => Promise<void>): void }, generation: 
   t.after(async () => { await engine?.close(); await native.close(); await rm(root, { recursive: true, force: true }); });
   await engine.opencodeConnection.save({ ...nativeProviderDefaults('opencode'), enabled: true, serverUrl: native.url, serverPassword: '私有密码' });
   await engine.mutate(state => { state.projects = [{ id: 'project', name: 'OpenCode background', path: cwd, context: '' }]; });
-  const task = async () => (await engine!.snapshot()).tasks.find(task => task.id === id)!, wait = (ready: (task: WorkItem) => boolean) => until(task, task => !!task && ready(task));
+  const task = async () => (await engine!.snapshot()).tasks.find(task => task.id === id)!;
+  const wait = async (ready: (task: WorkItem) => boolean) => {
+    try { return await until(task, task => !!task && ready(task)); }
+    catch (error) {
+      const value = await task(), receipts = Object.values((await engine!.snapshot()).nativeTurnRequests ?? {}).filter(receipt => receipt.taskId === id);
+      throw new Error(JSON.stringify({ error: error instanceof Error ? error.message : 'fixture timed out', status: value?.status, result: value?.result, currentRunId: value?.currentRunId, runs: value?.runs?.map(run => ({ id: run.id, status: run.status, turnId: run.turnId })), messages: value?.messages?.map(message => ({ runId: message.runId, role: message.role, text: message.text })), receipts: receipts.map(receipt => ({ runId: receipt.runId, status: receipt.status, result: receipt.result, error: receipt.error })) }));
+    }
+  };
   return { native, cwd, current: () => engine!, task, wait,
     start: async (prompt = 'reply') => { id = await engine!.createTask({ projectId: 'project', title: 'OpenCode background', agent: 'opencode', mode: 'code', prompt, requestId: 'first' }); return id; },
     reopen: async () => { await engine!.close(); engine = undefined; engine = await open(); return engine; },
@@ -53,14 +60,16 @@ async function fixture(t: { after(fn: () => Promise<void>): void }, generation: 
 }
 test('OpenCode 2 automatic executions persist native observations without another prompt, preserve real heads, and serialize consecutive wakes in the same SSE batch', async t => {
   const f = await fixture(t); await f.start(); const first = await f.wait(task => task.status === 'completed');
-  await f.wake('First native reply'); await f.wake('Second native reply');
-  const done = await f.wait(task => task.status === 'completed' && task.result === 'Second native reply');
-  assert.equal(done.runs!.length, 3); assert.equal(done.executionSessionId, first.executionSessionId); assert.equal(done.messages!.filter(value => value.role === 'user').length, 1);
-  assert.equal(done.nativeHead, 'assistant-wake-2'); assert.deepEqual(done.runs!.at(-1)!.nativeTurnIds, ['synthetic-wake-2']);
+  const replies = Array.from({ length: 6 }, (_, index) => 'Native reply ' + (index + 1));
+  for (const text of replies) await f.wake(text);
+  const done = await f.wait(task => task.status === 'completed' && task.result === replies.at(-1));
+  assert.equal(done.runs!.length, 7); assert.equal(done.executionSessionId, first.executionSessionId); assert.equal(done.messages!.filter(value => value.role === 'user').length, 1);
+  assert.deepEqual(done.messages!.filter(value => value.role === 'assistant').slice(1).map(value => value.text), replies);
+  assert.equal(done.nativeHead, 'assistant-wake-6'); assert.deepEqual(done.runs!.at(-1)!.nativeTurnIds, ['synthetic-wake-6']);
   assert.equal(f.native.records.filter((value: any) => value.prompt).length, 1);
   const fork = await f.current().taskForks.start(done.id, { runId: done.runs!.at(-1)!.id, requestId: 'native-wake-fork' });
   const copied = await until(async () => (await f.current().snapshot()).tasks.find(task => task.id === fork)!, value => value.forkOperation?.status === 'completed');
-  assert.equal(copied.result, 'Second native reply'); assert.equal(copied.messages!.filter(value => value.role === 'user').length, 1); assert.equal(copied.runs!.length, 3);
+  assert.equal(copied.result, replies.at(-1)); assert.equal(copied.messages!.filter(value => value.role === 'user').length, 1); assert.equal(copied.runs!.length, 7);
 });
 test('OpenCode native wake output waits for durable identity persistence and a stopped observation is not replayed after restart', async t => {
   const f = await fixture(t); await f.start(); const first = await f.wait(task => task.status === 'completed'), engine = f.current(), update = engine.nativeTurns.update.bind(engine.nativeTurns);

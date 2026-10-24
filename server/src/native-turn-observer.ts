@@ -17,7 +17,7 @@ export class NativeTurnObserver {
   constructor(private provider: ProviderDriver, private source: () => ExecutionRequest, readonly sessionId: string, readonly threadId: string) {}
   has(key: string) { return [...this.slots.values()].some(slot => slot.key === key && !slot.completed); }
   nativeId(key: string) { return [...this.slots.values()].find(slot => slot.key === key)?.nativeId; }
-  async open(nativeId: string): Promise<ExecutionRequest> {
+  async open(nativeId: string, beforeAdmit?: () => Promise<void>): Promise<ExecutionRequest> {
     if (!nativeId || nativeId.length > 2000 || /[\x00-\x1f]/.test(nativeId)) throw new Error('原生后续轮次标识无效');
     const found = this.slots.get(nativeId); if (found) return found.ready;
     if (this.closed) throw new Error('原生后续连接已关闭');
@@ -29,7 +29,7 @@ export class NativeTurnObserver {
     const previous = this.tail; this.tail = slot.settled;
     const scope = { provider: this.provider, providerInstanceId, threadId: this.threadId, sessionId: this.sessionId, key };
     slot.ready = (async () => {
-      await Promise.race([Promise.all([source.finalized ?? Promise.resolve(), previous]), this.closeSignal]);
+      await Promise.race([Promise.all([source.finalized ?? Promise.resolve(), previous, beforeAdmit?.()]), this.closeSignal]);
       if (this.closed || slot.completed) throw new Error('原生连接已关闭，未启动后续观察');
       await source.update({ kind: 'nativeTurnStart', ...scope, turnId: nativeId, parameters: { cwd: source.task.cwd, mode: source.task.mode, interactionMode: source.task.interactionMode, ...(source.task.model ? { model: source.task.model } : {}), ...(source.task.reasoningEffort ? { reasoningEffort: source.task.reasoningEffort } : {}), modelOptions: source.task.modelOptions ?? [] } });
       slot.started = true;

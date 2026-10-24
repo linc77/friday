@@ -34,6 +34,14 @@ for (const kind of ['pi', 'opencode-1', 'opencode-2'] as const) test(`${kind} Du
   const child = await wait(childId, work => !!work.forkOperation && !['queued', 'running'].includes(work.forkOperation.status));
   assert.equal(child.forkOperation!.status, 'completed', child.forkOperation!.error); assert.notEqual(child.threadId, source.threadId);
   assert.equal(child.providerInstanceId, source.providerInstanceId); assert.equal(child.piHome, source.piHome); assert.equal(child.nativeProviderAccount, source.nativeProviderAccount);
+  const lazyId = await engine.taskForks.start(id, { requestId: 'lazy-fork', runId: source.runs![0]!.id, lazy: true });
+  const lazy = await wait(lazyId, work => work.forkOperation?.status === 'completed');
+  assert.equal(lazy.threadId, null); assert.equal(lazy.forkOperation?.dispatchPending, true);
+  await engine.createTask({ ...input, continueId: lazyId, prompt: 'first lazy child turn', requestId: 'lazy-first-turn' });
+  const lazyContinued = await wait(lazyId, work => work.status === 'completed' && work.runs?.some(run => !run.inheritedFrom) === true);
+  assert.equal(lazyContinued.forkOperation?.status, 'completed', lazyContinued.forkOperation?.error);
+  assert.ok(lazyContinued.threadId && lazyContinued.threadId !== source.threadId && lazyContinued.threadId !== child.threadId);
+  assert.equal(lazyContinued.runs!.at(-1)!.threadId, lazyContinued.threadId);
   const rewind = async (taskId: string, messageId: string, requestId: string) => {
     const options = await engine.taskRewinds.options(taskId, messageId);
     await engine.taskRewinds.start(taskId, { requestId, messageId, fingerprint: options.fingerprint, restoreFiles: false });

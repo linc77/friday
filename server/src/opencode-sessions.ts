@@ -85,7 +85,9 @@ export class OpenCodeNativeSession {
   }
   private observe() {
     const id = 'opencode-native:' + randomUUID(); this.wireTarget = id; this.wireEnded = false; this.wakes.set(id, { events: [] });
-    const ready = (async () => { await this.verify(); const request = await this.observer!.open(id); await this.verify(); return request; })(), release = this.tools.select(ready);
+    // Reserve wire order synchronously. Filesystem account checks may finish in
+    // another order; they must gate admission rather than reorder observations.
+    const ready = (async () => { const request = await this.observer!.open(id, () => this.verify()); await this.verify(); return request; })(), release = this.tools.select(ready);
     void (async () => {
       try { const request = await ready, result = await this.owner.execute(request, this, id); await this.observer!.finish(id, 'completed', result); }
       catch (error) { await this.observer!.finish(id, 'interrupted', undefined, error instanceof Error ? error.message : 'OpenCode 后续回复已中断').catch(() => {}); await this.close(); }

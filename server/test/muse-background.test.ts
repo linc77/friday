@@ -69,6 +69,18 @@ test('A later native wake waits for the previous Durable run to finish after its
   const done = await f.wait(task => task.status === 'completed' && task.messages?.filter(value => value.role === 'assistant').length === 3);
   assert.equal(done.result, 'Second native wake answer'); assert.equal(done.currentRunId, done.runs!.at(-1)!.id);
 });
+test('Durable admission preserves consecutive native wakes when the transport omits its optional finalizer', async t => {
+  const f = await fixture(t), engine = f.current(), run = engine.executor.run.bind(engine.executor), finish = engine.taskRuns.finish.bind(engine.taskRuns);
+  engine.executor.run = request => run({ ...request, nativeTurnFinalized: undefined });
+  let entered!: () => void, release!: () => void, held = false;
+  const entering = new Promise<void>(resolve => { entered = resolve; }), gate = new Promise<void>(resolve => { release = resolve; });
+  engine.taskRuns.finish = async (...args) => { if (!held && args[1].startsWith('native:')) { held = true; entered(); await gate; } await finish(...args); };
+  await f.start('background twice immediate-wake');
+  try { await entering; await new Promise(resolve => setTimeout(resolve, 40)); assert.equal(Object.values((await engine.snapshot()).nativeTurnRequests ?? {}).length, 1); }
+  finally { release(); }
+  const done = await f.wait(task => task.status === 'completed' && task.messages?.filter(value => value.role === 'assistant').length === 3);
+  assert.equal(done.result, 'Second native wake answer'); assert.equal(done.currentRunId, done.runs!.at(-1)!.id);
+});
 test('Muse child approval after the parent completed stays attached to the original child and resolves before the native wake', async t => {
   const f = await fixture(t); const id = await f.start('background child-approval');
   const parent = await f.wait(task => task.status === 'completed'); assert.equal(backgroundCommandActivity(parent).backgroundTasks, 1); assert.equal(backgroundCommandActivity(parent).subagents, 2);

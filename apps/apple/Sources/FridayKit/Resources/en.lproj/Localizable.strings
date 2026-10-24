@@ -2684,3 +2684,12 @@
 "请选择普通文件。" = "Choose a regular file.";
 "附件内容已改变，请重新添加" = "Attachment contents changed. Add it again.";
 "处理后的图片仍超过 10 MB，请选择较小的图片。" = "The processed image exceeds 10 MB. Choose a smaller image.";
+
+"合并回原任务" = "Merge back to parent";
+"断开 Agent 会话" = "Disconnect agent session";
+"正在交接 Agent…" = "Switching agent…";
+"正在断开会话…" = "Disconnecting session…";
+"重试会话操作" = "Retry session action";
+"待合并上下文" = "Context ready to merge";
+"取消合并上下文" = "Discard pending context";
+"原生会话操作尚未确认" = "The native session action is not yet confirmed";

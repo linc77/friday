@@ -90,6 +90,8 @@ import { TaskPreparations } from './task-preparation.js';
 import { TaskConversationHistory } from './task-conversation-history.js';
 import { TaskCommandOutputs } from './task-output.js';
 import { displayContextText } from './task-context-types.js';
+import { TaskSessionActions, nativeSessionActionBusy, providerEpoch, type TaskProviderSelection } from './task-session-actions.js';
+import { TaskTransfers } from './task-transfers.js';
 
 const now = () => new Date().toISOString();
 const event = (kind: string, text: string) => ({ id: randomUUID(), kind, text, at: now() });
@@ -135,6 +137,8 @@ export class Engine extends EventEmitter {
   readonly textGeneration: TextGenerationPreferences;
   readonly taskSettlement: TaskSettlement;
   readonly nativeTurns: TaskNativeTurns;
+  readonly sessionActions: TaskSessionActions;
+  readonly transfers: TaskTransfers;
   readonly nativeBackground: TaskNativeBackground;
   readonly backgroundCommands: TaskBackgroundCommands;
   readonly backgroundStops: TaskBackgroundStops;
@@ -148,6 +152,14 @@ export class Engine extends EventEmitter {
   harness!: Harness;
   root!: Conversation;
   watch?: DocumentWatch<Workspace>;
+  async validateTaskProviderSelection(selection: TaskProviderSelection) {
+    const connection = await this.providerInstances.get(selection.agent, selection.providerInstanceId, true);
+    if (selection.interactionMode === 'plan' && ['pi', 'muse', 'grok'].includes(selection.agent)) throw new Error('此 Agent 没有原生计划模式');
+    if (this.customExecutor) return;
+    const options = { model: selection.model, reasoningEffort: selection.reasoningEffort, modelOptions: selection.modelOptions };
+    if (connection instanceof AcpProviderConnection) await connection.runtime({ ...options, interactionMode: selection.interactionMode });
+    else await connection.runtime(options);
+  }
   private lease!: DatabaseSync;
   private closed = false;
   readonly execution;
@@ -219,7 +231,7 @@ export class Engine extends EventEmitter {
         case 'acp-registry': case 'antigravity': { const connection = new AcpProviderConnection(path, driver, { ...(driver === 'acp-registry' ? providerOptions?.acpRegistry : providerOptions?.antigravity), credentialDirectory: directory }); return { connection, executor: new AcpNativeExecutor(connection) }; }
       }
     }, async (id, driver) => { await this.providerConfigurationChanged(id); if (id !== driver) await this.providerConfigurationChanged(driver); },
-    async (id, activeOnly = false) => { const state = await this.snapshot(); return state.tasks.some(task => taskProviderInstance(task) === id && (!activeOnly || activeStatuses.includes(task.status) || backgroundWorkPending(task) || task.backgroundStop?.status === 'pending' || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation))) || Object.values(state.titleRequests ?? {}).some(request => request.status === 'pending' && (request.modelSelection?.providerInstanceId ?? request.modelSelection?.agent) === id) || state.tasks.some(task => activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id || task.changeRequestGuideRuns?.some(run => ['queued', 'running'].includes(run.status) && (run.modelSelection.providerInstanceId ?? run.modelSelection.agent) === id)) || Object.values(state.providerCreditResets ?? {}).some(receipt => ['queued', 'running', 'uncertain'].includes(receipt.status) && (receipt.scope.providerInstanceId ?? receipt.scope.provider) === id); });
+    async (id, activeOnly = false) => { const state = await this.snapshot(); return state.tasks.some(task => taskProviderInstance(task) === id && (!activeOnly || activeStatuses.includes(task.status) || backgroundWorkPending(task) || task.backgroundStop?.status === 'pending' || nativeSessionActionBusy(task) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation))) || state.tasks.some(task => !activeOnly && task.providerHistory?.some(binding => binding.providerInstanceId === id) || nativeSessionActionBusy(task) && task.sessionOperation?.target?.providerInstanceId === id) || Object.values(state.titleRequests ?? {}).some(request => request.status === 'pending' && (request.modelSelection?.providerInstanceId ?? request.modelSelection?.agent) === id) || state.tasks.some(task => activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id || task.changeRequestGuideRuns?.some(run => ['queued', 'running'].includes(run.status) && (run.modelSelection.providerInstanceId ?? run.modelSelection.agent) === id)) || Object.values(state.providerCreditResets ?? {}).some(receipt => ['queued', 'running', 'uncertain'].includes(receipt.status) && (receipt.scope.providerInstanceId ?? receipt.scope.provider) === id); });
     this.codexConnection = this.providerInstances.default('codex');
     this.claudeConnection = this.providerInstances.default('claude');
     this.piConnection = this.providerInstances.default('pi');
@@ -289,6 +301,7 @@ export class Engine extends EventEmitter {
           const finalized = new Promise<void>(resolve => { finalize = resolve; });
           try {
             let work = (await this.snapshot()).tasks.find(t => t.id === task.input.id)!;
+            if (work.forkOperation?.dispatchRunId === runID && activeFork(work.forkOperation)) throw new Error(work.forkOperation.error ?? '原生分叉尚未确认，未发送新的用户要求');
             if (!receipt && work.executionWorkspace && work.executionWorkspace.state !== 'ready') {
               preparingWorkspace = true;
               await this.patchTask(work.id, item => {
@@ -352,7 +365,7 @@ export class Engine extends EventEmitter {
               const tools = !task.input.command && work.projectId && !work.subagentOrigin && this.executor.supportsTaskTools?.(work.agent) ? await this.runtimeTools.bind(work, runID, runtime.signal) : undefined;
               const createNativeTaskMcp: ExecutionRequest['createNativeTaskMcp'] = tools ? async (sessionId, currentRun, signal) => {
                 const current = (await this.snapshot()).tasks.find(task => task.id === work.id);
-                if (!current || current.executionSessionId !== sessionId && (current.currentRunId !== runID || current.turnId != null) || current.agent !== work.agent || taskProviderInstance(current) !== taskProviderInstance(work) || current.cwd !== work.cwd || current.projectId !== work.projectId) throw new Error('原生任务工具的会话范围已改变');
+                if (!current || nativeSessionActionBusy(current) || current.executionSessionId !== sessionId && (current.currentRunId !== runID || current.turnId != null) || current.agent !== work.agent || taskProviderInstance(current) !== taskProviderInstance(work) || current.cwd !== work.cwd || current.projectId !== work.projectId) throw new Error('原生任务工具的会话范围已改变');
                 return (await this.runtimeTools.bind(current, runID, signal, { sessionId, currentRun })).connection;
               } : undefined;
               let result: string;
@@ -434,6 +447,8 @@ export class Engine extends EventEmitter {
     this.textGeneration = new TextGenerationPreferences(this);
     this.taskSettlement = new TaskSettlement(this);
     this.nativeTurns = new TaskNativeTurns(this);
+    this.transfers = new TaskTransfers(this);
+    this.sessionActions = new TaskSessionActions(this);
     this.nativeBackground = new TaskNativeBackground(this);
     this.backgroundCommands = new TaskBackgroundCommands(this);
     this.backgroundStops = new TaskBackgroundStops(this);
@@ -510,7 +525,7 @@ export class Engine extends EventEmitter {
     catch { this.lease.close(); throw new Error('已有 Friday 服务正在使用这个数据目录。'); }
     try {
       const registry = createRegistry();
-      registry.install(defineExtension({ name: 'friday', tasks: [this.projectRepositories.definition, this.execution, this.response, this.branchSwitch, this.taskQueue.definition, this.projectScripts.definition, this.taskTitles.definition, this.gitOperations.definition, this.changeRequests.definition, this.changeRequestStacks.definition, this.changeRequestCheckouts.definition, this.reviewGuides.definition, this.taskRewinds.definition, this.terminals.definition, this.taskForks.definition, this.backgroundCommands.definition, this.nativeTurns.definition, this.nativeBackground.definition, this.backgroundStops.definition, this.subagents.definition, this.archives.definition, this.settles.definition, this.providerCreditResets.definition, this.taskFeedback.definition, this.usageLimitSources.definition] }));
+      registry.install(defineExtension({ name: 'friday', tasks: [this.projectRepositories.definition, this.execution, this.response, this.branchSwitch, this.taskQueue.definition, this.projectScripts.definition, this.taskTitles.definition, this.gitOperations.definition, this.changeRequests.definition, this.changeRequestStacks.definition, this.changeRequestCheckouts.definition, this.reviewGuides.definition, this.taskRewinds.definition, this.terminals.definition, this.taskForks.definition, this.backgroundCommands.definition, this.nativeTurns.definition, this.nativeBackground.definition, this.backgroundStops.definition, this.subagents.definition, this.archives.definition, this.settles.definition, this.sessionActions.definition, this.providerCreditResets.definition, this.taskFeedback.definition, this.usageLimitSources.definition] }));
       registry.install(this.assistant.extension);
       this.harness = await Harness.open(await openNodeSqliteStorage(join(this.directory, 'friday.sqlite')), {
         models: this.agentOptions?.models ?? this.modelConnection.models, registry,
@@ -586,7 +601,7 @@ export class Engine extends EventEmitter {
       if (pending) task.pendingSubagentRequest = pending.method.includes('requestUserInput') ? 'user_input' : 'approval';
       const terminals = this.terminals.summaries(task.id); if (terminals.length) task.terminals = terminals;
       if (task.subagentOrigin) task.subagents = tasksById.get(task.subagentOrigin.rootTaskId)?.subagents?.filter(agent => agent.parentSubagentId === task.subagentOrigin!.subagentId);
-      if (task.agent !== 'friday') { task.history = this.taskHistory.info(task); task.pullRequests = taskPullRequests(task); task.titleGenerationSupported = !task.subagentOrigin && this.taskTitles.supported; task.sidebarSettledAt = taskSidebarSettledAt(task); task.sidebarActivity = taskSidebarActivity(task); task.settlementManaged = true;
+      if (task.agent !== 'friday') { task.nativeSessionConnected = this.executor.hasSession?.(task.id) === true; task.history = this.taskHistory.info(task); task.pullRequests = taskPullRequests(task); task.titleGenerationSupported = !task.subagentOrigin && this.taskTitles.supported; task.sidebarSettledAt = taskSidebarSettledAt(task); task.sidebarActivity = taskSidebarActivity(task); task.settlementManaged = true;
         task.snoozed = taskIsSnoozed(task, snapshotAt); task.snoozeWakeAt = taskSnoozeWakeAt(task, snapshotAt); task.canSnooze = canSnoozeTask(task); task.canSettle = taskCanSettle(task);
         task.backgroundActivity = backgroundCommandActivity(task);
       }
@@ -872,6 +887,7 @@ export class Engine extends EventEmitter {
       if (work?.archiveCleanup?.status === 'pending') throw new Error('正在清理归档会话，请等待完成后继续');
       if (work?.settleCleanup?.status === 'pending') throw new Error('正在清理结束跟进的会话，请等待完成后继续');
       if (input.command && (!work || native || work.subagentOrigin || !work.threadId || work.threadId !== input.commandThreadId || work.archivedAt || work.queue?.messages.some(message => ['queued', 'dispatching', 'running'].includes(message.status)))) throw new Error('请在原生会话空闲且排队消息处理完毕后压缩上下文');
+      if (work && nativeSessionActionBusy(work)) throw new Error('请先完成或核对 Agent 会话操作');
       if (work && activeStatuses.includes(work.status)) throw new Error('任务正在运行，请使用补充要求');
       if (work && failedWorkspacePreparation(work) && work.executionWorkspace?.state !== 'ready') throw new Error('请先重试工作区准备；补充要求可以保存在排队消息中');
       if (work && activeRewind(work.rewindOperation)) throw new Error('请先处理这条会话的回退结果再发送新要求');
@@ -889,7 +905,7 @@ export class Engine extends EventEmitter {
       if (input.parentId && !parent) throw new Error('Friday 主会话不存在');
       // Local threads run independently. Only turns in the same conversation
       // wait for their predecessor; Friday retains its own conversation lane.
-      const predecessor = native ? workspace.assistantQueueTail ?? null : work?.durableId ?? null;
+      let predecessor = native ? workspace.assistantQueueTail ?? null : work?.durableId ?? null;
       if (executionWorkspace?.mode === 'checkout' && !executionWorkspace.scratch && executionWorkspace.state !== 'ready') assertCheckoutIdle(workspace, executionWorkspace.root);
       const stamp = now();
       if (work && taskSidebarSection(work, stamp) === 'settled') { work.activeOrderKey = null; work.unsettledAt = stamp; }
@@ -934,8 +950,12 @@ export class Engine extends EventEmitter {
       if (!queueEntry) { task.unread = false; task.readAt = stamp; }
       const effectiveProject = workspace.projects.find(p => p.id === task.projectId);
       const hasWorkspace = effectiveProject !== undefined || ((work !== undefined || origin !== undefined) && task.projectId !== null);
+      const contextTransfers = native ? [] : this.transfers.pending(task, input.command);
+      const forkPredecessor = native ? undefined : await this.taskForks.prepareDispatch(tx, task);
+      if (forkPredecessor !== undefined) predecessor = forkPredecessor;
+      const resolvingNativeFork = forkPredecessor !== undefined && task.forkOperation?.strategy === 'native';
       const promptParts = [
-        !native && !task.threadId && task.messages.filter(message => !message.revertedAt).length > 1 ? `Previous conversation (context only; do not replay past actions):\n${task.messages.filter(message => !message.revertedAt).slice(0, -1).map(m => `${m.role}: ${this.contexts.project(m.text, m.contexts, m.images)}`).join('\n\n')}` : '',
+        !native && !task.threadId && !resolvingNativeFork && !contextTransfers.some(transfer => transfer.kind === 'provider_handoff') && task.messages.filter(message => !message.revertedAt).length > 1 ? `Previous conversation (context only; do not replay past actions):\n${task.messages.filter(message => !message.revertedAt).slice(0, -1).map(m => `${m.role}: ${this.contexts.project(m.text, m.contexts, m.images)}`).join('\n\n')}` : '',
         `Task: ${this.contexts.project(input.prompt, references, images) || '请查看附带图片。'}`,
         interactionMode === 'plan' ? 'Interaction mode: Plan. Inspect and ask clarifying questions as needed. Propose an actionable plan, then stop and wait for feedback or an explicit implementation request. Do not modify project files or start implementation during this turn.' : task.mode === 'auto'
           ? `Understand the user's intent and respond or act accordingly. ${hasWorkspace ? 'The user selected the workspace below. Only modify files when requested; inspect and explain read-only requests without changing files.' : 'No workspace is selected. Answer questions and research normally. If a local workspace is needed, call friday_request_workspace and stop this turn. Never guess a working directory or attempt file changes before selection.'}`
@@ -946,6 +966,7 @@ export class Engine extends EventEmitter {
         `Workflow skill:\n${skill}`,
         sourceIdea ? 'The user explicitly delegated this saved idea now. Act on it instead of saving the same idea again.' : '',
         work ? 'Continue this existing task. Check the current workspace and previous results before repeating any external operation.' : '',
+        contextTransfers.length ? this.transfers.project(contextTransfers) : '',
       ];
       const prompt = promptParts.filter(Boolean).join('\n\n');
       const contextText = promptParts.filter((value, index) => index !== 1 && value).join('\n\n');
@@ -962,9 +983,11 @@ export class Engine extends EventEmitter {
         : await tx.createTask(this.execution, { id: task.id, predecessor, prompt, userText: this.contexts.project(input.prompt, references, images), contextText, ...(input.command ? { command: input.command, contextBeforeCompaction } : {}), ...(images.length ? { images } : {}) }, { ownership: { kind: 'conversation' } });
       if (!native) {
         const runID = String(durableId); const message = input.command ? undefined : task.messages.at(-1); if (message) message.runId = runID;
+        if (forkPredecessor !== undefined) task.forkOperation!.dispatchRunId = runID;
         task.currentRunId = runID; task.runs ??= [];
-        task.runs.push({ id: runID, durableId, messageId: message?.id ?? '', ...(input.command ? { command: input.command } : {}), requestId: input.requestId, cwd: task.cwd, at: stamp,
+        task.runs.push({ id: runID, durableId, messageId: message?.id ?? '', agent: task.agent, providerInstanceId: taskProviderInstance(task), providerEpoch: providerEpoch(task), ...(contextTransfers.length ? { contextTransferIds: contextTransfers.map(transfer => transfer.id) } : {}), ...(input.command ? { command: input.command } : {}), requestId: input.requestId, cwd: task.cwd, at: stamp,
           status: 'queued', mode: task.mode, interactionMode, modelOptions: task.modelOptions, ...(task.model ? { model: task.model } : {}), ...(task.reasoningEffort ? { reasoningEffort: task.reasoningEffort } : {}) });
+        for (const transfer of contextTransfers) { transfer.status = 'consumed'; transfer.consumedAt = stamp; transfer.runId = runID; }
       }
       if (native) workspace.assistantQueueTail = durableId;
       else workspace.queueTail = durableId;
@@ -1077,6 +1100,10 @@ export class Engine extends EventEmitter {
       await this.harness.abortTask(task.durableId as TaskId, context);
       await this.harness.waitForTask(task.durableId as TaskId, context);
     }
+    if (task.forkOperation?.lazy && task.forkOperation.dispatchRunId === task.currentRunId && runningFork(task.forkOperation)) {
+      await this.harness.abortTask(task.forkOperation.durableId as TaskId, context);
+      await this.harness.waitForTask(task.forkOperation.durableId as TaskId, context);
+    }
     await this.backgroundStops.cancelSettled(task);
   }
   async answer(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>, requestId = 'approval-' + providerDigest([id, approvalId]).slice(0,32)) {
@@ -1090,7 +1117,7 @@ export class Engine extends EventEmitter {
       const task = state.tasks.find(task => task.id === id), approval = task?.approvals.find(value => value.id === approvalId);
       const childWaiting = approval?.subagentId && task?.subagents?.some(child => child.id === approval.subagentId && ['running','waiting'].includes(child.status));
       const nativeWaiting = Object.values(state.nativeTurnRequests ?? {}).some(receipt => receipt.taskId === id && receipt.status === 'running' && receipt.approvalIds?.includes(approvalId));
-      if (!task || !approval || approval.state !== 'pending' || approval.responseStatus === 'sending' || approval.responseStatus === 'uncertain' || task.currentRunId && task.lastStoppedRunId === task.currentRunId || task.backgroundStop?.status === 'pending' && task.backgroundStop.sessionId === task.executionSessionId || task.archivedAt || task.settledAt || task.settledOverride === 'settled' || task.archiveCleanup?.status === 'pending' || task.settleCleanup?.status === 'pending' || !activeStatuses.includes(task.status) && !childWaiting && !nativeWaiting) throw new Error('授权请求已过期');
+      if (!task || !approval || approval.state !== 'pending' || approval.responseStatus === 'sending' || approval.responseStatus === 'uncertain' || task.currentRunId && task.lastStoppedRunId === task.currentRunId || task.backgroundStop?.status === 'pending' && task.backgroundStop.sessionId === task.executionSessionId || task.archivedAt || task.settledAt || task.settledOverride === 'settled' || task.archiveCleanup?.status === 'pending' || task.settleCleanup?.status === 'pending' || nativeSessionActionBusy(task) || !activeStatuses.includes(task.status) && !childWaiting && !nativeWaiting) throw new Error('授权请求已过期');
       const supported = approval.options?.map(option => option.decision) ?? approval.decisions ?? ['accept','decline'];
       if (!supported.includes(decision)) throw new Error('此授权请求不支持这个决定');
       if (decision === 'accept' && approval.questions.some(question => !answers[question.id]?.some(value => value.trim()))) throw new Error('请回答所有问题');

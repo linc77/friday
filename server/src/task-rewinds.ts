@@ -11,6 +11,7 @@ import { branchBlocksTask, switchingBranch } from './branch-switch.js';
 import { assertIsolatedRestore, rewindFingerprint, rewindTarget } from './task-rewind-safety.js';
 import { readRestoreReview } from './managed-worktree.js';
 import { executionRuns } from './task-run-order.js';
+import { nativeSessionActionBusy, providerEpoch } from './task-session-actions.js';
 
 const stamp = () => new Date().toISOString();
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value));
@@ -102,6 +103,7 @@ export class TaskRewinds {
   }
 
   private assertIdle(state: Workspace, work: WorkItem, own = false) {
+    if (nativeSessionActionBusy(work)) throw new Error('请先完成或核对 Agent 会话操作');
     if (work.settleCleanup?.status === 'pending') throw new Error('正在清理结束跟进的会话，请等待完成后回退');
     if (hasRunningBackgroundCommands(work)) throw new Error('请先停止后台命令再回退会话');
     if (activeFork(work.forkOperation) || headForkSourceBusy(state.tasks, work.id)) throw new Error('请先处理这条会话的分叉结果再回退');
@@ -124,7 +126,9 @@ export class TaskRewinds {
       fileFingerprint = (await readRestoreReview(work, this.engine.directory)).fingerprint;
     } catch (error) { restoreReason = error instanceof Error ? error.message : '不能恢复文件'; }
     const previous = executionKeep.at(-1);
-    const nativeReason = work.agent === 'claude' && previous && (!previous.nativeHead || !previous.threadId) ? '保留的 Claude 轮次没有 SDK 消息游标，无法安全续接；可从保留历史建立新会话'
+    const crossesProvider = [...executionRemoved, ...(previous ? [previous] : [])].some(run => run.providerEpoch && run.providerEpoch !== providerEpoch(work));
+    const nativeReason = crossesProvider ? '所选历史跨越 Agent 交接；可以从保留历史建立新会话'
+      : work.agent === 'claude' && previous && (!previous.nativeHead || !previous.threadId) ? '保留的 Claude 轮次没有 SDK 消息游标，无法安全续接；可从保留历史建立新会话'
       : !['codex', 'claude', 'pi', 'opencode'].includes(work.agent) ? '此 Provider 没有可用的原生回退；可以从保留历史建立新会话'
       : work.agent === 'pi' && executionRemoved.some(run => run.turnId && !run.nativeTurnIds?.length) ? '所选 Pi 轮次没有捕获会话树游标；可以从保留历史建立新会话'
       : work.agent !== 'claude' && executionRemoved.some(run => run.threadId && run.threadId !== work.threadId) ? '所选历史跨越多个原生会话；可从保留历史建立新会话' : undefined;
@@ -149,6 +153,7 @@ export class TaskRewinds {
       this.assertIdle(state, work);
       if (rewindFingerprint(work) !== input.fingerprint) throw new Error('任务历史已经改变，请重新选择回退位置');
       const { target, removed, message, executionRemoved, executionKeep } = rewindTarget(work, input.messageId);
+      if (!input.newSession && [...executionRemoved, ...executionKeep.slice(-1)].some(run => run.providerEpoch && run.providerEpoch !== providerEpoch(work))) throw new Error('所选历史跨越 Agent 交接，请从保留历史建立新会话');
       const removeTurns = executionRemoved.filter(run => run.turnId && run.threadId === work.threadId).flatMap(run => run.nativeTurnIds ?? [run.turnId!]);
       const activeMessages = work.messages?.filter(message => !message.revertedAt) ?? [];
       const legacyTurns = activeMessages.slice(0, activeMessages.findIndex(value => value.id === message.id)).filter(value => !value.runId && value.turnId).map(value => value.turnId!);
@@ -156,13 +161,14 @@ export class TaskRewinds {
       const keepTurns = [...new Set([...legacyTurns.filter(turn => !removedNative.has(turn)), ...executionKeep.filter(run => run.threadId === work.threadId && run.turnId).flatMap(run => run.nativeTurnIds ?? [run.turnId!])])];
       if (!input.newSession && work.agent !== 'claude' && executionRemoved.some(run => run.threadId && run.threadId !== work.threadId)) throw new Error('所选历史跨越多个原生会话，请从保留历史建立新会话');
       const durableId = await tx.createTask(this.definition, { id, operationId: operationID, attempt: 0 }, { ownership: { kind: 'conversation' } });
+      const editorSelection = target.providerEpoch && target.providerEpoch !== providerEpoch(work) ? { interactionMode: work.interactionMode ?? 'default', model: work.model, reasoningEffort: work.reasoningEffort, modelOptions: work.modelOptions } : target;
       if (work.rewindOperation) { work.rewindOperations ??= []; work.rewindOperations.push(copy(work.rewindOperation)); }
       work.rewindOperation = { id: operationID, durableId, requestId: input.requestId, messageId: message.id, runId: target.id, removedRunIds: removed.map(run => run.id),
         removedExecutionRunIds: executionRemoved.map(run => run.id),
-        status: 'queued', phase: 'native', restoreFiles: input.restoreFiles, cwd: work.cwd, fingerprint: input.fingerprint, fingerprintVersion: 2,
+        status: 'queued', phase: 'native', restoreFiles: input.restoreFiles, cwd: work.cwd, fingerprint: input.fingerprint, fingerprintVersion: 3,
         createdAt: stamp(), updatedAt: stamp(), sourceThreadId: work.threadId, sourceTurnId: work.turnId, targetTurnId: removeTurns[0] ?? null, removeTurns, keepTurns,
         ...(executionRemoved[0]?.before ? { checkpoint: copy(executionRemoved[0].before) } : {}), ...(input.fileFingerprint ? { fileFingerprint: input.fileFingerprint } : {}), ...(input.newSession ? { resolution: 'new_session' } : {}), attempt: 0,
-        editor: { text: message.text, images: copy(message.images ?? []), ...(message.contexts?.length ? { contexts: copy(message.contexts) } : {}), interactionMode: target.interactionMode, modelOptions: target.modelOptions ?? [], ...(target.model ? { model: target.model } : {}), ...(target.reasoningEffort ? { reasoningEffort: target.reasoningEffort } : {}) } };
+        editor: { text: message.text, images: copy(message.images ?? []), ...(message.contexts?.length ? { contexts: copy(message.contexts) } : {}), interactionMode: editorSelection.interactionMode, modelOptions: editorSelection.modelOptions ?? [], ...(editorSelection.model ? { model: editorSelection.model } : {}), ...(editorSelection.reasoningEffort ? { reasoningEffort: editorSelection.reasoningEffort } : {}) } };
       state.rewindRequests ??= {}; state.rewindRequests[input.requestId] = { taskId: id, operationId: operationID }; state.revision++;
     }, context);
     this.engine.harness.resume();
@@ -255,6 +261,7 @@ export class TaskRewinds {
       task.currentRunId = previous?.id; task.durableId = previous?.durableId ?? null; task.turnId = previous?.turnId ?? null;
       const needsContext = task.agent === 'codex' && native.turns?.length === 0 && keptMessages.length > 0;
       task.threadId = needsContext ? null : native.threadId; task.nativeHead = previous?.nativeHead; task.claudeResumeSessionAt = native.resumeSessionAt; delete task.claudeResumePendingRun;
+      if (!task.threadId) { delete task.nativeHead; task.providerEpoch = randomUUID(); }
       if (!task.threadId || task.threadId !== operation.sourceThreadId) task.goal = null;
       task.contextUsage = task.threadId ? previous?.contextUsage ?? null : null;
       if (native.threadId && native.threadId !== operation.sourceThreadId && ['codex', 'pi', 'opencode'].includes(task.agent)) for (const run of task.runs ?? []) if (!run.revertedAt && run.threadId === operation.sourceThreadId) run.threadId = native.threadId;

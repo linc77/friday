@@ -17,9 +17,11 @@ enum TaskAttachmentImport {
         let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentTypeKey, .isRegularFileKey])
         guard url.isFileURL, values.isRegularFile == true else { throw failure("请选择普通文件。") }
         guard let size = values.fileSize, size > 0, size <= maximumBytes else { throw failure("附件不能为空，且不能超过 50 MB") }
-        let data = try Data(contentsOf: url)
+        let handle = try FileHandle(forReadingFrom: url); defer { try? handle.close() }
+        let data = try handle.read(upToCount: maximumBytes + 1) ?? Data()
         guard !data.isEmpty, data.count <= maximumBytes else { throw failure("附件不能为空，且不能超过 50 MB") }
-        return TaskAttachmentInput(data: data, name: url.lastPathComponent, mediaType: values.contentType?.preferredMIMEType ?? "application/octet-stream", isImage: values.contentType?.conforms(to: .image) == true)
+        let mediaType = values.contentType?.preferredMIMEType ?? "application/octet-stream"
+        return TaskAttachmentInput(data: data, name: url.lastPathComponent, mediaType: mediaType, isImage: values.contentType?.conforms(to: .image) == true && mediaType != "image/svg+xml")
     }
     static func input(from provider: NSItemProvider) async throws -> TaskAttachmentInput {
         if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
@@ -43,7 +45,8 @@ enum TaskAttachmentImport {
                 }
             }
             guard !data.isEmpty, data.count <= maximumBytes else { throw failure("附件不能为空，且不能超过 50 MB") }
-            return TaskAttachmentInput(data: data, name: provider.suggestedName ?? "粘贴的图片.png", mediaType: UTType(type)?.preferredMIMEType ?? "image/png", isImage: true)
+            let mediaType = UTType(type)?.preferredMIMEType ?? "image/png"
+            return TaskAttachmentInput(data: data, name: provider.suggestedName ?? "粘贴的图片.png", mediaType: mediaType, isImage: mediaType != "image/svg+xml")
         }
         guard let type = provider.registeredTypeIdentifiers.first(where: { UTType($0)?.conforms(to: .data) == true }) else { throw failure("无法读取附件文件。") }
         // A provider's file representation is temporary: copy its bytes while

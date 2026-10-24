@@ -50,6 +50,11 @@ struct TaskImagePasteboardTests {
         let importedFile = try await TaskAttachmentImport.input(from: files[0])
         precondition(importedFile.data == Data([0, 255, 10, 128, 42]) && !importedFile.isImage && importedFile.mediaType == "application/pdf")
         precondition(importedFile.name.hasSuffix(".pdf"))
+        let svg = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".svg")
+        let source = Data("<svg xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0h2v2\"/></svg>".utf8); try source.write(to: svg)
+        defer { try? FileManager.default.removeItem(at: svg) }
+        let importedSVG = try TaskAttachmentImport.read(svg)
+        precondition(!importedSVG.isImage && importedSVG.mediaType == "image/svg+xml" && importedSVG.data == source, "SVG source must stay an editable file attachment")
         pasteboard.clearContents(); pasteboard.writeObjects([FileManager.default.temporaryDirectory as NSURL])
         precondition(!TaskImagePasteboard.containsImages(in: pasteboard), "A folder must not become an upload")
         do { _ = try TaskAttachmentImport.read(FileManager.default.temporaryDirectory); preconditionFailure("Directories cannot be uploaded") } catch {}

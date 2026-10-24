@@ -30,7 +30,7 @@ export function taskSummary(task: WorkItem, sequence: number): WorkItem {
 export function taskOverview(state: Workspace, session: string): Workspace {
   const { requests: _, usageSourceResetRequests: _sourceResets, usageSourceResetTail: _sourceTail, taskFeedbackRequests: _feedback, providerCreditResets: _creditResets, providerCreditAccounts: _creditAccounts, taskMetadataRequests: _metadataRequests, queueTail: _queue, assistantQueueTail: _assistantQueue, branchRequests: _branches, gitRequests: _git, changeRequestRequests: _changeRequests,
     changeRequestLinkRequests: _links, changeRequestWatchRequests: _watches,
-    rewindRequests: _rewinds, forkRequests: _forks, preparationRequests: _preparations, titleRequests: _titles, sidebarRequests: _sidebar, backgroundCommandRequests: _background, nativeTurnRequests: _nativeTurns, nativeBackgroundRequests: _nativeBackground, backgroundStopRequests: _backgroundStops, subagentStopRequests: _subagentStops, ...visible } = publicProviderState(state);
+    rewindRequests: _rewinds, forkRequests: _forks, taskSessionRequests: _sessionRequests, taskTransferRequests: _transferRequests, preparationRequests: _preparations, titleRequests: _titles, sidebarRequests: _sidebar, backgroundCommandRequests: _background, nativeTurnRequests: _nativeTurns, nativeBackgroundRequests: _nativeBackground, backgroundStopRequests: _backgroundStops, subagentStopRequests: _subagentStops, ...visible } = publicProviderState(state);
   return { ...visible, requests: {}, taskStreamSession: session, tasks: state.tasks.map(task => taskSummary(task, state.revision)) };
 }
 export type TaskSummaryPatch = { sessionId: string; sequence: number; tasks: WorkItem[]; removed: string[]; order?: string[] };

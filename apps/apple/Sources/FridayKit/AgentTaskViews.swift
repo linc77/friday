@@ -332,6 +332,8 @@ struct AgentTaskComposer: View {
     @State private var modelOptions: [ProviderOptionSelection] = []
     @State private var error: String?
     @State private var switchingBranch = false
+    @State private var switchingProvider = false
+    @State private var providerChangeRequests: [String: String] = [:]
     @State private var stoppingTaskId: String?
     @State private var stoppingRequest: UUID?
     @State private var expanded = true
@@ -380,6 +382,10 @@ struct AgentTaskComposer: View {
     private var providerName: String { store.providerInstances.first(where: { $0.id == selectedInstance })?.name ?? TaskProviderCatalog.name(provider) }
     private var connectionError: String? { error ?? compaction.failure ?? submissionError ?? commandCatalog.failure ?? (TaskContextDocument.missing(message, records: contexts) ? "引用内容未加载，请删除后重新添加。" : nil) ?? (state?.enabled == false ? "已停用" : state?.error) }
     private var active: Bool { task?.active == true }
+    private var canChangeProvider: Bool {
+        guard let task, task.nativeSessionConnected != nil else { return false }
+        return !task.active && !task.sessionBusy && !task.gitBusy && !task.backgroundStopAvailable && task.archivedAt == nil && task.subagentOrigin == nil && editingQueuedMessageId == nil && task.queue?.dispatcherId == nil && task.queue?.messages.contains(where: { ["queued", "dispatching", "steering", "running"].contains($0.status) }) != true && task.subagents?.contains(where: { ["running", "waiting", "unknown"].contains($0.status) }) != true
+    }
     private var stopping: Bool { stoppingTaskId != nil && stoppingTaskId == task?.id || task?.backgroundStopPending == true }
     private var backgroundStopAvailable: Bool { store.taskBackgroundSettlementSupported && task?.backgroundStopAvailable == true }
     private var draftEmpty: Bool { message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && images.isEmpty }
@@ -457,7 +463,7 @@ struct AgentTaskComposer: View {
     private var dispatchMode: TaskComposerDispatch { TaskComposerDispatch.resolve(running: active, canSteer: canSteer, preference: followUpBehavior, alternate: alternateDown) }
     private var editingAvailable: Bool { editingQueuedMessageId == nil || task?.queue?.messages.first(where: { $0.id == editingQueuedMessageId })?.editable == true }
     private var proposedPlan: TaskEvent? { TaskExecutionPresentation.currentPlan(task, mode: interactionMode, editing: editingQueuedMessageId != nil) }
-    private var disabled: Bool { sending || compaction.busy || compactingContext || importing || capturingContext || contextInsertion != nil || TaskContextDocument.missing(message, records: contexts) || stopping || switchingBranch || task?.gitBusy == true || task?.sessionBusy == true || task?.claudeResumePendingRun != nil || task?.branchChange?.active == true || !store.connected || (draftEmpty && proposedPlan == nil) || !editingAvailable || (requiresProject && projectPath == nil) || !workspaceReady || (!active && state?.connected != true) }
+    private var disabled: Bool { sending || switchingProvider || compaction.busy || compactingContext || importing || capturingContext || contextInsertion != nil || TaskContextDocument.missing(message, records: contexts) || stopping || switchingBranch || task?.gitBusy == true || task?.sessionBusy == true || task?.claudeResumePendingRun != nil || task?.branchChange?.active == true || !store.connected || (draftEmpty && proposedPlan == nil) || !editingAvailable || (requiresProject && projectPath == nil) || !workspaceReady || (!active && state?.connected != true) }
     private var selectedModel: CodexProviderModel? { state?.models.first { $0.id == (model.isEmpty ? state?.model : model) } }
     private var compact: Bool {
         #if os(macOS)
@@ -506,6 +512,7 @@ struct AgentTaskComposer: View {
             citationCaret=nil
             importing = false; dropTargeted = false; error = nil
             beforeQueueEdit = nil; alternateDown = false
+            switchingProvider = false; providerChangeRequests = [:]
         }
         .onChange(of: attachmentImportIdentity) { _, _ in attachmentImportRequest = nil; importing = false }
         .onChange(of: editingQueuedMessageId) { _, id in
@@ -563,6 +570,11 @@ struct AgentTaskComposer: View {
             let queued = task?.queue?.messages.first { $0.id == editingQueuedMessageId }
             provider = task?.agent ?? "codex"; instanceId = task?.resolvedProviderInstance ?? "codex"; model = queued?.model ?? task?.model ?? ""; restoreOptions(queued?.modelOptions ?? task?.modelOptions ?? [], effort: queued?.reasoningEffort ?? task?.reasoningEffort ?? "")
         }
+        .onChange(of: task?.providerEpoch) { _, _ in
+            guard let task else { return }
+            provider = task.agent; instanceId = task.resolvedProviderInstance; model = task.model ?? ""; restoreOptions(task.modelOptions ?? [], effort: task.reasoningEffort ?? ""); showModels = false
+            interactionMode = task.interactionMode ?? "default"; beforeQueueEdit = nil
+        }
     }
 
     private var providerStatusKey: String { store.connectionIdentity + ":" + (store.taskStreamSession ?? "") + ":" + String(store.connected) + ":" + TaskProviderCatalog.order.map { $0 + ":" + String(store.providerConfigurationVersions[$0] ?? 0) }.joined(separator: "|") + ":" + (task?.resolvedProviderInstance ?? "new") + ":" + store.agents.filter(\.executableSupported).map(\.id).joined(separator: "|") }
@@ -595,6 +607,7 @@ struct AgentTaskComposer: View {
         .onAppear { editorIdentity = fullEditorIdentity; recoverKnownContexts() }
         .onChange(of: fullEditorIdentity) { _, identity in
             editorIdentity = identity; mention = nil; suppressedMention = nil; suggestions = []; loadingSuggestions = false; capturingContext = false; fileMentionRequest = nil; previewContext = nil; showContextPicker = false
+            switchingProvider = false; providerChangeRequests = [:]
         }
         .onChange(of: message) { _, _ in recoverKnownContexts() }
         .popover(item: $previewContext) { reference in TaskContextPreview(store: store, reference: reference, scope: contextScope) }
@@ -724,6 +737,10 @@ struct AgentTaskComposer: View {
             if let task, let approval = task.approvals.first(where: { $0.state == "pending" }) {
                 TaskPendingAction(store: store, task: task, approval: approval, stop: stop).id(approval.id)
             } else {
+            if let task {
+                TaskSessionOperationNotice(store: store, task: task).id(task.id)
+                TaskPendingTransfers(store: store, task: task).id(task.id)
+            }
             if !images.isEmpty {
                 TaskImageRail(store: store, images: images, remove: { id in images.removeAll { $0.id == id } }, disabled: sending || importing)
             }
@@ -1001,7 +1018,7 @@ struct AgentTaskComposer: View {
         return true
     }
     private func addReference(_ reference: TaskContextReference, replacing: TaskMentionQuery?) {
-        let duplicate = contexts.first { $0.kind == reference.kind && $0.path == reference.path && $0.digest == reference.digest && $0.lineStart == reference.lineStart && $0.lineEnd == reference.lineEnd }
+        let duplicate = contexts.first { $0.kind == reference.kind && $0.path == reference.path && $0.digest == reference.digest && $0.lineStart == reference.lineStart && $0.lineEnd == reference.lineEnd && $0.attachmentName == reference.attachmentName && $0.mediaType == reference.mediaType }
         guard duplicate != nil || images.count + TaskContextDocument.used(message, records: contexts).count < 100 else { error = "每条消息最多添加 100 个附件或上下文引用"; return }
         if duplicate == nil { contexts.append(reference) }
         let accepted = duplicate ?? reference
@@ -1123,13 +1140,35 @@ struct AgentTaskComposer: View {
                     Text(selectedModel?.selectionName ?? (model.isEmpty ? providerName : model)).lineLimit(1)
                     if selectedInstance != provider { Text(providerName).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                 }
-            }.buttonStyle(FridaySymbolButtonStyle()).disabled(sending).accessibilityLabel(Text(friday: "任务模型"))
+            }.buttonStyle(FridaySymbolButtonStyle()).disabled(sending || switchingProvider).accessibilityLabel(Text(friday: "任务模型"))
                 .popover(isPresented: $showModels) {
-                    TaskModelPicker(server: store.connection.server, scope: store.connectionIdentity, states: states, lockedProvider: task?.agent, provider: provider, model: selectedModel?.id ?? model, instances: store.providerInstances, instanceId: selectedInstance, lockedInstance: task?.resolvedProviderInstance) { choice in
-                        choseProvider = true; provider = choice.provider; instanceId = choice.selectionId; model = choice.model.id; effort = ""; modelOptions = []; if !TaskProviderCatalog.supportsInteractionModes(provider, state: states[selectedInstance]) { interactionMode = "default" }; showModels = false
-                    }.environment(\.locale, locale)
+                    TaskModelPicker(server: store.connection.server, scope: store.connectionIdentity, states: states, lockedProvider: canChangeProvider ? nil : task?.agent, provider: provider, model: selectedModel?.id ?? model, instances: store.providerInstances, instanceId: selectedInstance, lockedInstance: canChangeProvider ? nil : task?.resolvedProviderInstance, select: chooseModel).environment(\.locale, locale)
                 }
             nativeOptionControls
+        }
+    }
+
+    private func chooseModel(_ choice: TaskModelChoice) {
+        guard !switchingProvider else { return }
+        let mode = TaskProviderCatalog.supportsInteractionModes(choice.provider, state: states[choice.selectionId]) ? interactionMode : "default"
+        showModels = false
+        if let task, choice.provider != task.agent || choice.selectionId != task.resolvedProviderInstance {
+            guard canChangeProvider else { return }
+            let identity = editorIdentity, connection = store.connectionIdentity
+            let key = (task.providerEpoch ?? task.agent + ":" + task.resolvedProviderInstance) + ":" + choice.id + ":" + mode
+            let requestID = providerChangeRequests[key] ?? UUID().uuidString; providerChangeRequests[key] = requestID
+            switchingProvider = true; error = nil
+            Task { @MainActor in
+                defer { if editorIdentity == identity, store.connectionIdentity == connection { switchingProvider = false } }
+                do {
+                    try await store.taskSessionAction(task.id, kind: "handoff", target: ["agent": choice.provider, "providerInstanceId": choice.selectionId, "model": choice.model.id, "modelOptions": [], "interactionMode": mode], requestID: requestID)
+                    guard editorIdentity == identity, store.connectionIdentity == connection else { return }
+                    guard store.tasks.first(where: { $0.id == task.id }).map({ $0.agent == choice.provider && $0.resolvedProviderInstance == choice.selectionId }) == true else { return }
+                    choseProvider = true; provider = choice.provider; instanceId = choice.selectionId; model = choice.model.id; effort = ""; modelOptions = []; interactionMode = mode
+                } catch { if editorIdentity == identity, store.connectionIdentity == connection { self.error = error.localizedDescription } }
+            }
+        } else {
+            choseProvider = true; provider = choice.provider; instanceId = choice.selectionId; model = choice.model.id; effort = ""; modelOptions = []; interactionMode = mode
         }
     }
 

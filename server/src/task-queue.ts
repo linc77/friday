@@ -1,5 +1,6 @@
 import { providerOptionSelections } from './provider-models.js';
 import { randomUUID } from 'node:crypto';
+import { nativeSessionActionBusy } from './task-session-actions.js';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import { defineTask, type TaskId } from '@earendil-works/pi-durable';
 import type { Engine } from './engine.js';
@@ -147,6 +148,7 @@ export class TaskQueue {
       }
       const task = localTask(state.tasks.find(task => task.id === id));
       const references = await this.engine.contexts.references(input.text, input.contextIds, { task, project: state.projects.find(project => project.id === task.projectId) }, images);
+      if (nativeSessionActionBusy(task)) throw new Error('请先完成或核对 Agent 会话操作');
       if (activeRewind(task.rewindOperation)) throw new Error('请先处理会话回退，再发送排队消息');
       if (activeFork(task.forkOperation) || headForkSourceBusy(state.tasks, task.id)) throw new Error('请先处理会话分叉，再发送排队消息');
       if (task.claudeResumeSessionAt && task.claudeResumePendingRun) throw new Error('Claude 回退续接结果待核对，请先处理会话历史');
@@ -232,6 +234,7 @@ export class TaskQueue {
     let message!: QueuedTaskMessage;
     await this.engine.mutate(state => {
       const task = localTask(state.tasks.find(task => task.id === id));
+      if (nativeSessionActionBusy(task)) throw new Error('请先完成或核对 Agent 会话操作');
       const entry = task.queue?.messages.find(item => item.id === messageId);
       if (!entry || entry.status !== 'queued' || task.canSteer === false || !['running', 'waiting'].includes(task.status)) throw new Error('当前不能把这条消息补充到执行中');
       if ((entry.interactionMode ?? task.interactionMode ?? 'default') !== (task.interactionMode ?? 'default')) throw new Error('交互模式不同，请保留在队列中等待下一轮');
@@ -269,6 +272,7 @@ export class TaskQueue {
         return;
       }
       const task = localTask(state.tasks.find(task => task.id === id));
+      if (nativeSessionActionBusy(task)) throw new Error('请先完成或核对 Agent 会话操作');
       if (!task.queue?.messages.some(item => item.status === 'queued')) throw new Error('没有等待继续的排队消息');
       if (failedWorkspacePreparation(task) && task.executionWorkspace?.state !== 'ready') throw new Error('请先重试工作区准备，再继续排队消息');
       if (branchBlocksTask(state, task.cwd)) throw new Error('工作区有 Git 操作正在进行，请完成后再继续队列');

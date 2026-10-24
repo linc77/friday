@@ -57,12 +57,12 @@ async function until(engine: Engine, predicate: (state: Workspace) => boolean) {
   throw new Error('Fork state transition timed out');
 }
 const settled = (engine: Engine, id: string) => until(engine, state => !!state.tasks.find(task => task.id === id)?.forkOperation && !['queued', 'running'].includes(state.tasks.find(task => task.id === id)!.forkOperation!.status));
-async function setup(t: { after: (fn: () => Promise<unknown>) => void }) {
+async function setup(t: { after: (fn: () => Promise<unknown>) => void }, agent: 'codex' | 'claude' = 'codex') {
   const base = await realpath(await mkdtemp(join(tmpdir(), 'friday-fork-'))); const root = join(base, 'source'); const data = join(base, 'data'); await mkdir(root);
   const executor = new ForkExecutor(); let engine = await new Engine(data, executor).open();
   t.after(async () => { await engine.close(); await rm(base, { recursive: true, force: true }); });
   await engine.mutate(state => state.projects.push({ id: 'project', name: 'Fixture', path: root, context: '' }));
-  const sourceID = await engine.createTask({ prompt: 'First', requestId: 'first', projectId: 'project', mode: 'code', agent: 'codex' });
+  const sourceID = await engine.createTask({ prompt: 'First', requestId: 'first', projectId: 'project', mode: 'code', agent });
   await until(engine, state => state.tasks[0]?.status === 'completed');
   await engine.createTask({ continueId: sourceID, prompt: 'Second', requestId: 'second', projectId: 'project', mode: 'code' });
   await until(engine, state => state.tasks[0]?.status === 'completed' && state.tasks[0].runs?.length === 2);
@@ -177,8 +177,8 @@ test('Forking a failed response keeps its partial answer and never substitutes t
 });
 
 test('Forked history never retains executable ownership of an older source session across a Claude session boundary', async t => {
-  const { engine, executor, sourceID } = await setup(t);
-  await engine.mutate(state => { const source = state.tasks[0]; source.agent = 'claude'; source.runs![0].threadId = 'older-source-native'; source.runs![0].nativeHead = 'older-head'; source.runs![1].nativeHead = 'head-turn-2'; });
+  const { engine, executor, sourceID } = await setup(t, 'claude');
+  await engine.mutate(state => { const source = state.tasks[0]; source.runs![0].threadId = 'older-source-native'; source.runs![0].nativeHead = 'older-head'; source.runs![1].nativeHead = 'head-turn-2'; });
   const source = (await engine.snapshot()).tasks[0]; executor.threads.set(source.threadId!, ['turn-2']); executor.threads.set('older-source-native', ['turn-1']);
   const id = await engine.taskForks.start(sourceID, { requestId: 'cross-session-fork', runId: source.runs![1].id }); const child = (await settled(engine, id)).tasks.find(task => task.id === id)!;
   assert.equal(child.forkOperation?.status, 'completed', child.forkOperation?.error); assert.equal(child.runs![0].threadId, undefined); assert.equal(child.runs![0].nativeHead, undefined);

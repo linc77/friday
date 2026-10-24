@@ -2,6 +2,7 @@ import type { Engine } from './engine.js';
 import { TaskCheckpoints } from './task-checkpoints.js';
 import type { TaskRun, TaskStatus, WorkItem } from './types.js';
 import { recordExecution } from './task-run-order.js';
+import { nativeSessionActionBusy, providerEpoch } from './task-session-actions.js';
 
 export class TaskRuns {
   readonly checkpoints: TaskCheckpoints;
@@ -15,7 +16,7 @@ export class TaskRuns {
       task.runs ??= [];
       if (task.runs.some(run => run.id === runID)) return;
       const message = task.messages?.findLast(message => message.role === 'user');
-      task.runs.push({ id: runID, durableId: durableID, requestId: task.lastRequestId, messageId: message?.id ?? '', cwd: task.cwd,
+      task.runs.push({ id: runID, durableId: durableID, agent: task.agent, providerInstanceId: task.providerInstanceId ?? task.agent, providerEpoch: providerEpoch(task), requestId: task.lastRequestId, messageId: message?.id ?? '', cwd: task.cwd,
         at: message?.at ?? task.updatedAt, status: task.status, mode: task.mode, interactionMode: task.interactionMode ?? 'default' });
       if (message) message.runId = runID;
     });
@@ -29,7 +30,7 @@ export class TaskRuns {
     await this.engine.mutate(state => {
       const current = state.tasks.find(task => task.id === id); const run = current?.runs?.find(run => run.id === runID);
       if (!current || !run || current.currentRunId !== runID) return;
-      if (current.archivedAt || current.archiveCleanup?.status === 'pending' || current.settleCleanup?.status === 'pending') throw new Error('会话已归档，未启动新的原生操作');
+      if (nativeSessionActionBusy(current) || current.archivedAt || current.archiveCleanup?.status === 'pending' || current.settleCleanup?.status === 'pending') throw new Error('会话已归档或正在操作，未启动新的原生操作');
       if (run.workspacePreparation?.cancelRequestedAt) throw new Error('工作区准备已请求停止');
       recordExecution(current, run);
       Object.assign(run, { before, cwd: task.cwd, status: 'running', startedAt: run.startedAt ?? new Date().toISOString(), ...(task.model ? { model: task.model } : {}), ...(task.reasoningEffort ? { reasoningEffort: task.reasoningEffort } : {}) });

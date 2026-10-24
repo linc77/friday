@@ -86,7 +86,7 @@ enum TaskContextDocument {
     static func batch(_ incoming: [TaskContextReference], text: String, records: [TaskContextReference], identity: String) -> (records: [TaskContextReference], insertion: TaskContextInsertion)? {
         guard !incoming.isEmpty else { return nil }; var merged = records, accepted: [TaskContextReference] = []
         for reference in incoming {
-            let duplicate = merged.first { $0.kind == reference.kind && $0.path == reference.path && $0.digest == reference.digest && $0.lineStart == reference.lineStart && $0.lineEnd == reference.lineEnd }
+            let duplicate = merged.first { $0.kind == reference.kind && $0.path == reference.path && $0.digest == reference.digest && $0.lineStart == reference.lineStart && $0.lineEnd == reference.lineEnd && $0.attachmentName == reference.attachmentName && $0.mediaType == reference.mediaType }
             if let duplicate { accepted.append(duplicate) } else { merged.append(reference); accepted.append(reference) }
         }
         guard Set(used(text, records: records).map(\.id)).union(accepted.map(\.id)).count <= 100 else { return nil }

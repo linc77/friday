@@ -1,4 +1,4 @@
-export type TaskContextKind = 'terminal' | 'file' | 'directory' | 'code' | 'review-comment' | 'preview-annotation' | 'review-guide' | 'attachment';
+export type TaskContextKind = 'terminal' | 'file' | 'directory' | 'code' | 'review-comment' | 'preview-annotation' | 'review-guide' | 'attachment' | 'handoff';
 export type TaskContextReference = {
   id: string; kind: TaskContextKind; label: string; capturedAt: string; digest: string;
   path?: string; terminalId?: string; terminalLabel?: string; generation?: number;

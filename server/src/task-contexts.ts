@@ -124,6 +124,16 @@ export class TaskContexts {
     this.database().prepare('INSERT OR IGNORE INTO context(id,data) VALUES(?,?)').run(id, JSON.stringify(capture));
     const stored = this.record(id)!; if (stored.intent !== intent) throw new Error('上下文引用 ID 已被其他选区使用'); return stored.reference;
   }
+  /** Product-owned source-point snapshots, never accepted by the capture API. */
+  async captureHandoff(taskId: string, id: string, label: string, text: string): Promise<TaskContextReference> {
+    contextID(id); const owner = await this.source({ taskId });
+    if (text.length > 400_000) throw new Error('上下文交接快照过大');
+    const intent = sha(JSON.stringify([owner.scope, 'handoff', label, sha(text)])), existing = this.record(id);
+    if (existing) { if (existing.intent !== intent) throw new Error('上下文交接 ID 已被使用'); return existing.reference; }
+    const reference: TaskContextReference = { id, kind: 'handoff', label: contextLabel(label), digest: sha(text), byteLength: Buffer.byteLength(text), capturedAt: new Date().toISOString() };
+    this.database().prepare('INSERT OR IGNORE INTO context(id,data) VALUES(?,?)').run(id, JSON.stringify({ reference, scope: owner.scope, cwd: owner.cwd, text, intent } satisfies TaskContextCapture));
+    const stored = this.record(id)!; if (stored.intent !== intent) throw new Error('上下文交接 ID 已被使用'); return stored.reference;
+  }
   private async allowed(record: TaskContextCapture, owner: Owner) {
     if (record.scope.taskId && [owner.task?.id, owner.inheritedTask?.id].includes(record.scope.taskId)) return true;
     if (bound(owner.task, record.reference.id) || bound(owner.inheritedTask, record.reference.id)) return true;

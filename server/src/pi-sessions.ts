@@ -71,9 +71,10 @@ export class PiNativeSession {
     this.waiting = { events: [first] };
     const nativeId = 'pi-native:' + randomUUID();
     const ready = (async () => {
-      const settings = await loadPiSettings(this.owner.connection.directory);
-      if (!settings.enabled || piSessionAccount(settings) !== this.account || settings.permissionMode !== this.runtime.permissionMode) throw new Error('Pi 后续回复所属账号或权限配置已改变');
-      const request = await this.observer!.open(nativeId);
+      const request = await this.observer!.open(nativeId, async () => {
+        const settings = await loadPiSettings(this.owner.connection.directory);
+        if (!settings.enabled || piSessionAccount(settings) !== this.account || settings.permissionMode !== this.runtime.permissionMode) throw new Error('Pi 后续回复所属账号或权限配置已改变');
+      });
       const current = await loadPiSettings(this.owner.connection.directory);
       if (!current.enabled || piSessionAccount(current) !== this.account || current.permissionMode !== this.runtime.permissionMode) throw new Error('Pi 后续回复所属账号或权限配置已改变');
       return request;

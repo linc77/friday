@@ -9,6 +9,9 @@ import { nativeObservedRunId, nativeTurnReceiptKey } from './native-runtime-type
 import { WorkspaceDoc } from './state.js';
 import { projectSubagentEvent } from './task-subagent-types.js';
 import { reconcileTaskSnooze } from './task-snooze.js';
+import { nativeSessionActionBusy, providerEpoch } from './task-session-actions.js';
+import { activeStatuses } from './types.js';
+import type { TaskId } from '@earendil-works/pi-durable';
 
 type Input = { taskId: string; receiptKey: string };
 const stamp = () => new Date().toISOString();
@@ -50,10 +53,14 @@ export class TaskNativeTurns {
     const key = nativeTurnReceiptKey(id, update.sessionId, update.key);
     if (update.kind === 'nativeTurnStart') {
       if (update.provider !== undefined) await this.engine.providerInstances.get(update.provider, update.providerInstanceId ?? update.provider, true);
+      // Wire completion is earlier than Durable finalization. Keep this boundary
+      // authoritative even when a native transport omits its optional finalizer.
+      const previous = Object.values((await this.engine.snapshot()).nativeTurnRequests ?? {}).filter(receipt => receipt.taskId === id && receipt.sessionId === update.sessionId && receipt.threadId === update.threadId && receipt.key !== update.key && receipt.status !== 'running').sort((a, b) => b.durableId - a.durableId)[0];
+      if (previous) await this.engine.harness.waitForTask(previous.durableId as TaskId, context);
       await this.engine.root.commit(async tx => {
         const state = await tx.doc(WorkspaceDoc); const work = state.tasks.find(work => work.id === id);
         if (!work || work.agent !== (update.provider ?? 'claude') || update.providerInstanceId !== undefined && (work.providerInstanceId ?? work.agent) !== update.providerInstanceId || work.executionSessionId !== update.sessionId || work.threadId !== update.threadId || work.archivedAt || work.settledAt || work.settledOverride === 'settled' || work.archiveCleanup?.status === 'pending' || work.settleCleanup?.status === 'pending' || work.cwd !== update.parameters.cwd) throw new Error('原生后续回复的任务范围已失效');
-        if (work.backgroundStop?.status === 'pending' && work.backgroundStop.sessionId === update.sessionId) throw new Error('正在停止这条原生会话');
+        if (nativeSessionActionBusy(work) || work.backgroundStop?.status === 'pending' && work.backgroundStop.sessionId === update.sessionId) throw new Error('正在停止这条原生会话');
         if (state.nativeTurnRequests?.[key]) return;
         const at = stamp(); const runId = nativeObservedRunId(update.key);
         const durableId = await tx.createTask(this.definition, { taskId: id, receiptKey: key }, { ownership: { kind: 'conversation' } });
@@ -61,12 +68,13 @@ export class TaskNativeTurns {
         state.nativeTurnRequests[key] = { taskId: id, threadId: update.threadId, sessionId: update.sessionId, key: update.key, runId, durableId,
           turnId: update.turnId, provider: update.provider ?? 'claude', ...(update.providerInstanceId ? { providerInstanceId: update.providerInstanceId } : {}), status: 'running', result: '' };
         work.runs ??= []; const executionOrder = Math.max(0, ...work.runs.map(run => run.executionOrder ?? 0)) + 1;
-        work.runs.push({ id: runId, durableId, messageId: 'notification:' + key, requestId: 'native:' + key, cwd: update.parameters.cwd,
+        work.runs.push({ id: runId, durableId, messageId: 'notification:' + key, agent: work.agent, providerInstanceId: work.providerInstanceId ?? work.agent, providerEpoch: providerEpoch(work), requestId: 'native:' + key, cwd: update.parameters.cwd,
           at, startedAt: at, status: 'running', turnId: update.turnId, threadId: update.threadId, executionOrder, executionMessagePosition: work.messages?.length ?? 0, mode: update.parameters.mode,
           interactionMode: update.parameters.interactionMode ?? 'default', modelOptions: update.parameters.modelOptions ?? work.modelOptions ?? [], ...(update.parameters.model ? { model: update.parameters.model } : {}), ...(update.parameters.reasoningEffort ? { reasoningEffort: update.parameters.reasoningEffort } : {}) });
         work.events.push({ id: 'notification:' + key, kind: 'notification', text: '后台任务的后续回复', at, runId });
         const current = work.runs.find(run => run.id === work.currentRunId);
-        if (!['queued', 'running', 'waiting'].includes(work.status) || current && !['queued', 'running'].includes(current.status)) {
+        const foregroundActive = current && !current.id.startsWith('native:') && activeStatuses.includes(current.status);
+        if (!foregroundActive || !activeStatuses.includes(work.status)) {
           work.currentRunId = runId; work.durableId = durableId; work.turnId = update.turnId; work.status = 'running'; work.result = ''; work.error = null; work.artifact = null; work.canSteer = false; work.backgroundWaiting = false;
         }
         work.updatedAt = at; reconcileTaskSnooze(work, Date.parse(at)); await this.engine.taskHistory.persist(tx, work); state.revision++;

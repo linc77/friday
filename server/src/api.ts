@@ -123,6 +123,23 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
   });
   installTerminalAPI(app, engine, auth);
   installContextAPI(app, engine, integrations.hostEditors);
+  app.post('/api/tasks/:id/session-operation', async c => {
+    const body = await c.req.json();
+    await engine.sessionActions.start(c.req.param('id'), { requestId: text(body.requestId, '请求 ID', 100), kind: body.kind, target: body.target });
+    const task = (await engine.snapshot()).tasks.find(task => task.id === c.req.param('id'));
+    return c.json({ ok: task?.sessionOperation?.status === 'completed', operation: task?.sessionOperation });
+  });
+  app.post('/api/tasks/:id/session-operation/retry', async c => {
+    const body = await c.req.json(); await engine.sessionActions.retry(c.req.param('id'), text(body.requestId, '请求 ID', 100));
+    return c.json({ ok: true });
+  });
+  app.post('/api/tasks/:id/merge-back', async c => {
+    const body = await c.req.json(), id = await engine.transfers.mergeBack(c.req.param('id'), text(body.runId, '源轮次', 128), text(body.requestId, '请求 ID', 100));
+    return c.json({ id });
+  });
+  app.delete('/api/tasks/:id/context-transfers/:transferId', async c => {
+    await engine.transfers.dismiss(c.req.param('id'), c.req.param('transferId')); return c.json({ ok: true });
+  });
   app.post('/api/task-files/asset-url', async c => c.json(await fileAssets.issue(c.get('device'), await c.req.json())));
   app.post('/api/task-media/github/asset-url', async c => c.json(await githubMediaAssets.issue(c.get('device'), await c.req.json(), Date.now(), c.req.raw.signal)));
   installTaskOutputAPI(app, engine, auth);
@@ -419,7 +436,8 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
   });
   app.post('/api/tasks/:id/fork', async c => {
     const body = await c.req.json();
-    const id = await engine.taskForks.start(c.req.param('id'), { requestId: text(body.requestId, '请求 ID', 100), runId: text(body.runId, '轮次 ID', 100), ...(body.title !== undefined ? { title: text(body.title, '分叉名称', 200) } : {}) });
+    if (body.lazy !== undefined && typeof body.lazy !== 'boolean') throw new Error('分叉解析方式无效');
+    const id = await engine.taskForks.start(c.req.param('id'), { requestId: text(body.requestId, '请求 ID', 100), runId: text(body.runId, '轮次 ID', 100), ...(body.lazy === true ? { lazy: true } : {}), ...(body.title !== undefined ? { title: text(body.title, '分叉名称', 200) } : {}) });
     return c.json({ id }, 202);
   });
   app.post('/api/tasks/:id/fork-head', async c => {

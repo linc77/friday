@@ -6,10 +6,11 @@ import { managedWorktreeLocation } from './managed-worktree.js';
 import { rewindExecutions } from './task-run-order.js';
 
 export const sharedRestoreMessage = '文件恢复需要独占 Worktree；这个目录可能包含其他任务的改动。可以回退会话并保留当前文件。';
-export const rewindFingerprint = (task: WorkItem, version: 1 | 2 = 2) => createHash('sha256').update(JSON.stringify({
+export const rewindFingerprint = (task: WorkItem, version: 1 | 2 | 3 = 3) => createHash('sha256').update(JSON.stringify({
+  ...(version === 3 ? { agent: task.agent, providerInstanceId: task.providerInstanceId, providerEpoch: task.providerEpoch } : {}),
   cwd: task.cwd, threadId: task.threadId, turnId: task.turnId, durableId: task.durableId, nativeHead: task.nativeHead,
   messages: task.messages?.filter(message => !message.revertedAt).map(message => [message.id, message.turnId, message.runId, message.delivery, message.contexts]),
-  runs: task.runs?.filter(run => !run.revertedAt).map(run => [run.id, run.threadId, run.turnId, run.nativeHead, run.status, ...(version === 2 ? [run.executionOrder, run.executionMessagePosition, run.executionExcludedAt, ...(run.nativeTurnIds ? [run.nativeTurnIds] : [])] : [])]),
+  runs: task.runs?.filter(run => !run.revertedAt).map(run => [run.id, run.threadId, run.turnId, run.nativeHead, run.status, ...(version >= 2 ? [run.executionOrder, run.executionMessagePosition, run.executionExcludedAt, ...(run.nativeTurnIds ? [run.nativeTurnIds] : [])] : []), ...(version === 3 ? [run.agent, run.providerInstanceId, run.providerEpoch] : [])]),
 })).digest('hex');
 
 export function rewindTarget(task: WorkItem, messageID: string) {

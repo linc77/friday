@@ -33,6 +33,8 @@ struct TaskRelationshipsControl: View {
                 Text(friday: "任务关系").font(.headline)
                 Spacer()
                 Text("\(total)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                FridaySymbolImage(systemName: "ellipsis").frame(width: 24, height: 24)
+                    .taskActions(store: store, task: task, opensMenu: true).disabled(!canNavigate)
             }
             ScrollView {
                 LazyVStack(spacing: 3) {

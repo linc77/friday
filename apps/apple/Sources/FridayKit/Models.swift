@@ -201,6 +201,10 @@ struct TaskWorkspacePreparation: Codable {
 }
 struct TaskRunInheritance: Codable { let taskId: String; let runId: String }
 struct TaskRun: Codable, Identifiable {
+    var agent: String? = nil
+    var providerInstanceId: String? = nil
+    var providerEpoch: String? = nil
+    var contextTransferIds: [String]? = nil
     var modelOptions: [ProviderOptionSelection]? = nil
     var nativeTurnIds: [String]? = nil
     var command: String? = nil
@@ -680,7 +684,21 @@ struct TaskFeedbackReceipt: Codable, Identifiable {
     var completedAt: String? = nil; var feedbackId: String? = nil; var error: String? = nil
     var id: String { requestId }
 }
+struct TaskSessionOperation: Codable {
+    let id: String; let requestId: String; let kind: String; let status: String
+    var error: String? = nil
+    var busy: Bool { ["pending", "uncertain"].contains(status) }
+}
+struct TaskContextTransfer: Codable, Identifiable {
+    let id: String; let kind: String; let sourceTaskId: String; let targetTaskId: String
+    let reference: TaskContextReference; let status: String; let createdAt: String
+    var sourceRunId: String? = nil; var baseRunId: String? = nil; var runId: String? = nil
+}
 struct WorkItem: Codable, Identifiable {
+    var providerEpoch: String? = nil
+    var sessionOperation: TaskSessionOperation? = nil
+    var nativeSessionConnected: Bool? = nil
+    var contextTransfers: [TaskContextTransfer]? = nil
     var modelOptions: [ProviderOptionSelection]? = nil
     var providerInstanceId: String? = nil
     var resolvedProviderInstance: String { providerInstanceId ?? agent }
@@ -778,7 +796,7 @@ struct WorkItem: Codable, Identifiable {
         let operation = backgroundStop.map { $0.sessionId == source && ($0.runId == nil || $0.runId == currentRunId) && ["pending", "uncertain"].contains($0.status) } == true
         return commands || native || operation
     }
-    var sessionBusy: Bool { rewindBusy || forkBusy || nativeHeadForkPending == true || backgroundStopPending || archiveCleanup?.status == "pending" || settleCleanup?.status == "pending" }
+    var sessionBusy: Bool { rewindBusy || forkBusy || nativeHeadForkPending == true || backgroundStopPending || archiveCleanup?.status == "pending" || settleCleanup?.status == "pending" || sessionOperation?.busy == true }
     var gitBusy: Bool { gitOperation?.active == true }
     var agentName: String { agent == "claude" ? "Claude Code" : TaskProviderCatalog.name(agent) }
     var conversation: [ChatMessage] {

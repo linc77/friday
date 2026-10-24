@@ -472,7 +472,7 @@ final class FridayStore: ObservableObject {
         try await connection.decode(TaskEventPage.self, "/api/tasks/\(id)/history/events", method: "POST", body: ["ids": ids, "compactItems": true])
     }
     func forkTask(_ id: String, runID: String, requestID: String) async throws -> String {
-        let response = try await connection.decode(IDResponse.self, "/api/tasks/\(id)/fork", method: "POST", body: ["requestId": requestID, "runId": runID])
+        let response = try await connection.decode(IDResponse.self, "/api/tasks/\(id)/fork", method: "POST", body: ["requestId": requestID, "runId": runID, "lazy": true])
         await refresh(); return response.id
     }
     func forkTaskHead(_ id: String, requestID: String) async throws -> String {

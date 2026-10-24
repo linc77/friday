@@ -35,6 +35,12 @@ test('abandoned update leases expire without requiring a service restart', async
   await gate.prepare(); await delay(50);
   assert.equal(gate.preparing, false); gate.enterWrite()();
 });
+test('native session handoff prevents an update until its owned transport action finishes', async () => {
+  const workspace = state('completed'); workspace.tasks[0].sessionOperation = { status: 'pending' } as NonNullable<Workspace['tasks'][number]['sessionOperation']>;
+  const gate = new ServiceMaintenance(async () => workspace);
+  await assert.rejects(gate.prepare(), /交接/); assert.equal(gate.preparing, false);
+  workspace.tasks[0].sessionOperation.status = 'uncertain'; await gate.prepare(); gate.cancel();
+});
 test('project cloning and publication prevent updates even when there are no agent tasks',async()=>{
   for(const kind of ['clone','publish'])for(const status of ['queued','running','completed','failed','cancelled','interrupted']){
     const workspace={tasks:[],projectRepositoryOperations:[{kind,status}]} as unknown as Workspace;

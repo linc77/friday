@@ -85,7 +85,7 @@ export class GrokNativeSession {
     let admit!: () => void; const admitted = new Promise<void>(resolve => { admit = resolve; });
     this.observing.set(id, { events: [[method, params]], admitted, admit });
     const ready = (async () => {
-      await this.verify(); const request = await this.observer!.open(id); await this.verify(); return request;
+      const request = await this.observer!.open(id, () => this.verify()); await this.verify(); return request;
     })();
     const release = this.tools.select(ready);
     void (async () => {

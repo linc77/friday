@@ -43,6 +43,7 @@ private struct TaskActions: ViewModifier {
     @Environment(\.fridayTaskLifecycleNavigation) private var lifecycle
     @AppStorage("friday.tasks.confirmArchive") private var confirmArchive = false
     @State private var confirmingArchive = false
+    private var mergeRun: TaskRun? { task.runs?.last { $0.status == "completed" && $0.inheritedFrom == nil && $0.revertedAt == nil && $0.executionExcludedAt == nil } }
 
     func body(content: Content) -> some View {
         Group {
@@ -121,6 +122,7 @@ private struct TaskActions: ViewModifier {
             Button(friday: "好") { failure = nil }
         } message: { Text(failure ?? "") }
         .onChange(of: TaskActionUndo.context(store)) { _, _ in operation = UUID(); busy = false; failure = nil; renaming = false; deleting = false; customSnooze = false; confirmingArchive = false }
+        .onChange(of: task.id) { _, _ in operation = UUID(); busy = false; failure = nil; renaming = false; deleting = false; customSnooze = false; confirmingArchive = false }
     }
 
     @ViewBuilder private var menu: some View {
@@ -130,6 +132,14 @@ private struct TaskActions: ViewModifier {
 
     @ViewBuilder private var actions: some View {
         Group {
+            if task.forkOrigin != nil, let run = mergeRun, task.nativeSessionConnected != nil {
+                Button(friday: "合并回原任务", systemImage: "arrow.turn.up.left") { mergeBack(run) }
+                    .disabled(task.active || task.sessionBusy)
+            }
+            if task.nativeSessionConnected == true, task.subagentOrigin == nil {
+                Button(friday: "断开 Agent 会话", systemImage: "powerplug") { disconnectSession() }.disabled(task.sessionBusy)
+                Divider()
+            }
             if task.nativeHeadForkSupported == true, task.subagentOrigin == nil {
                 Button(friday: "从当前会话分叉", systemImage: "arrow.triangle.branch") { forkHead() }
                     .disabled(task.active || task.sessionBusy || task.backgroundStopAvailable)
@@ -216,6 +226,28 @@ private struct TaskActions: ViewModifier {
             defer { if operation == token { busy = false } }
             do {
                 let id = try await store.forkTaskHead(task.id, requestID: request.requestID)
+                TaskDraftCache.save(Optional<HeadForkRequest>.none, server: server, context: context)
+                if scope == TaskActionUndo.context(store), operation == token { lifecycle?.open(id) }
+            } catch { if scope == TaskActionUndo.context(store), operation == token { failure = error.localizedDescription } }
+        }
+    }
+    private func disconnectSession() {
+        let scope = TaskActionUndo.context(store), token = UUID(); operation = token; busy = true
+        Task { @MainActor in
+            defer { if operation == token { busy = false } }
+            do { try await store.taskSessionAction(task.id, kind: "disconnect", requestID: token.uuidString) }
+            catch { if scope == TaskActionUndo.context(store), operation == token { failure = error.localizedDescription } }
+        }
+    }
+    private func mergeBack(_ run: TaskRun) {
+        let scope = TaskActionUndo.context(store), token = UUID(); operation = token; busy = true
+        let server = store.connection.server, context = "merge-back:\(task.id):\(run.id)"
+        let request = TaskDraftCache.load(HeadForkRequest.self, server: server, context: context) ?? HeadForkRequest(requestID: UUID().uuidString)
+        TaskDraftCache.save(request, server: server, context: context)
+        Task { @MainActor in
+            defer { if operation == token { busy = false } }
+            do {
+                let id = try await store.mergeTaskBack(task, runID: run.id, requestID: request.requestID)
                 TaskDraftCache.save(Optional<HeadForkRequest>.none, server: server, context: context)
                 if scope == TaskActionUndo.context(store), operation == token { lifecycle?.open(id) }
             } catch { if scope == TaskActionUndo.context(store), operation == token { failure = error.localizedDescription } }
