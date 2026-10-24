@@ -24,15 +24,17 @@ function prefix(source: WorkItem, runID: string, targetID: string) {
   if (!selected || !forkable(selected)) throw new Error('只能从已结束且未回退的轮次分叉');
   if (source.agent === 'claude' && activeStatuses.includes(source.status)) throw new Error('请先结束当前 Claude 轮次再分叉');
   const messages = source.messages ?? [];
-  const start = messages.findIndex(message => message.id === selected.messageId && message.role === 'user');
+  const observed = selected.requestId?.startsWith('native:') && selected.messageId.startsWith('notification:');
+  const start = observed ? executionPosition(source, selected) : messages.findIndex(message => message.id === selected.messageId && message.role === 'user');
   const stop = forkMessageBoundary(source, selected);
   if (start < 0 || stop < start) throw new Error('所选轮次没有可核对的消息边界');
   const visible = messages.slice(0, stop).filter(message => !message.revertedAt);
   const visibleIDs = new Set(visible.map(message => message.id));
-  const kept = runs.filter(run => visibleIDs.has(run.messageId)); const ids = new Map(kept.map((run, i) => [run.id, `fork-${targetID}-${i}`]));
   const ordered = executionRuns(source); const executionIndex = ordered.findIndex(run => run.id === selected.id);
   const executed = executionIndex >= 0 ? ordered.slice(0, executionIndex + 1) : ordered.filter(run => executionPosition(source, run) < stop);
   const executionIDs = new Set(executed.map(run => run.id));
+  const kept = runs.filter(run => visibleIDs.has(run.messageId) || executionIDs.has(run.id) && run.requestId?.startsWith('native:'));
+  const ids = new Map(kept.map((run, i) => [run.id, `fork-${targetID}-${i}`]));
   const keptTurns = new Set([...executed.flatMap(run => run.nativeTurnIds ?? (run.turnId ? [run.turnId] : [])),
     ...visible.filter(message => !message.runId && message.turnId && !runs.some(run => run.turnId === message.turnId && !executionIDs.has(run.id))).map(message => message.turnId!)]);
   const endedAt = Date.parse(selected.completedAt ?? messages[stop]?.at ?? ''); const endTime = Number.isFinite(endedAt) ? endedAt : Infinity;
@@ -132,7 +134,8 @@ export class TaskForks {
       if (source.subagentOrigin) {
         const origin = source.subagentOrigin, root = state.tasks.find(task => task.id === origin.rootTaskId);
         const agent = root?.subagents?.find(agent => agent.id === origin.subagentId && agent.nativeId === origin.nativeId && agent.childTaskId === sourceID);
-        if (source.agent !== 'codex' || agent?.provider !== 'codex' || agent.threadId !== origin.threadId || source.threadId !== origin.nativeId || !visibleSubagentIds(state.tasks).has(sourceID)) throw new Error('此原生子 Agent 尚不支持分叉或已不在可见历史中');
+        const supported = source.agent === 'codex' && agent?.provider === 'codex' && source.threadId === origin.nativeId || source.agent === 'opencode' && agent?.provider === 'opencode' && source.nativeHistory?.canFork === true && source.threadId === agent.nativeThreadId;
+        if (!supported || !agent || agent.threadId !== origin.threadId || !visibleSubagentIds(state.tasks).has(sourceID)) throw new Error('此原生子 Agent 尚不支持分叉或已不在可见历史中');
         source = { ...source, codexHome: source.codexHome ?? root?.codexHome, executionWorkspace: source.executionWorkspace ?? root?.executionWorkspace };
       }
       if (source.backgroundStop?.status === 'pending' || source.settleCleanup?.status === 'pending') throw new Error('正在停止后台工作，请等待完成后分叉');

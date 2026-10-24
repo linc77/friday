@@ -19,6 +19,7 @@ export class NativeSubagentProjection {
     const previous = this.entries.get(nativeId);
     if (!previous && value.hydrationOnly) return;
     const generation = value.generation ?? previous?.generation ?? 0;
+    if (previous?.generation === generation && previous.nativeThreadId && value.nativeChildId && previous.nativeThreadId !== value.nativeChildId) throw new Error('原生子会话身份已改变');
     if (!Number.isSafeInteger(generation) || generation < 0) throw new Error('原生子 Agent 代次无效');
     if (previous && (generation < previous.generation || generation === previous.generation && subagentEnded(previous.status) && !subagentEnded(value.status))) return;
     if (previous && generation > previous.generation) this.childText.delete(nativeId);
@@ -28,6 +29,7 @@ export class NativeSubagentProjection {
     const id = subagentIdentity(this.sessionId, nativeId), at = new Date().toISOString(), ended = subagentEnded(value.status);
     const agent: TaskSubagent = {
       ...prior, id, provider: this.provider, nativeId, sessionId: this.sessionId, threadId: this.threadId,
+      ...(value.nativeChildId ? { nativeThreadId: value.nativeChildId } : {}),
       runId: this.request.task.currentRunId, turnId: this.turnId, eventId: previous?.eventId ?? `${this.provider}:${this.turnId}:subagent:${id}`,
       childTaskId: subagentChildId(this.request.task.id, id), generation, childTurnId: prior?.childTurnId ?? `${this.provider}-child:${createHash('sha256').update(generation ? JSON.stringify([id, generation]) : id).digest('hex')}`,
       title: text(value.title, 200) || previous?.title || 'Subagent', prompt: text(value.prompt) ?? previous?.prompt ?? '',
@@ -50,6 +52,11 @@ export class NativeSubagentProjection {
   }
   knowsNative(id: string) { return this.entries.has(id) || this.aliases.has(id); }
   hasPending() { return [...this.entries.values()].some(agent => !subagentEnded(agent.status)); }
+  adopt(agent: TaskSubagent) {
+    const current = this.entries.get(agent.nativeId);
+    if (!current || current.id !== agent.id || current.sessionId !== agent.sessionId || current.provider !== agent.provider || current.nativeThreadId !== agent.nativeThreadId || current.generation > agent.generation) return;
+    this.entries.set(agent.nativeId, structuredClone(agent)); if (agent.result !== undefined) this.childText.set(agent.nativeId, agent.result);
+  }
   identityForNative(id: string) { return this.entries.get(this.aliases.get(id) ?? id)?.id; }
   bindNativeChild(id: string, child: unknown) {
     const nativeId = this.aliases.get(id) ?? id;

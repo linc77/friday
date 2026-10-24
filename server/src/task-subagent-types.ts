@@ -7,6 +7,7 @@ export type TaskSubagent = {
   id: string; provider: ProviderDriver; nativeId: string; sessionId: string; threadId: string;
   runId: string; turnId: string; eventId: string; childTaskId: string;
   nativeRunId?: string; generation: number; childTurnId: string; toolUseId?: string;
+  nativeThreadId?: string;
   parentSubagentId?: string;
   eventOwnerSubagentId?: string;
   title: string; prompt: string; model?: string; reasoningEffort?: string;

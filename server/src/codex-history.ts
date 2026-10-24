@@ -4,7 +4,7 @@ import type { TaskEvent, WorkItem } from './types.js';
 import type { TaskSubagent } from './task-subagent-types.js';
 
 export type CodexHistoryTurn = { id: string; status: string; at: string; completedAt?: string; prompt: string; events: TaskEvent[] };
-export type CodexHistorySnapshot = { threadId: string; parentThreadId: string; connectionId?: string; model?: string; effort?: string; turns: CodexHistoryTurn[] };
+export type CodexHistorySnapshot = { threadId: string; parentThreadId: string; connectionId?: string; model?: string; effort?: string; canFork?: boolean; turns: CodexHistoryTurn[] };
 export type SubagentHistoryProjection = { agent: TaskSubagent; turns: { id: string; childTurnId: string; events: TaskEvent[] }[] };
 const valid = (id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length <= 512 && !/[\x00-\x1f]/.test(id);
 const iso = (value: unknown, factor: number, fallback: string) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value * factor) < 8.64e15 ? new Date(value * factor).toISOString() : fallback;

@@ -689,7 +689,7 @@ export class Engine extends EventEmitter {
     if (task.settleCleanup?.status === 'pending') await this.harness.waitForTask(task.settleCleanup.durableId as TaskId, context);
     await this.backgroundStops.wait(id);
     await this.taskQueue.stop(id);
-    if (['muse', 'pi', 'grok'].includes(task.agent)) await this.backgroundStops.cancelSettled(task);
+    if (['muse', 'pi', 'grok', 'opencode'].includes(task.agent)) await this.backgroundStops.cancelSettled(task);
     await this.subagents.stopBeforeDelete(id);
     if (hasRunningBackgroundCommands(task)) { await this.backgroundCommands.stopBeforeDelete(id); await this.nativeBackground.stopBeforeDelete(id); }
     await this.taskTitles.stop(id);

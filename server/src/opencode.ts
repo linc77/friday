@@ -1,14 +1,15 @@
 import { isolatedTextGeneration } from './native-text-generation.js';
-import { forkOpenCode, rewindOpenCode } from './opencode-history.js';
+import { forkOpenCode, rewindOpenCode, readOpenCodeSubagentHistory, openCodeNativeHead } from './opencode-history.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { OpenCodeConnection, openCodeData } from './opencode-provider.js';
+import { OpenCodeSessions, type OpenCodeNativeSession } from './opencode-sessions.js';
 import { type OpenCodeServer } from './opencode-server.js';
 import { NativeTurnProjection } from './native-turn-projection.js';
 import { NativeSubagentProjection } from './native-subagent-projection.js';
 import { acpRecord, type AcpRecord } from './acp-process.js';
 import { taskPlanSteps } from './task-event-data.js';
-import type { ExecutionRequest, Executor, Approval, ExecutionImage } from './types.js';
+import type { ExecutionRequest, Executor, Approval, ExecutionImage, WorkItem } from './types.js';
 import type { ApprovalDecision } from './provider-approvals.js';
 
 // Protocol and permission behavior follow T3 8cd9641f provider-opencode adapters.
@@ -25,30 +26,35 @@ export function openCodeRules(generation: 1 | 2, mode: string, plan: boolean, mc
   return [...(mode === 'auto' ? [{ action: '*', resource: '*', effect: 'allow' }] : ['shell', 'edit', 'external_directory'].map(action => ({ action, resource: '*', effect: 'ask' }))), ...(plan ? [{ action: 'edit', resource: '*', effect: 'deny' }] : []), ...(mcp ? [{ action: 'friday-*', resource: '*', effect: 'deny' }, { action: `${mcp}_*`, resource: '*', effect: 'allow' }] : [])];
 }
 type Pending = { value: AcpRecord; kind: 'permission' | 'question' | 'form'; approval: Approval; answering: boolean };
-type Live = { server: OpenCodeServer; sessionId: string; nativeId: string; pending: Map<string, Pending>; rules: AcpRecord[]; childRules: Map<string, AcpRecord[]>; cancel: () => void; steers: Map<string, { body: string; promise: Promise<void>; resolve: () => void; reject: (error: Error) => void }> };
+type Live = { server: OpenCodeServer; sessionId: string; nativeId: string; pending: Map<string, Pending>; rules: AcpRecord[]; childRules: Map<string, AcpRecord[]>; children?: NativeSubagentProjection; cancel: () => void; steers: Map<string, { body: string; promise: Promise<void>; resolve: () => void; reject: (error: Error) => void }> };
 
 export class OpenCodeExecutor implements Executor {
   private runs = new Map<string, Live>();
-  constructor(private connection: OpenCodeConnection) {}
+  private pendingRuns = new Map<string, Live>();
+  private sessions: OpenCodeSessions;
+  constructor(private connection: OpenCodeConnection) { this.sessions = new OpenCodeSessions(connection, (request, session, nativeId) => this.runNative(request, session, nativeId)); }
   supportsTaskTools(agent: string) { return agent === 'opencode'; }
   deferredStart(agent: string) { return agent === 'opencode'; }
+  readSubagentHistory(task: WorkItem, parentThreadId: string, signal: AbortSignal) { return readOpenCodeSubagentHistory(this.connection, task, parentThreadId, signal); }
+  async syncSubagentHistory(task: WorkItem, snapshot: import('./codex-history.js').CodexHistorySnapshot, apply: (connected: boolean) => Promise<import('./codex-history.js').SubagentHistoryProjection | undefined>) { const root = task.subagentOrigin?.rootTaskId ?? task.id, projection = await apply(!!snapshot.connectionId && this.sessions.has(root)); if (projection) this.sessions.sync(root, projection.agent); }
   async fork(request: import('./types.js').NativeForkRequest) { if (this.runs.has(request.task.id)) throw new Error('OpenCode 会话仍在执行'); return forkOpenCode(this.connection, request); }
-  async rewind(request: import('./types.js').NativeRewindRequest) { if (this.runs.has(request.task.id)) throw new Error('OpenCode 会话仍在执行'); return rewindOpenCode(this.connection, request); }
+  async rewind(request: import('./types.js').NativeRewindRequest) { if (this.runs.has(request.task.id)) throw new Error('OpenCode 会话仍在执行'); await this.sessions.beforeHistory(request.task.id); return rewindOpenCode(this.connection, request); }
   async generateText(request: import('./types.js').TextGenerationRequest) { return this.run(request); }
-  async run(request: ExecutionRequest): Promise<string> { return request.purpose ? isolatedTextGeneration(request, prepared => this.runNative(prepared)) : this.runNative(request); }
-  private async runNative(request: ExecutionRequest): Promise<string> {
+  async run(request: ExecutionRequest): Promise<string> { return request.purpose ? isolatedTextGeneration(request, prepared => this.sessions.run(prepared)) : this.sessions.run(request); }
+  private async runNative(request: ExecutionRequest, owned: OpenCodeNativeSession, observedTurn?: string): Promise<string> {
     const { task, signal, update } = request;
-    if (this.runs.has(task.id)) throw new Error('OpenCode 会话仍在执行');
-    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions });
+    const runtime = owned.runtime;
     if (task.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条 OpenCode 会话使用的账号配置');
-    signal.throwIfAborted(); const lease = await this.connection.server(runtime.settings, task.cwd, task.id), server = lease.server, v1 = server.v1, v2 = server.v2;
-    let sessionId = task.threadId ?? '', nativeId = '', projection: NativeTurnProjection | undefined, children: NativeSubagentProjection | undefined, active = false, delivered = false, admission = false, idle = false, succeeded = false, terminal = false, interruption: Promise<unknown> | undefined, chain = Promise.resolve();
-    const executionSessionId = randomUUID();
+    signal.throwIfAborted(); const server = owned.server, v1 = server.v1, v2 = server.v2;
+    let sessionId = task.threadId ?? owned.threadId ?? '', nativeId = observedTurn ?? '', projection: NativeTurnProjection | undefined, children: NativeSubagentProjection | undefined, active = !!observedTurn, delivered = !!observedTurn, admission = !!observedTurn, idle = false, terminal = false, interruption: Promise<unknown> | undefined, chain = Promise.resolve();
+    const executionSessionId = owned.executionId;
+    let lastNativeMessage: string | undefined;
     let resolve!: () => void, reject!: (error: Error) => void;
     const completion = new Promise<void>((yes, no) => { resolve = yes; reject = no; }); void completion.catch(() => {});
     const finish = (error?: Error) => { if (!terminal) { terminal = true; error ? reject(error) : resolve(); } };
     const pending = new Map<string, Pending>(), infos = new Map<string, AcpRecord>(), parts = new Map<string, AcpRecord>(), earlyParts = new Map<string, AcpRecord[]>(), tools = new Map<string, AcpRecord>();
-    const mcpName = 'friday-' + createHash('sha256').update(task.id).digest('hex').slice(0, 16), mcp = !!request.taskMcp && !!server.child;
+    const mcpConnection = await owned.tools.connection(request);
+    const mcpName = 'friday-' + createHash('sha256').update(task.id).digest('hex').slice(0, 16), mcp = !!mcpConnection && !!server.child;
     const rules = request.purpose ? (server.generation === 2 ? [{ action: '*', resource: '*', effect: 'deny' }] : [{ permission: '*', pattern: '*', action: 'deny' }]) : openCodeRules(server.generation, runtime.settings.permissionMode, task.interactionMode === 'plan', mcp ? mcpName : undefined);
     const ownInfo = (id: string) => infos.get(id)?.role === 'assistant' && infos.get(id)?.parentID === nativeId;
     const settleV1 = () => { if (delivered && admission && idle && [...infos.values()].some(info => ownInfo(info.id) && info.time?.completed && info.finish !== 'tool-calls')) finish(); };
@@ -61,6 +67,7 @@ export class OpenCodeExecutor implements Executor {
         if (name === 'task') {
           const output = typeof state?.output === 'string' ? state.output : typeof state?.error === 'string' ? state.error : undefined;
           const childId = state?.metadata?.sessionId ?? state?.metadata?.sessionID;
+          owned.bindChild(childId);
           await children?.observe({ nativeId: part.id, ...(typeof childId === 'string' ? { nativeChildId: childId } : {}), title: state?.title ?? input?.description, prompt: input?.prompt, model: input?.model,
             status: state?.status === 'completed' ? 'completed' : state?.status === 'error' ? 'failed' : 'running', ...(output !== undefined ? { result: output, messages: [output] } : {}) });
           return;
@@ -71,7 +78,7 @@ export class OpenCodeExecutor implements Executor {
     const publishRequest = async (kind: Pending['kind'], value: AcpRecord) => {
       if (request.purpose) throw new Error('独立文字生成不接受工具授权或用户输入');
       const childIdentity = typeof value.sessionID === 'string' ? children?.identityForNative(value.sessionID) : undefined;
-      if (!active || terminal || value.sessionID !== sessionId && !childIdentity) return;
+      if ((!active || terminal) && !childIdentity || value.sessionID !== sessionId && !childIdentity) return;
       const native = value.id, id = `opencode:${kind}:${native}`; if (typeof native !== 'string' || pending.has(id)) return;
       let questions: AcpRecord[] = [], decisions: ApprovalDecision[] | undefined;
       if (kind === 'permission') decisions = ['cancel', 'decline', ...(server.generation === 1 || value.save?.length ? ['acceptForSession' as const] : []), 'accept'];
@@ -84,12 +91,18 @@ export class OpenCodeExecutor implements Executor {
       }
       const approval: Approval = { id, method: `opencode/${kind}`, title: kind === 'permission' ? '需要你的授权' : '需要你的补充', detail: kind === 'permission' ? [value.action ?? value.permission, ...(value.resources ?? value.patterns ?? [])].filter(Boolean).join('\n') : '', state: 'pending', questions: questions as Approval['questions'], ...(decisions ? { decisions } : {}) };
       if (childIdentity) { approval.subagentId = childIdentity; approval.ownerRunId = task.currentRunId; }
-      pending.set(id, { value, kind, approval, answering: false }); await projection?.flush(); await update({ kind: 'approval', approval });
+      pending.set(id, { value, kind, approval, answering: false }); this.pendingRuns.set(JSON.stringify([task.id, id]), live); await projection?.flush(); if (childIdentity) await children!.nativeApproval(value.sessionID, approval); else await update({ kind: 'approval', approval });
     };
     const apply = async (event: AcpRecord) => {
-      if (!active || terminal || !projection) return;
       const data = acpRecord(event.data ?? event.properties); if (!data) return;
       const eventSession = data.sessionID ?? data.part?.sessionID ?? data.info?.sessionID ?? data.form?.sessionID;
+      if (eventSession === sessionId && (event.type === 'session.synthetic' || event.type === 'session.inbox.enqueued' && data.item?.type === 'synthetic')) {
+        const report = event.type === 'session.synthetic' ? data : data.item.payload;
+        if (report.metadata?.source === 'subagent' && typeof report.metadata.childID === 'string') {
+          const outcome = report.metadata.state === 'error' ? 'failed' : report.metadata.state === 'cancelled' ? 'cancelled' : report.metadata.state === 'completed' ? 'completed' : undefined;
+          if (outcome) await children?.nativeFinish(report.metadata.childID, outcome, typeof report.text === 'string' ? /^<subagent\b[^>]*>\n?([\s\S]*?)\n?<\/subagent>$/.exec(report.text.trim())?.[1] ?? report.text : undefined);
+        }
+      }
       if (eventSession !== sessionId) {
         if (typeof eventSession === 'string' && children?.knowsNative(eventSession)) {
           if (event.type === 'permission.asked') await publishRequest('permission', data);
@@ -99,6 +112,8 @@ export class OpenCodeExecutor implements Executor {
         if (typeof eventSession === 'string' && children?.knowsNative(eventSession) && server.generation === 2 && ['session.text.delta', 'session.text.ended'].includes(event.type)) await children.nativeMessage(eventSession, event.type.endsWith('.ended') ? data.text ?? '' : data.delta ?? '', event.type.endsWith('.ended'));
         return;
       }
+      if (!active || terminal || !projection) return;
+      if (v2 && typeof data.assistantMessageID === 'string') lastNativeMessage = data.assistantMessageID;
       if (server.generation === 2) {
         if (event.type === 'session.inbox.delivered') {
           if (data.inboxID === nativeId) delivered = true;
@@ -113,6 +128,7 @@ export class OpenCodeExecutor implements Executor {
         else if (event.type === 'session.tool.input.ended') { const tool = tools.get(data.id); if (tool) tool.input = data.input; }
         else if (event.type === 'session.tool.progress' && tools.get(data.id)?.name === 'subagent') {
           const input = acpRecord(tools.get(data.id)?.input), childId = data.metadata?.sessionID;
+          owned.bindChild(childId);
           await children?.observe({ nativeId: data.id, ...(typeof childId === 'string' ? { nativeChildId: childId } : {}), title: input?.description, prompt: input?.prompt, model: input?.model, status: 'running' });
         }
         else if (['session.tool.called', 'session.tool.success', 'session.tool.failed'].includes(event.type)) {
@@ -121,14 +137,12 @@ export class OpenCodeExecutor implements Executor {
           const text = Array.isArray(data.content) ? data.content.filter((part: AcpRecord) => part.type === 'text').map((part: AcpRecord) => part.text).join('\n') : '';
           if (name === 'subagent') {
             const childId = data.metadata?.sessionID, failed = event.type === 'session.tool.failed', status = failed ? 'failed' : event.type === 'session.tool.success' && data.metadata?.status !== 'running' ? 'completed' : 'running';
+            owned.bindChild(childId);
             const output = failed ? data.error?.message : text;
             await children?.observe({ nativeId: data.id, ...(typeof childId === 'string' ? { nativeChildId: childId } : {}), title: input?.description, prompt: input?.prompt, model: input?.model, status, ...(typeof output === 'string' && output ? status === 'running' ? { progress: output } : { result: output, messages: [output] } : {}) });
             return;
           }
           projection.put(`tool:${data.id}`, kind, kind === 'command' ? input?.command ?? name : input?.path ?? name, { status: event.type === 'session.tool.success' ? 'completed' : event.type === 'session.tool.failed' ? 'failed' : 'running', detail: data.error?.message ?? text, ...(typeof data.metadata?.exitCode === 'number' ? { exitCode: data.metadata.exitCode } : {}) });
-        } else if (event.type === 'session.synthetic' && data.metadata?.source === 'subagent' && typeof data.metadata.childID === 'string') {
-          const outcome = data.metadata.state === 'error' ? 'failed' : data.metadata.state === 'cancelled' ? 'cancelled' : data.metadata.state === 'completed' ? 'completed' : undefined;
-          if (outcome) await children?.nativeFinish(data.metadata.childID, outcome, typeof data.text === 'string' ? /^<subagent\b[^>]*>\n?([\s\S]*?)\n?<\/subagent>$/.exec(data.text.trim())?.[1] ?? data.text : undefined);
         } else if (event.type === 'session.execution.succeeded') finish();
         else if (event.type === 'session.execution.interrupted') finish(cancelled());
         else if (event.type === 'session.execution.failed') finish(new Error(data.error?.message ?? 'OpenCode 原生执行失败'));
@@ -146,6 +160,7 @@ export class OpenCodeExecutor implements Executor {
           const info = acpRecord(data.info); if (!info || typeof info.id !== 'string') return; infos.set(info.id, info);
           if (info.id === nativeId && info.role === 'user') delivered = true;
           if (ownInfo(info.id)) {
+            lastNativeMessage = info.id;
             for (const part of earlyParts.get(info.id) ?? []) await publishPart(part); earlyParts.delete(info.id);
             if (info.error) finish(new Error(info.error.data?.message ?? info.error.name ?? 'OpenCode 原生执行失败'));
             const tokens = info.tokens, used = tokens ? (tokens.input ?? 0) + (tokens.output ?? 0) + (tokens.reasoning ?? 0) + (tokens.cache?.read ?? 0) + (tokens.cache?.write ?? 0) : undefined;
@@ -165,15 +180,17 @@ export class OpenCodeExecutor implements Executor {
         else if (event.type === 'todo.updated') projection.put('todo', 'plan', 'Plan', { plan: taskPlanSteps((data.todos ?? []).map((todo: AcpRecord) => ({ step: todo.content, status: todo.status === 'in_progress' ? 'inProgress' : todo.status }))) });
         else if (event.type === 'session.error' && delivered) finish(new Error(data.error?.data?.message ?? 'OpenCode 原生执行失败'));
       }
-      if (['permission.replied', 'question.replied', 'question.rejected', 'form.replied', 'form.cancelled'].includes(event.type)) for (const [id, item] of pending) if (item.value.id === (data.requestID ?? data.id)) { pending.delete(id); await update({ kind: 'approvalResolved', id }); }
+      if (['permission.replied', 'question.replied', 'question.rejected', 'form.replied', 'form.cancelled'].includes(event.type)) for (const [id, item] of pending) if (item.value.id === (data.requestID ?? data.id)) { pending.delete(id); this.pendingRuns.delete(JSON.stringify([task.id, id])); await update({ kind: 'approvalResolved', id }); }
     };
     const enqueue = (event: AcpRecord) => { chain = chain.then(() => apply(event)).catch(error => finish(error instanceof Error ? error : new Error('OpenCode 输出失败'))); };
-    let subscription: Awaited<ReturnType<OpenCodeServer['subscribe']>>;
-    try { subscription = await server.subscribe(enqueue, error => finish(error)); } catch (error) { await lease.close(); throw error; }
-    const cancel = () => { interruption ??= (async () => { try { if (sessionId) { if (v2) await v2.session.interrupt({ sessionID: sessionId }, { signal: AbortSignal.timeout(1000) }); else await openCodeData(v1!.session.abort({ sessionID: sessionId }, { signal: AbortSignal.timeout(1000) })); } } catch {} finally { if (server.child) await server.close(); finish(cancelled()); } })(); };
+    const cancel = () => { interruption ??= owned.interrupt().then(() => finish(cancelled()), error => finish(error)); };
     const live: Live = { server, sessionId, nativeId, pending, rules, childRules: new Map(), cancel, steers: new Map() }; this.runs.set(task.id, live); signal.addEventListener('abort', cancel, { once: true });
+    if (observedTurn) { projection = new NativeTurnProjection(request, observedTurn); live.children = children = new NativeSubagentProjection(request, 'opencode', executionSessionId, sessionId, observedTurn); }
+    owned.listen({ event: enqueue, fail: error => finish(error), done: () => terminal, knows: id => children?.knowsNative(id) === true, pending: () => children?.hasPending() === true || pending.size > 0, sync: agent => children?.adopt(agent),
+      close: async () => { for (const id of pending.keys()) this.pendingRuns.delete(JSON.stringify([task.id, id])); pending.clear(); await children?.finish(server.child ? 'interrupted' : 'completed', 'unknown'); } }, observedTurn);
     try {
       signal.throwIfAborted();
+      if (!observedTurn) {
       if (!request.purpose && v2 && (runtime.settings.permissionMode !== 'auto' || task.interactionMode === 'plan')) {
         const agents = await v2.agent.list({ location: { directory: task.cwd } }, { signal: AbortSignal.timeout(5000) }).catch(() => ({ data: [] }));
         const paths = agents.data.filter(agent => [task.interactionMode === 'plan' ? 'plan' : runtime.agent ?? 'build'].includes(agent.id)).flatMap(agent => agent.permissions.filter(rule => rule.effect === 'allow' && rule.resource !== '*' && ['edit', 'external_directory'].includes(rule.action)));
@@ -190,10 +207,12 @@ export class OpenCodeExecutor implements Executor {
         if (typeof session.id !== 'string' || !session.id) throw new Error('OpenCode 未返回原生会话 ID'); sessionId = session.id; live.sessionId = sessionId;
       }
       nativeId = promptId(sessionId, task.currentRunId ?? randomUUID()); live.nativeId = nativeId; projection = new NativeTurnProjection(request, nativeId);
-      children = new NativeSubagentProjection(request, 'opencode', executionSessionId, sessionId, nativeId);
+      live.children = children = new NativeSubagentProjection(request, 'opencode', executionSessionId, sessionId, nativeId);
+      owned.bind(sessionId); owned.expect(nativeId);
+      owned.nativePrompts ??= new Set(task.threadId ? (await openCodeNativeHead(server, sessionId, signal)).turns : []);
       await update({ kind: 'session', threadId: sessionId, nativeProviderAccount: runtime.account, model: runtime.model, reasoningEffort: runtime.effort, executionSessionId });
       if (mcp) {
-        const config = { type: 'remote' as const, url: request.taskMcp!.url, headers: request.taskMcp!.headers, oauth: false as const };
+        const config = { type: 'remote' as const, url: mcpConnection!.url, headers: mcpConnection!.headers, oauth: false as const };
         if (v2) await v2.mcp.add({ server: mcpName, location: { directory: task.cwd }, config }); else await openCodeData(v1!.mcp.add({ name: mcpName, config }));
       }
       if (v2) {
@@ -211,12 +230,20 @@ export class OpenCodeExecutor implements Executor {
         const parts: any[] = [{ type: 'text', text: request.prompt }]; for (const image of request.images ?? []) parts.push({ type: 'file', mime: image.mediaType, filename: image.name, url: `data:${image.mediaType};base64,${(await readFile(image.path)).toString('base64')}` });
         await openCodeData(v1!.session.promptAsync({ sessionID: sessionId, messageID: nativeId, model: { providerID: runtime.providerID, modelID: runtime.modelID }, variant: runtime.effort || undefined, agent: task.interactionMode === 'plan' ? 'plan' : runtime.agent ?? 'build', parts })); admission = true; settleV1();
       }
-      await completion; await chain; if (signal.aborted) throw cancelled(); await children?.finish('completed', 'unknown'); const result = await projection.finish('completed'); succeeded = true; return result;
+      } else await update({ kind: 'ready', canSteer: server.generation === 2 });
+      await completion; await chain; if (signal.aborted) throw cancelled();
+      if (lastNativeMessage) {
+        try {
+          const head = await openCodeNativeHead(server, sessionId, signal, lastNativeMessage), turns = head.turns.filter(id => !owned.nativePrompts?.has(id));
+          if (head.head) await update({ kind: 'nativeHead', head: head.head, turnIds: turns }); owned.nativePrompts = new Set(head.turns);
+        } catch { signal.throwIfAborted(); }
+      }
+      const result = await projection!.finish('completed'); return result;
     } catch (error) { await children?.finish(server.child ? signal.aborted ? 'interrupted' : 'failed' : 'completed', 'unknown'); await projection?.finish(signal.aborted ? 'interrupted' : 'failed'); throw signal.aborted ? cancelled() : error; }
-    finally { active = false; signal.removeEventListener('abort', cancel); projection?.dispose(); for (const steer of live.steers.values()) steer.reject(new Error('OpenCode 回合已经结束')); await interruption; await subscription.close(); if (v2 && mcp && server.available) await v2.mcp.remove({ server: mcpName, location: { directory: task.cwd } }, { signal: AbortSignal.timeout(3000) }).catch(() => {}); if (!succeeded && server.child) await server.close(); await lease.close(); await chain; this.runs.delete(task.id); }
+    finally { active = false; signal.removeEventListener('abort', cancel); projection?.dispose(); for (const steer of live.steers.values()) steer.reject(new Error('OpenCode 回合已经结束')); await interruption; await chain; if (this.runs.get(task.id) === live) this.runs.delete(task.id); }
   }
   async answer(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) {
-    const run = this.runs.get(id), pending = run?.pending.get(approvalId); if (!run || !pending || pending.answering) throw new Error('OpenCode 请求已经结束或正在回答');
+    const run = this.pendingRuns.get(JSON.stringify([id, approvalId])), pending = run?.pending.get(approvalId); if (!run || !pending || pending.answering) throw new Error('OpenCode 请求已经结束或正在回答');
     const v1 = run.server.v1, v2 = run.server.v2, value = pending.value;
     const nativeOwner = typeof value.sessionID === 'string' ? value.sessionID : run.sessionId;
     pending.answering = true;
@@ -240,6 +267,8 @@ export class OpenCodeExecutor implements Executor {
         }
         await v2!.session.form.reply({ sessionID: nativeOwner, formID: value.id, answer });
       }
+      if (nativeOwner !== run.sessionId) await run.children?.nativeApprovalResolved(nativeOwner, approvalId);
+      run.pending.delete(approvalId); this.pendingRuns.delete(JSON.stringify([id, approvalId]));
     } finally { pending.answering = false; }
   }
   async steer(id: string, text: string, requestId: string, images?: ExecutionImage[]) {
@@ -251,5 +280,11 @@ export class OpenCodeExecutor implements Executor {
     const promise = (async () => { try { const files = []; for (const image of images ?? []) files.push({ uri: `data:${image.mediaType};base64,${(await readFile(image.path)).toString('base64')}`, name: image.name }); const result = await run.server.v2!.session.prompt({ sessionID: run.sessionId, id: native, text, delivery: 'steer', ...(files.length ? { files } : {}) }, { signal: AbortSignal.timeout(8000) }); if (result.id !== native) throw new Error('OpenCode 未确认补充消息标识'); await delivered; } catch (error) { clearTimeout(timer); throw error; } })();
     run.steers.set(native, { body, promise, resolve, reject }); return promise;
   }
-  async close() { for (const run of this.runs.values()) run.cancel(); await this.connection.close(); }
+  hasSession(id: string) { return this.sessions.has(id); }
+  waitNativeTurn(id: string, sessionId: string, key: string, signal: AbortSignal) { return this.sessions.wait(id, sessionId, key, signal); }
+  stopNativeSession(id: string, sessionId: string) { return this.sessions.stop(id, sessionId); }
+  interruptNativeTurn(id: string, sessionId: string, _key: string) { return this.sessions.stop(id, sessionId); }
+  settleNativeBackground(task: WorkItem) { return this.sessions.settle(task); }
+  async interruptExecution(task: WorkItem, runId: string) { if (task.currentRunId === runId) await this.sessions.stop(task.id, task.executionSessionId ?? ''); }
+  async close() { await this.sessions.close(); await this.connection.close(); }
 }

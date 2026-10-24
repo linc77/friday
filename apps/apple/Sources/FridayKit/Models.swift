@@ -636,6 +636,7 @@ struct TaskSubagentOrigin: Codable {
 struct TaskNativeHistory: Codable {
     let status: String; let updatedAt: String
     var epoch: String? = nil
+    var canFork: Bool? = nil
 }
 
 enum TaskDraftContent {

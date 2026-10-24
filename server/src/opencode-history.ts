@@ -1,11 +1,12 @@
 import type { OpenCodeConnection } from './opencode-provider.js';
 import type { OpenCodeServer } from './opencode-server.js';
 import { acpRecord, type AcpRecord } from './acp-process.js';
-import type { NativeForkRequest, NativeForkResult, NativeRewindRequest, NativeRewindResult, WorkItem } from './types.js';
+import type { NativeForkRequest, NativeForkResult, NativeRewindRequest, NativeRewindResult, WorkItem, TaskEvent } from './types.js';
+import type { CodexHistorySnapshot, CodexHistoryTurn } from './codex-history.js';
 
 // History semantics follow the pinned T3 v1/v2 adapters. Rewind never asks
 // OpenCode to restore files: Friday's existing checkpoint phase owns that.
-type Message = { id: string; role: string; content: unknown };
+type Message = { id: string; role: string; content: unknown; info: AcpRecord };
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((id, index) => id === b[index]);
 function unwrap(value: unknown): any {
   const result = acpRecord(value);
@@ -39,7 +40,7 @@ async function messages(server: OpenCodeServer, id: string, signal: AbortSignal)
   return values.map(value => {
     const info = server.v2 ? value : value.info, role = server.v2 ? info?.type : info?.role;
     if (typeof info?.id !== 'string' || !info.id || seen.has(info.id) || typeof role !== 'string') throw new Error('OpenCode 历史包含无效或重复消息');
-    seen.add(info.id); return { id: info.id, role, content: server.v2 ? info.content ?? info.payload ?? null : value.parts ?? [] };
+    seen.add(info.id); return { id: info.id, role, content: server.v2 ? info.text ?? info.content ?? info.payload ?? null : value.parts ?? [], info };
   });
 }
 async function quiet(server: OpenCodeServer, id: string, signal: AbortSignal) {
@@ -70,7 +71,7 @@ export async function forkOpenCode(connection: OpenCodeConnection, request: Nati
   if (!source || !request.run.turnId) throw new Error('所选 OpenCode 轮次没有原生消息边界');
   return withHistory(connection, request.task, request.signal, async server => {
     await quiet(server, source, request.signal);
-    const original = await messages(server, source, request.signal), end = original.findIndex(message => message.id === request.run.turnId);
+    const original = await messages(server, source, request.signal), end = original.findIndex(message => message.id === (request.run.nativeHead ?? request.run.turnId));
     const next = original.findIndex((message, index) => index > end && ['user', 'synthetic'].includes(message.role));
     const prefix = original.slice(0, next < 0 ? original.length : next);
     if (end < 0 || !same(prompts(prefix), request.expectedTurns)) throw new Error('OpenCode 历史与所选分叉位置不一致');
@@ -82,7 +83,55 @@ export async function forkOpenCode(connection: OpenCodeConnection, request: Nati
     }
     if (id === source) throw new Error('OpenCode 分叉没有独立会话');
     await quiet(server, id, request.signal);
-    return { threadId: id, ...mapping(prefix, await messages(server, id, request.signal)) };
+    const mapped = mapping(prefix, await messages(server, id, request.signal));
+    // Automatic native turns may have no user message. Their actual assistant
+    // head is still a verified boundary; keep display turns mapped to that head.
+    for (const run of [request.run, ...(request.task.runs ?? [])]) if (run.turnId && run.nativeHead && !mapped.turnIds[run.turnId] && mapped.headIds[run.nativeHead]) mapped.turnIds[run.turnId] = mapped.headIds[run.nativeHead]!;
+    return { threadId: id, ...mapped };
+  });
+}
+
+export async function openCodeNativeHead(server: OpenCodeServer, id: string, signal: AbortSignal, through?: string) {
+  const all = await messages(server, id, signal), boundary = through ? all.findIndex(message => message.id === through) : all.length - 1;
+  if (through && boundary < 0) throw new Error('OpenCode 原生结果边界尚未写入历史');
+  const prefix = all.slice(0, boundary + 1); return { head: prefix.at(-1)?.id, turns: prompts(prefix) };
+}
+
+/** Read native child data only; never resume, prompt, adopt a process or start a run. */
+export async function readOpenCodeSubagentHistory(connection: OpenCodeConnection, task: WorkItem, parentThreadId: string, signal: AbortSignal): Promise<CodexHistorySnapshot> {
+  if (!task.threadId || !task.subagentOrigin) throw new Error('OpenCode 子会话身份缺失');
+  return withHistory(connection, task, signal, async server => {
+    const id = task.threadId!, session = server.v2 ? await server.v2.session.get({ sessionID: id }, { signal }) : unwrap(await server.v1!.session.get({ sessionID: id }, { signal }));
+    if (session.id !== id || session.parentID !== parentThreadId) throw new Error('OpenCode 子会话所属父会话已改变');
+    const all = await messages(server, id, signal), active = server.v2 ? await server.v2.session.active({ signal }) : unwrap(await server.v1!.session.status({}, { signal }));
+    const busy = server.v2 ? Object.hasOwn(active, id) : !!active[id] && active[id].type !== 'idle';
+    const text = (value: unknown): string => typeof value === 'string' ? value : Array.isArray(value) ? value.map(text).filter(Boolean).join('\n') : typeof acpRecord(value)?.text === 'string' ? acpRecord(value)!.text : '';
+    const clock = (value: unknown, fallback: string) => typeof value === 'number' && Number.isFinite(value) ? new Date(value).toISOString() : typeof value === 'string' && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : fallback;
+    const turns: CodexHistoryTurn[] = [], byId = new Map<string, CodexHistoryTurn>(); let current: CodexHistoryTurn | undefined;
+    for (const [index, message] of all.entries()) {
+      const at = clock(message.info.time?.created, new Date(Date.parse(task.createdAt) + index).toISOString());
+      if (message.role === 'user' || message.role === 'synthetic') {
+        current = { id: message.id, status: 'completed', at, prompt: text(message.content), events: [] }; turns.push(current); byId.set(message.id, current);
+        current.events.push({ id: `opencode-history:${id}:${message.id}:turn`, kind: 'turn', text: '', at, turnId: message.id, nativeTurnId: message.id, status: 'completed' });
+      } else if (message.role === 'assistant') {
+        const turn = byId.get(message.info.parentID) ?? current; if (!turn) continue;
+        const parts = Array.isArray(message.content) ? message.content : [{ type: 'text', text: text(message.content) }];
+        for (const [ordinal, part] of parts.entries()) {
+          const value = acpRecord(part); if (!value) continue;
+          const kind = value.type === 'reasoning' ? 'reasoning' : value.type === 'tool' ? value.tool === 'bash' || value.tool === 'shell' ? 'command' : 'tool' : value.type === 'text' ? 'message' : undefined; if (!kind) continue;
+          const state = acpRecord(value.state), body = kind === 'command' ? state?.input?.command ?? value.tool : kind === 'tool' ? state?.title ?? value.tool ?? 'Tool' : value.text ?? '';
+          const event: TaskEvent = { id: `opencode-history:${id}:${message.id}:${value.id ?? ordinal}`, kind, text: body, at, turnId: turn.id, nativeTurnId: turn.id, status: state?.status === 'error' ? 'failed' : 'completed', ...(kind === 'message' ? { phase: 'commentary' } : {}), ...(typeof state?.output === 'string' ? { detail: state.output } : {}) };
+          turn.events.push(event);
+        }
+        turn.completedAt = clock(message.info.time?.completed, at); if (message.info.error) turn.status = 'failed';
+      }
+    }
+    for (const turn of turns) {
+      if (turn === turns.at(-1) && busy) { turn.status = 'inProgress'; delete turn.completedAt; }
+      const answer = turn.events.findLast(event => event.kind === 'message'); if (answer) answer.phase = turn.status === 'inProgress' ? 'commentary' : 'final_answer';
+      for (const event of turn.events) { if (event.kind === 'turn') event.status = turn.status === 'inProgress' ? 'running' : turn.status === 'failed' ? 'failed' : 'completed'; if (turn.completedAt) event.completedAt = turn.completedAt; }
+    }
+    return { threadId: id, parentThreadId, turns, canFork: server.generation === 1, ...(busy && task.executionSessionId ? { connectionId: task.executionSessionId } : {}) };
   });
 }
 

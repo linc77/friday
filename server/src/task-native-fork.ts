@@ -2,7 +2,7 @@ import type { TaskEvent, TaskStatus, WorkItem } from './types.js';
 
 // These are observed provider turns, never Friday executions or Durable jobs.
 export function nativeForkTurns(source: WorkItem) {
-  if (source.agent !== 'codex' || !source.threadId) return [];
+  if (!['codex', 'opencode'].includes(source.agent) || !source.threadId) return [];
   const seen = new Set<string>();
   return source.events.flatMap(event => {
     if (event.kind !== 'turn' || event.runId || event.revertedAt || !event.turnId || seen.has(event.turnId)) return [];

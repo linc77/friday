@@ -186,7 +186,7 @@ export type WorkItem = {
   settleCleanup?: import('./task-settle-lifecycle.js').TaskSettleCleanup;
   canSettle?: boolean;
   contextUsage?: import('./task-context-usage.js').TaskContextUsage | null;
-  nativeHistory?: { status: 'loading' | 'ready' | 'failed'; updatedAt: string; epoch?: string };
+  nativeHistory?: { status: 'loading' | 'ready' | 'failed'; updatedAt: string; epoch?: string; canFork?: boolean };
   subagents?: import('./task-subagent-types.js').TaskSubagent[];
   subagentOrigin?: import('./task-subagent-types.js').TaskSubagentOrigin;
   pendingSubagentRequest?: 'approval' | 'user_input';

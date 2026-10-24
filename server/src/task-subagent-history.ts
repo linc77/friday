@@ -13,14 +13,15 @@ const native = (event: TaskEvent) => event.nativeTurnId ?? (event.id.startsWith(
 const answer = (events: TaskEvent[]) => events.findLast(event => event.kind === 'message' && event.phase === 'final_answer')?.text
   || events.findLast(event => event.kind === 'message' && !event.phase)?.text || events.findLast(event => event.kind === 'proposal')?.text;
 function scope(state: Workspace, id: string) {
-  const child = state.tasks.find(task => task.id === id && task.agent === 'codex' && task.subagentOrigin);
+  const child = state.tasks.find(task => task.id === id && ['codex', 'opencode'].includes(task.agent) && task.subagentOrigin);
   const root = child && state.tasks.find(task => task.id === child.subagentOrigin!.rootTaskId);
-  const agent = root?.subagents?.find(agent => agent.id === child?.subagentOrigin!.subagentId && agent.provider === 'codex');
-  if (!root || !child || !agent || root.threadId !== agent.threadId || activeRewind(root.rewindOperation) || child.threadId !== agent.nativeId || child.subagentOrigin!.sessionId !== agent.sessionId
+  const agent = root?.subagents?.find(agent => agent.id === child?.subagentOrigin!.subagentId && agent.provider === child.agent);
+  if (!root || !child || !agent || root.threadId !== agent.threadId || activeRewind(root.rewindOperation) || child.threadId !== (agent.provider === 'codex' ? agent.nativeId : agent.nativeThreadId) || !child.threadId || child.subagentOrigin!.sessionId !== agent.sessionId
     || !visibleSubagentIds(state.tasks).has(id)) return;
-  const parent = agent.parentSubagentId ? root.subagents?.find(value => value.id === agent.parentSubagentId)?.nativeId : agent.threadId;
+  const parentAgent = agent.parentSubagentId ? root.subagents?.find(value => value.id === agent.parentSubagentId) : undefined;
+  const parent = parentAgent ? parentAgent.provider === 'codex' ? parentAgent.nativeId : parentAgent.nativeThreadId : agent.threadId;
   if (!parent) return;
-  const key = digest([child.id, child.threadId, child.cwd, child.codexHome, child.executionWorkspace, child.subagentOrigin,
+  const key = digest([child.id, child.threadId, child.cwd, child.codexHome, child.nativeProviderAccount, child.providerInstanceId, child.executionWorkspace, child.subagentOrigin,
     root.executionSessionId, root.threadId, agent.sessionId, agent.nativeId, agent.nativeRunId, agent.generation, agent.childTurnId, agent.status, parent]);
   return { root, child, agent, parent, key };
 }
@@ -68,7 +69,7 @@ export class TaskSubagentHistory {
     await this.engine.root.commit(async tx => {
       const state = await tx.doc(WorkspaceDoc); const own = scope(state, id); if (own?.key !== key) return;
       if (own.child.nativeHistory?.status === status) return;
-      own.child.nativeHistory = copy({ status, epoch: own.child.nativeHistory?.epoch, updatedAt: new Date().toISOString() }); state.revision++;
+      own.child.nativeHistory = copy({ status, epoch: own.child.nativeHistory?.epoch, canFork: own.child.nativeHistory?.canFork, updatedAt: new Date().toISOString() }); state.revision++;
     }, context);
   }
   private async project(own: NonNullable<ReturnType<typeof scope>>, before: TaskEvent[], snapshot: CodexHistorySnapshot, connected: boolean) {
@@ -140,7 +141,7 @@ export class TaskSubagentHistory {
       }
       const statusChanged = child.nativeHistory?.status !== 'ready';
       if (changed || statusChanged) {
-        child.nativeHistory = copy({ status: 'ready', epoch: changed ? randomUUID() : child.nativeHistory?.epoch, updatedAt: new Date().toISOString() });
+        child.nativeHistory = copy({ status: 'ready', epoch: changed ? randomUUID() : child.nativeHistory?.epoch, canFork: snapshot.canFork ?? true, updatedAt: new Date().toISOString() });
         if (changed) {
           child.events = [...events.values()].sort((a, b) => a.at.localeCompare(b.at) || (a.historyOrder ?? 0) - (b.historyOrder ?? 0));
           messages.sort((a, b) => (a.at ?? '').localeCompare(b.at ?? ''));

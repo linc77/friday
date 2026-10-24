@@ -120,6 +120,7 @@ export class TaskSubagents {
           ...(incoming.model || incoming.provider === 'claude' && root.model ? { model: incoming.model ?? root.model } : {}), ...(incoming.reasoningEffort ? { reasoningEffort: incoming.reasoningEffort } : {}),
           subagentOrigin: { rootTaskId: rootId, parentTaskId: parentAgent ? parentAgent.childTaskId : rootId, subagentId: incoming.id, sessionId: update.sessionId, threadId: update.threadId, nativeId: incoming.nativeId, status: incoming.status } };
         state.tasks.push(child);
+        child = state.tasks.find(task => task.id === incoming.childTaskId)!;
       }
       if (child.subagentOrigin?.rootTaskId !== rootId || child.subagentOrigin.subagentId !== incoming.id || child.subagentOrigin.nativeId !== incoming.nativeId || child.subagentOrigin.threadId !== update.threadId
         || child.subagentOrigin.sessionId !== update.sessionId && !(adopting && child.subagentOrigin.sessionId === old?.sessionId)) return;
@@ -139,6 +140,7 @@ export class TaskSubagents {
       child.status = childStatus(metadata.status); child.turnId = metadata.childTurnId; child.updatedAt = metadata.updatedAt;
       child.subagentOrigin.status = metadata.status;
       if (metadata.provider === 'codex') { child.threadId = metadata.nativeId; child.executionSessionId = metadata.sessionId; }
+      if (metadata.provider === 'opencode' && metadata.nativeThreadId) { child.threadId = metadata.nativeThreadId; child.nativeProviderAccount = root.nativeProviderAccount; child.executionSessionId = metadata.sessionId; }
       if (metadata.provider === 'codex' && root.codexHome) child.codexHome = root.codexHome;
       if (metadata.provider === 'codex' && root.executionWorkspace) child.executionWorkspace = copy(root.executionWorkspace);
       if (metadata.model) child.model = metadata.model;

@@ -7,9 +7,13 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 export async function openCodeFixture({ generation = 2, password = '私有密码', port = 0, wire, directory = process.cwd() } = {}) {
-  const records = [], clients = new Set(), timers = new Set(), sessions = new Map(), children = new Set(); let mcp;
+  const records = [], clients = new Set(), timers = new Set(), sessions = new Map(), children = new Set(), active = new Set(); let mcp;
   const record = value => { records.push(value); if (wire) appendFileSync(wire, JSON.stringify(value) + '\n'); };
-  const emit = (type, data) => { const event = generation === 2 ? { type, data } : { type, properties: data }; for (const client of clients) client.write('data: ' + JSON.stringify(event) + '\r\n\r\n'); };
+  const emit = (type, data) => {
+    if (type === 'session.execution.started' || type === 'session.status' && ['busy', 'retry'].includes(data.status?.type)) active.add(data.sessionID);
+    if (['session.execution.succeeded', 'session.execution.interrupted', 'session.execution.failed', 'session.idle'].includes(type) || type === 'session.status' && data.status?.type === 'idle') active.delete(data.sessionID);
+    const event = generation === 2 ? { type, data } : { type, properties: data }; for (const client of clients) client.write('data: ' + JSON.stringify(event) + '\r\n\r\n');
+  };
   const later = (fn, delay = 5) => { const timer = setTimeout(() => { timers.delete(timer); fn(); }, delay); timers.add(timer); };
   const complete = (sessionID, nativeId, text = 'OpenCode reply café\u2028line\u2029end') => {
     const session = sessions.get(sessionID);
@@ -56,7 +60,7 @@ export async function openCodeFixture({ generation = 2, password = '私有密码
     const path = new URL(req.url, 'http://fixture').pathname; let body;
     try { let raw = ''; for await (const chunk of req) raw += chunk; body = raw ? JSON.parse(raw) : {}; } catch { res.writeHead(400).end(); return; }
     record({ method: req.method, path, body, subscribed: clients.size > 0 });
-    const json = (data, code = 200) => { if (generation === 2 && (path.startsWith('/api/experimental/mcp/') || req.method === 'PATCH' || req.method === 'POST' && /\/(model|agent|move|interrupt|commit)$/.test(path) || path.includes('/form/') || path.includes('/permission/') && path.endsWith('/reply'))) code = 204; res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(code === 204 ? '' : JSON.stringify(data)); };
+    const json = (data, code = 200) => { if (generation === 2 && (path.startsWith('/api/experimental/mcp/') || req.method === 'PATCH' || req.method === 'POST' && /\/(model|agent|move|commit)$/.test(path) || path.includes('/form/') || path.includes('/permission/') && path.endsWith('/reply'))) code = 204; res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(code === 204 ? '' : JSON.stringify(data)); };
     if (req.headers.authorization !== 'Basic ' + Buffer.from('opencode:' + password).toString('base64')) { json({ error: 'unauthorized' }, 401); return; }
     if (path === '/api/info') { if (generation === 2) json({ version: '2.0.28', pid: process.pid }); else { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end('<html>OpenCode</html>'); } return; }
     if (path === '/global/health') { json({ healthy: true, version: '1.14.19' }); return; }
@@ -65,7 +69,7 @@ export async function openCodeFixture({ generation = 2, password = '私有密码
     if (path === '/api/model') { json({ data: [{ id: 'model', providerID: 'native', name: 'Native model', variants: [{ id: 'high' }], limit: { context: 120000 } }] }); return; }
     if (path === '/api/agent') { json({ data: [{ id: 'plan', permissions: [{ action: 'edit', resource: '/plans/*', effect: 'allow' }] }] }); return; }
     if (path === '/api/command' || path === '/api/skill') { json({ data: [] }); return; }
-    if (path === '/api/session/active' || path === '/session/status') { json(generation === 2 ? { data: {} } : {}); return; }
+    if (path === '/api/session/active' || path === '/session/status') { const busy = Object.fromEntries([...active].map(id => [id, { type: 'busy' }])); json(generation === 2 ? { data: busy } : busy); return; }
     if (path === '/command' || path === '/skill') { json([]); return; }
     if (path.startsWith('/api/experimental/mcp/') || path === '/mcp') { if (req.method === 'POST' || req.method === 'PUT') mcp = body.config; json({}); return; }
     if ((path === '/api/session' || path === '/session') && req.method === 'POST') { const id = 'ses_' + randomUUID().replaceAll('-', ''), session = { id, location: { directory }, permission: body.permission, permissions: body.permissions, messages: [] }; sessions.set(id, session); if (wire) writeFileSync(join(directory, id + '.fixture.json'), JSON.stringify(session)); json(generation === 2 ? { data: session } : session); return; }
@@ -116,7 +120,7 @@ export async function openCodeFixture({ generation = 2, password = '私有密码
     json({ error: 'Unhandled fixture path ' + path }, 404);
   });
   await new Promise(resolve => server.listen(port, '127.0.0.1', resolve)); const url = 'http://127.0.0.1:' + server.address().port;
-  return { url, records, emit, close: async () => { for (const timer of timers) clearTimeout(timer); for (const child of children) child.kill(); for (const client of clients) client.destroy(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); } };
+  return { url, records, emit, complete, sessions, active, close: async () => { for (const timer of timers) clearTimeout(timer); for (const child of children) child.kill(); for (const client of clients) client.destroy(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); } };
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const generation = process.env.OPENCODE_TEST_GENERATION === '1' ? 1 : 2;

@@ -40,7 +40,7 @@ for (const generation of [1, 2] as const) test(`OpenCode ${generation} uses its 
 });
 test('OpenCode child session grants reply to the actual child and never become a parent session permission', async t => {
   const f = await setup(t, 2), controller = new AbortController(); let sessionId = '', approval: any;
-  const running = f.executor.run({ task: task(f.directory), prompt: 'hold', signal: controller.signal, update: async value => { if (value.kind === 'session') sessionId = value.threadId; if (value.kind === 'approval') approval = value.approval; } }); void running.catch(() => {});
+  const running = f.executor.run({ task: task(f.directory), prompt: 'hold', signal: controller.signal, update: async value => { if (value.kind === 'session') sessionId = value.threadId; if (value.kind === 'approval') approval = value.approval; if (value.kind === 'subagent' && value.value?.kind === 'approval') approval = value.value.approval; } }); void running.catch(() => {});
   t.after(() => controller.abort());
   await until(async () => (await f.trace()).some((value: any) => value.prompt === 'hold'));
   const sent = (await f.trace()).find((value: any) => value.prompt === 'hold');

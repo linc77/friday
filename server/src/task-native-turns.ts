@@ -62,7 +62,7 @@ export class TaskNativeTurns {
           turnId: update.turnId, provider: update.provider ?? 'claude', ...(update.providerInstanceId ? { providerInstanceId: update.providerInstanceId } : {}), status: 'running', result: '' };
         work.runs ??= []; const executionOrder = Math.max(0, ...work.runs.map(run => run.executionOrder ?? 0)) + 1;
         work.runs.push({ id: runId, durableId, messageId: 'notification:' + key, requestId: 'native:' + key, cwd: update.parameters.cwd,
-          at, startedAt: at, status: 'running', turnId: update.turnId, threadId: update.threadId, executionOrder, mode: update.parameters.mode,
+          at, startedAt: at, status: 'running', turnId: update.turnId, threadId: update.threadId, executionOrder, executionMessagePosition: work.messages?.length ?? 0, mode: update.parameters.mode,
           interactionMode: update.parameters.interactionMode ?? 'default', modelOptions: update.parameters.modelOptions ?? work.modelOptions ?? [], ...(update.parameters.model ? { model: update.parameters.model } : {}), ...(update.parameters.reasoningEffort ? { reasoningEffort: update.parameters.reasoningEffort } : {}) });
         work.events.push({ id: 'notification:' + key, kind: 'notification', text: '后台任务的后续回复', at, runId });
         const current = work.runs.find(run => run.id === work.currentRunId);
