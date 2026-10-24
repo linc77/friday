@@ -1,3 +1,4 @@
+import { isolatedTextGeneration } from './native-text-generation.js';
 import { randomUUID } from 'node:crypto';
 import { readFile, realpath } from 'node:fs/promises';
 import { MuseConnection, type MuseProcess } from './muse-provider.js';
@@ -40,14 +41,16 @@ export class MuseExecutor implements Executor {
   constructor(private connection: MuseConnection) {}
   supportsTaskTools(agent: string) { return agent === 'muse'; }
   deferredStart(agent: string) { return agent === 'muse'; }
-  async run(request: ExecutionRequest): Promise<string> {
+  async generateText(request: import('./types.js').TextGenerationRequest) { return this.run(request); }
+  async run(request: ExecutionRequest): Promise<string> { return request.purpose ? isolatedTextGeneration(request, prepared => this.runNative(prepared)) : this.runNative(request); }
+  private async runNative(request: ExecutionRequest): Promise<string> {
     const { task, signal, update } = request;
     if (this.runs.has(task.id)) throw new Error('Muse 会话仍在执行');
     if (task.interactionMode === 'plan') throw new Error('Muse 未提供专用计划模式');
     const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions });
     if (task.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条 Muse 会话使用的账号配置');
     signal.throwIfAborted();
-    const cwd = await realpath(task.cwd), client = await this.connection.client(runtime.settings, cwd);
+    const cwd = await realpath(task.cwd), client = await this.connection.client(runtime.settings, cwd, !!request.purpose);
     const sessionId = task.threadId ?? client.connection.mintCommandId(), nativeTurnId = client.connection.mintCommandId(), projection = new NativeTurnProjection(request, nativeTurnId);
     let resolve!: (value: AcpRecord) => void, reject!: (error: Error) => void, terminal = false, active = false, interruption: Promise<unknown> | undefined;
     const completion = new Promise<AcpRecord>((yes, no) => { resolve = yes; reject = no; }); void completion.catch(() => {});
@@ -69,6 +72,7 @@ export class MuseExecutor implements Executor {
       projection.put(item.itemId, kind, body, { status: state, detail: [item.failureReason, detail].filter(Boolean).join('\n'), ...(typeof item.exitCode === 'number' ? { exitCode: item.exitCode } : {}), ...(Number.isFinite(item.durationMs) ? { durationMs: item.durationMs } : {}), ...(item.truncated ? { detailTruncated: true } : {}) });
     };
     const publishRequest = async (kind: 'approval' | 'question', value: AcpRecord) => {
+      if (request.purpose) throw new Error('独立文字生成不接受工具授权或用户输入');
       if (!active || terminal || !owned(value)) return;
       const nativeId = kind === 'approval' ? value.approvalId : value.userInputId;
       if (typeof nativeId !== 'string') throw new Error('Muse 返回了无效的问题标识');
@@ -119,7 +123,7 @@ export class MuseExecutor implements Executor {
       if (signal.aborted) throw cancelled();
       if (request.taskMcp && !client.host!.initializeResult.grantedCapabilities.includes('sessionMcp')) throw new Error('Muse 尚未支持会话 MCP，请升级主机上的 Muse');
       const config = request.taskMcp ? { mcpServers: { friday: { transport: 'streamableHttp', mode: 'optional', url: request.taskMcp.url, headers: request.taskMcp.headers } } } : undefined;
-      const permissionProfile = runtime.settings.permissionMode === 'auto' ? ':unrestricted' : ':ask-me', approvalMode = runtime.settings.permissionMode === 'auto' ? 'allowAll' : 'promptUnmatched';
+      const permissionProfile = runtime.settings.permissionMode === 'auto' && !request.purpose ? ':unrestricted' : ':ask-me', approvalMode = request.purpose ? 'denyUnmatched' : runtime.settings.permissionMode === 'auto' ? 'allowAll' : 'promptUnmatched';
       const setup = await client.call(task.threadId ? 'session/resume' : 'session/start', { sessionId, ...(task.threadId ? { excludeItems: true } : { workspaceRoot: cwd, modelId: runtime.model, providerId: 'meta', approvalMode }), permissionProfile, ...(config ? { config } : {}) }, true);
       if (acpRecord(setup.session)?.sessionId !== sessionId) throw new Error('Muse 返回了不同的原生会话 ID，已停止执行');
       if (task.threadId) { await client.call('session/setApprovalMode', { sessionId, mode: approvalMode }, true); await update({ kind: 'resumeApplied' }); }

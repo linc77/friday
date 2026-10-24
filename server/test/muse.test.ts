@@ -10,6 +10,14 @@ import { nativeProviderDefaults } from '../src/native-provider-config.js';
 import type { WorkItem, ExecutionUpdate } from '../src/types.js';
 const binary = fileURLToPath(new URL('./fixtures/muse.mjs', import.meta.url));
 const task = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'muse-task', agent: 'muse', cwd, model: 'muse-native', reasoningEffort: 'high', threadId: null, currentRunId: 'muse-run', interactionMode: 'default', events: [], approvals: [], ...changes }) as WorkItem;
+test('Muse independent generation disables shell and writes, denies unmatched approvals and never resumes foreground history', async t => {
+  const fixture = await setup(t);
+  const result = await fixture.executor.generateText({ task: task(fixture.directory, { threadId: 'foreground', nativeProviderAccount: 'foreground-account' }), purpose: 'task_title', prompt: 'Title', signal: AbortSignal.timeout(5000), update: async () => {} });
+  assert.ok(result.trim());
+  const trace = await fixture.trace(), started = trace.find(value => value.method === 'session/start');
+  assert.ok(started.args.includes('--disable-shell')); assert.ok(started.args.includes('--disable-write')); assert.ok(started.args.includes('--no-session-log')); assert.equal(started.params.approvalMode, 'denyUnmatched');
+  assert.ok(!trace.some(value => value.method === 'session/resume'));
+});
 async function setup(t: { after: (fn: () => Promise<unknown>) => void }, environment: Record<string, string> = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'friday-muse-')), wire = join(directory, 'wire.jsonl'), home = join(directory, 'sessions'), connection = new MuseConnection(directory), executor = new MuseExecutor(connection); await chmod(binary, 0o755);
   t.after(async () => { await executor.close(); await rm(directory, { recursive: true, force: true }); });

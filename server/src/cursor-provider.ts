@@ -1,3 +1,6 @@
+import { readCursorUsage, releaseCursorUsage } from './native-provider-usage.js';
+import type { ProviderUsageLimits } from './provider-usage-limits.js';
+import { ProviderWorkspaceCache } from './provider-workspace.js';
 import { selectedProviderOptions, type ProviderModelSelection, type ProviderOptionDescriptor } from './provider-models.js';
 import { createHash } from 'node:crypto';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -39,6 +42,15 @@ export function cursorModels(value: unknown): CursorModel[] {
   });
 }
 export class CursorConnection extends NativeProviderConnection {
+  private usageController = new AbortController();
+  private usageCache = new ProviderWorkspaceCache<ProviderUsageLimits>(60_000);
+  async usageLimits(reload = false, task?: import('./types.js').WorkItem) {
+    const settings = await loadNativeProviderSettings(this.directory, 'cursor');
+    if (task?.nativeProviderAccount && task.nativeProviderAccount !== await this.accountIdentity(settings)) throw new Error('请恢复这条 Cursor 会话使用的账号');
+    const result = await this.usageCache.read(JSON.stringify(settings), reload, () => settings.enabled ? readCursorUsage(nativeProviderEnvironment('cursor', settings), settings.cursorUsageKeychainEnabled === true, this, { signal: this.usageController.signal }) : Promise.resolve({ checkedAt: new Date().toISOString(), windows: [], unavailable: { reason: 'unsupported' } }));
+    if (this.closed || JSON.stringify(await loadNativeProviderSettings(this.directory, 'cursor')) !== JSON.stringify(settings)) throw new Error('Provider 额度所属配置已改变，请重新加载');
+    return result;
+  }
   private credentialSignature = '';
   private loginProcess?: AcpProcess;
   private loginUrl?: string;
@@ -86,7 +98,7 @@ export class CursorConnection extends NativeProviderConnection {
   async accountIdentity(settings: NativeProviderSettings) { return createHash('sha256').update(JSON.stringify([nativeProviderAccount('cursor', settings), (await this.credential(settings)).fingerprint])).digest('hex'); }
   async save(value: unknown) {
     if (this.loginProcess) { const previous = this.loginProcess; this.loginProcess = undefined; this.loginUrl = undefined; clearTimeout(this.loginTimer); await this.release(previous); }
-    return super.save(value);
+    const state = await super.save(value); if (!state.enabled || state.settings?.cursorUsageKeychainEnabled !== true) releaseCursorUsage(this); return state;
   }
   stateRoot(cwd: string) { return join(this.directory, 'cursor', 'sessions', createHash('sha256').update(cwd).digest('hex').slice(0, 24)); }
   async workspace(cwd: string, reload = false, task?: WorkItem): Promise<ProviderWorkspace> {
@@ -104,5 +116,5 @@ export class CursorConnection extends NativeProviderConnection {
     try { const result = await client.call('cursor/login', {}, 12_000); if (typeof result.url !== 'string' || !/^https?:\/\//.test(result.url)) throw new Error('Cursor 未返回登录地址'); this.loginUrl = result.url; this.loginTimer = setTimeout(() => { void end(); }, 300_000); return { url: result.url }; }
     catch (error) { await end(); throw error; }
   }
-  async close() { clearTimeout(this.loginTimer); await super.close(); }
+  async close() { this.usageController.abort(); releaseCursorUsage(this); clearTimeout(this.loginTimer); await super.close(); }
 }

@@ -11,7 +11,7 @@ struct TaskForkButton: View {
     @State private var error: String?
 
     private var supported: Bool {
-        guard ["codex", "claude"].contains(task.agent) else { return false }
+        guard ["codex", "claude", "pi", "grok", "cursor", "opencode", "muse", "antigravity", "acp-registry"].contains(task.agent) else { return false }
         guard let run = task.runs?.first(where: { $0.id == runID && $0.revertedAt == nil && $0.executionExcludedAt == nil }) else { return TaskNativeForkBoundary.supported(task, id: runID) }
         return ["completed", "failed", "cancelled", "interrupted"].contains(run.status)
     }

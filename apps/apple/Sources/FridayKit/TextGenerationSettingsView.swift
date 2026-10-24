@@ -68,7 +68,7 @@ struct TextGenerationSettingsView: View {
             if let snapshot = state.snapshot {
                 let pickerToken = state.token
                 let selection = selected(field, snapshot)
-                TaskModelPicker(server: store.connection.server, scope: context, states: states, lockedProvider: nil, provider: selection.agent, model: selection.model, instances: store.providerInstances.filter { ["codex", "claude"].contains($0.driver) }, instanceId: selection.providerInstanceId ?? selection.agent) { choice in
+                TaskModelPicker(server: store.connection.server, scope: context, states: states, lockedProvider: nil, provider: selection.agent, model: selection.model, instances: store.providerInstances.filter { $0.driver != "acp-registry" && states[$0.id]?.supportsTextGeneration != false && (field.rawValue != "reviewGuideModelSelection" || ["codex", "claude"].contains($0.driver)) }, instanceId: selection.providerInstanceId ?? selection.agent) { choice in
                     guard state.current(pickerToken, identity: identity, projectID: projectID), !state.busy else { return }
                     picking = nil
                     let selected = TextGenerationModelSelection(providerInstanceId: choice.selectionId, agent: choice.provider, model: choice.model.id, reasoningEffort: choice.model.defaultReasoningEffort)
@@ -223,7 +223,7 @@ struct TextGenerationSettingsView: View {
             customInstructions = (snapshot.effective.sourceControlWritingStyle ?? .standard).customInstructions
             guideInstructions = snapshot.effective.reviewGuideInstructions ?? ""
             await store.loadProviderInstances()
-            for instance in store.providerInstances.filter({ ["codex", "claude"].contains($0.driver) && $0.enabled }) {
+            for instance in store.providerInstances.filter({ $0.driver != "acp-registry" && $0.enabled }) {
                 guard state.current(token, identity: self.identity, projectID: projectID) else { return }
                 if let value = try? await connection.decode(CodexConnectionState.self, TaskProviderCatalog.endpoint(instance.driver, instance: instance.id)), state.current(token, identity: self.identity, projectID: projectID) { states[instance.id] = value }
             }

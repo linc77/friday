@@ -21,6 +21,37 @@ async function setup(t: { after(fn: () => Promise<unknown>): void }, generation:
   return { connection, executor, directory, fixture, trace: async () => fixture?.records ?? (await readFile(wire, 'utf8')).split('\n').filter(Boolean).map(line => JSON.parse(line)) };
 }
 async function until(read: () => Promise<boolean>) { const end = Date.now() + 6000; while (!await read()) { if (Date.now() > end) throw new Error('OpenCode fixture timed out'); await new Promise(resolve => setTimeout(resolve, 10)); } }
+for (const generation of [1, 2] as const) test(`OpenCode ${generation} independent generation denies every native tool and allocates a separate session`, async t => {
+  const fixture = await setup(t, generation);
+  const result = await fixture.executor.generateText({ task: task(fixture.directory, { threadId: 'foreground', nativeProviderAccount: 'foreground-account' }), purpose: 'task_title', prompt: 'Title', signal: AbortSignal.timeout(5000), update: async () => {} });
+  assert.ok(result.trim());
+  const trace: any[] = await fixture.trace(), created = trace.find(value => value.method === 'POST' && value.path === (generation === 2 ? '/api/session' : '/session'));
+  assert.ok(created);
+  assert.deepEqual(generation === 2 ? created.body.permissions : created.body.permission, generation === 2 ? [{ action: '*', resource: '*', effect: 'deny' }] : [{ permission: '*', pattern: '*', action: 'deny' }]);
+  assert.ok(!trace.some(value => value.path === '/session/foreground'));
+});
+for (const generation of [1, 2] as const) test(`OpenCode ${generation} verifies paginated native history, maps copied IDs and never repeats an uncertain history operation`, async t => {
+  const f = await setup(t, generation), turns: string[] = []; let threadId = '', account = '';
+  for (const id of ['one', 'two']) await f.executor.run({ task: task(f.directory, { currentRunId: id, threadId: threadId || null }), prompt: id, signal: AbortSignal.timeout(5000), update: async update => {
+    if (update.kind === 'session') { threadId = update.threadId; account = update.nativeProviderAccount!; }
+    if (update.kind === 'turn') turns.push(update.turnId);
+  } });
+  const source = task(f.directory, { threadId, nativeProviderAccount: account }); let started = false, candidate = '';
+  const request = { task: source, run: { threadId, turnId: turns[0] }, expectedTurns: [turns[0]!], title: 'Fork', inspectOnly: false, signal: AbortSignal.timeout(5000), started: async () => { started = true; }, candidate: async (id: string) => { assert.ok(started); candidate = id; } };
+  const fork = await f.executor.fork(request); assert.equal(fork.threadId, candidate); assert.notEqual(fork.threadId, threadId); assert.ok(fork.turnIds[turns[0]!]); assert.notEqual(fork.turnIds[turns[0]!], turns[0]);
+  const count = () => f.trace().then((trace: any[]) => trace.filter(value => value.path?.endsWith('/fork')).length);
+  const before = await count(); await f.executor.fork({ ...request, candidateId: candidate, inspectOnly: true, started: async () => assert.fail('cannot repeat fork') });
+  await assert.rejects(f.executor.fork({ ...request, inspectOnly: true }), /不会重复创建/); assert.equal(await count(), before);
+  let original: any, rewindCandidate = '';
+  const rewind = { task: source, targetTurnId: turns[1]!, removeTurns: [turns[1]!], keepTurns: [turns[0]!], signal: AbortSignal.timeout(5000), started: async (value: any) => { original = value; }, candidate: async (value: string) => { assert.ok(original); rewindCandidate = value; } };
+  const result = await f.executor.rewind(rewind); assert.equal(result.state, 'applied'); assert.equal(result.turns?.length, 1);
+  if (generation === 1) { assert.equal(result.threadId, rewindCandidate); assert.ok(result.turnIds![turns[0]!]); assert.notEqual(result.turnIds![turns[0]!], turns[0]); }
+  else { assert.equal(result.threadId, threadId); const stages = (await f.trace()).filter((value: any) => value.path?.endsWith('/revert/stage')); assert.equal(stages.length, 1); assert.equal(stages[0].body.files, false); }
+  const beforeInspect = (await f.trace()).filter((value: any) => value.path?.endsWith('/fork') || value.path?.endsWith('/revert/commit')).length;
+  assert.equal((await f.executor.rewind({ ...rewind, task: { ...source, threadId: result.threadId }, original, inspectOnly: true, started: async () => assert.fail('cannot repeat rewind') })).state, 'applied');
+  assert.equal((await f.trace()).filter((value: any) => value.path?.endsWith('/fork') || value.path?.endsWith('/revert/commit')).length, beforeInspect);
+  await assert.rejects(f.executor.rewind({ ...rewind, task: { ...source, nativeProviderAccount: 'another-account' } }), /账号配置/);
+});
 test('OpenCode version detection distinguishes real JSON health from a 1.x HTML fallback and uses UTF-8 Basic credentials', async t => {
   assert.equal(openCodeGeneration('opencode 1.14.19'), 1); assert.equal(openCodeGeneration('2.0.28'), 2); assert.throws(() => openCodeGeneration('1.14.18'), /1.14.19/);
   for (const generation of [1, 2] as const) { const f = await openCodeFixture({ generation }); t.after(() => f.close()); assert.equal((await probeOpenCodeServer(f.url, '私有密码')).generation, generation); await assert.rejects(probeOpenCodeServer(f.url, 'wrong'), /拒绝/); }

@@ -71,7 +71,7 @@ struct TaskProviderUsagePanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(verbatim: provider).fontWeight(.medium)
+                Text(verbatim: limits?.sourceLabel ?? TaskProviderCatalog.name(provider)).fontWeight(.medium)
                 Text(friday: "账号配额").foregroundStyle(.secondary)
                 Spacer()
                 Button(action: reload) { FridaySymbolImage(systemName: "arrow.clockwise").frame(width: 24, height: 24) }
@@ -80,6 +80,7 @@ struct TaskProviderUsagePanel: View {
                     .buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: "关闭"))
             }
             if let limits, limits.offered {
+                if limits.windows.isEmpty { Text(friday: "尚未有用量记录").foregroundStyle(.secondary) }
                 ForEach(limits.windows) { window in
                     VStack(alignment: .leading, spacing: 5) {
                         HStack {
@@ -97,7 +98,7 @@ struct TaskProviderUsagePanel: View {
                 }
                 Text(friday: "账号配额由 Provider 报告，与当前会话的上下文窗口分别计算。")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            } else { Text(friday: loading ? "正在读取账号配额" : "此 Provider 暂无可用配额信息").foregroundStyle(.secondary) }
+            } else if let message = limits?.unavailable?.message, !loading { Text(message).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) } else { Text(friday: loading ? "正在读取账号配额" : "此 Provider 暂无可用配额信息").foregroundStyle(.secondary) }
             if let fingerprint = limits?.credentialFingerprint, limits?.resetCredits != nil || hasPendingReset {
                 HStack(spacing: 8) {
                     FridaySymbolImage(systemName: "ticket").accessibilityHidden(true)

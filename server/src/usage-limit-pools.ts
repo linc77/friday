@@ -5,7 +5,7 @@ import { providerDigest, codexSubscriptionLabel, type ProviderUsageLimits, type 
 export type UsageRedeemTarget = { provider: string; fingerprint: string } | { sourceId: string; accountId: string; creditId: string; fingerprint: string };
 export type LimitAccount = { key: string; driver: string; displayName: string; email?: string; plan?: string; workspaceId?: string; sourceLabel?: string; limits: ProviderUsageLimits; redeem?: UsageRedeemTarget };
 export type LimitPoolWindow = { id: string; kind: string; label: string; usedPercent: number; remainingPercent: number; pace: 'ahead' | 'on' | 'under' | null; members: { accountKey: string; window: ProviderUsageWindow }[]; resets: { accountKey: string; at: string; restoresPercent: number }[] };
-const order = { session: 0, weekly: 1, monthly: 2 };
+const order = { session: 0, weekly: 1, monthly: 2, other: 3 };
 const poolKey = (driver: string, window: ProviderUsageWindow) => driver === 'codex' ? window.kind : `${window.kind}:${window.id}`;
 const resetMillis = (window: ProviderUsageWindow) => { const value = Date.parse(window.resetsAt ?? ''); return Number.isFinite(value) ? value : null; };
 export function collectLimitAccounts(state: Workspace): LimitAccount[] {

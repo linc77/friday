@@ -274,7 +274,7 @@ export class TaskGitOperations {
   private async generate(work: WorkItem, operation: TaskGitOperation, phase: string, prompt: string, signal: AbortSignal) {
     const id = 'git-' + operation.id + '-' + phase;
     const { model: selected } = await this.generationSettings(work, operation);
-    const task: WorkItem = { ...work, ...selected, modelOptions: selected.modelOptions ?? [], providerInstanceId: selected.providerInstanceId ?? selected.agent, id, threadId: null, turnId: null, mode: 'research', interactionMode: 'default',
+    const task: WorkItem = { ...work, ...selected, modelOptions: selected.modelOptions ?? [], providerInstanceId: selected.providerInstanceId ?? selected.agent, nativeProviderAccount: undefined, codexHome: undefined, claudeHome: undefined, piHome: undefined, grokHome: undefined, id, threadId: null, turnId: null, mode: 'research', interactionMode: 'default',
       prompt, result: '', events: [], approvals: [], messages: [], lastRequestId: id, queue: undefined, gitOperation: undefined, gitOperations: undefined };
     const deadline = AbortSignal.timeout(180_000);
     try { return await this.engine.executor.run({ task, prompt, purpose: 'git_text', signal: AbortSignal.any([signal, deadline]), update: async update => {

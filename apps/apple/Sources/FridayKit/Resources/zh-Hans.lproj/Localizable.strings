@@ -2644,3 +2644,23 @@
 "移除实例" = "移除实例";
 
 "模型选项" = "模型选项";
+
+"尚未有用量记录" = "尚未有用量记录";
+
+"读取 Cursor CLI 账号额度" = "读取 Cursor CLI 账号额度";
+
+"启用后读取主机钥匙串中的 Cursor CLI 登录；不使用 API Key 推测其他账号的配额。" = "启用后读取主机钥匙串中的 Cursor CLI 登录；不使用 API Key 推测其他账号的配额。";
+
+"Overall" = "总体";
+
+"Cursor Models" = "Cursor 模型";
+
+"Other Models" = "其他模型";
+
+"Subscription" = "订阅";
+
+"Go · Session" = "Go · 本周期";
+
+"Go · Weekly" = "Go · 每周";
+
+"Go · Monthly" = "Go · 每月";

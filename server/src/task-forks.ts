@@ -140,6 +140,7 @@ export class TaskForks {
       if (activeFork(source.forkOperation) || activeRewind(source.rewindOperation)) throw new Error('请先处理原任务的会话操作，再分叉历史');
       const history = !source.runs?.some(run => run.id === input.runId) ? nativeForkPrefix(complete, input.runId) : prefix(complete, input.runId, targetID);
       const at = stamp(); const selected = history.selected;
+      const nativeHistory = ['codex', 'claude', 'opencode'].includes(source.agent) || source.agent === 'pi' && 'nativeHead' in selected && !!selected.nativeHead && history.expectedTurns.every(id => !id.startsWith('pi:'));
       const result = history.result;
       const durableId = await tx.createTask(this.definition, { id: targetID, operationId: operationID, attempt: 0 }, { ownership: { kind: 'conversation' } });
       const task: WorkItem = {
@@ -151,6 +152,8 @@ export class TaskForks {
         eventArchive: { count: 0, version: 0, coverage: source.eventArchive?.coverage ?? 'legacy', recent: [] },
         ...(source.executionWorkspace ? { executionWorkspace: copy(source.executionWorkspace) } : {}),
         ...(source.codexHome ? { codexHome: source.codexHome } : {}), ...(source.claudeHome ? { claudeHome: source.claudeHome } : {}),
+        ...(source.piHome ? { piHome: source.piHome } : {}), ...(source.grokHome ? { grokHome: source.grokHome } : {}),
+        ...(source.nativeProviderAccount ? { nativeProviderAccount: source.nativeProviderAccount } : {}),
         ...(source.autoSettle !== undefined ? { autoSettle: source.autoSettle } : {}),
         changeRequests: copy(allTaskChangeRequestLinks(source).map(({ watch, ...link }) => link)), changeRequestLinksRevision: 0,
         ...(source.changeRequestStacks ? { changeRequestStacks: copy(source.changeRequestStacks) } : {}),
@@ -158,7 +161,7 @@ export class TaskForks {
         forkOrigin: { taskId: source.id, runId: selected.id, title: source.title, rootTaskId: source.forkOrigin?.rootTaskId ?? source.subagentOrigin?.rootTaskId ?? source.id },
         forkOperation: { id: operationID, durableId, requestId: input.requestId, sourceTaskId: source.id, sourceRunId: selected.id,
           sourceThreadId: selected.threadId ?? null, sourceTurnId: selected.turnId, sourceHead: 'nativeHead' in selected ? selected.nativeHead : undefined, expectedTurns: history.expectedTurns, prefixMode: history.prefixMode, sourceStatus: selected.status,
-          status: 'queued', createdAt: at, updatedAt: at, attempt: 0, strategy: 'native' },
+          status: 'queued', createdAt: at, updatedAt: at, attempt: 0, strategy: nativeHistory ? 'native' : 'visible_history' },
       };
       await this.engine.taskHistory.persist(tx, task);
       state.tasks.push(copy(task)); state.requests[input.requestId] = targetID; state.forkRequests ??= {};

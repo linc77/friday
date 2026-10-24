@@ -1,3 +1,4 @@
+import { isolatedTextGeneration } from './native-text-generation.js';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
@@ -5,6 +6,7 @@ import type { Approval, ExecutionImage, ExecutionRequest, Executor, TaskEvent } 
 import type { ApprovalDecision } from './provider-approvals.js';
 import { PiConnection } from './pi-provider.js';
 import { type PiRecord, PiRpc, piRecord } from './pi-rpc.js';
+import { forkPi, rewindPi, piActiveBranch, piReadOnlyArgs } from './pi-history.js';
 
 type PendingPrompt = { nativeId: string; method: string; key: string; approval: Approval; timer?: NodeJS.Timeout };
 type PiRun = { rpc: PiRpc; update: ExecutionRequest['update']; approvals: Map<string, PendingPrompt>; grants: Set<string>; active: boolean; generation: number; cancel: () => void };
@@ -24,8 +26,41 @@ export class PiExecutor implements Executor {
   private runs = new Map<string, PiRun>();
   private sessionGrants = new Map<string, Set<string>>();
   constructor(private connection: PiConnection) {}
+  async fork(request: import('./types.js').NativeForkRequest) { if (this.runs.has(request.task.id)) throw new Error('Pi 会话仍在执行'); return forkPi(this.connection, request); }
+  async rewind(request: import('./types.js').NativeRewindRequest) { if (this.runs.has(request.task.id)) throw new Error('Pi 会话仍在执行'); return rewindPi(this.connection, request); }
   supportsTaskTools(agent: string) { return agent === 'pi'; }
-  async run(request: ExecutionRequest): Promise<string> {
+  async generateText(request: import('./types.js').TextGenerationRequest) { return this.run(request); }
+  async run(request: ExecutionRequest): Promise<string> { return request.purpose ? isolatedTextGeneration(request, prepared => this.generateNativeText(prepared)) : this.runNative(request); }
+  private async generateNativeText(request: ExecutionRequest): Promise<string> {
+    const runtime = await this.connection.runtime(request.task);
+    const rpc = this.connection.client({ ...runtime, args: piReadOnlyArgs(runtime.args) }, request.task.cwd, true);
+    let resolve!: () => void, reject!: (error: Error) => void;
+    const completion = new Promise<void>((yes, no) => { resolve = yes; reject = no; }); void completion.catch(() => {});
+    rpc.onEvent = value => {
+      if (value.type === 'agent_settled') resolve();
+      else if (value.type === 'extension_ui_request' || value.type === 'tool_execution_start') reject(new Error('独立文字生成不接受工具或交互式请求'));
+      else if (value.type === 'message_end' && value.message?.stopReason === 'error') reject(new Error(value.message.errorMessage || 'Pi 文字生成失败'));
+    };
+    rpc.onExit = error => reject(error);
+    const abort = () => { reject(new Error('文字生成已取消')); void rpc.close(); };
+    request.signal.addEventListener('abort', abort, { once: true });
+    try {
+      request.signal.throwIfAborted();
+      if (runtime.model !== 'default') { const split = runtime.model.indexOf('/'); if (split < 1) throw new Error('Pi 模型需要 provider/model 格式'); await rpc.request({ type: 'set_model', provider: runtime.model.slice(0, split), modelId: runtime.model.slice(split + 1) }); }
+      if (runtime.effort) await rpc.request({ type: 'set_thinking_level', level: runtime.effort });
+      const id = randomUUID();
+      // A --no-session call owns a request ID, never an invented session path.
+      await request.update({ kind: 'session', threadId: 'pi-request:' + id, model: runtime.model, reasoningEffort: runtime.effort });
+      await request.update({ kind: 'turn', turnId: id }); await request.beforeStart?.(); request.signal.throwIfAborted();
+      const images = await piImages(request.images);
+      await rpc.request({ id, type: 'prompt', message: request.prompt, ...(images.length ? { images } : {}) });
+      await completion;
+      const value = await rpc.request({ type: 'get_last_assistant_text' });
+      if (typeof value?.text !== 'string' || !value.text.trim()) throw new Error('Pi 文字生成没有返回内容');
+      return value.text;
+    } finally { request.signal.removeEventListener('abort', abort); await this.connection.release(rpc); }
+  }
+  private async runNative(request: ExecutionRequest): Promise<string> {
     const { task, update, signal } = request;
     if (this.runs.has(task.id)) throw new Error('这条 Pi 会话仍在执行');
     if (task.interactionMode === 'plan') throw new Error('Pi 未提供原生计划模式，请使用默认模式');
@@ -44,7 +79,7 @@ export class PiExecutor implements Executor {
     this.runs.set(task.id, run);
     const turnId = `pi:${task.currentRunId ?? randomUUID()}`, items = new Map<string, TaskEvent>(), dirty = new Set<string>();
     let chain = Promise.resolve(), timer: NodeJS.Timeout | undefined, messageOrdinal = 0, result = '', latestText = '', failure: Error | undefined, sawActivity = false;
-    let outputDirty = false, sessionKey: string | undefined;
+    let outputDirty = false, sessionKey: string | undefined, baselineLeaf: string | null | undefined;
     const flush = async () => {
       clearTimeout(timer); timer = undefined;
       const pending = [...dirty]; dirty.clear();
@@ -64,6 +99,18 @@ export class PiExecutor implements Executor {
       // get_state is ordered after the native settlement event. Never use an
       // elapsed timer or agent_end as evidence that extensions have settled.
       if (failure) { settle(failure); return; }
+      // A complete ancestry walk proves this run's native boundary. Older Pi
+      // versions can still execute without claiming safe native history cuts.
+      let branch: PiRecord[] | undefined;
+      try { branch = piActiveBranch(await rpc.request({ type: 'get_entries' }, 5000)); } catch { /* Older native versions expose no tree cursors. */ }
+      if (generation !== run.generation) return;
+      if (branch) {
+        const baseline = baselineLeaf === null ? -1 : branch.findIndex(entry => entry.id === baselineLeaf);
+        if (baselineLeaf !== undefined && (baselineLeaf === null || baseline >= 0) && branch.length) {
+          const turnIds = branch.slice(baseline + 1).filter(entry => entry.type === 'message' && entry.message?.role === 'user').map(entry => entry.id as string);
+          if (turnIds.length) await update({ kind: 'nativeHead', head: branch.at(-1)!.id, turnIds });
+        }
+      }
       const stats = await rpc.request({ type: 'get_session_stats' }, 5000).catch(() => undefined), usage = piRecord(stats?.contextUsage);
       if (generation !== run.generation) return;
       if (typeof usage?.tokens === 'number' && Number.isFinite(usage.tokens)) await update({ kind: 'contextUsage', usage: { usedTokens: Math.max(0, usage.tokens), maxTokens: typeof usage.contextWindow === 'number' && Number.isFinite(usage.contextWindow) && usage.contextWindow > 0 ? usage.contextWindow : null, updatedAt: now(), model: runtime.model } });
@@ -156,6 +203,7 @@ export class PiExecutor implements Executor {
       const state = await rpc.request({ type: 'get_state' });
       if (typeof state?.sessionFile !== 'string' || !isAbsolute(state.sessionFile) || task.threadId && state.sessionFile !== task.threadId) throw new Error('Pi 没有确认原生会话文件，已停止执行');
       if (state.isStreaming === true) throw new Error('Pi 会话仍在运行，未发送新提示词');
+      try { baselineLeaf = piActiveBranch(await rpc.request({ type: 'get_entries' }, 5000)).at(-1)?.id ?? null; } catch { baselineLeaf = undefined; }
       sessionKey = JSON.stringify([task.id, runtime.home, state.sessionFile]);
       run.grants = this.sessionGrants.get(sessionKey) ?? new Set(); this.sessionGrants.set(sessionKey, run.grants);
       if (runtime.model !== 'default') {

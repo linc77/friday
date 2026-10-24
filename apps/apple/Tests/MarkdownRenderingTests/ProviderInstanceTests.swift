@@ -27,4 +27,10 @@ final class ProviderInstanceTests: XCTestCase {
         let descriptor = try JSONDecoder().decode(ProviderOptionDescriptor.self, from: Data("{\"id\":\"fastMode\",\"label\":\"Fast\",\"type\":\"boolean\",\"currentValue\":false}".utf8))
         XCTAssertEqual(descriptor.currentValue, .flag(false))
     }
+    func testUnmeteredAccountAvailabilityIsDistinctFromMissingQuotaData() throws {
+        let available = try JSONDecoder().decode(TaskProviderUsageLimits.self, from: Data("{\"checkedAt\":\"2026-10-24T00:00:00Z\",\"windows\":[],\"available\":true}".utf8))
+        let unknown = try JSONDecoder().decode(TaskProviderUsageLimits.self, from: Data("{\"checkedAt\":\"2026-10-24T00:00:00Z\",\"windows\":[]}".utf8))
+        XCTAssertTrue(available.offered)
+        XCTAssertFalse(unknown.offered)
+    }
 }

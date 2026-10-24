@@ -1,3 +1,5 @@
+import { readGrokUsage } from './native-provider-usage.js';
+import type { ProviderUsageLimits } from './provider-usage-limits.js';
 import { selectedProviderOptions, type ProviderModelSelection } from './provider-models.js';
 import { access, readFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
@@ -75,6 +77,15 @@ export function grokCommands(initialized: AcpRecord): ProviderWorkspace['command
 export const grokModelState = (initialized: AcpRecord) => acpRecord(initialized._meta?.modelState);
 
 export class GrokConnection {
+  private usageController = new AbortController();
+  private usageCache = new ProviderWorkspaceCache<ProviderUsageLimits>(60_000);
+  async usageLimits(reload = false, task?: WorkItem) {
+    const settings = await loadGrokSettings(this.directory), account = grokAccountEnvironment(settings);
+    if (task?.grokHome && task.grokHome !== account.home) throw new Error('请恢复这条 Grok 会话使用的账号目录');
+    const result = await this.usageCache.read(JSON.stringify(settings), reload, () => settings.enabled ? readGrokUsage({ ...process.env, ...account.env }, { signal: this.usageController.signal }) : Promise.resolve({ checkedAt: new Date().toISOString(), windows: [], unavailable: { reason: 'unsupported' } }));
+    if (this.closed || JSON.stringify(await loadGrokSettings(this.directory)) !== JSON.stringify(settings)) throw new Error('Provider 额度所属配置已改变，请重新加载');
+    return result;
+  }
   onConfigurationChanged?: () => Promise<void>;
   private cache = new ProviderWorkspaceCache<ModelStatus>(60_000);
   private workspaces = new ProviderWorkspaceCache();
@@ -163,5 +174,5 @@ export class GrokConnection {
     finally { this.saving = false; }
     await this.onConfigurationChanged?.(); return this.status(true, true);
   }
-  async close() { this.closed = true; for (const controller of this.probes.values()) controller.abort(); await Promise.allSettled([...this.probes.keys(), ...[...this.clients].map(client => this.release(client))]); }
+  async close() { this.usageController.abort(); this.closed = true; for (const controller of this.probes.values()) controller.abort(); await Promise.allSettled([...this.probes.keys(), ...[...this.clients].map(client => this.release(client))]); }
 }

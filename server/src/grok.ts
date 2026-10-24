@@ -1,3 +1,4 @@
+import { isolatedTextGeneration } from './native-text-generation.js';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { StringDecoder } from 'node:string_decoder';
@@ -46,14 +47,16 @@ export class GrokExecutor implements Executor {
   constructor(private connection: GrokConnection) {}
   supportsTaskTools(agent: string) { return agent === 'grok'; }
   deferredStart(agent: string) { return agent === 'grok'; }
-  async run(request: ExecutionRequest): Promise<string> {
+  async generateText(request: import('./types.js').TextGenerationRequest) { return this.run(request); }
+  async run(request: ExecutionRequest): Promise<string> { return request.purpose ? isolatedTextGeneration(request, prepared => this.runNative(prepared)) : this.runNative(request); }
+  private async runNative(request: ExecutionRequest): Promise<string> {
     const { task, update, signal } = request;
     if (this.runs.has(task.id)) throw new Error('这条 Grok 会话仍在执行');
     if (task.interactionMode === 'plan') throw new Error('Grok 未提供原生交互模式切换，请使用默认模式');
     const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions });
     if (task.grokHome && task.grokHome !== runtime.home) throw new Error('请恢复这条 Grok 会话使用的配置目录');
     if (signal.aborted) throw cancelled();
-    const client = this.connection.client(runtime, task.cwd), turnId = `grok:${task.currentRunId ?? randomUUID()}`, executionSessionId = randomUUID();
+    const client = this.connection.client(request.purpose ? { ...runtime, permissionMode: 'default', env: { ...runtime.env, GROK_DISABLE_AUTOUPDATER: '1' } } : runtime, task.cwd), turnId = `grok:${task.currentRunId ?? randomUUID()}`, executionSessionId = randomUUID();
     let start: Promise<void> | undefined, sessionPersisted = false, active = false, terminal = false, nativeCancellation: Promise<void> | undefined, protocolGeneration = 1;
     let acknowledgeCancel!: () => void; const cancelAcknowledged = new Promise<void>(resolve => { acknowledgeCancel = resolve; });
     let rejectCompletion!: (error: Error) => void, resolveCompletion!: (response: AcpRecord) => void;
@@ -141,6 +144,7 @@ export class GrokExecutor implements Executor {
       if (['x.ai/session/prompt_complete', '_x.ai/session/prompt_complete', 'x.ai/session_notification', '_x.ai/session_notification', '_x.ai/session/update'].includes(method)) enqueue(async () => completeFromNotification(params));
     };
     client.onRequest = async context => {
+      if (request.purpose) { const error = new Error('独立文字生成不接受工具或交互式请求'); finish(undefined, error); throw RequestError.invalidRequest(error.message); }
       const input = acpRecord(context.params); if (!input) throw RequestError.invalidParams();
       const method = context.method.replace(/^_/, ''), permission = method === 'session/request_permission', question = method === 'x.ai/ask_user_question';
       if (!permission && !question && method !== 'x.ai/exit_plan_mode') throw RequestError.methodNotFound(context.method);

@@ -12,13 +12,14 @@ import { findExecutable } from './agents.js';
 
 export type NativeProvider = 'cursor' | 'muse' | 'opencode';
 export const nativeProviderName = (provider: NativeProvider) => ({ cursor: 'Cursor', muse: 'Muse Code', opencode: 'OpenCode' })[provider];
-export type NativeProviderSettings = CodexSettings & { serverUrl?: string; serverPassword?: string };
+export type NativeProviderSettings = CodexSettings & { serverUrl?: string; serverPassword?: string; cursorUsageKeychainEnabled?: boolean };
 export const nativeProviderDefaults = (provider: NativeProvider): NativeProviderSettings => ({ ...defaultCodexSettings, enabled: false, displayName: nativeProviderName(provider), binaryPath: provider === 'cursor' ? '' : provider, permissionMode: 'default' });
 export function nativeProviderSettings(provider: NativeProvider, value: unknown, previous = nativeProviderDefaults(provider)): NativeProviderSettings {
   const input = value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined, effort = typeof input?.reasoningEffort === 'string' ? input.reasoningEffort.trim() : undefined;
   if (effort && !/^[a-z0-9][a-z0-9._-]{0,63}$/i.test(effort)) throw new Error('原生推理选项格式无效');
   const result = validateSettings(input && effort !== undefined ? { ...input, reasoningEffort: effort } : value, previous, nativeProviderName(provider), provider === 'muse' ? undefined : effort ? [effort] : []);
   if (result.homePath || result.shadowHomePath || result.launchArgs) throw new Error('此工具的账号与启动方式由原生 SDK 管理，请使用环境变量配置');
+  if (provider === 'cursor') { const enabled = input?.cursorUsageKeychainEnabled ?? previous.cursorUsageKeychainEnabled ?? false; if (typeof enabled !== 'boolean') throw new Error('Cursor 额度授权设置无效'); return { ...result, cursorUsageKeychainEnabled: enabled }; }
   if (provider !== 'opencode') return result;
   const raw = value as Record<string, unknown>, serverUrl = raw.serverUrl ?? previous.serverUrl ?? '', serverPassword = raw.serverPassword === null ? previous.serverPassword ?? '' : raw.serverPassword ?? previous.serverPassword ?? '';
   if (typeof serverUrl !== 'string' || serverUrl.length > 2048 || typeof serverPassword !== 'string' || serverPassword.length > 16384 || serverPassword.includes('\0')) throw new Error('OpenCode 服务配置无效');

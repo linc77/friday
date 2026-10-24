@@ -1,3 +1,4 @@
+import { isolatedTextGeneration } from './native-text-generation.js';
 import { selectedProviderOptions, type ProviderModelSelection } from './provider-models.js';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -75,9 +76,12 @@ export class AcpNativeExecutor implements Executor {
   constructor(private connection: AcpNativeConnection) {}
   supportsTaskTools(agent: string) { return agent === this.connection.provider; }
   deferredStart(agent: string) { return agent === this.connection.provider; }
-  async run(request: ExecutionRequest) {
+  async generateText(request: import('./types.js').TextGenerationRequest) { return this.run(request); }
+  async run(request: ExecutionRequest): Promise<string> { return request.purpose ? isolatedTextGeneration(request, prepared => this.runNative(prepared)) : this.runNative(request); }
+  private async runNative(request: ExecutionRequest): Promise<string> {
     const { task, signal, update } = request; if (this.runs.has(task.id)) throw new Error('ACP 会话仍在执行');
-    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions, interactionMode: task.interactionMode });
+    const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions, interactionMode: request.purpose ? 'plan' : task.interactionMode });
+    if (request.purpose) { runtime.clientFiles = false; runtime.autoApprove = false; }
     if (task.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条原生 ACP 会话使用的工具与账号配置');
     if (request.command === 'compact' && !runtime.compactCommand) throw new Error('此 ACP 工具未声明原生压缩命令');
     signal.throwIfAborted(); const lease = await this.connection.client(runtime, task.cwd), { client, initialized } = lease, turn = randomUUID(), projection = new NativeTurnProjection(request, turn);
@@ -108,6 +112,7 @@ export class AcpNativeExecutor implements Executor {
     client.onNotification = (method, params) => { if (method === 'session/update' && acpRecord(params)) enqueue(() => apply(params as AcpRecord)); };
     client.onExit = error => finish(undefined, error);
     client.onRequest = async context => {
+      if (request.purpose) { const error = new Error('独立文字生成不接受工具或交互式请求'); finish(undefined, error); throw RequestError.invalidRequest(error.message); }
       if (terminal || signal.aborted) { if (context.method === 'session/request_permission') return { outcome: { outcome: 'cancelled' } }; throw RequestError.invalidRequest('Native turn has ended'); }
       const params = acpRecord(context.params); if (!params) throw RequestError.invalidParams();
       if (params.sessionId && (!sessionId || params.sessionId === sessionId)) await bind(params.sessionId);

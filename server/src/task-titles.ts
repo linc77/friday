@@ -65,7 +65,7 @@ export class TaskTitles {
             }
             const images = await new IdeaImages(this.engine.directory).resolve(content.images);
             const prompt = taskTitlePrompt(content.message, input.kind === 'regenerate' ? input.previousTitle : undefined, linked.context ?? undefined);
-            const generation: WorkItem = { ...current, ...selected, modelOptions: selected.modelOptions ?? [], providerInstanceId: selected.providerInstanceId ?? selected.agent, id: `title-${task.id}-${attempt}`, threadId: null, turnId: null,
+            const generation: WorkItem = { ...current, ...selected, modelOptions: selected.modelOptions ?? [], providerInstanceId: selected.providerInstanceId ?? selected.agent, nativeProviderAccount: undefined, codexHome: undefined, claudeHome: undefined, piHome: undefined, grokHome: undefined, id: `title-${task.id}-${attempt}`, threadId: null, turnId: null,
               cwd,
               mode: 'research', interactionMode: 'default', prompt, result: '', events: [], messages: [], approvals: [],
               lastRequestId: `title-${task.id}-${attempt}`, queue: undefined, gitOperation: undefined, gitOperations: undefined,

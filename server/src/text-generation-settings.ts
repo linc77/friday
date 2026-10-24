@@ -1,3 +1,8 @@
+import { textGenerationProviders, supportsTextGeneration, supportsInvestigation, type TextGenerationProvider } from './native-text-generation.js';
+import { loadPiSettings } from './pi-provider.js';
+import { loadGrokSettings } from './grok-provider.js';
+import { loadNativeProviderSettings } from './native-provider-config.js';
+import { loadAcpProviderSettings } from './acp-provider-settings.js';
 import { providerOptionSelections } from './provider-models.js';
 import { providerInstanceID } from './provider-instances.js';
 import type { Engine } from './engine.js';
@@ -5,7 +10,7 @@ import type { Workspace } from './types.js';
 import { loadCodexSettings } from './codex-settings.js';
 import { loadClaudeSettings } from './claude-provider.js';
 
-export type TextGenerationModelSelection = { agent: 'codex' | 'claude'; providerInstanceId?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; model: string; reasoningEffort: string };
+export type TextGenerationModelSelection = { agent: TextGenerationProvider; providerInstanceId?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; model: string; reasoningEffort: string };
 export type SourceControlWritingStyle = { mode: 'repo_conventions' | 'conventional_commits' | 'custom'; customInstructions: string; followChangeRequestTemplates: boolean };
 export const defaultSourceControlWritingStyle = (): SourceControlWritingStyle => ({ mode: 'repo_conventions', customInstructions: '', followChangeRequestTemplates: true });
 export type TextGenerationScope = { textGenerationModelSelection?: TextGenerationModelSelection; sourceControlWriterModelSelection?: TextGenerationModelSelection | null; sourceControlWritingStyle?: SourceControlWritingStyle; reviewGuidesEnabled?: boolean; reviewGuideModelSelection?: TextGenerationModelSelection | null; reviewGuideInstructions?: string };
@@ -16,10 +21,10 @@ type Source = 'default' | 'host' | 'workspace' | 'fallback' | 'text_generation' 
 export type TextGenerationSettingsSnapshot = {
   version: number; projectId: string | null; defaults: Required<TextGenerationScope>; overrides: TextGenerationScope;
   effective: { textGenerationModelSelection: TextGenerationModelSelection; sourceControlWriterModelSelection: TextGenerationModelSelection; sourceControlWritingStyle: SourceControlWritingStyle; reviewGuidesEnabled: boolean; reviewGuideModelSelection: TextGenerationModelSelection; reviewGuideInstructions: string };
-  sources: Record<TextGenerationSettingKey, Source>; enabled: Record<'codex' | 'claude', boolean>;
+  sources: Record<TextGenerationSettingKey, Source>; enabled: Record<'codex' | 'claude', boolean> & Partial<Record<TextGenerationProvider, boolean>>;
 };
 export const defaultTextGenerationModel = (): TextGenerationModelSelection => ({ agent: 'codex', model: 'gpt-6-luna', reasoningEffort: 'low' });
-const defaultFor = (agent: TextGenerationModelSelection['agent']): TextGenerationModelSelection => agent === 'codex' ? { ...defaultTextGenerationModel(), reasoningEffort: '' } : { agent, model: 'claude-haiku-5-5', reasoningEffort: '' };
+const defaultFor = (agent: TextGenerationModelSelection['agent']): TextGenerationModelSelection => agent === 'codex' ? { ...defaultTextGenerationModel(), reasoningEffort: '' } : { agent, model: agent === 'claude' ? 'claude-haiku-5-5' : 'default', reasoningEffort: '' };
 export const textGenerationDefaults = (): TextGenerationSettings => ({ version: 0, defaults: { textGenerationModelSelection: defaultTextGenerationModel(), sourceControlWriterModelSelection: null, sourceControlWritingStyle: defaultSourceControlWritingStyle(), reviewGuidesEnabled: false, reviewGuideModelSelection: null, reviewGuideInstructions: '' }, projects: {} });
 const keys: TextGenerationSettingKey[] = ['textGenerationModelSelection', 'sourceControlWriterModelSelection', 'sourceControlWritingStyle', 'reviewGuidesEnabled', 'reviewGuideModelSelection', 'reviewGuideInstructions'];
 const reserved = ['__proto__', 'constructor', 'prototype'];
@@ -30,7 +35,7 @@ function object(value: unknown): Record<string, unknown> {
 }
 function selection(value: unknown): TextGenerationModelSelection {
   const data = object(value);
-  if (Object.keys(data).some(key => !['agent', 'providerInstanceId', 'model', 'reasoningEffort', 'modelOptions'].includes(key)) || !['codex', 'claude'].includes(String(data.agent))) throw new Error('文字生成 Provider 无效');
+  if (Object.keys(data).some(key => !['agent', 'providerInstanceId', 'model', 'reasoningEffort', 'modelOptions'].includes(key)) || !supportsTextGeneration(String(data.agent))) throw new Error('文字生成 Provider 无效');
   if (typeof data.model !== 'string' || !data.model.trim() || data.model.length > 160 || /[\x00-\x1f\x7f]/.test(data.model)) throw new Error('文字生成模型无效');
   if (typeof data.reasoningEffort !== 'string' || data.reasoningEffort.length > 30 || /[\x00-\x1f\x7f]/.test(data.reasoningEffort)) throw new Error('文字生成推理强度无效');
   return { agent: data.agent as TextGenerationModelSelection['agent'], ...(data.providerInstanceId !== undefined ? { providerInstanceId: providerInstanceID(data.providerInstanceId) } : {}), ...(data.modelOptions !== undefined ? { modelOptions: providerOptionSelections(data.modelOptions) } : {}), model: data.model.trim(), reasoningEffort: data.reasoningEffort.trim() };
@@ -66,7 +71,7 @@ export function textGenerationSettingsChange(value: unknown) {
   return { projectId: body.projectId as string | null, expectedVersion: body.expectedVersion as number, changes, reset: reset as TextGenerationSettingKey[] };
 }
 
-export function resolveTextGenerationSettings(state: Workspace, projectId: string | null, enabled: Record<'codex' | 'claude', boolean>): TextGenerationSettingsSnapshot {
+export function resolveTextGenerationSettings(state: Workspace, projectId: string | null, enabled: Record<'codex' | 'claude', boolean> & Partial<Record<TextGenerationProvider, boolean>>): TextGenerationSettingsSnapshot {
   const stored = state.textGenerationSettings ?? textGenerationDefaults();
   // Older saved preferences predate writing styles; resolving them must not
   // require a migration or alter the compare-and-swap version.
@@ -78,7 +83,7 @@ export function resolveTextGenerationSettings(state: Workspace, projectId: strin
   // built-in provider fallback, matching T3's project setting resolver.
   if (!enabled[base.agent] && overrides.textGenerationModelSelection && enabled[stored.defaults.textGenerationModelSelection.agent]) { base = stored.defaults.textGenerationModelSelection; baseSource = 'host'; }
   if (!enabled[base.agent]) {
-    const fallback = (['codex', 'claude'] as const).find(agent => enabled[agent]);
+    const fallback = textGenerationProviders.find(agent => enabled[agent]);
     if (fallback) { base = defaultFor(fallback); baseSource = 'fallback'; }
   }
   let writer = Object.hasOwn(overrides, 'sourceControlWriterModelSelection') ? overrides.sourceControlWriterModelSelection : stored.defaults.sourceControlWriterModelSelection;
@@ -95,12 +100,14 @@ export function resolveTextGenerationSettings(state: Workspace, projectId: strin
 export class TextGenerationPreferences {
   constructor(private readonly engine: Engine) {}
   private async enabled() {
-    const enabled = { codex: false, claude: false };
+    const enabled: Record<'codex' | 'claude', boolean> & Partial<Record<TextGenerationProvider, boolean>> = { codex: false, claude: false };
     for (const instance of await this.engine.providerInstances.list()) {
-      if (!instance.enabled || !['codex', 'claude'].includes(instance.driver)) continue;
+      if (!instance.enabled || !supportsTextGeneration(instance.driver)) continue;
       const path = await this.engine.providerInstances.configDirectory(instance.driver, instance.instanceId);
-      const settings = instance.driver === 'codex' ? await loadCodexSettings(path) : await loadClaudeSettings(path);
-      if (settings.enabled) enabled[instance.driver as 'codex' | 'claude'] = true;
+      const settings = instance.driver === 'codex' ? await loadCodexSettings(path) : instance.driver === 'claude' ? await loadClaudeSettings(path)
+        : instance.driver === 'pi' ? await loadPiSettings(path) : instance.driver === 'grok' ? await loadGrokSettings(path)
+        : instance.driver === 'antigravity' ? await loadAcpProviderSettings(path, instance.driver) : await loadNativeProviderSettings(path, instance.driver);
+      if (settings.enabled) enabled[instance.driver] = true;
     }
     return enabled;
   }
@@ -111,6 +118,15 @@ export class TextGenerationPreferences {
   }
   private async resolve(state: Workspace, projectId: string | null, checkWriter: boolean) {
     const settings = resolveTextGenerationSettings(state, projectId, await this.enabled());
+    if (settings.sources.textGenerationModelSelection === 'fallback' && !['codex', 'claude'].includes(settings.effective.textGenerationModelSelection.agent)) {
+      const agent = settings.effective.textGenerationModelSelection.agent;
+      for (const instance of (await this.engine.providerInstances.list()).filter(value => value.driver === agent && value.enabled)) {
+        const status = await this.engine.providerInstances.status(agent, instance.instanceId);
+        if (!status.enabled || !status.model) continue;
+        settings.effective.textGenerationModelSelection = { agent, providerInstanceId: instance.instanceId, model: status.model, reasoningEffort: '' }; break;
+      }
+      if (settings.sources.sourceControlWriterModelSelection === 'text_generation') settings.effective.sourceControlWriterModelSelection = settings.effective.textGenerationModelSelection;
+    }
     if (checkWriter && settings.sources.sourceControlWriterModelSelection !== 'text_generation') {
       const writer = settings.effective.sourceControlWriterModelSelection;
       const status = await (await this.engine.providerInstances.get(writer.agent, writer.providerInstanceId ?? writer.agent, true)).status();
@@ -132,6 +148,7 @@ export class TextGenerationPreferences {
   async reviewGuide(state: Workspace, projectId: string | null) {
     const settings = await this.resolve(state, projectId, true), effective = settings.effective;
     if (!effective.reviewGuidesEnabled) throw new Error('请先在文字生成设置中启用审查 Guide');
+    if (!supportsInvestigation(effective.reviewGuideModelSelection.agent)) throw new Error('此 Provider 不支持原生调查式 Guide，请选择 Codex 或 Claude');
     if (!settings.enabled[effective.reviewGuideModelSelection.agent]) throw new Error('没有已启用的 Guide Provider');
     return { modelSelection: { ...effective.reviewGuideModelSelection, providerInstanceId: effective.reviewGuideModelSelection.providerInstanceId ?? effective.reviewGuideModelSelection.agent }, instructions: effective.reviewGuideInstructions };
   }

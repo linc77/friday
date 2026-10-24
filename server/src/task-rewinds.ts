@@ -125,7 +125,9 @@ export class TaskRewinds {
     } catch (error) { restoreReason = error instanceof Error ? error.message : '不能恢复文件'; }
     const previous = executionKeep.at(-1);
     const nativeReason = work.agent === 'claude' && previous && (!previous.nativeHead || !previous.threadId) ? '保留的 Claude 轮次没有 SDK 消息游标，无法安全续接；可从保留历史建立新会话'
-      : work.agent === 'codex' && executionRemoved.some(run => run.threadId && run.threadId !== work.threadId) ? '所选历史跨越多个原生会话；可从保留历史建立新会话' : undefined;
+      : !['codex', 'claude', 'pi', 'opencode'].includes(work.agent) ? '此 Provider 没有可用的原生回退；可以从保留历史建立新会话'
+      : work.agent === 'pi' && executionRemoved.some(run => run.turnId && !run.nativeTurnIds?.length) ? '所选 Pi 轮次没有捕获会话树游标；可以从保留历史建立新会话'
+      : work.agent !== 'claude' && executionRemoved.some(run => run.threadId && run.threadId !== work.threadId) ? '所选历史跨越多个原生会话；可从保留历史建立新会话' : undefined;
     const logical = new Set(removed.map(run => run.id));
     return { fingerprint: rewindFingerprint(work), messageId: messageID, runId: target.id, removedTurns: removed.length,
       additionalExecutionCount: executionRemoved.filter(run => !logical.has(run.id)).length, canRestore: !restoreReason, restoreReason, fileFingerprint, nativeReason };
@@ -152,7 +154,7 @@ export class TaskRewinds {
       const legacyTurns = activeMessages.slice(0, activeMessages.findIndex(value => value.id === message.id)).filter(value => !value.runId && value.turnId).map(value => value.turnId!);
       const removedNative = new Set(removeTurns);
       const keepTurns = [...new Set([...legacyTurns.filter(turn => !removedNative.has(turn)), ...executionKeep.filter(run => run.threadId === work.threadId && run.turnId).flatMap(run => run.nativeTurnIds ?? [run.turnId!])])];
-      if (!input.newSession && work.agent === 'codex' && executionRemoved.some(run => run.threadId && run.threadId !== work.threadId)) throw new Error('所选历史跨越多个原生会话，请从保留历史建立新会话');
+      if (!input.newSession && work.agent !== 'claude' && executionRemoved.some(run => run.threadId && run.threadId !== work.threadId)) throw new Error('所选历史跨越多个原生会话，请从保留历史建立新会话');
       const durableId = await tx.createTask(this.definition, { id, operationId: operationID, attempt: 0 }, { ownership: { kind: 'conversation' } });
       if (work.rewindOperation) { work.rewindOperations ??= []; work.rewindOperations.push(copy(work.rewindOperation)); }
       work.rewindOperation = { id: operationID, durableId, requestId: input.requestId, messageId: message.id, runId: target.id, removedRunIds: removed.map(run => run.id),
@@ -237,6 +239,16 @@ export class TaskRewinds {
         const targetTime = Date.parse(activeMessages[targetIndex]?.at ?? task.runs?.find(run => run.id === operation.runId)?.at ?? '');
         for (const event of task.events) if (!event.revertedAt && (event.runId && (removed.has(event.runId) || event.kind !== 'user' && removedExecutions.has(event.runId)) || event.turnId && removedTurns.has(event.turnId)
           || !event.runId && !event.turnId && Number.isFinite(targetTime) && Date.parse(event.at) >= targetTime)) event.revertedAt = at;
+        if (native.turnIds) {
+          const mapped = (id?: string) => id && Object.hasOwn(native.turnIds!, id) ? native.turnIds![id] : id;
+          for (const run of task.runs ?? []) if (!run.revertedAt && !run.executionExcludedAt && run.threadId === operation.sourceThreadId) {
+            run.turnId = mapped(run.turnId);
+            if (run.nativeTurnIds) run.nativeTurnIds = run.nativeTurnIds.map(id => mapped(id)!);
+            if (run.nativeHead && native.headIds && Object.hasOwn(native.headIds, run.nativeHead)) run.nativeHead = native.headIds[run.nativeHead];
+          }
+          for (const message of task.messages ?? []) if (!message.revertedAt && message.turnId) { message.turnId = mapped(message.turnId); this.engine.taskHistory.messageChanged(task, message.id); }
+          for (const event of task.events) if (!event.revertedAt) { if (event.turnId) event.turnId = mapped(event.turnId); if (event.nativeTurnId) event.nativeTurnId = mapped(event.nativeTurnId); }
+        }
         current.projectedAt = at;
       }
       const previous = executionRuns(task).at(-1);
@@ -245,7 +257,7 @@ export class TaskRewinds {
       task.threadId = needsContext ? null : native.threadId; task.nativeHead = previous?.nativeHead; task.claudeResumeSessionAt = native.resumeSessionAt; delete task.claudeResumePendingRun;
       if (!task.threadId || task.threadId !== operation.sourceThreadId) task.goal = null;
       task.contextUsage = task.threadId ? previous?.contextUsage ?? null : null;
-      if (native.threadId && native.threadId !== operation.sourceThreadId && task.agent === 'codex') for (const run of task.runs ?? []) if (!run.revertedAt) run.threadId = native.threadId;
+      if (native.threadId && native.threadId !== operation.sourceThreadId && ['codex', 'pi', 'opencode'].includes(task.agent)) for (const run of task.runs ?? []) if (!run.revertedAt && run.threadId === operation.sourceThreadId) run.threadId = native.threadId;
       task.status = 'completed'; task.error = null; task.result = result; task.artifact = result ? task.id + '.md' : null;
       task.canSteer = false; task.workspaceRequest = null; task.unread = false; task.readAt = stamp(); task.updatedAt = stamp();
       task.approvals.forEach(approval => { if (approval.state === 'pending') approval.state = 'expired'; });

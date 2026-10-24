@@ -27,6 +27,16 @@ test('Cursor sends context and boolean model parameters using their native SDK I
   const expected = [{ id: 'context', value: 'expanded' }, { id: 'fast', value: 'false' }, { id: 'effort', value: 'high' }];
   assert.deepEqual(created.options.model.params, expected); assert.deepEqual(sent.sendOptions.model.params, expected);
 });
+test('Cursor independent generation uses an empty disposable workspace, separate native state and no inherited settings or MCP', async t => {
+  const fixture = await setup(t);
+  const result = await fixture.executor.generateText({ task: task(fixture.directory, { threadId: 'foreground', nativeProviderAccount: 'foreground-account' }), purpose: 'task_title', prompt: 'Title', taskMcp: { url: 'http://forbidden.invalid', headers: {} }, signal: AbortSignal.timeout(5000), update: async () => {} });
+  assert.ok(result.includes('Cursor'));
+  const trace = await fixture.trace(), created = trace.find(value => value.operation === 'create'), store = trace.find(value => value.store);
+  assert.ok(created); assert.equal(created.mcp, false); assert.deepEqual(created.options.settingSources, []); assert.equal(created.options.mode, 'plan'); assert.equal(created.options.autoReview, false);
+  assert.notEqual(store.store.workspaceRef, fixture.directory); assert.notEqual(store.store.workspaceRef, store.store.stateRoot);
+  await assert.rejects(stat(store.store.workspaceRef), { code: 'ENOENT' }); await assert.rejects(stat(store.store.stateRoot), { code: 'ENOENT' });
+  assert.ok(!trace.some(value => value.operation === 'resume'));
+});
 test('The installed Cursor SDK exposes the pinned APIs and opens its real private SQLite store without contacting a model', async t => {
   const require = createRequire(import.meta.url), sdk = require('@cursor/sdk') as typeof import('@cursor/sdk'), sqlite = require('@cursor/sdk/sqlite') as typeof import('@cursor/sdk/sqlite');
   assert.equal(typeof sdk.Agent.create, 'function'); assert.equal(typeof sdk.Agent.resume, 'function'); assert.equal(typeof sdk.Cursor.auth.login, 'function');

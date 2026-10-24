@@ -12,6 +12,8 @@ export async function openCodeFixture({ generation = 2, password = '私有密码
   const emit = (type, data) => { const event = generation === 2 ? { type, data } : { type, properties: data }; for (const client of clients) client.write('data: ' + JSON.stringify(event) + '\r\n\r\n'); };
   const later = (fn, delay = 5) => { const timer = setTimeout(() => { timers.delete(timer); fn(); }, delay); timers.add(timer); };
   const complete = (sessionID, nativeId, text = 'OpenCode reply café\u2028line\u2029end') => {
+    const session = sessions.get(sessionID);
+    if (session) { session.messages.push(generation === 2 ? { id: 'assistant-' + nativeId, type: 'assistant', content: [{ type: 'text', text }] } : { info: { id: 'assistant-' + nativeId, sessionID, role: 'assistant', parentID: nativeId }, parts: [{ type: 'text', text }] }); if (wire) writeFileSync(join(directory, sessionID + '.fixture.json'), JSON.stringify(session)); }
     if (generation === 2) {
       emit('session.text.delta', { sessionID: 'foreign', assistantMessageID: 'foreign', ordinal: 0, delta: 'WRONG' });
       emit('session.execution.succeeded', { sessionID }); // stale completion before our delivery
@@ -40,7 +42,7 @@ export async function openCodeFixture({ generation = 2, password = '私有密码
     const path = new URL(req.url, 'http://fixture').pathname; let body;
     try { let raw = ''; for await (const chunk of req) raw += chunk; body = raw ? JSON.parse(raw) : {}; } catch { res.writeHead(400).end(); return; }
     record({ method: req.method, path, body, subscribed: clients.size > 0 });
-    const json = (data, code = 200) => { if (generation === 2 && (path.startsWith('/api/experimental/mcp/') || req.method === 'PATCH' || req.method === 'POST' && /\/(model|agent|move|interrupt)$/.test(path) || path.includes('/form/') || path.includes('/permission/') && path.endsWith('/reply'))) code = 204; res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(code === 204 ? '' : JSON.stringify(data)); };
+    const json = (data, code = 200) => { if (generation === 2 && (path.startsWith('/api/experimental/mcp/') || req.method === 'PATCH' || req.method === 'POST' && /\/(model|agent|move|interrupt|commit)$/.test(path) || path.includes('/form/') || path.includes('/permission/') && path.endsWith('/reply'))) code = 204; res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(code === 204 ? '' : JSON.stringify(data)); };
     if (req.headers.authorization !== 'Basic ' + Buffer.from('opencode:' + password).toString('base64')) { json({ error: 'unauthorized' }, 401); return; }
     if (path === '/api/info') { if (generation === 2) json({ version: '2.0.28', pid: process.pid }); else { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end('<html>OpenCode</html>'); } return; }
     if (path === '/global/health') { json({ healthy: true, version: '1.14.19' }); return; }
@@ -49,20 +51,35 @@ export async function openCodeFixture({ generation = 2, password = '私有密码
     if (path === '/api/model') { json({ data: [{ id: 'model', providerID: 'native', name: 'Native model', variants: [{ id: 'high' }], limit: { context: 120000 } }] }); return; }
     if (path === '/api/agent') { json({ data: [{ id: 'plan', permissions: [{ action: 'edit', resource: '/plans/*', effect: 'allow' }] }] }); return; }
     if (path === '/api/command' || path === '/api/skill') { json({ data: [] }); return; }
+    if (path === '/api/session/active' || path === '/session/status') { json(generation === 2 ? { data: {} } : {}); return; }
     if (path === '/command' || path === '/skill') { json([]); return; }
     if (path.startsWith('/api/experimental/mcp/') || path === '/mcp') { if (req.method === 'POST' || req.method === 'PUT') mcp = body.config; json({}); return; }
-    if ((path === '/api/session' || path === '/session') && req.method === 'POST') { const id = 'ses_' + randomUUID().replaceAll('-', ''), session = { id, location: { directory }, permission: body.permission, permissions: body.permissions }; sessions.set(id, session); if (wire) writeFileSync(join(directory, id + '.fixture.json'), JSON.stringify(session)); json(generation === 2 ? { data: session } : session); return; }
+    if ((path === '/api/session' || path === '/session') && req.method === 'POST') { const id = 'ses_' + randomUUID().replaceAll('-', ''), session = { id, location: { directory }, permission: body.permission, permissions: body.permissions, messages: [] }; sessions.set(id, session); if (wire) writeFileSync(join(directory, id + '.fixture.json'), JSON.stringify(session)); json(generation === 2 ? { data: session } : session); return; }
     const match = path.match(/^\/(?:api\/)?session\/([^/]+)(.*)$/);
     if (match) {
       const [, sessionID, suffix] = match; let session = sessions.get(sessionID);
       const saved = join(directory, sessionID + '.fixture.json'); if (!session && wire && existsSync(saved)) session = JSON.parse(readFileSync(saved, 'utf8'));
       if (!session) { json({ error: 'Native session not found' }, 404); return; }
+      sessions.set(sessionID, session);
+      session.messages ??= [];
+      if (suffix === '/message' && req.method === 'GET') { const query = new URL(req.url, 'http://fixture').searchParams, offset = Number(query.get('cursor') ?? 0), limit = Math.min(Number(query.get('limit') ?? 10000), 2), data = session.messages.slice(offset, offset + limit); json(generation === 2 ? { data, cursor: { next: offset + limit < session.messages.length ? String(offset + limit) : null } } : session.messages); return; }
+      if (suffix === '/fork') {
+        const boundary = body.before ?? body.messageID, end = boundary ? session.messages.findIndex(message => (message.info ?? message).id === boundary) : session.messages.length;
+        if (end < 0) { json({ error: 'Unknown cut' }, 400); return; }
+        const id = 'ses_' + randomUUID().replaceAll('-', ''), copy = JSON.parse(JSON.stringify({ ...session, id, fork: { sessionID }, messages: session.messages.slice(0, end) }));
+        // Native copies may assign new IDs; consumers must map verified content.
+        for (const message of copy.messages) { const info = message.info ?? message; info.id = 'msg_' + randomUUID().replaceAll('-', ''); if (message.info) info.sessionID = id; }
+        sessions.set(id, copy); if (wire) writeFileSync(join(directory, id + '.fixture.json'), JSON.stringify(copy)); json(generation === 2 ? { data: copy } : copy); return;
+      }
+      if (suffix === '/revert/stage') { session.revert = { messageID: body.messageID }; json({ data: session.revert }); return; }
+      if (suffix === '/revert/commit') { const boundary = session.messages.findIndex(message => message.id === session.revert?.messageID); if (boundary < 0) { json({}, 400); return; } session.messages = session.messages.slice(0, boundary); delete session.revert; json({}); return; }
       if (!suffix) { if (req.method === 'PATCH') Object.assign(session, body); json(generation === 2 ? { data: session } : session); return; }
       if (suffix === '/abort' || suffix === '/interrupt') { for (const child of children) child.kill(); json(true); emit('session.execution.interrupted', { sessionID }); return; }
       if (['/model', '/agent', '/move'].includes(suffix)) { json({}); return; }
       if (suffix === '/prompt' || suffix === '/prompt_async' || suffix === '/compact' || suffix === '/summarize') {
         const nativeId = body.id ?? body.messageID ?? 'compact', raw = body.text ?? body.parts?.[0]?.text ?? '/compact', text = raw.match(/^Task: ([^\n]+)/m)?.[1] ?? raw;
         record({ prompt: text, sessionID, nativeId, pid: process.pid, generation });
+        session.messages.push(generation === 2 ? { id: nativeId, type: 'user', content: [{ type: 'text', text: raw }] } : { info: { id: nativeId, sessionID, role: 'user' }, parts: body.parts ?? [] });
         if (body.delivery === 'steer') { json({ data: { id: nativeId } }); later(() => emit('session.inbox.delivered', { sessionID, inboxID: nativeId }), 40); return; }
         if (text === 'hold') { const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' }); children.add(child); record({ child: child.pid }); json(generation === 2 ? { data: { id: nativeId } } : true); return; }
         if (text === 'disconnect') { json(generation === 2 ? { data: { id: nativeId } } : true); later(() => { for (const client of clients) client.end(); }); return; }

@@ -118,7 +118,7 @@ export type TaskForkOperation = {
 export const activeFork = (operation?: TaskForkOperation) => !!operation && operation.status !== 'completed';
 export const runningFork = (operation?: TaskForkOperation) => operation?.status === 'queued' || operation?.status === 'running';
 export type NativeRewindStart = { threadId: string; turns: string[]; keep: string[] };
-export type NativeRewindResult = { state: 'applied' | 'unchanged'; threadId: string | null; turns?: string[]; resumeSessionAt?: string };
+export type NativeRewindResult = { state: 'applied' | 'unchanged'; threadId: string | null; turns?: string[]; turnIds?: Record<string, string>; headIds?: Record<string, string>; resumeSessionAt?: string };
 export type NativeRewindRequest = {
   task: WorkItem; targetTurnId: string | null; removeTurns: string[]; keepTurns?: string[]; original?: NativeRewindStart;
   inspectOnly?: boolean; signal: AbortSignal;
@@ -325,7 +325,7 @@ export type ExecutionUpdate = NativeRuntimeUpdate | import('./task-subagent-type
   | { kind: 'contextUsage'; usage: import('./task-context-usage.js').TaskContextUsage | null }
   | { kind: 'session'; threadId: string; codexHome?: string; claudeHome?: string; piHome?: string; grokHome?: string; nativeProviderAccount?: string; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; executionSessionId?: string }
   | { kind: 'turn'; turnId: string }
-  | { kind: 'nativeHead'; head: string }
+  | { kind: 'nativeHead'; head: string; turnIds?: string[] }
   | { kind: 'resumeApplied' }
   | { kind: 'ready'; canSteer: boolean }
   | { kind: 'backgroundWaiting'; waiting: boolean }

@@ -20,6 +20,14 @@ const model = (agent: 'codex' | 'claude', model: string): TextGenerationModelSel
 const profile = (provider: string, connected = true): ModelStatus => ({ provider, displayName: provider, enabled: true, connected, installed: connected, version: null, account: null,
   models: [], checkedAt: new Date().toISOString(), error: null, loginPending: false, settings: null, model: '' });
 const empty = (): Workspace => ({ revision: 0, tasks: [], ideas: [], memories: [], requests: {}, projects: [{ id: 'project', name: 'Project', path: '/tmp', context: '' }] });
+test('text selection accepts every supported native generator, rejects Registry and falls back to an enabled additional driver', () => {
+  for (const agent of ['pi', 'grok', 'cursor', 'muse', 'opencode', 'antigravity']) {
+    const result = textGenerationSettingsChange({ projectId: null, expectedVersion: 0, changes: { textGenerationModelSelection: { agent, model: 'native-model', reasoningEffort: '' } } });
+    assert.equal(result.changes.textGenerationModelSelection?.agent, agent);
+  }
+  assert.throws(() => textGenerationSettingsChange({ projectId: null, expectedVersion: 0, changes: { textGenerationModelSelection: { agent: 'acp-registry', model: 'native-model', reasoningEffort: '' } } }), /Provider/);
+  assert.equal(resolveTextGenerationSettings(empty(), null, { codex: false, claude: false, pi: true }).effective.textGenerationModelSelection.agent, 'pi');
+});
 async function until(read: () => boolean | Promise<boolean>) {
   const deadline = Date.now() + 10_000; while (!await read()) { if (Date.now() > deadline) throw new Error('Text generation did not settle'); await new Promise(resolve => setTimeout(resolve, 10)); }
 }
@@ -50,6 +58,23 @@ async function setup(t: { after: (fn: () => Promise<unknown>) => void }) {
     save: async (changes: object, projectId: string | null = null, reset: string[] = []) => engine.textGeneration.save({ projectId, expectedVersion: (await engine.snapshot()).textGenerationSettings?.version ?? 0, changes, reset }),
   };
 }
+test('additional generator instances freeze their own selection and cannot inherit foreground account bindings or options', async t => {
+  const f = await setup(t);
+  await f.engine.providerInstances.change({ operation: 'create', instanceId: 'pi_writer', instance: { driver: 'pi', displayName: 'Writer', enabled: true } });
+  const directory = await f.engine.providerInstances.configDirectory('pi', 'pi_writer');
+  await saveProviderSettings(directory, 'pi-provider.json', { ...defaultCodexSettings, displayName: 'Pi', enabled: true });
+  const selected = { agent: 'pi', providerInstanceId: 'pi_writer', model: 'fixture/small', reasoningEffort: 'high', modelOptions: [{ id: 'reasoningEffort', value: 'high' }] };
+  await f.save({ textGenerationModelSelection: selected });
+  const id = await f.engine.createTask({ prompt: 'Main task', title: 'Main', requestId: 'main', projectId: 'project', mode: 'research', agent: 'codex' });
+  await until(async () => (await f.engine.snapshot()).tasks.find(task => task.id === id)?.status === 'completed');
+  await f.engine.patchTask(id, task => { task.codexHome = '/foreground-account'; task.nativeProviderAccount = 'foreground-binding'; task.modelOptions = [{ id: 'serviceTier', value: 'fast' }]; });
+  await f.engine.taskTitles.start(id, 'pi-title');
+  await until(() => f.executor.titles.length === 1);
+  const generated = f.executor.titles[0].task;
+  assert.equal(generated.agent, 'pi'); assert.equal(generated.providerInstanceId, 'pi_writer'); assert.equal(generated.codexHome, undefined); assert.equal(generated.nativeProviderAccount, undefined); assert.deepEqual(generated.modelOptions, selected.modelOptions);
+  await until(async () => (await f.engine.snapshot()).titleRequests?.['pi-title'].status === 'completed');
+  await f.reopen(); assert.equal((await f.engine.textGeneration.snapshot(null)).effective.textGenerationModelSelection.providerInstanceId, 'pi_writer');
+});
 
 test('Text generation defaults and disabled-provider fallback follow T3 without promoting the foreground task model', () => {
   const state = empty(); const enabled = { codex: true, claude: true };

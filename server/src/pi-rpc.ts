@@ -74,7 +74,8 @@ export class PiRpc {
   }
   request(record: PiRecord, timeoutMs = 30_000): Promise<any> {
     if (typeof record.type !== 'string') return Promise.reject(new Error('Pi 请求缺少类型'));
-    const id = randomUUID();
+    const id = typeof record.id === 'string' && record.id ? record.id : randomUUID();
+    if (this.pending.has(id)) return Promise.reject(new Error('Pi 请求 ID 已在使用'));
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`Pi ${record.type} 请求超时；不会自动重试`)); }, timeoutMs);
       this.pending.set(id, { command: record.type, resolve, reject, timer });

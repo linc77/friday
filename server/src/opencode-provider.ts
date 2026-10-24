@@ -1,5 +1,8 @@
+import { readOpenCodeUsage } from './native-provider-usage.js';
+import { ProviderWorkspaceCache } from './provider-workspace.js';
+import type { ProviderUsageLimits } from './provider-usage-limits.js';
 import { selectedProviderOptions, type ProviderModelSelection, type ProviderOptionDescriptor } from './provider-models.js';
-import { NativeProviderConnection, loadNativeProviderSettings, type NativeProviderSettings } from './native-provider-config.js';
+import { NativeProviderConnection, loadNativeProviderSettings, nativeProviderAccount, nativeProviderEnvironment, type NativeProviderSettings } from './native-provider-config.js';
 import { OpenCodeServer, type OpenCodeGeneration } from './opencode-server.js';
 import { acpRecord, type AcpRecord } from './acp-process.js';
 import type { ProviderModel } from './provider-models.js';
@@ -17,6 +20,7 @@ export function openCodeModels(value: unknown, generation: OpenCodeGeneration): 
     const variants = generation === 2 ? (Array.isArray(model.variants) ? model.variants : []).map((value: AcpRecord) => value.id) : Object.keys(model.variants ?? {});
     const context = model.limit?.input ?? model.limit?.context;
     return [{ id, name: typeof model.name === 'string' && model.name.trim() ? model.name.trim() : nativeModelId, description: '', isDefault: generation === 1 && input?.default?.[providerID] === nativeModelId,
+      optionDescriptors: variants.length ? [{ id: 'variant', label: 'Reasoning', type: 'select', options: variants.filter((value: unknown): value is string => typeof value === 'string' && !!value.trim()).map((id: string) => ({ id, label: id })) }] : [],
       reasoningEfforts: [...new Set<string>(variants.filter((value: unknown): value is string => typeof value === 'string' && !!value.trim()))], defaultReasoningEffort: '', providerID, nativeModelId,
       ...(Number.isFinite(context) && context > 0 ? { contextWindow: context } : {}) }];
   });
@@ -29,6 +33,15 @@ export async function openCodeData(pending: PromiseLike<unknown>): Promise<AcpRe
 type Pool = { promise: Promise<OpenCodeServer>; users: number; timer?: NodeJS.Timeout; close(): Promise<void> };
 export type OpenCodeLease = { server: OpenCodeServer; close(): Promise<void> };
 export class OpenCodeConnection extends NativeProviderConnection {
+  private usageController = new AbortController();
+  private usageCache = new ProviderWorkspaceCache<ProviderUsageLimits>(60_000);
+  async usageLimits(reload = false, task?: WorkItem) {
+    const settings = await loadNativeProviderSettings(this.directory, 'opencode');
+    if (task?.nativeProviderAccount && task.nativeProviderAccount !== nativeProviderAccount('opencode', settings)) throw new Error('请恢复这条 OpenCode 会话使用的账号配置');
+    const result = await this.usageCache.read(JSON.stringify(settings), reload, () => readOpenCodeUsage(settings.enabled, settings.serverUrl ?? '', nativeProviderEnvironment('opencode', settings), { signal: this.usageController.signal }));
+    if (this.closed || JSON.stringify(await loadNativeProviderSettings(this.directory, 'opencode')) !== JSON.stringify(settings)) throw new Error('Provider 额度所属配置已改变，请重新加载');
+    return result;
+  }
   private pool = new Map<string, Pool>();
   constructor(directory: string) { super(directory, 'opencode'); }
   async server(settings: NativeProviderSettings, cwd: string, owner?: string): Promise<OpenCodeLease> {
@@ -56,10 +69,10 @@ export class OpenCodeConnection extends NativeProviderConnection {
       const models = server.generation === 2 ? await server.v2!.model.list({ location: { directory: this.directory } }, { signal: AbortSignal.timeout(5000) }) : await server.v1!.provider.list({}, { signal: AbortSignal.timeout(5000) }).then(value => value.data);
       state.models = openCodeModels(models, server.generation);
       try {
-        const raw = server.generation === 2 ? await server.v2!.agent.list({ location: { directory: this.directory } }, { signal: AbortSignal.timeout(5000) }) : await server.v1!.app.agents(undefined, { signal: AbortSignal.timeout(5000) }).then(value => value.data);
+        const raw = server.generation === 1 ? await server.v1!.app.agents(undefined, { signal: AbortSignal.timeout(5000) }).then(value => value.data) : [];
         const listed = Array.isArray(raw) ? raw : acpRecord(raw)?.data;
         const agents = (Array.isArray(listed) ? listed : []).filter((agent: AcpRecord) => typeof agent.name === 'string' && agent.name && !agent.hidden && agent.mode !== 'subagent');
-        if (agents.length) for (const model of state.models) model.optionDescriptors = [{ id: 'agent', label: 'Agent', type: 'select', options: agents.map((agent: AcpRecord) => ({ id: agent.name, label: agent.name, ...(agent.name === 'build' ? { isDefault: true } : {}) })), currentValue: agents.some((agent: AcpRecord) => agent.name === 'build') ? 'build' : agents[0].name }];
+        if (agents.length) for (const model of state.models) model.optionDescriptors = [...(model.optionDescriptors ?? []), { id: 'agent', label: 'Agent', type: 'select', options: agents.map((agent: AcpRecord) => ({ id: agent.name, label: agent.name, ...(agent.name === 'build' ? { isDefault: true } : {}) })), currentValue: agents.some((agent: AcpRecord) => agent.name === 'build') ? 'build' : agents[0].name }];
       } catch {}
       state.connected = state.models.length > 0;
       state.model = settings.model || state.models.find(value => value.isDefault)?.id || state.models[0]?.id || '';
@@ -91,4 +104,6 @@ export class OpenCodeConnection extends NativeProviderConnection {
     });
   }
   async configured() { return loadNativeProviderSettings(this.directory, 'opencode'); }
+  async close() { this.usageController.abort(); await super.close(); }
+
 }

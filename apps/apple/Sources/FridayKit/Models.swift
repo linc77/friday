@@ -7,7 +7,7 @@ enum TaskProviderCatalog {
     }
     static func supportsInteractionModes(_ provider: String) -> Bool { supportsInteractionModes(provider, state: nil) }
     static func supportsInteractionModes(_ provider: String, state: CodexConnectionState?) -> Bool { ["antigravity", "acp-registry"].contains(provider) ? state?.supportsPlan == true : ["codex", "claude", "cursor", "opencode"].contains(provider) }
-    static func hasUsageLimits(_ provider: String) -> Bool { ["codex", "claude"].contains(provider) }
+    static func hasUsageLimits(_ provider: String) -> Bool { ["codex", "claude", "grok", "cursor", "opencode"].contains(provider) }
 }
 
 struct ProviderInstanceInfo: Codable, Equatable, Identifiable {
@@ -77,13 +77,15 @@ struct TaskProviderUsageLimits: Decodable, Equatable {
         var resetsAt: String? = nil
         var remainingPercent: Int { Int(max(0, min(100, 100 - usedPercent)).rounded(.toNearestOrAwayFromZero)) }
     }
-    struct Unavailable: Decodable, Equatable { let reason: String }
+    struct Unavailable: Decodable, Equatable { let reason: String; var message: String? = nil }
     let checkedAt: String
     let windows: [Window]
     var unavailable: Unavailable? = nil
     var credentialFingerprint: String? = nil
     var resetCredits: ResetCredits? = nil
-    var offered: Bool { unavailable == nil && !windows.isEmpty }
+    var sourceLabel: String? = nil
+    var available: Bool? = nil
+    var offered: Bool { unavailable == nil && (!windows.isEmpty || available == true) }
 }
 struct TaskUsageSourceSnapshot: Decodable, Equatable, Identifiable {
     struct Account: Decodable, Equatable, Identifiable { let id: String; let driver: String; var email: String? = nil; var plan: String? = nil; var workspaceId: String? = nil; let credentialFingerprint: String; let usageLimits: TaskProviderUsageLimits }
@@ -463,10 +465,11 @@ struct CodexProviderSettings: Codable, Equatable {
     var serverUrl: String? = nil
     var serverPassword: String? = nil
     var serverPasswordConfigured: Bool? = nil
+    var cursorUsageKeychainEnabled: Bool? = nil
     var nativeConfig: AcpNativeProviderConfig? = nil
     init() {}
     enum CodingKeys: String, CodingKey {
-        case enabled, displayName, binaryPath, homePath, shadowHomePath, launchArgs, model, reasoningEffort, environment, customModels, permissionMode, serverUrl, serverPassword, serverPasswordConfigured, nativeConfig
+        case enabled, displayName, binaryPath, homePath, shadowHomePath, launchArgs, model, reasoningEffort, environment, customModels, permissionMode, serverUrl, serverPassword, serverPasswordConfigured, cursorUsageKeychainEnabled, nativeConfig
     }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -484,6 +487,7 @@ struct CodexProviderSettings: Codable, Equatable {
         serverUrl = try values.decodeIfPresent(String.self, forKey: .serverUrl)
         serverPassword = try values.decodeIfPresent(String.self, forKey: .serverPassword)
         serverPasswordConfigured = try values.decodeIfPresent(Bool.self, forKey: .serverPasswordConfigured)
+        cursorUsageKeychainEnabled = try values.decodeIfPresent(Bool.self, forKey: .cursorUsageKeychainEnabled)
         nativeConfig = try values.decodeIfPresent(AcpNativeProviderConfig.self, forKey: .nativeConfig)
     }
     var body: [String: Any] {
@@ -528,6 +532,8 @@ struct CodexConnectionState: Decodable {
     let installed: Bool; let version: String?; let account: CodexAccount?; let models: [CodexProviderModel]
     let checkedAt: String; let error: String?; let loginPending: Bool; let settings: CodexProviderSettings?
     var supportsPlan: Bool? = nil
+    var supportsTextGeneration: Bool? = nil
+    var supportsInvestigation: Bool? = nil
 }
 struct CodexLoginResponse: Decodable { let url: String }
 struct TaskGitContext: Codable {

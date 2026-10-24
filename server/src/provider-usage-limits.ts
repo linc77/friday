@@ -33,8 +33,8 @@ export function providerFingerprint(provider: string, account: any, fallback: st
   return providerDigest([provider, account?.type ?? null, identity.some(Boolean) ? identity : fallback]);
 }
 export class ProviderResetError extends Error { constructor(message: string, readonly settled = false) { super(message); } }
-export type ProviderUsageWindow = { id: string; kind: 'session' | 'weekly' | 'monthly'; label: string; usedPercent: number; windowDurationMins: number; resetsAt?: string };
-export type ProviderUsageLimits = { checkedAt: string; windows: ProviderUsageWindow[]; credentialFingerprint?: string; resetCredits?: ProviderResetCredits; unavailable?: { reason: 'unsupported' | 'probeFailed' } };
+export type ProviderUsageWindow = { id: string; kind: 'session' | 'weekly' | 'monthly' | 'other'; label: string; usedPercent: number; windowDurationMins: number; resetsAt?: string };
+export type ProviderUsageLimits = { checkedAt: string; windows: ProviderUsageWindow[]; available?: boolean; sourceLabel?: string; credentialFingerprint?: string; resetCredits?: ProviderResetCredits; unavailable?: { reason: 'unsupported' | 'probeFailed'; message?: string } };
 export type ProviderUsageIdentity = { email?: string; workspaceId?: string; plan?: string };
 export function codexSubscriptionLabel(plan: unknown) {
   const labels = { free: 'Free', go: 'Go', plus: 'Plus', pro: 'Pro 20x', prolite: 'Pro 5x', promax: 'Pro Max', team: 'Team', self_serve_business_prolite: 'Business', self_serve_business_usage_based: 'Business', business: 'Business', ent26: 'Enterprise', enterprise_cbp_automation: 'Enterprise', enterprise_cbp_usage_based: 'Enterprise', enterprise: 'Enterprise', edu: 'Edu' };
@@ -51,7 +51,7 @@ const iso = (value: unknown) => {
   return Number.isFinite(millis) && Math.abs(millis) <= 8.64e15 ? new Date(millis).toISOString() : undefined;
 };
 export const unavailableUsageLimits = (reason: 'unsupported' | 'probeFailed'): ProviderUsageLimits => ({ checkedAt: new Date().toISOString(), windows: [], unavailable: { reason } });
-const sorted = (windows: ProviderUsageWindow[]) => windows.sort((a, b) => ({ session: 0, weekly: 1, monthly: 2 }[a.kind] - { session: 0, weekly: 1, monthly: 2 }[b.kind]) || a.id.localeCompare(b.id));
+const sorted = (windows: ProviderUsageWindow[]) => windows.sort((a, b) => ({ session: 0, weekly: 1, monthly: 2, other: 3 }[a.kind] - { session: 0, weekly: 1, monthly: 2, other: 3 }[b.kind]) || a.id.localeCompare(b.id));
 export function codexUsageLimits(response: unknown): ProviderUsageLimits {
   const data = object(response), snapshot = object(object(data.rateLimitsByLimitId).codex ?? data.rateLimits);
   const windows: ProviderUsageWindow[] = [];
@@ -87,14 +87,14 @@ export function claudeUsageLimits(response: unknown): ProviderUsageLimits {
   return { checkedAt: new Date().toISOString(), windows: sorted(windows) };
 }
 export async function composerUsageLimits(engine: Engine, input: { provider: string; providerInstanceId?: string; taskId?: string; reload?: boolean }) {
-  if (!['codex', 'claude'].includes(input.provider)) throw new Error('请选择 Codex 或 Claude');
+  if (!['codex', 'claude', 'grok', 'cursor', 'opencode'].includes(input.provider)) throw new Error('此 Provider 未提供原生额度接口');
   const task = input.taskId ? (await engine.snapshot()).tasks.find(task => task.id === input.taskId) : undefined;
   if (input.taskId && (!task || task.agent !== input.provider)) throw new Error('任务执行范围已经改变');
   const id = task ? taskProviderInstance(task) : input.providerInstanceId ?? input.provider;
   if (task && input.providerInstanceId !== undefined && input.providerInstanceId !== id) throw new Error('任务所属 Provider 实例已改变');
-  const connection = await engine.providerInstances.get(input.provider as 'codex' | 'claude', id, true);
+  const connection = await engine.providerInstances.get(input.provider as 'codex' | 'claude' | 'grok' | 'cursor' | 'opencode', id, true);
   const value = await connection.usageLimits(input.reload === true, task);
   if (task && !(await engine.snapshot()).tasks.some(value => value.id === task.id && taskProviderInstance(value) === id && value.agent === task.agent && value.codexHome === task.codexHome && value.claudeHome === task.claudeHome)) throw new Error('任务执行范围已经改变');
-  await engine.publishProviderUsage(id, value, connection.usageIdentity(value.credentialFingerprint));
+  await engine.publishProviderUsage(id, value, ('usageIdentity' in connection ? connection.usageIdentity(value.credentialFingerprint) : undefined));
   return value;
 }

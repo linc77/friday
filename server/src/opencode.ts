@@ -1,3 +1,5 @@
+import { isolatedTextGeneration } from './native-text-generation.js';
+import { forkOpenCode, rewindOpenCode } from './opencode-history.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { OpenCodeConnection, openCodeData } from './opencode-provider.js';
@@ -29,7 +31,11 @@ export class OpenCodeExecutor implements Executor {
   constructor(private connection: OpenCodeConnection) {}
   supportsTaskTools(agent: string) { return agent === 'opencode'; }
   deferredStart(agent: string) { return agent === 'opencode'; }
-  async run(request: ExecutionRequest) {
+  async fork(request: import('./types.js').NativeForkRequest) { if (this.runs.has(request.task.id)) throw new Error('OpenCode 会话仍在执行'); return forkOpenCode(this.connection, request); }
+  async rewind(request: import('./types.js').NativeRewindRequest) { if (this.runs.has(request.task.id)) throw new Error('OpenCode 会话仍在执行'); return rewindOpenCode(this.connection, request); }
+  async generateText(request: import('./types.js').TextGenerationRequest) { return this.run(request); }
+  async run(request: ExecutionRequest): Promise<string> { return request.purpose ? isolatedTextGeneration(request, prepared => this.runNative(prepared)) : this.runNative(request); }
+  private async runNative(request: ExecutionRequest): Promise<string> {
     const { task, signal, update } = request;
     if (this.runs.has(task.id)) throw new Error('OpenCode 会话仍在执行');
     const runtime = await this.connection.runtime({ model: task.model, reasoningEffort: task.reasoningEffort, modelOptions: task.modelOptions });
@@ -41,7 +47,7 @@ export class OpenCodeExecutor implements Executor {
     const finish = (error?: Error) => { if (!terminal) { terminal = true; error ? reject(error) : resolve(); } };
     const pending = new Map<string, Pending>(), infos = new Map<string, AcpRecord>(), parts = new Map<string, AcpRecord>(), earlyParts = new Map<string, AcpRecord[]>(), tools = new Map<string, AcpRecord>();
     const mcpName = 'friday-' + createHash('sha256').update(task.id).digest('hex').slice(0, 16), mcp = !!request.taskMcp && !!server.child;
-    const rules = openCodeRules(server.generation, runtime.settings.permissionMode, task.interactionMode === 'plan', mcp ? mcpName : undefined);
+    const rules = request.purpose ? (server.generation === 2 ? [{ action: '*', resource: '*', effect: 'deny' }] : [{ permission: '*', pattern: '*', action: 'deny' }]) : openCodeRules(server.generation, runtime.settings.permissionMode, task.interactionMode === 'plan', mcp ? mcpName : undefined);
     const ownInfo = (id: string) => infos.get(id)?.role === 'assistant' && infos.get(id)?.parentID === nativeId;
     const settleV1 = () => { if (delivered && admission && idle && [...infos.values()].some(info => ownInfo(info.id) && info.time?.completed && info.finish !== 'tool-calls')) finish(); };
     const publishPart = (part: AcpRecord) => {
@@ -54,6 +60,7 @@ export class OpenCodeExecutor implements Executor {
       }
     };
     const publishRequest = async (kind: Pending['kind'], value: AcpRecord) => {
+      if (request.purpose) throw new Error('独立文字生成不接受工具授权或用户输入');
       if (!active || terminal || value.sessionID !== sessionId) return;
       const native = value.id, id = `opencode:${kind}:${native}`; if (typeof native !== 'string' || pending.has(id)) return;
       let questions: AcpRecord[] = [], decisions: ApprovalDecision[] | undefined;
@@ -135,7 +142,7 @@ export class OpenCodeExecutor implements Executor {
     const live: Live = { server, sessionId, nativeId, pending, rules, cancel, steers: new Map() }; this.runs.set(task.id, live); signal.addEventListener('abort', cancel, { once: true });
     try {
       signal.throwIfAborted();
-      if (v2 && (runtime.settings.permissionMode !== 'auto' || task.interactionMode === 'plan')) {
+      if (!request.purpose && v2 && (runtime.settings.permissionMode !== 'auto' || task.interactionMode === 'plan')) {
         const agents = await v2.agent.list({ location: { directory: task.cwd } }, { signal: AbortSignal.timeout(5000) }).catch(() => ({ data: [] }));
         const paths = agents.data.filter(agent => [task.interactionMode === 'plan' ? 'plan' : runtime.agent ?? 'build'].includes(agent.id)).flatMap(agent => agent.permissions.filter(rule => rule.effect === 'allow' && rule.resource !== '*' && ['edit', 'external_directory'].includes(rule.action)));
         rules.splice(mcp ? rules.length - 2 : rules.length, 0, ...paths);

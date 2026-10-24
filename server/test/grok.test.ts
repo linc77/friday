@@ -20,6 +20,14 @@ async function setup(t: { after: (fn: () => Promise<unknown>) => void }, environ
   return { directory, wire, home, connection, executor, trace };
 }
 async function until(read: () => Promise<boolean>) { const end = Date.now() + 5000; while (!await read()) { if (Date.now() > end) throw new Error('Grok fixture timed out'); await new Promise(resolve => setTimeout(resolve, 10)); } }
+test('Grok independent generation starts its own native session in explicit default permissions and suppresses updater side effects', async t => {
+  const fixture = await setup(t);
+  const result = await fixture.executor.generateText({ task: work(fixture.directory, { threadId: 'foreground', grokHome: '/another-account', nativeProviderAccount: 'another-account' }), purpose: 'task_title', prompt: 'Title', signal: AbortSignal.timeout(5000), update: async () => {} });
+  assert.ok(result.trim());
+  const trace = await fixture.trace(), prompt = trace.find(value => value.method === 'session/prompt');
+  assert.ok(trace.some(value => value.method === 'session/new')); assert.ok(!trace.some(value => value.method === 'session/load' || value.method === 'session/resume'));
+  assert.equal(prompt.argv[prompt.argv.indexOf('--permission-mode') + 1], 'default'); assert.equal(prompt.probe, '1'); assert.ok(!prompt.argv.includes('--always-approve'));
+});
 test('Grok maps native model reasoning choices, CLI defaults and explicit permission modes without inventing capabilities', () => {
   const models = grokModelInventory({ currentModelId: 'native', availableModels: [{ modelId: 'native', name: 'Native', _meta: { reasoningEffort: 'dynamic-budget', reasoningEfforts: [{ value: 'low' }, { id: 'dynamic-budget', default: true }, { value: 'bad value' }, { value: 'low' }] } }, { modelId: 'plain', name: 'Plain', _meta: { supportsReasoningEffort: false, reasoningEfforts: [{ value: 'high' }] } }] });
   assert.deepEqual(models.map(value => value.id), ['native', 'plain']); assert.deepEqual(models[0]!.reasoningEfforts, ['low', 'dynamic-budget']); assert.equal(models[0]!.defaultReasoningEffort, 'dynamic-budget'); assert.deepEqual(models[1]!.reasoningEfforts, []);

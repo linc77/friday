@@ -47,7 +47,7 @@ const connection = new AgentApp({ name: 'Friday Cursor SDK host' }).onRequest('*
     if (params.fingerprint !== fingerprint) throw RequestError.invalidRequest('Cursor 账号已经改变');
     store = await sqlite.SqliteLocalAgentStore.open({ workspaceRef: params.cwd, stateRoot: params.stateRoot });
     const options: AgentOptions = { apiKey, name: params.name, model: params.model, mode: params.mode === 'plan' ? 'plan' : 'agent', local: { cwd: params.cwd, store,
-      autoReview: params.fullAccess !== true, sandboxOptions: { enabled: params.fullAccess !== true }, settingSources: ['project', 'user', 'team', 'mdm', 'plugins'], enableAgentRetries: true }, ...(params.mcpServers ? { mcpServers: params.mcpServers } : {}) };
+      autoReview: params.readOnly === true ? false : params.fullAccess !== true, sandboxOptions: { enabled: params.fullAccess !== true }, settingSources: params.readOnly === true ? [] : ['project', 'user', 'team', 'mdm', 'plugins'], enableAgentRetries: true }, ...(params.mcpServers ? { mcpServers: params.mcpServers } : {}) };
     agent = typeof params.agentId === 'string' ? await sdk.Agent.resume(params.agentId, options) : await sdk.Agent.create(options);
     return { agentId: agent.agentId };
   }

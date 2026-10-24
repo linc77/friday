@@ -120,6 +120,14 @@ struct CodexSettingsView: View {
                     }
                 }
             }
+            if provider == "cursor", owner {
+                SettingsGroup("账号配额") {
+                    SettingsRow("读取 Cursor CLI 账号额度", detail: "启用后读取主机钥匙串中的 Cursor CLI 登录；不使用 API Key 推测其他账号的配额。") {
+                        Toggle(isOn: Binding(get: { draft.cursorUsageKeychainEnabled == true }, set: { draft.cursorUsageKeychainEnabled = $0 })) { Text(friday: "读取 Cursor CLI 账号额度") }
+                            .labelsHidden().toggleStyle(.switch).controlSize(.mini).fridayInteractiveCursor().disabled(busy || !store.connected)
+                    }
+                }
+            }
             if provider == "claude" {
                 Text(friday: "在任务输入框中选择 Claude 模型，即可执行任务或继续会话。")
                     .font(.system(size: 12)).foregroundStyle(.secondary)

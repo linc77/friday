@@ -22,7 +22,7 @@ async function handle(request) {
   if (request.method === 'model/list') return reply(request, { providerId: 'meta', models: [{ modelId: 'muse-native', providerId: 'meta', displayLabel: 'Muse Native', isDefault: true, variants: ['low', 'high'], defaultReasoningEffort: 'high' }, { modelId: 'muse-no-thinking', providerId: 'meta', displayLabel: '', isDefault: false, variants: [] }, { modelId: 'wrong-provider', providerId: 'other', displayLabel: 'Wrong' }] });
   if (['session/start', 'session/resume'].includes(request.method)) {
     mcp = params.config?.mcpServers?.friday;
-    if (args.includes('--disable-write')) return fail(request, 'invalidParams', 'Read-only probe attempted to create a session');
+    if (args.includes('--disable-write') && params.approvalMode !== 'denyUnmatched') return fail(request, 'invalidParams', 'Read-only probe attempted to create a session');
     session = params.sessionId; mkdirSync(home, { recursive: true }); const file = join(home, session + '.json');
     if (request.method === 'session/resume') { if (!existsSync(file) || process.env.MUSE_TEST_FAIL_RESUME === '1') return fail(request, 'sessionNotFound', 'Native Muse session not found'); item({ itemId: 'old', revision: 1, status: 'completed', kind: 'agentMessage', text: 'Loaded Muse history must not replay' }); }
     else writeFileSync(file, JSON.stringify({ sessionId: session, modelId: params.modelId, prompts: [] }));

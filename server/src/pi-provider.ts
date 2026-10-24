@@ -18,7 +18,7 @@ export const piThinkingLevels = ['off', 'minimal', 'low', 'medium', 'high', 'xhi
 export const defaultPiSettings: CodexSettings = { ...defaultCodexSettings, enabled: false, displayName: 'Pi', binaryPath: 'pi', permissionMode: 'default' };
 const valueArgs = new Set(['--api-key', '--append-system-prompt', '--exclude-tools', '-xt', '--extension', '-e', '--model', '--models', '--name', '-n', '--prompt-template', '--provider', '--session-dir', '--skill', '--system-prompt', '--theme', '--thinking', '--tools', '-t', '--tui-mode', '--use-theme']);
 const booleanArgs = new Set(['--approve', '-a', '--no-approve', '-na', '--no-builtin-tools', '-nbt', '--no-context-files', '-nc', '--no-extensions', '-ne', '--no-prompt-templates', '-np', '--no-skills', '-ns', '--no-themes', '--no-tools', '-nt', '--offline', '--verbose']);
-const reservedArgs = new Set(['--help', '-h', '--list-models', '--mode', '--no-session', '--print', '-p', '--resume', '-r', '--session', '--session-id', '--version', '-v']);
+const reservedArgs = new Set(['--help', '-h', '--list-models', '--mode', '--no-session', '--print', '-p', '--resume', '-r', '--session', '--session-id', '--fork', '--version', '-v']);
 export function piLaunchArgs(value: string): string[] {
   const args = parseLaunchArgs(value).flatMap(arg => {
     const equals = arg.indexOf('='); return equals > 0 && valueArgs.has(arg.slice(0, equals)) ? [arg.slice(0, equals), arg.slice(equals + 1)] : [arg];

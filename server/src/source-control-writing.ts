@@ -49,7 +49,7 @@ async function repositoryInstructions(cwd: string, name: string, privacy: Worksp
   } catch { signal.throwIfAborted(); return ''; }
 }
 
-export async function resolveSourceControlPolicy(cwd: string, style: SourceControlWritingStyle, writer: 'codex' | 'claude', privacy: WorkspacePrivacy, signal: AbortSignal): Promise<WritingPolicy> {
+export async function resolveSourceControlPolicy(cwd: string, style: SourceControlWritingStyle, writer: import('./native-text-generation.js').TextGenerationProvider, privacy: WorkspacePrivacy, signal: AbortSignal): Promise<WritingPolicy> {
   signal.throwIfAborted();
   if (style.mode === 'conventional_commits') return {
     commitInstructions: 'Use Conventional Commits when generating commit subjects. Prefer the narrowest accurate type and include a scope only when it is obvious from the diff.',

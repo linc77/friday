@@ -16,6 +16,16 @@ async function setup(t: { after(fn: () => Promise<unknown>): void }, provider: A
   return { directory, cwd, connection, executor, trace: async () => (await readFile(wire, 'utf8')).split('\n').filter(Boolean).map(line => JSON.parse(line)) };
 }
 for (const provider of ['acp-registry', 'antigravity'] as const) {
+  test(`${provider} independent generation follows its actual capability and cannot borrow a foreground session`, async t => {
+    const fixture = await setup(t, provider);
+    const input = { task: { id: 'generation', agent: provider, cwd: fixture.cwd, model: 'native-model', reasoningEffort: 'low', threadId: 'foreground', nativeProviderAccount: 'foreground-account', interactionMode: 'default', mode: 'research', events: [], approvals: [] } as unknown as WorkItem, purpose: 'task_title' as const, prompt: 'Title', signal: AbortSignal.timeout(5000), update: async () => {} };
+    if (provider === 'acp-registry') { await assert.rejects(fixture.executor.generateText(input), /不支持独立文字生成/); assert.ok(!(await fixture.trace()).some(value => value.method === 'session/prompt')); return; }
+    assert.ok((await fixture.executor.generateText(input)).trim());
+    const trace = await fixture.trace();
+    assert.ok(!trace.some(value => ['session/resume', 'session/load'].includes(value.method)));
+    assert.ok(trace.some(value => value.method === 'session/set_mode' && value.params.modeId === 'plan'));
+    assert.ok(trace.filter(value => value.method === 'initialize').every(value => value.params.clientCapabilities.fs.writeTextFile === false));
+  });
   test(`${provider} native discovery keeps credentials private and its actual model/command catalog scoped to the workspace`, async t => {
     const { connection, directory, cwd, trace } = await setup(t, provider), owner = await connection.status(true); assert.equal(owner.installed, true); assert.equal(owner.connected, true, owner.error ?? 'Not connected'); assert.equal(owner.supportsPlan, true); assert.deepEqual(owner.models.map(value => value.id), ['native-model', 'other-model']); assert.equal(owner.settings?.nativeConfig?.apiKey, null); assert.ok(!JSON.stringify(owner).includes('fixture-gemini-secret')); assert.equal((await connection.status(false)).settings, null);
     assert.equal((await stat(join(directory, provider + '-provider.json'))).mode & 0o777, 0o600);

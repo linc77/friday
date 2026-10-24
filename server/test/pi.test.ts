@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { defaultPiSettings, PiConnection, piLaunchArgs, piModelInventory, validatePiSettings } from '../src/pi-provider.js';
 import { PiExecutor } from '../src/pi.js';
 import { piFramer } from '../src/pi-rpc.js';
+import { piActiveBranch } from '../src/pi-history.js';
 import type { ExecutionUpdate, WorkItem } from '../src/types.js';
 import { terminalProviderEnvironment } from '../src/terminal-provider-environment.js';
 
@@ -21,12 +22,57 @@ async function setup(t: { after: (fn: () => Promise<unknown>) => void }) {
   return { directory, connection, executor, trace };
 }
 async function until(read: () => Promise<boolean>) { const end = Date.now() + 5000; while (!await read()) { if (Date.now() > end) throw new Error('Pi fixture timed out'); await new Promise(resolve => setTimeout(resolve, 10)); } }
+test('Pi independent generation disables tools/extensions, persists the actual request before prompt and never borrows foreground history', async t => {
+  const fixture = await setup(t), updates: ExecutionUpdate[] = [];
+  const result = await fixture.executor.generateText({ task: work(fixture.directory, { threadId: '/unrelated/foreground.json', piHome: '/unrelated/account' }), purpose: 'task_title', prompt: 'Title', signal: AbortSignal.timeout(5000), update: async update => { updates.push(update); if (update.kind === 'turn') assert.ok(!(await fixture.trace()).some(value => value.type === 'prompt')); } });
+  assert.ok(result.includes('Pi'));
+  const trace = await fixture.trace(), prompt = trace.find(value => value.type === 'prompt');
+  assert.ok(prompt.argv.includes('--no-session')); assert.ok(prompt.argv.includes('--no-extensions')); assert.ok(prompt.argv.includes('--no-tools'));
+  assert.ok(!trace.some(value => value.type === 'switch_session'));
+  assert.ok(updates.some(value => value.kind === 'turn' && value.turnId === prompt.id));
+});
 
 test('Pi JSONL framing preserves Unicode separators and discards only an oversized LF frame', () => {
   const frame = piFramer(80);
   assert.deepEqual(frame('{"text":"café\u2028line\u2029end"}\r'), []);
   assert.deepEqual(frame('\n'), ['{"text":"café\u2028line\u2029end"}']);
   assert.deepEqual(frame('x'.repeat(100) + '\n{"next":true}\n'), ['{"next":true}']);
+});
+test('Pi history follows only complete active ancestry, never discarded append order', () => {
+  const entry = (id: string, parentId: string | null) => ({ id, parentId, type: 'message', message: { role: 'user' } });
+  const entries = [entry('root', null), entry('discarded', 'root'), entry('kept', 'root'), entry('discarded-later', 'discarded')];
+  assert.deepEqual(piActiveBranch({ entries, leafId: 'kept' }).map(value => value.id), ['root', 'kept']);
+  assert.throws(() => piActiveBranch({ entries, leafId: 'missing' }), /不完整/);
+  assert.throws(() => piActiveBranch({ entries: [entry('cycle', 'cycle')], leafId: 'cycle' }), /循环/);
+});
+test('Pi forks and rewinds exact native tree boundaries, retains source history and only inspects lost acknowledgements', async t => {
+  const f = await setup(t), runs: any[] = []; let threadId = '';
+  for (let index = 0; index < 2; index++) {
+    const run: any = { id: 'run-' + index, turnId: 'pi:run-' + index };
+    await f.executor.run({ task: work(f.directory, { currentRunId: run.id, threadId: threadId || null }), prompt: 'reply', signal: AbortSignal.timeout(5000), update: async update => {
+      if (update.kind === 'session') threadId = run.threadId = update.threadId;
+      if (update.kind === 'nativeHead') { run.nativeHead = update.head; run.nativeTurnIds = update.turnIds; }
+    } });
+    assert.equal(run.nativeTurnIds.length, 1); runs.push(run);
+  }
+  const source = work(f.directory, { threadId, piHome: join(f.directory, 'account'), runs }), sourceBytes = await readFile(threadId, 'utf8');
+  let started = false, candidate = '';
+  const request = { task: source, run: runs[0], expectedTurns: runs[0].nativeTurnIds, title: 'Fork', inspectOnly: false, signal: AbortSignal.timeout(5000), started: async () => { started = true; }, candidate: async (id: string) => { assert.ok(started); candidate = id; } };
+  const forked = await f.executor.fork(request);
+  assert.equal(forked.threadId, candidate); assert.notEqual(candidate, threadId); assert.equal(forked.turnIds[runs[0].turnId], runs[0].nativeTurnIds[0]);
+  assert.equal(piActiveBranch(JSON.parse(await readFile(candidate, 'utf8'))).filter(value => value.message?.role === 'user').length, 1);
+  const beforeInspect = (await f.trace()).filter(value => value.type === 'fork').length;
+  await f.executor.fork({ ...request, candidateId: candidate, inspectOnly: true, started: async () => assert.fail('inspection cannot fork') });
+  await assert.rejects(f.executor.fork({ ...request, inspectOnly: true }), /不会重复创建/);
+  assert.equal((await f.trace()).filter(value => value.type === 'fork').length, beforeInspect);
+  let original: any, rewindCandidate = '';
+  const rewind = { task: source, targetTurnId: runs[1].nativeTurnIds[0], removeTurns: runs[1].nativeTurnIds, keepTurns: runs[0].nativeTurnIds, signal: AbortSignal.timeout(5000), started: async (value: any) => { original = value; }, candidate: async (value: string) => { assert.ok(original); rewindCandidate = value; } };
+  const result = await f.executor.rewind(rewind);
+  assert.equal(result.threadId, rewindCandidate); assert.deepEqual(result.turns, runs[0].nativeTurnIds); assert.equal(await readFile(threadId, 'utf8'), sourceBytes);
+  assert.equal((await f.executor.rewind({ ...rewind, original, inspectOnly: true, task: { ...source, threadId: rewindCandidate }, started: async () => assert.fail('cannot repeat rewind') })).state, 'applied');
+  assert.equal((await f.executor.rewind({ ...rewind, original, inspectOnly: true })).state, 'unchanged');
+  await assert.rejects(f.executor.rewind({ ...rewind, removeTurns: ['unknown'] }), /边界不一致/);
+  assert.ok((await f.trace()).filter(value => value.type === 'fork').every(value => value.argv.includes('--no-extensions') && value.argv.includes('--no-tools')));
 });
 test('Pi model reasoning options follow native per-model maps and custom model IDs imply no capabilities', async () => {
   const inputs = [{ provider: 'f', id: 'base', reasoning: true }, { provider: 'f', id: 'extra', reasoning: true, thinkingLevelMap: { high: null, xhigh: 9999, max: null } }, { provider: 'f', id: 'plain', reasoning: false }];
