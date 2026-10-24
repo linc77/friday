@@ -44,6 +44,7 @@ import { installGitHubMediaAssets } from './github-media-assets.js';
 import { contextIDs } from './task-context-types.js';
 import { compactTaskEvent, compactTaskOutputs } from './task-output.js';
 import { compactTask } from './task-compaction.js';
+import { hasRunningBackgroundCommands } from './task-background-commands.js';
 import { composerUsageLimits } from './provider-usage-limits.js';
 import { composerWorkspace } from './provider-workspace.js';
 import { installTaskOutputAPI } from './task-output-api.js';
@@ -167,7 +168,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
       if (!metadata) {
         const state = await engine.snapshot();
         const peers = c.req.path.endsWith('/login') || c.req.path.endsWith('/logout') ? await engine.providerInstances.credentialPeers(provider, id) : [id];
-        if (state.tasks.some(task => peers.includes(taskProviderInstance(task)) && (activeStatuses.includes(task.status) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation)) || activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id)
+        if (state.tasks.some(task => peers.includes(taskProviderInstance(task)) && (activeStatuses.includes(task.status) || hasRunningBackgroundCommands(task) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation)) || activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id)
           || Object.values(state.titleRequests ?? {}).some(request => request.status === 'pending' && (request.modelSelection?.providerInstanceId ?? request.modelSelection?.agent) === id)
           || state.tasks.some(task => task.changeRequestGuideRuns?.some(run => ['queued', 'running'].includes(run.status) && (run.modelSelection.providerInstanceId ?? run.modelSelection.agent) === id))) return c.json({ error: '请先停止此实例的任务并处理会话操作再修改配置' }, 409);
       }

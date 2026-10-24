@@ -14,7 +14,7 @@ const publicEventStatus = (work: NativeBackgroundWork): NonNullable<TaskEvent['s
 export class TaskNativeBackground {
   readonly definition;
   private origins = new Map<string, { sessionId: string; eventId: string }>();
-  private sources = new Map<string, { sessionId: string; threadId: string }>();
+  private sources = new Map<string, { sessionId: string; threadId: string; provider: string; providerInstanceId?: string }>();
   constructor(private readonly engine: Engine) {
     this.definition = defineTask<StopInput, { phase: 'stop' }, { status: string }, {}>({
       name: 'friday.native_background_stop', version: 1, initial: () => ({ phase: 'stop' }),
@@ -50,9 +50,25 @@ export class TaskNativeBackground {
     });
   }
 
-  async update(id: string, update: Extract<NativeRuntimeUpdate, { kind: 'nativeBackground' | 'nativeBackgroundOutput' }>) {
+  async update(id: string, update: Extract<NativeRuntimeUpdate, { kind: 'nativeBackground' | 'nativeBackgroundOutput' | 'nativeBackgroundItem' }>) {
+    const provider = update.provider ?? 'claude';
+    if (update.kind === 'nativeBackgroundItem') {
+      const source = this.sources.get(id);
+      if (source?.sessionId !== update.sessionId || source.threadId !== update.threadId || source.provider !== provider || source.providerInstanceId !== update.providerInstanceId) return;
+      await this.engine.root.commit(async tx => {
+        const state = await tx.doc(WorkspaceDoc), task = state.tasks.find(task => task.id === id);
+        const run = task?.runs?.find(run => run.id === update.runId && !run.revertedAt && !run.executionExcludedAt);
+        if (!task || !run?.turnId || task.agent !== provider || task.executionSessionId !== update.sessionId || task.threadId !== update.threadId || update.providerInstanceId !== undefined && (task.providerInstanceId ?? task.agent) !== update.providerInstanceId || update.item.turnId !== run.turnId || !update.item.id.startsWith(run.turnId + ':')) return;
+        const previous = task.events.find(event => event.id === update.item.id);
+        if (previous && (previous.runId !== run.id || previous.revertedAt)) return;
+        const event = { ...update.item, runId: run.id, ...(previous ? { at: previous.at, historyOrder: previous.historyOrder } : {}) };
+        if (previous) task.events[task.events.indexOf(previous)] = event; else task.events.push(event);
+        await this.engine.taskHistory.persist(tx, task, [event.id]); state.revision++;
+      }, context);
+      return;
+    }
     if (update.kind === 'nativeBackgroundOutput') {
-      const source = this.sources.get(id); if (source?.sessionId !== update.sessionId || source.threadId !== update.threadId) return;
+      const source = this.sources.get(id); if (source?.sessionId !== update.sessionId || source.threadId !== update.threadId || source.provider !== provider || source.providerInstanceId !== update.providerInstanceId) return;
       // The sender's process token was installed before query() or input. This
       // path is view-only and never writes a Workspace revision per chunk.
       this.engine.commandOutputs.appendNativeBackground(id, update.workId, update.delta, update.sessionId, update);
@@ -60,7 +76,7 @@ export class TaskNativeBackground {
       if (origin?.sessionId === update.sessionId) this.engine.commandOutputs.appendNativeBackground(id, origin.eventId, update.delta, update.sessionId, update);
       return;
     }
-    if (update.tasks.some(work => work.provider !== 'claude' || work.transportId !== update.sessionId || work.sessionId !== update.threadId)) return;
+    if (update.tasks.some(work => work.provider !== provider || work.transportId !== update.sessionId || work.sessionId !== update.threadId)) return;
     const snapshot = (await this.engine.snapshot()).tasks.find(task => task.id === id);
     if (!snapshot || snapshot.executionSessionId !== update.sessionId || snapshot.threadId !== update.threadId) return;
     const originalIDs = [...new Set(update.tasks.flatMap(work => work.origin?.eventId ? [work.origin.eventId] : []))];
@@ -69,10 +85,11 @@ export class TaskNativeBackground {
       const page = await this.engine.taskHistory.eventItems(id, originalIDs.slice(index, index + 128));
       for (const event of page.events) if (!event.revertedAt) originals.set(event.id, event);
     }
-    let accepted: NativeBackgroundWork[] = [];
+    let accepted: NativeBackgroundWork[] = []; let acceptedScope = false;
     await this.engine.root.commit(async tx => {
       const state = await tx.doc(WorkspaceDoc); const task = state.tasks.find(task => task.id === id);
-      if (!task || task.agent !== 'claude' || task.executionSessionId !== update.sessionId || task.threadId !== update.threadId) return;
+      if (!task || task.agent !== provider || update.providerInstanceId !== undefined && (task.providerInstanceId ?? task.agent) !== update.providerInstanceId || task.executionSessionId !== update.sessionId || task.threadId !== update.threadId) return;
+      acceptedScope = true;
       const pendingBefore = nativeCompletionPending(task); task.nativeBackgroundConnected = update.connected !== false; task.nativeBackgroundWork ??= [];
       for (const work of task.nativeBackgroundWork) if (work.transportId !== update.sessionId && !ended(work)) { work.member = false; work.status = 'unknown'; }
       const touched: string[] = [];
@@ -101,7 +118,7 @@ export class TaskNativeBackground {
       if (touched.length) await this.engine.taskHistory.persist(tx, task, touched);
       state.revision++;
     }, context);
-    if (accepted.length || update.tasks.length === 0) this.sources.set(id, { sessionId: update.sessionId, threadId: update.threadId });
+    if (acceptedScope) this.sources.set(id, { sessionId: update.sessionId, threadId: update.threadId, provider, providerInstanceId: update.providerInstanceId });
     for (const work of accepted) {
       const event: TaskEvent = { id: work.id, kind: 'command', text: work.description, at: work.startedAt, status: publicEventStatus(work), ...(work.output ? { detail: work.output.text } : {}) };
       this.engine.commandOutputs.trackNativeBackground(id, work.id, update.sessionId, work.member && !ended(work) && update.connected !== false, work.output);
@@ -131,7 +148,7 @@ export class TaskNativeBackground {
       const state = await tx.doc(WorkspaceDoc); const receipt = state.nativeBackgroundRequests?.[requestId];
       if (receipt) { if (receipt.taskId !== taskId || receipt.workId !== workId || receipt.sessionId !== sessionId) throw new Error('后台任务请求 ID 已被使用'); durableId = receipt.durableId; return; }
       const task = state.tasks.find(task => task.id === taskId); const work = task?.nativeBackgroundWork?.find(work => work.id === workId && work.transportId === sessionId);
-      if (!task || task.agent !== 'claude' || task.executionSessionId !== sessionId || !task.nativeBackgroundConnected || !work || !work.member && !work.backgrounded && work.kind !== 'subagent' || ended(work) || work.ambient || work.stop?.status === 'pending') throw new Error('此后台任务当前不可停止，请刷新后重试');
+      if (!task || task.executionSessionId !== sessionId || !task.nativeBackgroundConnected || !work || task.agent !== work.provider || work.canStop === false || !work.member && !work.backgrounded && work.kind !== 'subagent' || ended(work) || work.ambient || work.stop?.status === 'pending') throw new Error('此后台任务当前不可停止，请刷新后重试');
       durableId = await tx.createTask(this.definition, { taskId, workId, sessionId, requestId }, { ownership: { kind: 'conversation' } });
       work.stop = { requestId, durableId, status: 'pending' }; state.nativeBackgroundRequests ??= {}; state.nativeBackgroundRequests[requestId] = { taskId, workId, sessionId, durableId }; state.revision++;
     }, context);

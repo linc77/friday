@@ -60,7 +60,7 @@ private struct TaskNativeBackgroundRow: View {
     @State private var pending: UUID?
     @State private var failure: String?
     private var scope: String { store.connectionIdentity + "\n" + (store.taskStreamSession ?? "") + "\n" + task.id + "\n" + work.id }
-    private var canStop: Bool { !task.backgroundStopPending && store.taskNativeBackgroundSupported && task.nativeBackgroundConnected == true && task.executionSessionId == work.transportId && work.status != "unknown" && !work.terminal && work.stop?.status != "pending" }
+    private var canStop: Bool { work.canStop != false && !task.backgroundStopPending && store.taskNativeBackgroundSupported && task.nativeBackgroundConnected == true && task.executionSessionId == work.transportId && work.status != "unknown" && !work.terminal && work.stop?.status != "pending" }
     private var parent: TaskNativeBackgroundWork? {
         guard let parentID = work.parentTaskId, parentID != work.taskId else { return nil }
         return task.nativeBackgroundWork?.filter { $0.taskId == parentID && $0.transportId == work.transportId }.max { $0.generation < $1.generation }

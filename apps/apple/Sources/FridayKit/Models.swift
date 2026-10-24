@@ -601,6 +601,7 @@ struct TaskBackgroundStop: Codable {
     var runId: String? = nil
 }
 struct TaskNativeBackgroundWork: Codable, Identifiable {
+    var canStop: Bool? = nil
     let id: String; let provider: String; let sessionId: String; let transportId: String; let taskId: String; let generation: Int
     let kind: String; let status: String; let member: Bool; let backgrounded: Bool; let ambient: Bool
     let description: String; let startedAt: String; let updatedAt: String

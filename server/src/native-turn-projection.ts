@@ -29,11 +29,11 @@ export class NativeTurnProjection {
     });
     return this.chain;
   }
-  async finish(status: 'completed' | 'failed' | 'interrupted') {
+  async finish(status: 'completed' | 'failed' | 'interrupted', retainRunningKeys: ReadonlySet<string> = new Set()) {
     clearTimeout(this.timer); this.timer = undefined;
     for (const [key, item] of this.items) {
       const changes: Partial<TaskEvent> = {};
-      if (item.status === 'running') { changes.status = status; changes.completedAt = new Date().toISOString(); }
+      if (item.status === 'running' && !(status === 'completed' && retainRunningKeys.has(key))) { changes.status = status; changes.completedAt = new Date().toISOString(); }
       if (status === 'completed' && key === this.finalItem) changes.phase = 'final_answer';
       if (Object.keys(changes).length) this.put(key, item.kind, item.text, changes);
     }

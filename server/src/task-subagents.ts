@@ -150,6 +150,8 @@ export class TaskSubagents {
         child.messages.push({ id, role: 'user', text: metadata.prompt, at, turnId: metadata.childTurnId }); this.engine.taskHistory.messageChanged(child, id);
       }
       if (metadata.result !== undefined) child.result = metadata.result;
+      else if (old && old.generation < metadata.generation) { child.result = ''; child.error = null; }
+      if (old && old.generation < metadata.generation) for (const approval of root.approvals) if (approval.subagentId === metadata.id && approval.state === 'pending') approval.state = 'expired';
       const touched: string[] = [];
       const value = update.value;
       if (value?.kind === 'approval') {
@@ -168,6 +170,7 @@ export class TaskSubagents {
         touched.push(item.id); captured = { taskId: child.id, event: item, turnId: metadata.childTurnId };
       }
       if (subagentEnded(metadata.status)) {
+        for (const approval of root.approvals) if (approval.subagentId === metadata.id && approval.state === 'pending') approval.state = 'expired';
         for (const item of child.events) if (metadata.provider !== 'codex' && item.turnId === metadata.childTurnId && item.status === 'running' && !(item.kind === 'command' && item.background)) { item.status = eventStatus(metadata.status); item.completedAt = metadata.completedAt; touched.push(item.id); }
         if (metadata.result) {
           const id = metadata.childTurnId + ':answer'; const answer = { id, role: 'assistant' as const, text: metadata.result, at: metadata.completedAt ?? metadata.updatedAt, turnId: metadata.childTurnId };

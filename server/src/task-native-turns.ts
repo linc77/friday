@@ -49,16 +49,17 @@ export class TaskNativeTurns {
   async update(id: string, update: Extract<NativeRuntimeUpdate, { kind: 'nativeTurnStart' | 'nativeTurnUpdate' | 'nativeTurnFinish' }>) {
     const key = nativeTurnReceiptKey(id, update.sessionId, update.key);
     if (update.kind === 'nativeTurnStart') {
+      if (update.provider !== undefined) await this.engine.providerInstances.get(update.provider, update.providerInstanceId ?? update.provider, true);
       await this.engine.root.commit(async tx => {
         const state = await tx.doc(WorkspaceDoc); const work = state.tasks.find(work => work.id === id);
-        if (!work || work.agent !== 'claude' || work.executionSessionId !== update.sessionId || work.threadId !== update.threadId || work.archivedAt || work.settledAt || work.settledOverride === 'settled' || work.archiveCleanup?.status === 'pending' || work.settleCleanup?.status === 'pending' || work.cwd !== update.parameters.cwd) throw new Error('原生后续回复的任务范围已失效');
+        if (!work || work.agent !== (update.provider ?? 'claude') || update.providerInstanceId !== undefined && (work.providerInstanceId ?? work.agent) !== update.providerInstanceId || work.executionSessionId !== update.sessionId || work.threadId !== update.threadId || work.archivedAt || work.settledAt || work.settledOverride === 'settled' || work.archiveCleanup?.status === 'pending' || work.settleCleanup?.status === 'pending' || work.cwd !== update.parameters.cwd) throw new Error('原生后续回复的任务范围已失效');
         if (work.backgroundStop?.status === 'pending' && work.backgroundStop.sessionId === update.sessionId) throw new Error('正在停止这条原生会话');
         if (state.nativeTurnRequests?.[key]) return;
         const at = stamp(); const runId = nativeObservedRunId(update.key);
         const durableId = await tx.createTask(this.definition, { taskId: id, receiptKey: key }, { ownership: { kind: 'conversation' } });
         state.nativeTurnRequests ??= {};
         state.nativeTurnRequests[key] = { taskId: id, threadId: update.threadId, sessionId: update.sessionId, key: update.key, runId, durableId,
-          turnId: update.turnId, status: 'running', result: '' };
+          turnId: update.turnId, provider: update.provider ?? 'claude', ...(update.providerInstanceId ? { providerInstanceId: update.providerInstanceId } : {}), status: 'running', result: '' };
         work.runs ??= []; const executionOrder = Math.max(0, ...work.runs.map(run => run.executionOrder ?? 0)) + 1;
         work.runs.push({ id: runId, durableId, messageId: 'notification:' + key, requestId: 'native:' + key, cwd: update.parameters.cwd,
           at, startedAt: at, status: 'running', turnId: update.turnId, threadId: update.threadId, executionOrder, mode: update.parameters.mode,
@@ -73,7 +74,7 @@ export class TaskNativeTurns {
       this.engine.harness.resume(); this.engine.taskSettlement.notify(); return;
     }
     const receipt = (await this.engine.snapshot()).nativeTurnRequests?.[key];
-    if (!receipt || receipt.status !== 'running' || receipt.taskId !== id || receipt.threadId !== update.threadId || receipt.sessionId !== update.sessionId) return;
+    if (!receipt || receipt.status !== 'running' || receipt.taskId !== id || receipt.threadId !== update.threadId || receipt.sessionId !== update.sessionId || (receipt.provider ?? 'claude') !== (update.provider ?? 'claude') || receipt.providerInstanceId !== update.providerInstanceId) return;
     if (update.kind === 'nativeTurnUpdate' && update.value.kind === 'commandOutput') {
       this.engine.commandOutputs.appendBackground(id, update.value.eventId, update.value.delta, receipt.runId, update.sessionId); return;
     }
@@ -88,7 +89,7 @@ export class TaskNativeTurns {
       } else {
         const value = update.value;
         if (value.kind === 'contextUsage') { run.contextUsage = value.usage; if (work.currentRunId === run.id) work.contextUsage = value.usage; }
-        if (value.kind === 'nativeHead') { work.nativeHead = value.head; run.nativeHead = value.head; }
+        if (value.kind === 'nativeHead') { work.nativeHead = value.head; run.nativeHead = value.head; if (value.turnIds) run.nativeTurnIds = value.turnIds; }
         if (value.kind === 'output') { saved.result = value.text; if (work.currentRunId === run.id) work.result = value.text; }
         if (value.kind === 'ready' && work.currentRunId === run.id) work.canSteer = value.canSteer;
         if (value.kind === 'backgroundWaiting' && work.currentRunId === run.id) { work.backgroundWaiting = value.waiting; if (!work.approvals.some(approval => approval.state === 'pending')) work.status = value.waiting ? 'waiting' : 'running'; }

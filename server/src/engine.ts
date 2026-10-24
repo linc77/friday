@@ -218,7 +218,7 @@ export class Engine extends EventEmitter {
         case 'acp-registry': case 'antigravity': { const connection = new AcpProviderConnection(path, driver, { ...(driver === 'acp-registry' ? providerOptions?.acpRegistry : providerOptions?.antigravity), credentialDirectory: directory }); return { connection, executor: new AcpNativeExecutor(connection) }; }
       }
     }, async (id, driver) => { await this.providerConfigurationChanged(id); if (id !== driver) await this.providerConfigurationChanged(driver); },
-    async (id, activeOnly = false) => { const state = await this.snapshot(); return state.tasks.some(task => taskProviderInstance(task) === id && (!activeOnly || activeStatuses.includes(task.status) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation))) || Object.values(state.titleRequests ?? {}).some(request => request.status === 'pending' && (request.modelSelection?.providerInstanceId ?? request.modelSelection?.agent) === id) || state.tasks.some(task => activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id || task.changeRequestGuideRuns?.some(run => ['queued', 'running'].includes(run.status) && (run.modelSelection.providerInstanceId ?? run.modelSelection.agent) === id)) || Object.values(state.providerCreditResets ?? {}).some(receipt => ['queued', 'running', 'uncertain'].includes(receipt.status) && (receipt.scope.providerInstanceId ?? receipt.scope.provider) === id); });
+    async (id, activeOnly = false) => { const state = await this.snapshot(); return state.tasks.some(task => taskProviderInstance(task) === id && (!activeOnly || activeStatuses.includes(task.status) || hasRunningBackgroundCommands(task) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation))) || Object.values(state.titleRequests ?? {}).some(request => request.status === 'pending' && (request.modelSelection?.providerInstanceId ?? request.modelSelection?.agent) === id) || state.tasks.some(task => activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id || task.changeRequestGuideRuns?.some(run => ['queued', 'running'].includes(run.status) && (run.modelSelection.providerInstanceId ?? run.modelSelection.agent) === id)) || Object.values(state.providerCreditResets ?? {}).some(receipt => ['queued', 'running', 'uncertain'].includes(receipt.status) && (receipt.scope.providerInstanceId ?? receipt.scope.provider) === id); });
     this.codexConnection = this.providerInstances.default('codex');
     this.claudeConnection = this.providerInstances.default('claude');
     this.piConnection = this.providerInstances.default('pi');
@@ -683,6 +683,7 @@ export class Engine extends EventEmitter {
     if (task.settleCleanup?.status === 'pending') await this.harness.waitForTask(task.settleCleanup.durableId as TaskId, context);
     await this.backgroundStops.wait(id);
     await this.taskQueue.stop(id);
+    if (task.agent === 'muse') await this.backgroundStops.cancelSettled(task);
     await this.subagents.stopBeforeDelete(id);
     if (hasRunningBackgroundCommands(task)) { await this.backgroundCommands.stopBeforeDelete(id); await this.nativeBackground.stopBeforeDelete(id); }
     await this.taskTitles.stop(id);
@@ -979,7 +980,7 @@ export class Engine extends EventEmitter {
     if (update.kind === 'goal') { await this.patchTask(id, item => { if (!runID || item.currentRunId === runID) item.goal = update.goal; }); return; }
     if (update.kind === 'subagent') { await this.subagents.update(id, update); return; }
     if (update.kind === 'subagentBackground') { await this.subagents.updateBackground(id, update); return; }
-    if (update.kind === 'nativeBackground' || update.kind === 'nativeBackgroundOutput') { await this.nativeBackground.update(id, update); return; }
+    if (update.kind === 'nativeBackground' || update.kind === 'nativeBackgroundOutput' || update.kind === 'nativeBackgroundItem') { await this.nativeBackground.update(id, update); return; }
     if (update.kind === 'nativeTurnStart' || update.kind === 'nativeTurnUpdate' || update.kind === 'nativeTurnFinish') { await this.nativeTurns.update(id, update); return; }
     if (update.kind === 'backgroundCommand' || update.kind === 'backgroundCommandOutput') { await this.backgroundCommands.update(id, update, runID); return; }
     if (update.kind === 'commandOutput') {
@@ -1095,7 +1096,7 @@ export class Engine extends EventEmitter {
       if (approval.method.startsWith('friday/')) {
         await this.patchTask(id, item => { const a = item.approvals.find(a => a.id === approvalId)!; a.decision = decision; a.answers = answers; });
       } else await this.executor.answer(id, approvalId, decision, answers);
-      if (native) await this.nativeTurns.update(id, { kind: 'nativeTurnUpdate', key: native.key, threadId: native.threadId, sessionId: native.sessionId, value: { kind: 'approvalResolved', id: approvalId } });
+      if (native) await this.nativeTurns.update(id, { kind: 'nativeTurnUpdate', ...(native.provider ? { provider: native.provider } : {}), ...(native.providerInstanceId ? { providerInstanceId: native.providerInstanceId } : {}), key: native.key, threadId: native.threadId, sessionId: native.sessionId, value: { kind: 'approvalResolved', id: approvalId } });
       else await this.updateExecution(id, { kind: 'approvalResolved', id: approvalId });
       await this.mutate(state => {
         state.approvalResponses![requestId]!.status = 'sent';

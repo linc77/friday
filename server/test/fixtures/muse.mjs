@@ -13,7 +13,7 @@ const fail = (request, kind, message) => send({ id: request.id, error: { code: -
 const notice = (method, params) => send({ method, params: { sessionId: session, ...(turn ? { turnId: turn } : {}), ...params } });
 const item = value => notice(value.status === 'completed' ? 'item/completed' : 'item/started', { item: { turnId: turn, ...value } });
 const complete = () => { item({ itemId: 'answer', revision: 3, status: 'completed', kind: 'agentMessage', text: 'Muse reply café\u2028line\u2029end' }); notice('turn/completed', { turnId: turn, terminal: 'completed' }); };
-let mcp, childPermission;
+let mcp, childPermission, afterChildApproval;
 const approvals = [{ choiceId: 'allow', label: 'Allow', decision: 'approved', scope: 'once' }, { choiceId: 'session', label: 'Session', decision: 'approvedForSession', scope: 'session' }, { choiceId: 'persistent', label: 'Always', decision: 'approvedPolicyAmendment', scope: 'localPersistent' }, { choiceId: 'abort', label: 'Reject', decision: 'abort', scope: 'once' }];
 async function handle(request) {
   const params = request.params ?? {}; trace({ method: request.method, params, receivedMetaKey: process.env.META_API_KEY !== undefined });
@@ -32,7 +32,7 @@ async function handle(request) {
   if (request.method === 'session/compact') { reply(request, { status: 'accepted' }); item({ itemId: 'compact', revision: 1, kind: 'compaction', status: 'completed', outcome: 'compacted', reason: 'Native compacted' }); return; }
   if (request.method === 'turn/interrupt') { trace({ interrupted: params.turnId }); reply(request, {}); notice('turn/completed', { turnId: params.turnId, terminal: 'cancelled' }); return; }
   if (request.method === 'turn/steer') { if (params.expectedTurnId !== turn || 'turnId' in params) return fail(request, 'invalidParams', 'Wrong native steer identity'); trace({ steered: params.input }); reply(request, { turnId: turn }); if (process.env.MUSE_TEST_STEER_SETTLES === '1') complete(); return; }
-  if (request.method === 'approval/decide') { if (params.requirementId?.sourceIndex !== 1 || !approvals.some(choice => choice.choiceId === params.choiceId)) return fail(request, 'invalidParams', 'Wrong native permission choice'); reply(request, { approvalId: 'write', terminal: true }); notice('approval/resolved', { approvalId: 'write' }); if (childPermission) { item({ itemId: 'native-child-item', revision: 2, status: 'completed', kind: 'subagent', subagentId: 'native-child', role: 'Native Muse child', objective: 'Inspect the Muse child', result: { text: 'Muse child result' } }); childPermission = false; } complete(); return; }
+  if (request.method === 'approval/decide') { if (params.requirementId?.sourceIndex !== 1 || !approvals.some(choice => choice.choiceId === params.choiceId)) return fail(request, 'invalidParams', 'Wrong native permission choice'); reply(request, { approvalId: 'write', terminal: true }); notice('approval/resolved', { approvalId: 'write' }); if (childPermission) { item({ itemId: 'native-child-item', revision: 2, status: 'completed', kind: 'subagent', subagentId: 'native-child', role: 'Native Muse child', objective: 'Inspect the Muse child', result: { text: 'Muse child result' } }); childPermission = false; } if (afterChildApproval) { const next = afterChildApproval; afterChildApproval = undefined; next(); } else complete(); return; }
   if (request.method === 'userInput/answer') { reply(request, {}); notice('userInput/settled', { userInputId: 'question' }); complete(); return; }
   if (request.method !== 'turn/start') return fail(request, 'methodNotFound', 'Unknown fixture method');
   turn = params.commandId; const text = params.input.filter(part => part.type === 'text').map(part => part.text).join('\n'), prompt = text.match(/^Task: ([^\n]+)/m)?.[1] ?? text;
@@ -43,6 +43,36 @@ async function handle(request) {
   if (prompt === 'approval') { notice('approval/requested', { approvalId: 'write', currentRequirementId: { approvalId: 'write', sourceIndex: 1 }, availableChoices: approvals, toolName: 'write_file', rawArgs: '{"path":"fixture.txt"}', subject: { kind: 'write', path: 'fixture.txt' } }); return; }
   if (prompt === 'question') { notice('userInput/requested', { userInputId: 'question', questions: [{ id: 'target', header: 'Target', question: 'Choose a target', options: [{ label: 'One' }, { label: 'Two' }], selection: { mode: 'multiple', minSelections: 1, maxSelections: 2 } }] }); return; }
   if (prompt === 'error') { notice('turn/completed', { terminal: 'failed', error: { message: 'Native Muse failure' } }); return; }
+  if (prompt === 'joined' || prompt === 'joined-hold') {
+    const rootTurn = turn, joinedTurn = 'native-joined-' + rootTurn;
+    notice('turn/started', { turnId: joinedTurn });
+    if (prompt === 'joined-hold') { holding = true; return; }
+    complete(); turn = joinedTurn;
+    item({ itemId: 'joined-answer', revision: 1, status: 'completed', kind: 'agentMessage', text: 'Joined native response' }); notice('turn/completed', { terminal: 'completed' }); return;
+  }
+  if (prompt.startsWith('background')) {
+    const rootTurn = turn;
+    item({ itemId: 'native-workflow', revision: 1, status: 'inProgress', kind: 'workflow', objective: 'Native workflow continues', children: [{ childId: 'workflow-child', attempt: 1, label: 'Workflow reviewer', status: 'scheduled' }] });
+    item({ itemId: 'native-child-item', revision: 1, status: 'inProgress', kind: 'subagent', subagentId: 'native-child', role: 'Native Muse child', objective: 'Inspect the Muse child' });
+    if (prompt.includes('hold')) { holding = true; const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' }); trace({ backgroundChild: child.pid }); }
+    const wake = () => {
+      turn = rootTurn;
+      if (prompt.includes('retry')) {
+        item({ itemId: 'native-workflow', revision: 2, status: 'inProgress', kind: 'workflow', children: [{ childId: 'workflow-child', attempt: 1, status: 'completed', terminal: 'completed', failureKind: 'timeout' }] });
+        item({ itemId: 'native-workflow', revision: 3, status: 'inProgress', kind: 'workflow', children: [{ childId: 'workflow-child', attempt: 2, status: 'running' }] });
+      }
+      item({ itemId: 'native-workflow', revision: prompt.includes('retry') ? 4 : 2, status: 'completed', kind: 'workflow', objective: 'Native workflow continues', finalSummary: 'Workflow complete', children: [{ childId: 'workflow-child', attempt: prompt.includes('retry') ? 2 : 1, status: 'completed', terminal: 'completed' }] });
+      item({ itemId: 'native-child-item', revision: 3, status: 'completed', kind: 'subagent', subagentId: 'native-child', childSessionId: 'native-child-session', result: { text: 'Background Muse child result' } });
+      turn = 'native-wake-' + rootTurn; trace({ nativeWake: turn }); notice('turn/started', {});
+      item({ itemId: 'wake-answer', revision: 1, kind: 'agentMessage', status: 'inProgress', text: 'Native wake' });
+      if (!prompt.includes('hold-wake')) { item({ itemId: 'wake-answer', revision: 2, kind: 'agentMessage', status: 'completed', text: 'Native wake after background' }); notice('turn/completed', { terminal: 'completed' }); }
+    };
+    const ask = () => { childPermission = true; afterChildApproval = wake; turn = rootTurn; notice('approval/requested', { turnId: 'native-child-run', subagentOrigin: { subagentId: 'native-child' }, approvalId: 'write', currentRequirementId: { approvalId: 'write', sourceIndex: 1 }, availableChoices: approvals, toolName: 'write_file', rawArgs: '{}', subject: { kind: 'write', path: 'late-child.txt' } }); };
+    complete();
+    if (prompt.includes('immediate-wake')) wake();
+    else { const timer = setInterval(() => { if (existsSync(join(home, 'emit-wake'))) { clearInterval(timer); if (prompt.includes('child-approval')) ask(); else wake(); } }, 10); }
+    return;
+  }
   if (prompt === 'children-approval') { childPermission = true; item({ itemId: 'native-child-item', revision: 1, status: 'inProgress', kind: 'subagent', subagentId: 'native-child', role: 'Native Muse child', objective: 'Inspect the Muse child' }); notice('approval/requested', { turnId: 'native-child-run', subagentOrigin: { subagentId: 'native-child', childSessionId: 'native-child-session', childRunId: 'native-child-run' }, approvalId: 'write', currentRequirementId: { approvalId: 'write', sourceIndex: 1 }, availableChoices: approvals, toolName: 'write_file', rawArgs: '{}', subject: { kind: 'write', path: 'child.txt' } }); return; }
   if (prompt === 'children') {
     item({ itemId: 'native-child-item', revision: 1, status: 'inProgress', kind: 'subagent', subagentId: 'native-child', role: 'Native Muse child', objective: 'Inspect the Muse child' });
