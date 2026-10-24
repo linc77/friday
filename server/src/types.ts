@@ -342,7 +342,7 @@ export type ExecutionUpdate = NativeRuntimeUpdate | import('./task-subagent-type
   | { kind: 'memory'; id: string; text: string }
   | { kind: 'note'; id: string; title: string; content: string };
 export type TaskMcpConnection = { url: string; headers: Record<string, string> };
-export type ExecutionRequest = { task: WorkItem; prompt: string; userText?: string; contextText?: string; command?: 'compact'; contextBeforeCompaction?: import('./task-context-usage.js').TaskContextUsage | null; images?: ExecutionImage[]; purpose?: 'git_text' | 'task_title' | 'review_guide'; signal: AbortSignal; update: (update: ExecutionUpdate) => Promise<void>; beforeStart?: () => Promise<void>; finalized?: Promise<void>; taskMcp?: TaskMcpConnection };
+export type ExecutionRequest = { task: WorkItem; prompt: string; userText?: string; contextText?: string; command?: 'compact'; contextBeforeCompaction?: import('./task-context-usage.js').TaskContextUsage | null; images?: ExecutionImage[]; purpose?: 'git_text' | 'task_title' | 'review_guide'; signal: AbortSignal; update: (update: ExecutionUpdate) => Promise<void>; beforeStart?: () => Promise<void>; finalized?: Promise<void>; taskMcp?: TaskMcpConnection; createNativeTaskMcp?: (sessionId: string, currentRun: () => Promise<string | undefined>, signal: AbortSignal) => Promise<TaskMcpConnection> };
 export type TextGenerationRequest = ExecutionRequest & { purpose: 'task_title' };
 export interface Executor {
   uploadFeedback?(task: WorkItem, reason: string | undefined, signal: AbortSignal): Promise<string>;

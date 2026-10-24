@@ -14,6 +14,11 @@ const notice = (method, params) => send({ method, params: { sessionId: session, 
 const item = value => notice(value.status === 'completed' ? 'item/completed' : 'item/started', { item: { turnId: turn, ...value } });
 const complete = () => { item({ itemId: 'answer', revision: 3, status: 'completed', kind: 'agentMessage', text: 'Muse reply café\u2028line\u2029end' }); notice('turn/completed', { turnId: turn, terminal: 'completed' }); };
 let mcp, childPermission, afterChildApproval;
+const callTaskTools = async phase => {
+  const response = await fetch(mcp.url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...mcp.headers }, body: JSON.stringify({ jsonrpc: '2.0', id: 'native-reused-id', method: 'tools/call', params: { name: 'list_thread_pull_requests', arguments: {} } }) });
+  const body = await response.json(); trace({ phase, mcpStatus: response.status, mcpBody: body });
+  if (response.status !== 200 || body.result?.isError !== false) throw new Error('Native task tools did not own the current run');
+};
 const approvals = [{ choiceId: 'allow', label: 'Allow', decision: 'approved', scope: 'once' }, { choiceId: 'session', label: 'Session', decision: 'approvedForSession', scope: 'session' }, { choiceId: 'persistent', label: 'Always', decision: 'approvedPolicyAmendment', scope: 'localPersistent' }, { choiceId: 'abort', label: 'Reject', decision: 'abort', scope: 'once' }];
 async function handle(request) {
   const params = request.params ?? {}; trace({ method: request.method, params, receivedMetaKey: process.env.META_API_KEY !== undefined });
@@ -55,7 +60,8 @@ async function handle(request) {
     item({ itemId: 'native-workflow', revision: 1, status: 'inProgress', kind: 'workflow', objective: 'Native workflow continues', children: [{ childId: 'workflow-child', attempt: 1, label: 'Workflow reviewer', status: 'scheduled' }] });
     item({ itemId: 'native-child-item', revision: 1, status: 'inProgress', kind: 'subagent', subagentId: 'native-child', role: 'Native Muse child', objective: 'Inspect the Muse child' });
     if (prompt.includes('hold')) { holding = true; const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' }); trace({ backgroundChild: child.pid }); }
-    const wake = () => {
+    if (prompt.includes('mcp')) await callTaskTools('foreground');
+    const wake = async () => {
       turn = rootTurn;
       if (prompt.includes('retry')) {
         item({ itemId: 'native-workflow', revision: 2, status: 'inProgress', kind: 'workflow', children: [{ childId: 'workflow-child', attempt: 1, status: 'completed', terminal: 'completed', failureKind: 'timeout' }] });
@@ -64,13 +70,18 @@ async function handle(request) {
       item({ itemId: 'native-workflow', revision: prompt.includes('retry') ? 4 : 2, status: 'completed', kind: 'workflow', objective: 'Native workflow continues', finalSummary: 'Workflow complete', children: [{ childId: 'workflow-child', attempt: prompt.includes('retry') ? 2 : 1, status: 'completed', terminal: 'completed' }] });
       item({ itemId: 'native-child-item', revision: 3, status: 'completed', kind: 'subagent', subagentId: 'native-child', childSessionId: 'native-child-session', result: { text: 'Background Muse child result' } });
       turn = 'native-wake-' + rootTurn; trace({ nativeWake: turn }); notice('turn/started', {});
+      if (prompt.includes('mcp')) await callTaskTools('wake');
       item({ itemId: 'wake-answer', revision: 1, kind: 'agentMessage', status: 'inProgress', text: 'Native wake' });
-      if (!prompt.includes('hold-wake')) { item({ itemId: 'wake-answer', revision: 2, kind: 'agentMessage', status: 'completed', text: 'Native wake after background' }); notice('turn/completed', { terminal: 'completed' }); }
+      if (!prompt.includes('hold-wake')) {
+        item({ itemId: 'wake-answer', revision: 2, kind: 'agentMessage', status: 'completed', text: 'Native wake after background' }); notice('turn/completed', { terminal: 'completed' });
+        if (prompt.includes('twice')) { turn = 'second-native-wake-' + rootTurn; notice('turn/started', {}); item({ itemId: 'second-answer', revision: 1, kind: 'agentMessage', status: 'completed', text: 'Second native wake answer' }); notice('turn/completed', { terminal: 'completed' }); }
+      }
     };
-    const ask = () => { childPermission = true; afterChildApproval = wake; turn = rootTurn; notice('approval/requested', { turnId: 'native-child-run', subagentOrigin: { subagentId: 'native-child' }, approvalId: 'write', currentRequirementId: { approvalId: 'write', sourceIndex: 1 }, availableChoices: approvals, toolName: 'write_file', rawArgs: '{}', subject: { kind: 'write', path: 'late-child.txt' } }); };
+    const invokeWake = () => { void wake().catch(error => { trace({ wakeError: error.message }); notice('turn/completed', { terminal: 'failed', error: { message: error.message } }); }); };
+    const ask = () => { childPermission = true; afterChildApproval = invokeWake; turn = rootTurn; notice('approval/requested', { turnId: 'native-child-run', subagentOrigin: { subagentId: 'native-child' }, approvalId: 'write', currentRequirementId: { approvalId: 'write', sourceIndex: 1 }, availableChoices: approvals, toolName: 'write_file', rawArgs: '{}', subject: { kind: 'write', path: 'late-child.txt' } }); };
     complete();
-    if (prompt.includes('immediate-wake')) wake();
-    else { const timer = setInterval(() => { if (existsSync(join(home, 'emit-wake'))) { clearInterval(timer); if (prompt.includes('child-approval')) ask(); else wake(); } }, 10); }
+    if (prompt.includes('immediate-wake')) invokeWake();
+    else { const timer = setInterval(() => { if (existsSync(join(home, 'emit-wake'))) { clearInterval(timer); if (prompt.includes('child-approval')) ask(); else invokeWake(); } }, 10); }
     return;
   }
   if (prompt === 'children-approval') { childPermission = true; item({ itemId: 'native-child-item', revision: 1, status: 'inProgress', kind: 'subagent', subagentId: 'native-child', role: 'Native Muse child', objective: 'Inspect the Muse child' }); notice('approval/requested', { turnId: 'native-child-run', subagentOrigin: { subagentId: 'native-child', childSessionId: 'native-child-session', childRunId: 'native-child-run' }, approvalId: 'write', currentRequirementId: { approvalId: 'write', sourceIndex: 1 }, availableChoices: approvals, toolName: 'write_file', rawArgs: '{}', subject: { kind: 'write', path: 'child.txt' } }); return; }

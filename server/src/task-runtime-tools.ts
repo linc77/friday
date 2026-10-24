@@ -39,7 +39,8 @@ export const taskRuntimeToolDefinitions=[
  {name:'watch_pull_request',description:'When requested by the user, watch a PR / MR and wake this task on changes. End the turn after registering.',inputSchema:ref},
  {name:'unwatch_pull_request',description:'Stop watching the PR / MR before handing work back to the user.',inputSchema:ref},
 ];
-type Grant={id:string;actor:WatchActor;controller:AbortController;calls:Map<string,{digest:string;result:Promise<unknown>}>;remove:()=>void};
+type NativeScope={sessionId:string;currentRun:()=>Promise<string|undefined>};
+type Grant={id:string;actor:WatchActor;native?:NativeScope;controller:AbortController;calls:Map<string,{digest:string;result:Promise<unknown>}>;remove:()=>void};
 /** A loopback MCP transport with a revocable token for one task and run. It
  * cannot select another task or invoke a host write. No token enters Durable. */
 export class TaskRuntimeTools {
@@ -54,11 +55,11 @@ export class TaskRuntimeTools {
   });
   await this.starting;if(this.closed)throw new Error('任务工具服务已关闭');
  }
- async bind(task:WorkItem,runId:string,signal:AbortSignal):Promise<{connection:TaskMcpConnection;release:()=>void}>{
+ async bind(task:WorkItem,runId:string,signal:AbortSignal,native?:NativeScope):Promise<{connection:TaskMcpConnection;release:()=>void}>{
   signal.throwIfAborted();await this.start();signal.throwIfAborted();if(this.grants.size>=128)throw new Error('同时运行的任务工具会话过多');
   const token=randomBytes(32).toString('hex'),controller=new AbortController();
   const release=()=>{controller.abort();this.grants.delete(token);signal.removeEventListener('abort',release);};
-  this.grants.set(token,{id:task.id,actor:{runId,cwd:task.cwd,projectId:task.projectId},controller,calls:new Map(),remove:release});signal.addEventListener('abort',release,{once:true});
+  this.grants.set(token,{id:task.id,actor:{runId,cwd:task.cwd,projectId:task.projectId},...(native?{native}:{}),controller,calls:new Map(),remove:release});signal.addEventListener('abort',release,{once:true});
   return {connection:{url:this.origin+'/mcp',headers:{Authorization:'Bearer '+token}},release};
  }
  private json(res:ServerResponse,status:number,value?:unknown){res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(value===undefined?undefined:JSON.stringify(value));}
@@ -78,18 +79,31 @@ export class TaskRuntimeTools {
   if(message.method==='ping'){reply({});return;}
   if(message.method==='tools/list'){await this.current(grant);reply({tools:taskRuntimeToolDefinitions});return;}
   if(message.method!=='tools/call'){this.json(res,200,{jsonrpc:'2.0',id:message.id,error:{code:-32601,message:'Unsupported task tool method'}});return;}
-  const digest=JSON.stringify(message.params),key=JSON.stringify(message.id),previous=grant.calls.get(key);
-  if(previous&&previous.digest!==digest){this.json(res,200,{jsonrpc:'2.0',id:message.id,error:{code:-32602,message:'Tool request ID already used'}});return;}
-  const result=previous?.result??this.call(grant,message.params,'task-tool-'+createHash('sha256').update(token!+key).digest('hex'));
-  if(!previous){grant.calls.set(key,{digest,result});while(grant.calls.size>512)grant.calls.delete(grant.calls.keys().next().value!);}
-  try{reply({content:[{type:'text',text:JSON.stringify(await result)}],isError:false});}
+  try{
+   const scope=await this.current(grant),digest=JSON.stringify(message.params),key=JSON.stringify(grant.native?[scope.actor.runId,message.id]:message.id),previous=grant.calls.get(key);
+   if(previous&&previous.digest!==digest){this.json(res,200,{jsonrpc:'2.0',id:message.id,error:{code:-32602,message:'Tool request ID already used'}});return;}
+   const result=previous?.result??this.call(grant,message.params,'task-tool-'+createHash('sha256').update(token!+key).digest('hex'),scope);
+   if(!previous){grant.calls.set(key,{digest,result});while(grant.calls.size>512)grant.calls.delete(grant.calls.keys().next().value!);}
+   reply({content:[{type:'text',text:JSON.stringify(await result)}],isError:false});}
   catch(error){const message=error instanceof Error&&/[\u3400-\u9fff]/.test(error.message)?error.message:'任务工具调用失败，请检查任务范围后重试';reply({content:[{type:'text',text:message}],isError:true});}
  }
- private async current(grant:Grant){grant.controller.signal.throwIfAborted();const task=(await this.engine.snapshot()).tasks.find(t=>t.id===grant.id);if(!task||task.agent==='friday'||task.subagentOrigin||task.archivedAt||task.settledAt||task.settledOverride==='settled'||task.archiveCleanup?.status==='pending'||task.settleCleanup?.status==='pending')throw new Error('任务工具所属任务不可用');assertWatchActor(task,grant.actor);return task;}
- private async call(grant:Grant,raw:unknown,requestId:string){
+ private async current(grant:Grant){
+  grant.controller.signal.throwIfAborted();
+  let runId=grant.actor.runId;
+  if(grant.native){
+   let abort!:()=>void;
+   try{runId=await Promise.race([grant.native.currentRun(),new Promise<never>((_,reject)=>{abort=()=>reject(new Error('原生任务工具连接已关闭'));grant.controller.signal.addEventListener('abort',abort,{once:true});if(grant.controller.signal.aborted)abort();})])??'';}
+   finally{if(abort)grant.controller.signal.removeEventListener('abort',abort);}
+  }
+  grant.controller.signal.throwIfAborted();
+  const task=(await this.engine.snapshot()).tasks.find(t=>t.id===grant.id);
+  if(!task||task.agent==='friday'||task.subagentOrigin||task.archivedAt||task.settledAt||task.settledOverride==='settled'||task.archiveCleanup?.status==='pending'||task.settleCleanup?.status==='pending'||grant.native&&task.executionSessionId!==grant.native.sessionId)throw new Error('任务工具所属任务不可用');
+  const actor={...grant.actor,runId};assertWatchActor(task,actor);return {task,actor};
+ }
+ private async call(grant:Grant,raw:unknown,requestId:string,scope:{task:WorkItem;actor:WatchActor}){
   if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('任务工具参数无效');const v=raw as Record<string,unknown>,args=v.arguments??{};
   if(!args||typeof args!=='object'||Array.isArray(args)||!taskRuntimeToolDefinitions.some(t=>t.name===v.name)||Object.keys(v).some(k=>!['name','arguments','_meta'].includes(k)))throw new Error('任务工具参数无效');
-  const task=await this.current(grant),input=args as Record<string,unknown>;
+  grant.controller.signal.throwIfAborted();const {task,actor}=scope,input=args as Record<string,unknown>;
   if(input.threadId!==undefined&&input.threadId!==task.id)throw new Error('任务工具只能操作当前任务');
   if(v.name==='list_thread_pull_requests'){if(Object.keys(input).some(k=>k!=='threadId'))throw new Error('列出关联不需要额外参数');return taskChangeRequestList(task);}
   if(Object.keys(input).some(k=>!['threadId','reference','url','repository','number','host'].includes(k))||['reference','url','repository','host'].some(k=>input[k]!==undefined&&typeof input[k]!=='string')||input.reference!==undefined&&input.url!==undefined)throw new Error('请提供 PR／MR 地址或仓库路径与编号');
@@ -97,10 +111,10 @@ export class TaskRuntimeTools {
   const existing=taskPullRequests(task).find(link=>changeRequestSyncKey(link)===changeRequestSyncKey(pr));
   const body={requestId,reference:pr.url,expectedRevision:task.changeRequestLinksRevision??0},identity={url:pr.url,host:pr.host??new URL(pr.url).host,repository:pr.repository,number:pr.number};
   if(v.name==='link_pull_request'||v.name==='unlink_pull_request'){
-   await this.engine.changeRequestLinks.change(task.id,body,v.name==='link_pull_request',grant.controller.signal,grant.actor);
+   await this.engine.changeRequestLinks.change(task.id,body,v.name==='link_pull_request',grant.controller.signal,actor);
    return v.name==='link_pull_request'?{...identity,alreadyLinked:!!existing}:{host:identity.host,repository:identity.repository,number:identity.number,wasLinked:!!existing};
   }
-  const result=await this.engine.changeRequestWatch.change(task.id,{...body,watching:v.name==='watch_pull_request'},grant.actor);
+  const result=await this.engine.changeRequestWatch.change(task.id,{...body,watching:v.name==='watch_pull_request'},actor);
   return {...identity,watching:result.watching,wasWatching:!!existing?.watch};
  }
  async close(){if(this.closed)return;this.closed=true;for(const grant of this.grants.values())grant.remove();await this.starting?.catch(()=>{});if(this.server){this.server.closeAllConnections();await new Promise<void>(resolve=>this.server!.close(()=>resolve()));}await Promise.allSettled([...this.reads]);this.grants.clear();}

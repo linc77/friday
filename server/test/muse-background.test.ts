@@ -41,6 +41,13 @@ test('Muse native wake in the same wire batch as the parent result waits for Dur
   assert.equal(task.nativeBackgroundWork![0]!.status, 'completed'); assert.equal(task.subagents!.length, 2); assert.ok(task.subagents!.every(child => child.status === 'completed'));
   const workflow = task.events.find(event => event.itemId === 'native-workflow'); assert.equal(workflow?.status, 'completed'); assert.equal(workflow?.detail, 'Workflow complete');
 });
+test('Muse consecutive native wakes in one wire batch are admitted in order and the later reply owns the current result', async t => {
+  const f = await fixture(t); await f.start('background twice immediate-wake');
+  const task = await f.wait(task => task.status === 'completed' && task.messages?.filter(message => message.role === 'assistant').length === 3);
+  assert.equal(task.result, 'Second native wake answer'); assert.equal(task.runs!.length, 3);
+  assert.deepEqual(task.messages!.filter(message => message.role === 'assistant').map(message => message.text), ['Muse reply café\u2028line\u2029end', 'Native wake after background', 'Second native wake answer']);
+  assert.equal((await f.trace()).filter(value => value.method === 'turn/start').length, 1);
+});
 test('Muse child approval after the parent completed stays attached to the original child and resolves before the native wake', async t => {
   const f = await fixture(t); const id = await f.start('background child-approval');
   const parent = await f.wait(task => task.status === 'completed'); assert.equal(backgroundCommandActivity(parent).backgroundTasks, 1); assert.equal(backgroundCommandActivity(parent).subagents, 2);
@@ -133,4 +140,33 @@ test('Muse closing while a native wake identity is being persisted leaves an int
   const ended = await f.wait(task => task.status === 'interrupted'); assert.ok(ended.messages!.some(message => message.role === 'assistant' && message.text.startsWith('Muse reply')));
   const receipt = Object.values((await engine.snapshot()).nativeTurnRequests ?? {})[0]!; assert.equal(receipt.status, 'interrupted');
   assert.equal((await f.trace()).filter(value => value.method === 'turn/start').length, 1);
+});
+test('Muse retained MCP waits for native admission, reads the new run instead of an old cached request, and revokes its credential when the host closes', async t => {
+  const f = await fixture(t), engine = f.current(); const id = await f.start('background mcp'); const parent = await f.wait(task => task.status === 'completed');
+  let entered!: () => void, release!: () => void; const entering = new Promise<void>(resolve => { entered = resolve; }), gate = new Promise<void>(resolve => { release = resolve; });
+  const update = engine.nativeTurns.update.bind(engine.nativeTurns);
+  engine.nativeTurns.update = async (id, value) => { if (value.kind === 'nativeTurnStart') { entered(); await gate; } await update(id, value); };
+  await engine.mutate(state => { state.tasks.find(task => task.id === id)!.changeRequests = [{ number: 42, url: 'https://github.com/fixture/repo/pull/42', title: 'Native wake link', state: 'open', base: 'main', head: 'feature', repository: 'fixture/repo', host: 'github.com' }]; });
+  try {
+    await f.wake(); await entering;
+    assert.ok(!(await f.trace()).some(value => value.phase === 'wake'), 'No tool call is accepted before its native run has been persisted');
+  } finally { release(); }
+  await f.wait(task => task.status === 'completed' && task.result === 'Native wake after background');
+  const trace = await f.trace(), foreground = trace.find(value => value.phase === 'foreground'), wake = trace.find(value => value.phase === 'wake');
+  assert.equal(foreground.mcpStatus, 200); assert.equal(wake.mcpStatus, 200); assert.equal(wake.mcpBody.result.isError, false);
+  assert.equal(JSON.parse(foreground.mcpBody.result.content[0].text).pullRequests.length, 0); assert.equal(JSON.parse(wake.mcpBody.result.content[0].text).pullRequests[0].number, 42);
+  const mcp = trace.find(value => value.method === 'session/start').params.config.mcpServers.friday;
+  await engine.executor.stopNativeSession!(id, parent.executionSessionId!);
+  const denied = await fetch(mcp.url, { method: 'POST', headers: { ...mcp.headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 5, method: 'tools/list' }) }); assert.equal(denied.status, 401);
+  assert.equal(trace.filter(value => value.method === 'turn/start').length, 1);
+});
+test('Closing the task tool server cancels native MCP admission waits before a pending turn persistence gate is released', async t => {
+  const f = await fixture(t), engine = f.current(); await f.start('background mcp'); await f.wait(task => task.status === 'completed');
+  let entered!: () => void, release!: () => void; const entering = new Promise<void>(resolve => { entered = resolve; }), gate = new Promise<void>(resolve => { release = resolve; });
+  const update = engine.nativeTurns.update.bind(engine.nativeTurns); engine.nativeTurns.update = async (id, value) => { if (value.kind === 'nativeTurnStart') { entered(); await gate; } await update(id, value); };
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    await f.wake(); await entering;
+    await Promise.race([engine.runtimeTools.close(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Task tool server did not cancel pending admission')), 2000); })]);
+  } finally { clearTimeout(timer); release(); }
 });

@@ -9,6 +9,8 @@ import { loadNativeProviderSettings, nativeProviderAccount } from './native-prov
 import { NativeTurnProjection } from './native-turn-projection.js';
 import { NativeSubagentProjection } from './native-subagent-projection.js';
 import { NativeTurnObserver } from './native-turn-observer.js';
+import { NativeSessionTools } from './native-session-tools.js';
+import { NativeSessionIdle, type NativeSessionIdlePolicy } from './native-session-idle.js';
 import { taskPlanSteps } from './task-event-data.js';
 import { museApprovalChoices, museQuestionAnswers } from './muse-interactions.js';
 import type { Approval, ExecutionImage, ExecutionRequest, WorkItem } from './types.js';
@@ -20,7 +22,7 @@ type Ready = { request: ExecutionRequest; projection: NativeTurnProjection; chil
 type Context = {
   id: string; foreground: boolean; compact: boolean; ready: Promise<Ready>; chain: Promise<void>; items: Map<string, AcpRecord>;
   nativeIds: Set<string>; pendingNativeIds: Set<string>; wirePendingIds: Set<string>; admitted: boolean; terminal?: AcpRecord; finished: boolean; done: Promise<AcpRecord>;
-  resolve(value: AcpRecord): void; reject(error: Error): void; steers: Map<string, { body: string; result: Promise<void> }>;
+  resolve(value: AcpRecord): void; reject(error: Error): void; releaseTools(): void; steers: Map<string, { body: string; result: Promise<void> }>;
 };
 type Pending = { context: Context; approval: Approval; value: AcpRecord; kind: 'approval' | 'question'; child?: string; responding: boolean; command?: { body: string; id: string } };
 const stamp = () => new Date().toISOString();
@@ -31,19 +33,21 @@ const nativeStatus = (value: unknown) => value === 'inProgress' ? 'running' as c
  * and observes unsolicited provider turns through NativeTurnObserver. */
 class MuseSession {
   readonly executionId = randomUUID();
+  private nativeTools = new NativeSessionTools(this.executionId);
   readonly pending = new Map<string, Pending>();
   readonly contexts = new Map<string, Context>();
   private childOwners = new Map<string, Context>();
   private background = new Map<string, ProviderBackgroundTask>();
   private foreground?: Context;
   private latestNative?: Context;
-  private idleTimer?: NodeJS.Timeout;
+  private idle: NativeSessionIdle;
   private closing?: Promise<void>;
   closed = false;
   latest: ExecutionRequest;
   readonly observer: NativeTurnObserver;
   constructor(readonly owner: MuseSessions, readonly client: MuseProcess, public runtime: Runtime, readonly cwd: string, readonly threadId: string, source: ExecutionRequest, readonly ephemeral: boolean) {
     this.latest = source;
+    this.idle = new NativeSessionIdle(() => owner.claimed(this.latest.task.id) || !!(this.foreground && !this.foreground.finished || this.latestNative && !this.latestNative.finished), () => this.hasPending(), () => this.close(), owner.idlePolicy);
     this.observer = new NativeTurnObserver('muse', () => this.latest, this.executionId, threadId);
     client.onNotification = (method, value) => this.route(method, value);
     client.onFailure = error => { void this.close(error); };
@@ -51,7 +55,7 @@ class MuseSession {
   private context(id: string, request: Promise<ExecutionRequest>, foreground: boolean, compact = false): Context {
     let resolve!: Context['resolve'], reject!: Context['reject'];
     const done = new Promise<AcpRecord>((yes, no) => { resolve = yes; reject = no; }); void done.catch(() => {});
-    const context: Context = { id, foreground, compact, ready: undefined!, chain: Promise.resolve(), items: new Map(), nativeIds: new Set([id]), pendingNativeIds: new Set([id]), wirePendingIds: new Set([id]), admitted: !foreground, finished: false, done, resolve, reject, steers: new Map() };
+    const context: Context = { id, foreground, compact, ready: undefined!, chain: Promise.resolve(), items: new Map(), nativeIds: new Set([id]), pendingNativeIds: new Set([id]), wirePendingIds: new Set([id]), admitted: !foreground, finished: false, done, resolve, reject, releaseTools: this.nativeTools.select(request), steers: new Map() };
     context.ready = request.then(async request => {
       if (this.closed) throw new Error('Muse 原生连接已关闭');
       const projectionRequest: ExecutionRequest = { ...request, update: async update => {
@@ -71,7 +75,6 @@ class MuseSession {
   }
   private route(method: string, value: AcpRecord) {
     if (this.closed || value.sessionId !== this.threadId) return;
-    clearTimeout(this.idleTimer);
     if (method === 'view/gap') { void this.close(new Error('Muse 原生事件流出现缺口；未重发任何输入')); return; }
     const item = acpRecord(value.item), nativeId = typeof value.turnId === 'string' ? value.turnId : typeof item?.turnId === 'string' ? item.turnId : undefined;
     let context = nativeId ? this.contexts.get(nativeId) : undefined;
@@ -100,6 +103,7 @@ class MuseSession {
       if (item.kind === 'workflow') for (const child of item.children ?? []) if (typeof child.childId === 'string') this.childOwners.set(child.childId, context);
     }
     this.push(context, method, value);
+    this.scheduleIdle();
   }
   private async apply(context: Context, method: string, value: AcpRecord) {
     if (this.closed) return;
@@ -202,6 +206,7 @@ class MuseSession {
     const retained = new Set([...context.items.values()].filter(item => ['subagent', 'workflow'].includes(item.kind) && ['inProgress', 'pending'].includes(item.status)).map(item => item.itemId));
     const result = await ready.projection.finish(status, retained);
     if (!context.foreground) await this.observer.finish(context.id, status, result, status === 'failed' ? value.error?.message ?? value.reason ?? 'Muse 原生后续回复失败' : undefined);
+    context.releaseTools();
     context.resolve(value); this.scheduleIdle();
   }
   private async fail(context: Context, error: Error) {
@@ -214,18 +219,20 @@ class MuseSession {
     await this.latest.update({ kind: 'nativeBackground', provider: 'muse', providerInstanceId: this.latest.task.providerInstanceId ?? 'muse', sessionId: this.executionId, threadId: this.threadId, connected, tasks: [...this.background.values()] });
   }
   async run(request: ExecutionRequest, runtime: Runtime) {
-    clearTimeout(this.idleTimer); if (this.closed) throw new Error('Muse 原生连接已关闭');
+    if (this.closed) throw new Error('Muse 原生连接已关闭');
     if (this.foreground && !this.foreground.finished || this.latestNative && !this.latestNative.finished) throw new Error('Muse 原生回合仍在执行');
     request = { ...request, task: { ...request.task, model: runtime.model, reasoningEffort: runtime.effort, nativeProviderAccount: runtime.account } };
     this.latest = request; this.runtime = runtime;
     const id = this.client.connection.mintCommandId(), context = this.context(id, Promise.resolve(request), true, request.command === 'compact'); this.foreground = context;
+    this.scheduleIdle();
     const abort = () => { void this.interrupt(context).finally(() => this.close(cancelled())); };
     request.signal.addEventListener('abort', abort, { once: true });
     try {
       request.signal.throwIfAborted();
       await request.update({ kind: 'session', threadId: this.threadId, nativeProviderAccount: runtime.account, model: runtime.model, reasoningEffort: runtime.effort, executionSessionId: this.executionId });
-      if (request.taskMcp && !this.client.host!.initializeResult.grantedCapabilities.includes('sessionMcp')) throw new Error('Muse 尚未支持会话 MCP，请升级主机上的 Muse');
-      const config = request.taskMcp ? { mcpServers: { friday: { transport: 'streamableHttp', mode: 'optional', url: request.taskMcp.url, headers: request.taskMcp.headers } } } : undefined;
+      const taskMcp = await this.nativeTools.connection(request);
+      if (taskMcp && !this.client.host!.initializeResult.grantedCapabilities.includes('sessionMcp')) throw new Error('Muse 尚未支持会话 MCP，请升级主机上的 Muse');
+      const config = taskMcp ? { mcpServers: { friday: { transport: 'streamableHttp', mode: 'optional', url: taskMcp.url, headers: taskMcp.headers } } } : undefined;
       const approvalMode = request.purpose ? 'denyUnmatched' : runtime.settings.permissionMode === 'auto' ? 'allowAll' : 'promptUnmatched', permissionProfile = runtime.settings.permissionMode === 'auto' && !request.purpose ? ':unrestricted' : ':ask-me';
       const setup = await this.client.call(request.task.threadId ? 'session/resume' : 'session/start', { sessionId: this.threadId, ...(request.task.threadId ? { excludeItems: true } : { workspaceRoot: this.cwd, modelId: runtime.model, providerId: 'meta', approvalMode }), permissionProfile, ...(config ? { config } : {}) }, true);
       if (acpRecord(setup.session)?.sessionId !== this.threadId) throw new Error('Muse 返回了不同的原生会话 ID');
@@ -286,15 +293,16 @@ class MuseSession {
     const id = this.observer.nativeId(key), context = id ? this.contexts.get(id) : undefined;
     if (context) { try { await this.interrupt(context); } finally { await this.close(); } }
   }
-  private scheduleIdle() {
-    clearTimeout(this.idleTimer);
-    if (this.ephemeral || this.closed || this.foreground && !this.foreground.finished || this.latestNative && !this.latestNative.finished || this.pending.size || [...this.background.values()].some(work => ['running', 'paused', 'unknown'].includes(work.status))) return;
-    for (const context of new Set(this.contexts.values())) for (const item of context.items.values()) if (item.kind === 'subagent' && ['inProgress', 'pending'].includes(item.status)) return;
-    this.idleTimer = setTimeout(() => { void this.close(); }, 30_000); this.idleTimer.unref();
+  private hasPending() {
+    if (this.pending.size || [...this.background.values()].some(work => ['running', 'paused', 'unknown'].includes(work.status))) return true;
+    for (const context of new Set(this.contexts.values())) for (const item of context.items.values()) if (item.kind === 'subagent' && ['inProgress', 'pending'].includes(item.status)) return true;
+    return false;
   }
+  private scheduleIdle() { if (!this.ephemeral && !this.closed) this.idle.refresh(); }
+  releaseLease() { this.scheduleIdle(); }
   close(error?: Error): Promise<void> {
     return this.closing ??= (async () => {
-      this.closed = true; clearTimeout(this.idleTimer);
+      this.closed = true; this.nativeTools.close(); this.idle.stop();
       for (const context of new Set(this.contexts.values())) if (!context.finished) { context.finished = true; context.reject(error ?? new Error('Muse 原生连接已关闭')); }
       await this.owner.connection.release(this.client);
       await this.observer.close();
@@ -313,7 +321,8 @@ export class MuseSessions {
   private sessions = new Map<string, MuseSession>();
   private running = new Set<string>();
   private closed = false;
-  constructor(readonly connection: MuseConnection) {}
+  constructor(readonly connection: MuseConnection, readonly idlePolicy: NativeSessionIdlePolicy = {}) {}
+  claimed(id: string) { return this.running.has(id); }
   remove(session: MuseSession) { if (this.sessions.get(session.latest.task.id) === session) this.sessions.delete(session.latest.task.id); }
   hasSession(id: string) { return this.sessions.get(id)?.closed === false; }
   async run(request: ExecutionRequest) {
@@ -333,7 +342,7 @@ export class MuseSessions {
         this.sessions.set(request.task.id, session);
       }
       return await session.run(request, runtime);
-    } finally { this.running.delete(request.task.id); if (request.purpose && session) await session.close(); }
+    } finally { this.running.delete(request.task.id); if (request.purpose && session) await session.close(); else this.sessions.get(request.task.id)?.releaseLease(); }
   }
   async answer(id: string, approvalId: string, decision: ApprovalDecision, answers: Record<string, string[]>) { const session = this.sessions.get(id); if (!session) throw new Error('Muse 原生会话已结束'); await session.answer(approvalId, decision, answers); }
   async steer(id: string, text: string, requestId: string, images?: ExecutionImage[]) { const session = this.sessions.get(id); if (!session) throw new Error('Muse 当前没有可补充的原生回合'); await session.steer(text, requestId, images); }

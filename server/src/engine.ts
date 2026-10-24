@@ -35,7 +35,7 @@ import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import type { Models } from '@earendil-works/pi-ai/models';
 import { Harness, configure, createRegistry, defineExtension, defineTask, type Conversation, type ConversationId, type ModelRef, type TaskId, type DocumentWatch } from '@earendil-works/pi-durable';
 import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node';
-import type { Executor, ExecutionUpdate, Workspace, WorkItem, TaskMode, TaskWorkspaceSelection, IdeaImage, TaskInteractionMode, TaskExecutionScope } from './types.js';
+import type { Executor, ExecutionRequest, ExecutionUpdate, Workspace, WorkItem, TaskMode, TaskWorkspaceSelection, IdeaImage, TaskInteractionMode, TaskExecutionScope } from './types.js';
 import { activeFork, runningFork, activeGitOperation, activeRewind, activeStatuses, failedWorkspacePreparation, taskExecutionScopeMatches } from './types.js';
 import { IdeaImages } from './ideas.js';
 import { CodexExecutor } from './codex.js';
@@ -349,8 +349,13 @@ export class Engine extends EventEmitter {
               })();
               if (!this.executor.deferredStart?.(work.agent)) await beforeStart();
               const tools = !task.input.command && work.projectId && !work.subagentOrigin && this.executor.supportsTaskTools?.(work.agent) ? await this.runtimeTools.bind(work, runID, runtime.signal) : undefined;
+              const createNativeTaskMcp: ExecutionRequest['createNativeTaskMcp'] = tools ? async (sessionId, currentRun, signal) => {
+                const current = (await this.snapshot()).tasks.find(task => task.id === work.id);
+                if (!current || current.executionSessionId !== sessionId || current.agent !== work.agent || taskProviderInstance(current) !== taskProviderInstance(work) || current.cwd !== work.cwd || current.projectId !== work.projectId) throw new Error('原生任务工具的会话范围已改变');
+                return (await this.runtimeTools.bind(current, runID, signal, { sessionId, currentRun })).connection;
+              } : undefined;
               let result: string;
-              try { result = await this.executor.run({ task: work, prompt: task.input.prompt, ...(task.input.userText !== undefined ? { userText: task.input.userText } : {}), ...(task.input.contextText !== undefined ? { contextText: task.input.contextText } : {}), ...(task.input.command ? { command: task.input.command, contextBeforeCompaction: task.input.contextBeforeCompaction } : {}), images: executionImages, signal: runtime.signal, update: update => this.updateExecution(work.id, update, runID), beforeStart, finalized, ...(tools ? { taskMcp: tools.connection } : {}) }); }
+              try { result = await this.executor.run({ task: work, prompt: task.input.prompt, ...(task.input.userText !== undefined ? { userText: task.input.userText } : {}), ...(task.input.contextText !== undefined ? { contextText: task.input.contextText } : {}), ...(task.input.command ? { command: task.input.command, contextBeforeCompaction: task.input.contextBeforeCompaction } : {}), images: executionImages, signal: runtime.signal, update: update => this.updateExecution(work.id, update, runID), beforeStart, finalized, ...(tools ? { taskMcp: tools.connection, createNativeTaskMcp } : {}) }); }
               finally { tools?.release(); }
               receipt = { result, needsProject: !!(await this.snapshot()).tasks.find(t => t.id === work.id)?.workspaceRequest };
               await runtime.memo('external-result', receipt, ctx);

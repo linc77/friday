@@ -11,6 +11,7 @@ const observedKinds = new Set(['contextUsage', 'item', 'commandOutput', 'output'
 export class NativeTurnObserver {
   private slots = new Map<string, Slot>();
   private closed = false;
+  private tail = Promise.resolve();
   private closing!: () => void;
   private readonly closeSignal = new Promise<void>(resolve => { this.closing = resolve; });
   constructor(private provider: ProviderDriver, private source: () => ExecutionRequest, readonly sessionId: string, readonly threadId: string) {}
@@ -25,9 +26,10 @@ export class NativeTurnObserver {
     let resolve!: () => void; const done = new Promise<void>(yes => { resolve = yes; });
     const slot: Slot = { nativeId, key, controller: new AbortController(), ready: undefined!, done, resolve, started: false, completed: false, result: '' };
     this.slots.set(nativeId, slot);
+    const previous = this.tail; this.tail = slot.done;
     const scope = { provider: this.provider, providerInstanceId, threadId: this.threadId, sessionId: this.sessionId, key };
     slot.ready = (async () => {
-      await Promise.race([source.finalized ?? Promise.resolve(), this.closeSignal]);
+      await Promise.race([Promise.all([source.finalized ?? Promise.resolve(), previous]), this.closeSignal]);
       if (this.closed || slot.completed) throw new Error('原生连接已关闭，未启动后续观察');
       await source.update({ kind: 'nativeTurnStart', ...scope, turnId: nativeId, parameters: { cwd: source.task.cwd, mode: source.task.mode, interactionMode: source.task.interactionMode, ...(source.task.model ? { model: source.task.model } : {}), ...(source.task.reasoningEffort ? { reasoningEffort: source.task.reasoningEffort } : {}), modelOptions: source.task.modelOptions ?? [] } });
       slot.started = true;

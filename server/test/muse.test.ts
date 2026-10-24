@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { MuseConnection, museModels, museServeArgs } from '../src/muse-provider.js';
 import { MuseExecutor, museApprovalChoices, museQuestionAnswers } from '../src/muse.js';
 import { nativeProviderDefaults } from '../src/native-provider-config.js';
+import { NATIVE_SESSION_IDLE_TIMEOUT_MS, NATIVE_SESSION_MAX_IDLE_PIN_MS, type NativeSessionIdlePolicy } from '../src/native-session-idle.js';
 import type { WorkItem, ExecutionUpdate } from '../src/types.js';
 const binary = fileURLToPath(new URL('./fixtures/muse.mjs', import.meta.url));
 const task = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'muse-task', agent: 'muse', cwd, model: 'muse-native', reasoningEffort: 'high', threadId: null, currentRunId: 'muse-run', interactionMode: 'default', events: [], approvals: [], ...changes }) as WorkItem;
@@ -33,8 +34,8 @@ test('Muse independent generation disables shell and writes, denies unmatched ap
   assert.ok(started.args.includes('--disable-shell')); assert.ok(started.args.includes('--disable-write')); assert.ok(started.args.includes('--no-session-log')); assert.equal(started.params.approvalMode, 'denyUnmatched');
   assert.ok(!trace.some(value => value.method === 'session/resume'));
 });
-async function setup(t: { after: (fn: () => Promise<unknown>) => void }, environment: Record<string, string> = {}) {
-  const directory = await mkdtemp(join(tmpdir(), 'friday-muse-')), wire = join(directory, 'wire.jsonl'), home = join(directory, 'sessions'), connection = new MuseConnection(directory), executor = new MuseExecutor(connection); await chmod(binary, 0o755);
+async function setup(t: { after: (fn: () => Promise<unknown>) => void }, environment: Record<string, string> = {}, idlePolicy?: NativeSessionIdlePolicy) {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-muse-')), wire = join(directory, 'wire.jsonl'), home = join(directory, 'sessions'), connection = new MuseConnection(directory), executor = new MuseExecutor(connection, idlePolicy); await chmod(binary, 0o755);
   t.after(async () => { await executor.close(); await rm(directory, { recursive: true, force: true }); });
   await connection.save({ ...nativeProviderDefaults('muse'), enabled: true, binaryPath: binary, environment: Object.entries({ MUSE_TEST_WIRE: wire, MUSE_TEST_HOME: home, META_API_KEY: 'fixture-must-not-reach-muse', ...environment }).map(([name, value]) => ({ name, value })) });
   const trace = async () => (await readFile(wire, 'utf8')).split('\n').filter(Boolean).map(line => JSON.parse(line));
@@ -47,6 +48,16 @@ test('Muse model capabilities preserve explicit empty variants and the pinned un
   assert.deepEqual(museServeArgs(true), ['serve', '--disable-shell', '--disable-write', '--no-session-log']); assert.deepEqual(museServeArgs(false, 'auto'), ['serve', '--trust-workspace', '--disable-sandbox']);
   const choices = museApprovalChoices({ availableChoices: [{ choiceId: 'always', decision: 'approvedPolicyAmendment', scope: 'localPersistent' }, { choiceId: 'abort', decision: 'abort', scope: 'once' }] }); assert.equal(choices.get('acceptAlways')?.choiceId, 'always'); assert.equal(choices.get('decline')?.choiceId, 'abort');
   assert.deepEqual(museQuestionAnswers([{ id: 'q', options: [{ label: 'One' }], selection: { mode: 'multiple' } }], { q: ['One', 'Note'] }), [{ questionId: 'q', selectedLabels: ['One'], note: 'Note' }]);
+});
+test('Muse idle lifecycle retains the pinned T3 30-minute window and reaps real pending workflow processes only after its pin budget', async t => {
+  assert.equal(NATIVE_SESSION_IDLE_TIMEOUT_MS, 1_800_000); assert.equal(NATIVE_SESSION_MAX_IDLE_PIN_MS, 14_400_000);
+  const f = await setup(t, {}, { idleTimeoutMs: 100, maxIdlePinMs: 400 });
+  await f.executor.run({ task: task(f.directory), prompt: 'background hold', signal: new AbortController().signal, update: async () => {} });
+  const child = (await f.trace()).find(value => value.backgroundChild).backgroundChild;
+  await new Promise(resolve => setTimeout(resolve, 200)); assert.equal(f.executor.hasSession('muse-task'), true); assert.doesNotThrow(() => process.kill(child, 0));
+  await until(async () => !f.executor.hasSession('muse-task'));
+  await until(async () => { try { process.kill(child, 0); return false; } catch { return true; } });
+  assert.equal((await f.trace()).filter(value => value.method === 'turn/start').length, 1);
 });
 test('Muse uses the actual installed SDK for read-only discovery and never treats a cached catalog as proof of authentication', async t => {
   const { connection, directory, trace } = await setup(t); const status = await connection.status(true); assert.equal(status.connected, true); assert.equal(status.account, null); assert.deepEqual(status.models.map(value => value.id), ['muse-native', 'muse-no-thinking']);

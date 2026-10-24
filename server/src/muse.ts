@@ -1,6 +1,7 @@
 import { isolatedTextGeneration } from './native-text-generation.js';
 import { MuseConnection } from './muse-provider.js';
 import { MuseSessions } from './muse-sessions.js';
+import type { NativeSessionIdlePolicy } from './native-session-idle.js';
 import type { ExecutionImage, ExecutionRequest, Executor, WorkItem } from './types.js';
 import type { ApprovalDecision } from './provider-approvals.js';
 
@@ -10,7 +11,7 @@ export { museApprovalChoices, museQuestionAnswers } from './muse-interactions.js
 
 export class MuseExecutor implements Executor {
   private sessions: MuseSessions;
-  constructor(private connection: MuseConnection) { this.sessions = new MuseSessions(connection); }
+  constructor(private connection: MuseConnection, idlePolicy?: NativeSessionIdlePolicy) { this.sessions = new MuseSessions(connection, idlePolicy); }
   supportsTaskTools(agent: string) { return agent === 'muse'; }
   deferredStart(agent: string) { return agent === 'muse'; }
   async generateText(request: import('./types.js').TextGenerationRequest) { return this.run(request); }
