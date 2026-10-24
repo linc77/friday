@@ -146,7 +146,7 @@ export class TaskQueue {
         return;
       }
       const task = localTask(state.tasks.find(task => task.id === id));
-      const references = await this.engine.contexts.references(input.text, input.contextIds, { task, project: state.projects.find(project => project.id === task.projectId) });
+      const references = await this.engine.contexts.references(input.text, input.contextIds, { task, project: state.projects.find(project => project.id === task.projectId) }, images);
       if (activeRewind(task.rewindOperation)) throw new Error('请先处理会话回退，再发送排队消息');
       if (activeFork(task.forkOperation) || headForkSourceBusy(state.tasks, task.id)) throw new Error('请先处理会话分叉，再发送排队消息');
       if (task.claudeResumeSessionAt && task.claudeResumePendingRun) throw new Error('Claude 回退续接结果待核对，请先处理会话历史');
@@ -176,7 +176,7 @@ export class TaskQueue {
   async enqueueAfterCompaction(tx: Parameters<Parameters<Engine['root']['commit']>[0]>[0], state: Workspace, task: WorkItem, input: QueueMessageInput & { requestId: string }) {
     validRequest(input.requestId);
     if (Object.hasOwn(state.requests, input.requestId)) throw new Error('发送请求已经使用，请刷新后核对');
-    const references = await this.engine.contexts.references(input.text, input.contextIds, { task, project: state.projects.find(project => project.id === task.projectId) });
+    const references = await this.engine.contexts.references(input.text, input.contextIds, { task, project: state.projects.find(project => project.id === task.projectId) }, input.images);
     task.queue ??= { dispatcherId: null, paused: false, messages: [] };
     task.queue.paused = false; task.queue.error = null; delete task.queue.heldByRunId; delete task.queue.heldOnRestart;
     task.queue.messages.push({ id: input.requestId, dispatchId: randomUUID(), text: input.text, images: input.images ?? [], createdAt: stamp(), status: 'queued',
@@ -193,7 +193,7 @@ export class TaskQueue {
       const task = localTask(state.tasks.find(task => task.id === id));
       const message = task.queue?.messages.find(item => item.id === messageId);
       if (!message || message.status !== 'queued') throw new Error('这条消息已经开始发送，不能再编辑');
-      message.contexts = await this.engine.contexts.references(input.text, input.contextIds ?? message.contexts?.map(ref => ref.id), { task, project: state.projects.find(project => project.id === task.projectId) });
+      message.contexts = await this.engine.contexts.references(input.text, input.contextIds ?? message.contexts?.map(ref => ref.id), { task, project: state.projects.find(project => project.id === task.projectId) }, images ?? message.images);
       message.text = input.text; if (images !== undefined) message.images = images; message.error = null;
       if (input.model !== undefined) message.model = input.model;
       if (input.reasoningEffort !== undefined) message.reasoningEffort = input.reasoningEffort;

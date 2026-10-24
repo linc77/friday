@@ -9,6 +9,11 @@ import { createAPI } from '../src/api.js';
 import { contextLink, contextOccurrences } from '../src/task-context-types.js';
 import type { Executor, ExecutionRequest } from '../src/types.js';
 import { taskGit } from '../src/git-process.js';
+import { createHash } from 'node:crypto';
+import { maxTaskFileBytes, TaskAttachmentFiles } from '../src/task-attachments.js';
+import { IdeaImages, maxImageBytes } from '../src/ideas.js';
+import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
+import type { TaskId } from '@earendil-works/pi-durable';
 
 async function until<T>(read: () => T | Promise<T>, predicate: (value: T) => boolean) {
   const deadline = Date.now() + 12_000;
@@ -123,4 +128,90 @@ test('File search covers deep repositories beyond the first hundred folders, sup
   const captured = await engine.contexts.capture({ id: 'special-file', scope: { projectId: 'project' }, kind: 'file', path });
   const read = await engine.contexts.read(captured.id, { projectId: 'project' }); assert.equal(read.reference.path, path); assert.equal(read.text, 'literal special path\n');
   const preview = await owner.files.read(path); await assert.rejects(owner.files.read(path, preview.lineEnd + 1, preview.lineEnd + 1), /超出/);
+});
+
+test('Ordinary uploads are immutable path-only references with authenticated, scoped, byte-exact downloads', async t => {
+  const { api, headers, engine, executor, root, create, settled } = await fixture(t);
+  const bytes = Buffer.from([0, 255, 17, 128, 10, 13, 0, 42]), name = '报告 [中文] & ?.pdf';
+  const url = '/api/task-contexts/attachments?' + new URLSearchParams({ id: 'uploaded-file', projectId: 'project', name });
+  const upload = () => api.request(url, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/pdf' }, body: bytes });
+  assert.equal((await api.request(url, { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: bytes })).status, 401);
+  const saved = await upload(); assert.equal(saved.status, 201, await saved.clone().text()); const reference = await saved.json();
+  assert.equal(reference.kind, 'attachment'); assert.equal(reference.attachmentName, name); assert.equal(reference.mediaType, 'application/pdf');
+  assert.equal(reference.digest, createHash('sha256').update(bytes).digest('hex')); assert.equal(reference.byteLength, bytes.length);
+  assert.deepEqual(await readFile(reference.path), bytes); assert.equal((await stat(reference.path)).mode & 0o777, 0o600);
+  assert.deepEqual((await (await upload()).json()).snapshot, reference.snapshot, 'A lost response retries the same immutable capture');
+  assert.equal((await api.request(url, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/pdf' }, body: Buffer.from('other') })).status, 400);
+  const contents = '/api/task-contexts/uploaded-file/content?projectId=project';
+  assert.equal((await api.request(contents)).status, 401);
+  const downloaded = await api.request(contents, { headers }); assert.equal(downloaded.status, 200);
+  assert.match(downloaded.headers.get('Content-Disposition')!, /^attachment;/); assert.match(downloaded.headers.get('Content-Security-Policy')!, /sandbox/);
+  assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()), bytes);
+  const range = await api.request(contents, { headers: { ...headers, Range: 'bytes=1-3' } }); assert.equal(range.status, 206); assert.deepEqual(Buffer.from(await range.arrayBuffer()), bytes.subarray(1, 4));
+  assert.equal((await api.request(contents, { method: 'HEAD', headers })).headers.get('Content-Length'), String(bytes.length));
+  const prompt = 'Inspect ' + contextLink(reference); const id = await create(prompt, 'file-task', [reference.id]); await settled();
+  assert.ok(executor.requests[0].prompt.includes(reference.path)); assert.ok(executor.requests[0].prompt.includes('path-only')); assert.ok(!executor.requests[0].prompt.includes(bytes.toString('base64')));
+  const task = (await engine.snapshot()).tasks.find(task => task.id === id)!; assert.equal(task.messages?.[0]?.contexts?.[0].attachmentName, name);
+  await engine.mutate(state => state.projects.push({ id: 'other', name: 'Other', path: root, context: '' }));
+  assert.equal((await api.request('/api/task-contexts/uploaded-file/content?projectId=other', { headers })).status, 400, 'The same cwd is not upload ownership');
+  const taskDownload = await api.request('/api/task-contexts/uploaded-file/content?taskId=' + id, { headers });
+  assert.equal(taskDownload.status, 200, 'A sent message grants its task access to its attachments'); await taskDownload.arrayBuffer();
+});
+
+test('File uploads reject invalid paths, empty/oversized data and symlink substitutions; identical concurrent writes publish complete bytes', async t => {
+  const { engine, api, headers } = await fixture(t);
+  const input = { id: 'binary-upload', scope: { projectId: 'project' }, name: 'contents.bin', mediaType: 'application/octet-stream' };
+  for (const name of ['../owner-token', 'folder/file', 'folder\\file', '.', '..', 'x\ny', '']) await assert.rejects(engine.contexts.captureAttachment({ ...input, name }, Buffer.from('x')), /文件名/);
+  await assert.rejects(engine.contexts.captureAttachment(input, Buffer.alloc(0)), /不能为空/);
+  await assert.rejects(new TaskAttachmentFiles(engine.directory).save(Buffer.alloc(maxTaskFileBytes + 1), 'large.bin', 'application/octet-stream'), /50 MB/);
+  const oversized = await api.request('/api/task-contexts/attachments?projectId=project&id=large&name=large.bin', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/octet-stream', 'Content-Length': String(maxTaskFileBytes + 1) }, body: Buffer.from('x') }); assert.equal(oversized.status, 413);
+  await assert.rejects(engine.contexts.captureAttachment({ ...input, mediaType: 'text/html\r\nBad: value' }, Buffer.from('x')), /类型/);
+  const bytes = Buffer.alloc(2 * 1024 * 1024, 173);
+  const saved = await Promise.all(Array.from({ length: 4 }, () => engine.contexts.captureAttachment(input, bytes)));
+  assert.deepEqual(saved, Array(4).fill(saved[0])); assert.deepEqual(await readFile(saved[0].path!), bytes);
+  await rm(saved[0].path!); await symlink(join(engine.directory, 'owner-token'), saved[0].path!);
+  await assert.rejects(engine.contexts.attachment(saved[0].id, input.scope), /路径已改变/);
+});
+
+test('Uploaded files survive queue, Steer, rewind, visible-history forks and restart without expanding bytes into the prompt', async t => {
+  const { engine, executor, create, settled, data } = await fixture(t);
+  const ref = await engine.contexts.captureAttachment({ id: 'queued-upload', scope: { projectId: 'project' }, name: 'readme.txt', mediaType: 'text/plain' }, Buffer.from('PRIVATE_ATTACHMENT_CONTENT'));
+  const id = await create(); await settled(); executor.block = true;
+  await engine.createTask({ continueId: id, prompt: 'blocked', requestId: 'upload-block', projectId: 'project', mode: 'code' }); await until(() => engine.snapshot(), state => state.tasks[0]?.canSteer === true && state.tasks[0]?.status === 'running');
+  await engine.taskQueue.enqueue(id, { text: contextLink(ref), contextIds: [ref.id] }, 'upload-queue');
+  await engine.taskQueue.edit(id, 'upload-queue', { text: 'Queued ' + contextLink(ref), contextIds: [ref.id] });
+  await engine.steer(id, 'Live ' + contextLink(ref), 'upload-steer', [], [ref.id]); assert.ok(executor.steers[0].includes(ref.path!)); assert.ok(!executor.steers[0].includes('PRIVATE_ATTACHMENT_CONTENT'));
+  await engine.cancel(id); executor.block = false; await engine.taskQueue.resume(id, 'upload-resume');
+  await until(() => engine.snapshot(), state => state.tasks[0]?.queue?.messages[0]?.status === 'completed');
+  const work = (await engine.snapshot()).tasks[0], run = work.runs!.at(-1)!;
+  assert.ok(executor.requests.at(-1)!.prompt.includes(ref.path!));
+  const fork = await engine.taskForks.start(id, { requestId: 'upload-fork', runId: run.id });
+  const failed = await until(() => engine.snapshot(), state => state.tasks.find(task => task.id === fork)?.forkOperation?.status === 'failed');
+  await engine.harness.waitForTask(failed.tasks.find(task => task.id === fork)!.forkOperation!.durableId as TaskId, BACKGROUND_CONTEXT);
+  await engine.taskForks.resolve(fork, { requestId: 'upload-visible-fork', action: 'new_session' });
+  await until(() => engine.snapshot(), state => state.tasks.find(task => task.id === fork)?.forkOperation?.status === 'completed');
+  assert.equal((await engine.contexts.read(ref.id, { taskId: fork })).reference.digest, ref.digest);
+  const options = await engine.taskRewinds.options(id, run.messageId); await engine.taskRewinds.start(id, { requestId: 'upload-rewind', messageId: run.messageId, fingerprint: options.fingerprint, restoreFiles: false, newSession: true });
+  await until(() => engine.snapshot(), state => state.tasks.find(task => task.id === id)?.rewindOperation?.status === 'completed');
+  assert.equal((await engine.snapshot()).tasks.find(task => task.id === id)?.rewindOperation?.editor.contexts?.[0].attachmentName, 'readme.txt');
+  await engine.close(); const reopened = await new Engine(data, executor).open();
+  try {
+    const file = await reopened.contexts.attachment(ref.id, { taskId: fork });
+    try { assert.equal((await file.handle.readFile()).toString(), 'PRIVATE_ATTACHMENT_CONTENT'); } finally { await file.handle.close(); }
+    assert.ok(!JSON.stringify(await reopened.snapshot()).includes('PRIVATE_ATTACHMENT_CONTENT'));
+  } finally { await reopened.close(); }
+});
+
+test('T3 input and attachment limits allow 120k characters, 100 combined references, 10 MiB per image and 80 MiB of images', async t => {
+  const { engine, data, api, headers, settled } = await fixture(t);
+  const ref = await engine.contexts.captureAttachment({ id: 'limited-upload', scope: { projectId: 'project' }, name: 'small.txt', mediaType: 'text/plain' }, Buffer.from('hello'));
+  const owner = { project: (await engine.snapshot()).projects[0] }, images = Array.from({ length: 99 }, (_, index) => ({ id: String(index) }));
+  assert.equal((await engine.contexts.references(contextLink(ref), [ref.id], owner, images)).length, 1);
+  await assert.rejects(engine.contexts.references(contextLink(ref), [ref.id], owner, [...images, { id: '100' }]), /100/);
+  const imageStore = new IdeaImages(data), png = Buffer.alloc(maxImageBytes); Buffer.from('89504e470d0a1a0a', 'hex').copy(png);
+  const image = await imageStore.save({ data: png.toString('base64'), name: 'large.png' });
+  assert.equal((await imageStore.validate(Array(8).fill(image))).length, 1);
+  await assert.rejects(imageStore.validate(Array(9).fill(image)), /80 MB/);
+  await assert.rejects(imageStore.save({ data: Buffer.concat([png, Buffer.from('x')]).toString('base64') }), /10 MB/);
+  const response = await api.request('/api/tasks', { method: 'POST', headers, body: JSON.stringify({ prompt: '中'.repeat(120_000), projectId: 'project', mode: 'code', agent: 'codex', requestId: 'long-task' }) }); assert.equal(response.status, 201, await response.clone().text()); await settled();
 });

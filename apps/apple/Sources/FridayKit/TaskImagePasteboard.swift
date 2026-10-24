@@ -2,7 +2,7 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// Declares the same image formats to AppKit that the attachment importer reads.
+/// File URLs are uploads, never host-side path references. Plain text remains text.
 enum TaskImagePasteboard {
     static let readableTypes: [NSPasteboard.PasteboardType] = [.png, .tiff, .fileURL,
         NSPasteboard.PasteboardType(UTType.jpeg.identifier),
@@ -12,11 +12,11 @@ enum TaskImagePasteboard {
 
     static func containsImages(in pasteboard: NSPasteboard) -> Bool {
         pasteboard.types?.contains(where: { UTType($0.rawValue)?.conforms(to: .image) == true }) == true
-            || !imageURLs(from: pasteboard).isEmpty
+            || !fileURLs(from: pasteboard).isEmpty
     }
 
     static func providers(from pasteboard: NSPasteboard) -> [NSItemProvider] {
-        let urls = imageURLs(from: pasteboard)
+        let urls = fileURLs(from: pasteboard)
         if !urls.isEmpty { return urls.compactMap { NSItemProvider(contentsOf: $0) } }
         return (pasteboard.pasteboardItems ?? []).compactMap { item in
             // Prefer PNG/TIFF over another representation of the same image.
@@ -32,9 +32,9 @@ enum TaskImagePasteboard {
         }
     }
 
-    private static func imageURLs(from pasteboard: NSPasteboard) -> [URL] {
+    private static func fileURLs(from pasteboard: NSPasteboard) -> [URL] {
         let urls = (pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
-        return urls.filter { (try? $0.resourceValues(forKeys: [.contentTypeKey]).contentType?.conforms(to: .image)) == true }
+        return urls.filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }
     }
 }
 #endif

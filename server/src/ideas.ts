@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import type { IdeaImage, ExecutionImage } from './types.js';
 
 export const maxIdeaLength = 100_000;
-export const maxImageBytes = 8 * 1024 * 1024;
+export const maxImageBytes = 10 * 1024 * 1024;
+const maxTotalImageBytes = 80 * 1024 * 1024;
 const imageID = /^[a-f0-9]{64}$/;
 
 function imageType(data: Buffer): string {
@@ -30,13 +31,13 @@ export class IdeaImages {
     return join(this.directory, 'idea-images', id);
   }
   async save(body: Record<string, unknown>): Promise<IdeaImage> {
-    if (typeof body.data !== 'string' || !body.data.length || body.data.length > Math.ceil(maxImageBytes / 3) * 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(body.data)) throw new Error('图片不能为空，且不能超过 8 MB');
+    if (typeof body.data !== 'string' || !body.data.length || body.data.length > Math.ceil(maxImageBytes / 3) * 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(body.data)) throw new Error('图片不能为空，且不能超过 10 MB');
     const data = Buffer.from(body.data, 'base64');
-    if (data.length > maxImageBytes) throw new Error('图片不能超过 8 MB');
+    if (data.length > maxImageBytes) throw new Error('图片不能超过 10 MB');
     const mediaType = imageType(data);
     const id = createHash('sha256').update(data).digest('hex');
     if (body.id !== undefined && body.id !== id) throw new Error('图片内容与 ID 不一致');
-    const name = typeof body.name === 'string' ? body.name.slice(0, 200) : '图片';
+    const name = typeof body.name === 'string' ? body.name.slice(0, 255) : '图片';
     await mkdir(join(this.directory, 'idea-images'), { recursive: true, mode: 0o700 });
     // Immutable content IDs make a retry safe after a lost upload response.
     await writeFile(this.path(id), data, { mode: 0o600, flag: 'wx' }).catch(error => { if (error.code !== 'EEXIST') throw error; });
@@ -48,12 +49,16 @@ export class IdeaImages {
   }
   async validate(value: unknown): Promise<IdeaImage[]> {
     if (value === undefined) return [];
-    if (!Array.isArray(value) || value.length > 20) throw new Error('最多添加 20 张图片');
+    if (!Array.isArray(value) || value.length > 100) throw new Error('最多添加 100 张图片');
     const images: IdeaImage[] = [];
+    let totalBytes = 0;
     for (const image of value) {
-      if (!image || typeof image.id !== 'string' || typeof image.name !== 'string' || image.name.length > 200 || !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(image.mediaType)) throw new Error('图片信息无效');
+      if (!image || typeof image.id !== 'string' || typeof image.name !== 'string' || image.name.length > 255 || !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(image.mediaType)) throw new Error('图片信息无效');
       await access(this.path(image.id)).catch(() => { throw new Error('图片尚未上传，请重试保存'); });
       const stored = await this.read(image.id);
+      if (stored.data.length > maxImageBytes) throw new Error('图片不能超过 10 MB');
+      totalBytes += stored.data.length;
+      if (totalBytes > maxTotalImageBytes) throw new Error('每条消息的图片总大小不能超过 80 MB');
       if (!images.some(i => i.id === image.id)) images.push({ id: image.id, name: image.name, mediaType: stored.mediaType });
     }
     return images;

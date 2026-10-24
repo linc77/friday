@@ -99,8 +99,8 @@ test('Task images require uploaded IDs, bounded counts, supported agents and val
     for (const input of [
       { ...base, images: [{ ...image, id: '../owner-token' }] },
       { ...base, images: [{ ...image, id: 'a'.repeat(64) }] },
-      { ...base, images: Array(21).fill(image) },
-      { ...base, prompt: '' }, { ...base, prompt: 'a'.repeat(12001), images: [image] },
+      { ...base, images: Array(101).fill(image) },
+      { ...base, prompt: '' }, { ...base, prompt: 'a'.repeat(120001), images: [image] },
       { ...base, agent: 'friday', images: [image] },
     ]) assert.equal((await request('/api/tasks', input)).status, 400);
     assert.equal((await engine.snapshot()).tasks.length, 0);

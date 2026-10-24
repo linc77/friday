@@ -35,7 +35,7 @@ extension TaskContextSnapshot {
         if let draft = reference.reviewDraft { return TaskFileReviewContents(fenceLanguage: draft.diffReview == nil ? (draft.path as NSString).pathExtension.lowercased() : "diff", source: draft.contents, text: draft.comment, diffReview: draft.diffReview) }
         return try? JSONDecoder().decode(TaskFileReviewContents.self, from: Data(text.utf8))
     }
-    var copiedContents: String { browserAnnotation?.rendered() ?? fileReview.map { reference.label + "\n\n" + $0.text + "\n\n" + $0.source } ?? text }
+    var copiedContents: String { reference.kind == "attachment" ? reference.path ?? reference.label : browserAnnotation?.rendered() ?? fileReview.map { reference.label + "\n\n" + $0.text + "\n\n" + $0.source } ?? text }
 }
 
 struct TaskFileLineAnnotation: Identifiable, Equatable {

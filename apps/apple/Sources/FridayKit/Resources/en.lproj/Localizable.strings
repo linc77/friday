@@ -2672,3 +2672,15 @@
 "Go · Weekly" = "Go · Weekly";
 
 "Go · Monthly" = "Go · Monthly";
+
+"添加附件" = "Add attachment";
+"正在添加附件" = "Adding attachments";
+"添加文件或图片，也可以粘贴或拖入" = "Attach files or images, paste or drop";
+"保存附件" = "Save attachment";
+"每条消息最多添加 100 个附件或上下文引用" = "Add up to 100 attachments or references per message";
+"附件不能为空，且不能超过 50 MB" = "Files must be nonempty and no larger than 50 MB";
+"每条消息的图片总大小不能超过 80 MB" = "Images can total up to 80 MB per message";
+"无法读取附件文件。" = "Could not read this attachment.";
+"请选择普通文件。" = "Choose a regular file.";
+"附件内容已改变，请重新添加" = "Attachment contents changed. Add it again.";
+"处理后的图片仍超过 10 MB，请选择较小的图片。" = "The processed image exceeds 10 MB. Choose a smaller image.";

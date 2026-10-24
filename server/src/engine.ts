@@ -893,7 +893,7 @@ export class Engine extends EventEmitter {
       if (executionWorkspace?.mode === 'checkout' && !executionWorkspace.scratch && executionWorkspace.state !== 'ready') assertCheckoutIdle(workspace, executionWorkspace.root);
       const stamp = now();
       if (work && taskSidebarSection(work, stamp) === 'settled') { work.activeOrderKey = null; work.unsettledAt = stamp; }
-      const references = native ? [] : await this.contexts.references(input.prompt, input.contextIds, { task: work, project, inheritedTask: origin ?? reuseSource, preparationId: prepared?.saved.id });
+      const references = native ? [] : await this.contexts.references(input.prompt, input.contextIds, { task: work, project, inheritedTask: origin ?? reuseSource, preparationId: prepared?.saved.id }, images);
       const task: WorkItem = work ?? {
         id: taskId, title: input.title?.slice(0, 200).replace(/[\uD800-\uDBFF]$/, '') ?? (displayContextText(input.prompt).trim().slice(0, 64).replace(/[\uD800-\uDBFF]$/, '') || '图片任务'), prompt: input.prompt, projectId: input.projectId,
         cwd: executionWorkspace?.cwd ?? origin?.cwd ?? project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent, ...(!native ? { providerInstanceId } : {}),
@@ -1145,7 +1145,7 @@ export class Engine extends EventEmitter {
       return;
     }
     const resolved = await new IdeaImages(this.directory).resolve(images);
-    const references = await this.contexts.references(text, contextIds, { task, project: snapshot.projects.find(project => project.id === task.projectId) });
+    const references = await this.contexts.references(text, contextIds, { task, project: snapshot.projects.find(project => project.id === task.projectId) }, images);
     // Reserve and persist the input before the external side effect. A lost receipt
     // or service crash must never cause an uncertain live message to be replayed.
     await this.mutate(state => {

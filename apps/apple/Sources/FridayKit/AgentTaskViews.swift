@@ -338,6 +338,7 @@ struct AgentTaskComposer: View {
     @State private var showImageImporter = false
     @State private var importerContext = ""
     @State private var importing = false
+    @State private var attachmentImportRequest: UUID?
     @State private var dropTargeted = false
     @State private var previewContext: TaskContextReference?
     @State private var showContextPicker = false
@@ -385,6 +386,7 @@ struct AgentTaskComposer: View {
     private var contextID: String { task?.id ?? projectId ?? "" }
     private var contextScope: TaskContextScope { task.map { TaskContextScope(taskID: $0.id) } ?? (workspace?.wrappedValue.reuseTaskId).map { TaskContextScope(taskID: $0) } ?? TaskContextScope(projectID: projectId, preparationID: projectPreparationId) }
     private var fullEditorIdentity: String { store.taskComposerIdentity(contextScope) }
+    private var attachmentImportIdentity: String { fullEditorIdentity + "\nqueue:" + (editingQueuedMessageId ?? "") }
     private var commandIdentity: String { fullEditorIdentity + "\n" + selectedInstance + "\n" + (task?.threadId ?? "") + "\n" + (workspace?.wrappedValue.reuseTaskId ?? "") + "\n" + String(store.providerConfigurationVersions[selectedInstance] ?? 0) }
     private var usageLimitsKey: String { commandIdentity + "\n" + model + "\n" + (task?.currentRunId ?? "") + "\n" + (task?.status ?? "") }
     private var usageLimitsAvailable: Bool { (providerUsage.limits?.offered == true || !store.usageLimitSources.isEmpty) && images.isEmpty && TaskContextDocument.used(message, records: contexts).isEmpty }
@@ -417,7 +419,7 @@ struct AgentTaskComposer: View {
         let target=reviewTarget,scope=fileMentionScope,root=task?.cwd ?? projectPath ?? ""
         func current()->Bool {fileMentionBridge?.context?.browserAnnotations?.target==target && fileMentionBridge?.context?.scope==scope && fileMentionBridge?.context?.browserAnnotations?.enabled==true}
         return TaskBrowserAnnotationComposer(enabled:fileMentionsEnabled,target:target,scope:scope,workspaceRoot:root,current:current,attach:{record,png,sendNow in
-            guard current(),editorIdentity==fullEditorIdentity,TaskContextDocument.used(message,records:contexts).count<20 else{return TaskBrowserAnnotationAttachment(accepted:false)}
+            guard current(),editorIdentity==fullEditorIdentity,images.count+TaskContextDocument.used(message,records:contexts).count<100 else{return TaskBrowserAnnotationAttachment(accepted:false)}
             let image=png.flatMap {try? IdeaImageCache.importImage($0,name:"preview-annotation-"+record.annotationId+".png")}
             guard let edit=TaskBrowserAnnotationDraftEdit.make(record:record,image:image,text:message,contexts:contexts,images:images,target:target,scope:scope,workspaceRoot:root,identity:fullEditorIdentity,send:sendNow) else{return TaskBrowserAnnotationAttachment(accepted:false)}
             message=edit.text;contexts=edit.contexts;images=edit.images;contextInsertion=edit.insertion;expanded=true
@@ -484,7 +486,7 @@ struct AgentTaskComposer: View {
         .modifier(TaskComposerModifierKeys(alternate: $alternateDown))
         #endif
         #if os(iOS)
-        .fileImporter(isPresented: $showImageImporter, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
+        .fileImporter(isPresented: $showImageImporter, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
             switch result {
             case .success(let urls): importFiles(urls, context: importerContext)
             case .failure(let failure): error = failure.localizedDescription
@@ -505,6 +507,7 @@ struct AgentTaskComposer: View {
             importing = false; dropTargeted = false; error = nil
             beforeQueueEdit = nil; alternateDown = false
         }
+        .onChange(of: attachmentImportIdentity) { _, _ in attachmentImportRequest = nil; importing = false }
         .onChange(of: editingQueuedMessageId) { _, id in
             if let id, let entry = task?.queue?.messages.first(where: { $0.id == id }) {
                 if beforeQueueEdit == nil { beforeQueueEdit = (model, effort) }
@@ -525,19 +528,12 @@ struct AgentTaskComposer: View {
         }
         #if os(iOS)
         .onChange(of: photoItems) { _, items in
-            let context = contextID
             guard !items.isEmpty else { return }
-            importing = true
-            Task { @MainActor in
-                for item in items {
-                    do {
-                        if let data = try await item.loadTransferable(type: Data.self), context == contextID {
-                            try addImage(data, name: "照片.png")
-                        }
-                    } catch { if context == contextID { self.error = error.localizedDescription } }
-                }
-                if context == contextID { importing = false; photoItems = [] }
+            importAttachments(count: items.count) { index in
+                guard let data = try await items[index].loadTransferable(type: Data.self) else { throw ConnectionError.message("无法读取这张图片。") }
+                return TaskAttachmentInput(data: data, name: "照片.png", mediaType: "image/png", isImage: true)
             }
+            photoItems = []
         }
         #endif
         #if os(macOS)
@@ -773,8 +769,8 @@ struct AgentTaskComposer: View {
                     FridaySymbolImage(systemName: "at").font(.system(size: 15)).frame(width: 24, height: 24)
                 }.buttonStyle(FridaySymbolButtonStyle()).help(Text(friday: "引用文件、目录或代码"))
                     .accessibilityLabel(Text(friday: "引用文件、目录或代码"))
-                    .disabled(sending || capturingContext || !store.connected || contextScope.body.isEmpty || TaskContextDocument.used(message, records: contexts).count >= 20)
-                if importing { ProgressView().controlSize(.small).accessibilityLabel(Text(friday: "正在添加图片")) }
+                    .disabled(sending || importing || capturingContext || !store.connected || contextScope.body.isEmpty || images.count + TaskContextDocument.used(message, records: contexts).count >= 100)
+                if importing { ProgressView().controlSize(.small).accessibilityLabel(Text(friday: "正在添加附件")) }
                 attachmentButton
                 if let discardDraft, TaskDraftContent.hasUserContent(message, images: images.count, contexts: contexts.count, pendingContext: contextInsertion != nil) {
                     Button(action: discardDraft) { FridaySymbolImage(systemName: "trash").frame(width: 24, height: 24) }
@@ -807,21 +803,21 @@ struct AgentTaskComposer: View {
         Group {
             #if os(iOS)
             Menu {
-                PhotosPicker(selection: $photoItems, maxSelectionCount: max(1, 20 - images.count), matching: .images) {
+                PhotosPicker(selection: $photoItems, maxSelectionCount: max(1, 100 - images.count - TaskContextDocument.used(message, records: contexts).count), matching: .images) {
                     FridaySymbolLabel(friday: "照片图库", systemImage: "photo")
                 }
-                Button { importerContext = contextID; showImageImporter = true } label: {
-                    FridaySymbolLabel(friday: "选择图片文件", systemImage: "folder")
+                Button { importerContext = attachmentImportIdentity; showImageImporter = true } label: {
+                    FridaySymbolLabel(friday: "选择文件", systemImage: "folder")
                 }
             } label: { FridaySymbolImage(systemName: "paperclip").frame(width: 28, height: 28) }
             #else
             Button(action: chooseImageFiles) {
                 FridaySymbolImage(systemName: "paperclip").font(.system(size: 16)).frame(width: 28, height: 28)
-            }.help(Text(friday: "添加图片，也可以粘贴或拖入"))
+            }.help(Text(friday: "添加文件或图片，也可以粘贴或拖入"))
             #endif
         }.buttonStyle(FridaySymbolButtonStyle())
-            .disabled(sending || importing || showImageImporter || compact || images.count >= 20 || (requiresProject && projectPath == nil))
-            .accessibilityLabel(Text(friday: "添加图片"))
+            .disabled(sending || importing || showImageImporter || compact || images.count + TaskContextDocument.used(message, records: contexts).count >= 100 || (requiresProject && projectPath == nil))
+            .accessibilityLabel(Text(friday: "添加附件"))
     }
 
     @ViewBuilder private var primaryAction: some View {
@@ -958,7 +954,7 @@ struct AgentTaskComposer: View {
                     references.append(try await store.captureTaskContext(scope: scope, input: ["kind": entry.kind, "path": entry.path]))
                 }
                 guard fileMentionRequest == request, editorIdentity == identity, fileMentionScope == source, editingQueuedMessageId == queueID, !sending else { return }
-                guard let batch = TaskContextDocument.batch(references, text: message, records: contexts, identity: fullEditorIdentity) else { throw ConnectionError.message("每条消息最多添加 20 个上下文引用") }
+                guard let batch = TaskContextDocument.batch(references, text: message, records: contexts, identity: fullEditorIdentity), images.count + TaskContextDocument.used(message, records: contexts).count + references.count <= 100 else { throw ConnectionError.message("每条消息最多添加 100 个附件或上下文引用") }
                 contexts = batch.records; contextInsertion = batch.insertion
                 #if os(macOS)
                 setExpanded(true)
@@ -1006,7 +1002,7 @@ struct AgentTaskComposer: View {
     }
     private func addReference(_ reference: TaskContextReference, replacing: TaskMentionQuery?) {
         let duplicate = contexts.first { $0.kind == reference.kind && $0.path == reference.path && $0.digest == reference.digest && $0.lineStart == reference.lineStart && $0.lineEnd == reference.lineEnd }
-        guard duplicate != nil || TaskContextDocument.used(message, records: contexts).count < 20 else { error = "每条消息最多添加 20 个上下文引用"; return }
+        guard duplicate != nil || images.count + TaskContextDocument.used(message, records: contexts).count < 100 else { error = "每条消息最多添加 100 个附件或上下文引用"; return }
         if duplicate == nil { contexts.append(reference) }
         let accepted = duplicate ?? reference
         contextInsertion = TaskContextInsertion(reference: accepted, replacing: replacing, focus: true, identity: fullEditorIdentity, previousOccurrences: TaskContextDocument.occurrences(message).filter { $0.id == accepted.id }.count)
@@ -1018,33 +1014,40 @@ struct AgentTaskComposer: View {
     private func addImage(_ data: Data, name: String) throws {
         let image = try IdeaImageCache.importImage(data, name: name)
         guard !images.contains(where: { $0.id == image.id }) else { return }
-        guard images.count < 20 else { throw ConnectionError.message("最多添加 20 张图片。") }
+        guard images.count + TaskContextDocument.used(message, records: contexts).count < 100 else { throw ConnectionError.message("每条消息最多添加 100 个附件或上下文引用") }
+        let totalBytes = images.reduce(0) { $0 + IdeaImageCache.byteCount($1.id) } + IdeaImageCache.byteCount(image.id)
+        guard totalBytes <= 80 * 1024 * 1024 else { throw ConnectionError.message("每条消息的图片总大小不能超过 80 MB") }
         images.append(image)
     }
     private func importFiles(_ urls: [URL], context: String) {
-        guard context == contextID, !sending else { return }
-        error = nil
-        for url in urls {
-            do { let (data, name) = try TaskImageImport.read(url); try addImage(data, name: name) }
-            catch { self.error = error.localizedDescription }
-        }
-        #if os(macOS)
-        setExpanded(true); focusRequest += 1
-        #endif
+        guard context == attachmentImportIdentity else { return }
+        importAttachments(count: urls.count) { index in try await Task.detached(priority: .userInitiated) { try TaskAttachmentImport.read(urls[index]) }.value }
     }
     private func importProviders(_ providers: [NSItemProvider]) {
+        importAttachments(count: providers.count) { index in try await TaskAttachmentImport.input(from: providers[index]) }
+    }
+    private func importAttachments(count: Int, read: @escaping (Int) async throws -> TaskAttachmentInput) {
         guard !sending, !importing, !requiresProject || projectId != nil else { return }
-        let context = contextID; importing = true; error = nil
+        guard count <= TaskAttachmentImport.maximumCount else { error = "每条消息最多添加 100 个附件或上下文引用"; return }
+        let identity = attachmentImportIdentity, scope = contextScope, request = UUID()
+        attachmentImportRequest = request; importing = true; error = nil
         Task { @MainActor in
-            for provider in providers.prefix(20) {
+            defer { if attachmentImportRequest == request { attachmentImportRequest = nil; importing = false } }
+            var references: [TaskContextReference] = []
+            for index in 0..<count {
                 do {
-                    let (data, name) = try await TaskImageImport.data(from: provider)
-                    guard context == contextID else { return }
-                    try addImage(data, name: name)
-                } catch { if context == contextID { self.error = error.localizedDescription } }
+                    guard identity == attachmentImportIdentity, attachmentImportRequest == request, !sending else { return }
+                    guard images.count + TaskContextDocument.used(message, records: contexts).count + references.count < 100 else { throw ConnectionError.message("每条消息最多添加 100 个附件或上下文引用") }
+                    let input = try await read(index)
+                    guard identity == attachmentImportIdentity, attachmentImportRequest == request else { return }
+                    if input.isImage { try addImage(input.data, name: input.name) }
+                    else { references.append(try await store.uploadTaskAttachment(scope: scope, bytes: input.data, name: input.name, mediaType: input.mediaType, id: UUID().uuidString)) }
+                } catch { if identity == attachmentImportIdentity, attachmentImportRequest == request { self.error = error.localizedDescription } }
             }
-            guard context == contextID else { return }
-            importing = false
+            guard identity == attachmentImportIdentity, attachmentImportRequest == request else { return }
+            if let batch = TaskContextDocument.batch(references, text: message, records: contexts, identity: fullEditorIdentity) {
+                contexts = batch.records; contextInsertion = batch.insertion
+            }
             #if os(macOS)
             setExpanded(true); focusRequest += 1
             #endif
@@ -1054,10 +1057,10 @@ struct AgentTaskComposer: View {
     #if os(macOS)
     private func chooseImageFiles() {
         guard !showImageImporter else { return }
-        let context = contextID
+        let context = attachmentImportIdentity
         let panel = NSOpenPanel()
         panel.canChooseFiles = true; panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = true; panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = true; panel.allowedContentTypes = [.item]
         showImageImporter = true
         let completion: (NSApplication.ModalResponse) -> Void = { response in
             showImageImporter = false

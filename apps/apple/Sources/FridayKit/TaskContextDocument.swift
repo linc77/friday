@@ -89,7 +89,7 @@ enum TaskContextDocument {
             let duplicate = merged.first { $0.kind == reference.kind && $0.path == reference.path && $0.digest == reference.digest && $0.lineStart == reference.lineStart && $0.lineEnd == reference.lineEnd }
             if let duplicate { accepted.append(duplicate) } else { merged.append(reference); accepted.append(reference) }
         }
-        guard Set(used(text, records: records).map(\.id)).union(accepted.map(\.id)).count <= 20 else { return nil }
+        guard Set(used(text, records: records).map(\.id)).union(accepted.map(\.id)).count <= 100 else { return nil }
         let first = accepted[0]
         return (merged, TaskContextInsertion(reference: first, focus: true, identity: identity, previousOccurrences: occurrences(text).filter { $0.id == first.id }.count, additional: Array(accepted.dropFirst()), atEnd: true))
     }

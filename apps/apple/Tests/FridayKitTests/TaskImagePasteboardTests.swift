@@ -40,10 +40,30 @@ struct TaskImagePasteboardTests {
         precondition(TaskImagePasteboard.containsImages(in: pasteboard))
         precondition(TaskImagePasteboard.providers(from: pasteboard).count == 1)
 
+        let binary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pdf")
+        try Data([0, 255, 10, 128, 42]).write(to: binary)
+        defer { try? FileManager.default.removeItem(at: binary) }
+        pasteboard.clearContents(); pasteboard.writeObjects([binary as NSURL])
+        precondition(TaskImagePasteboard.containsImages(in: pasteboard), "Copied ordinary files must enable Paste")
+        let files = TaskImagePasteboard.providers(from: pasteboard)
+        precondition(files.count == 1)
+        let importedFile = try await TaskAttachmentImport.input(from: files[0])
+        precondition(importedFile.data == Data([0, 255, 10, 128, 42]) && !importedFile.isImage && importedFile.mediaType == "application/pdf")
+        precondition(importedFile.name.hasSuffix(".pdf"))
+        pasteboard.clearContents(); pasteboard.writeObjects([FileManager.default.temporaryDirectory as NSURL])
+        precondition(!TaskImagePasteboard.containsImages(in: pasteboard), "A folder must not become an upload")
+        do { _ = try TaskAttachmentImport.read(FileManager.default.temporaryDirectory); preconditionFailure("Directories cannot be uploaded") } catch {}
+        let empty = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".bin")
+        FileManager.default.createFile(atPath: empty.path, contents: Data())
+        defer { try? FileManager.default.removeItem(at: empty) }
+        do { _ = try TaskAttachmentImport.read(empty); preconditionFailure("Empty files cannot be uploaded") } catch {}
+        let handle = try FileHandle(forWritingTo: empty); try handle.truncate(atOffset: UInt64(TaskAttachmentImport.maximumBytes + 1)); try handle.close()
+        do { _ = try TaskAttachmentImport.read(empty); preconditionFailure("Oversized files must be rejected before reading") } catch {}
+
         pasteboard.clearContents(); pasteboard.setString("Plain text", forType: .string)
         precondition(!TaskImagePasteboard.containsImages(in: pasteboard))
         precondition(TaskImagePasteboard.providers(from: pasteboard).isEmpty)
-        print("Task image clipboard data checks passed (PNG, TIFF, JPEG, multiple images, file URL, text)")
+        print("Task attachment clipboard data checks passed (PNG, TIFF, JPEG, multiple images, file uploads, folder exclusion, text)")
     }
 
     private static func bytes(from provider: NSItemProvider, type: String) async throws -> Data {

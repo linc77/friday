@@ -98,39 +98,3 @@ private struct TaskImagePreview: View {
         #endif
     }
 }
-
-enum TaskImageImport {
-    static func data(from provider: NSItemProvider) async throws -> (Data, String) {
-        // A Finder URL is preferable to the provider's generic file representation.
-        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-            let url: URL = try await withCheckedThrowingContinuation { continuation in
-                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { value, error in
-                    if let error { continuation.resume(throwing: error) }
-                    else if let url = value as? URL { continuation.resume(returning: url) }
-                    else if let data = value as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) { continuation.resume(returning: url) }
-                    else { continuation.resume(throwing: ConnectionError.message("无法读取图片文件。")) }
-                }
-            }
-            return try read(url)
-        }
-        guard let type = provider.registeredTypeIdentifiers.first(where: { UTType($0)?.conforms(to: .image) == true }) else {
-            throw ConnectionError.message("请选择图片文件。")
-        }
-        let data: Data = try await withCheckedThrowingContinuation { continuation in
-            provider.loadDataRepresentation(forTypeIdentifier: type) { data, error in
-                if let error { continuation.resume(throwing: error) }
-                else if let data { continuation.resume(returning: data) }
-                else { continuation.resume(throwing: ConnectionError.message("无法读取图片。")) }
-            }
-        }
-        return (data, provider.suggestedName ?? "粘贴的图片.png")
-    }
-    static func read(_ url: URL) throws -> (Data, String) {
-        let accessed = url.startAccessingSecurityScopedResource()
-        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-        let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentTypeKey])
-        guard values.contentType?.conforms(to: .image) == true else { throw ConnectionError.message("请选择图片文件。") }
-        guard (values.fileSize ?? 0) <= 30 * 1024 * 1024 else { throw ConnectionError.message("请选择小于 30 MB 的图片。") }
-        return (try Data(contentsOf: url), url.lastPathComponent)
-    }
-}

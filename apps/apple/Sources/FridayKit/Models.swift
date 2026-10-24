@@ -990,6 +990,8 @@ struct TaskContextReference: Codable, Equatable, Identifiable {
     let id: String; let kind: String; let label: String; let capturedAt: String; let digest: String; let byteLength: Int
     let path: String?; let terminalId: String?; let terminalLabel: String?; let generation: Int?
     let lineStart: Int?; let lineEnd: Int?; let truncated: Bool?
+    var attachmentName: String? = nil
+    var mediaType: String? = nil
     var reviewDraft: TaskFileReviewDraft? = nil
     var annotationDraft: TaskBrowserAnnotationDraft? = nil
     var symbol: String { kind == "review-guide" ? "map" : kind == "preview-annotation" ? "cursorarrow.click" : kind == "review-comment" ? "text.bubble" : kind == "terminal" ? "terminal" : kind == "directory" ? "folder" : kind == "code" ? "chevron.left.forwardslash.chevron.right" : "doc.text" }

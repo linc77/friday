@@ -39,6 +39,7 @@ import { sourceControlRateFailure } from './source-control-request-policy.js';
 import { branchBlocksTask } from './branch-switch.js';
 import { installTerminalAPI } from './terminal-api.js';
 import { installContextAPI } from './context-api.js';
+import { maxTaskFileBytes } from './task-attachments.js';
 import { installTaskFileAssets } from './task-file-assets.js';
 import { installGitHubMediaAssets } from './github-media-assets.js';
 import { contextIDs } from './task-context-types.js';
@@ -63,9 +64,9 @@ function optionalModel(value: unknown): string | undefined {
   return value;
 }
 function taskPrompt(value: unknown, images: unknown): string {
-  if (typeof value === 'string' && value.length <= 12_000 && !value.trim() && Array.isArray(images) && images.length) return '';
-  if (typeof value === 'string' && value.trim() && value.length <= 256 * 1024 && citationPromptLength(value) <= 12_000) return value.trim();
-  return text(value, '任务要求');
+  if (typeof value === 'string' && value.length <= 120_000 && !value.trim() && Array.isArray(images) && images.length) return '';
+  if (typeof value === 'string' && value.trim() && value.length <= 512 * 1024 && citationPromptLength(value) <= 120_000) return value.trim();
+  return text(value, '任务要求', 120_000);
 }
 export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, integrations: { hostEditors?: import('./task-host-editors.js').TaskHostEditors; browserDiscovery?: import('./task-browser.js').TaskBrowserDiscovery; hostBrowsers?: import('./task-host-browser.js').TaskHostBrowsers } = {}) {
   const app = new Hono<{ Variables: { device: string } }>();
@@ -81,12 +82,14 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
   const fileEditLimit = bodyLimit({ maxSize: 6 * 1024 * 1024 + 8192 });
   const noteLimit = bodyLimit({ maxSize: 1024 * 1024 });
   const imageLimit = bodyLimit({ maxSize: Math.ceil(maxImageBytes / 3) * 4 + 4096 });
-  app.use('*', (c, next) => c.req.path === '/api/task-browser/host/upload' ? next() : c.req.path === '/api/task-contexts/browser-annotation' ? browserAnnotationLimit(c, next) : c.req.path === '/api/idea-images' ? imageLimit(c, next) : c.req.path === '/api/task-files/document' && c.req.method === 'PUT' ? fileEditLimit(c, next) : c.req.path.startsWith('/api/ideas') ? noteLimit(c, next) : /^\/api\/tasks\/[^/]+\/change-request\/operations$/.test(c.req.path) ? changeRequestLimit(c, next) : normalLimit(c, next));
+  const attachmentLimit = bodyLimit({ maxSize: maxTaskFileBytes, onError: c => c.json({ error: '附件不能超过 50 MB' }, 413) });
+  const taskMessageLimit = bodyLimit({ maxSize: 1024 * 1024 });
+  app.use('*', (c, next) => c.req.path === '/api/task-browser/host/upload' ? next() : c.req.path === '/api/task-contexts/attachments' ? attachmentLimit(c, next) : c.req.path === '/api/task-contexts/browser-annotation' ? browserAnnotationLimit(c, next) : c.req.path === '/api/idea-images' ? imageLimit(c, next) : c.req.path === '/api/task-files/document' && c.req.method === 'PUT' ? fileEditLimit(c, next) : c.req.path.startsWith('/api/ideas') ? noteLimit(c, next) : /^\/api\/tasks\/[^/]+\/change-request\/operations$/.test(c.req.path) ? changeRequestLimit(c, next) : c.req.path === '/api/tasks' || c.req.path.startsWith('/api/tasks/') ? taskMessageLimit(c, next) : normalLimit(c, next));
   app.use('*', async (c, next) => {
     c.header('Cache-Control', 'no-store'); c.header('X-Content-Type-Options', 'nosniff');
     const origin = c.req.header('Origin');
     if (origin && origin !== new URL(c.req.url).origin && !c.req.path.startsWith('/file-assets/')) return c.json({ error: '不允许跨站访问' }, 403);
-    if (['POST', 'PUT', 'PATCH'].includes(c.req.method) && !(c.req.path === '/api/task-browser/host/upload' && c.req.method === 'POST' ? c.req.header('Content-Type')?.startsWith('multipart/form-data;') : c.req.header('Content-Type')?.startsWith('application/json'))) return c.json({ error: c.req.path === '/api/task-browser/host/upload' ? '上传需要使用 multipart/form-data' : '请求需要使用 JSON' }, 415);
+    if (['POST', 'PUT', 'PATCH'].includes(c.req.method) && c.req.path !== '/api/task-contexts/attachments' && !(c.req.path === '/api/task-browser/host/upload' && c.req.method === 'POST' ? c.req.header('Content-Type')?.startsWith('multipart/form-data;') : c.req.header('Content-Type')?.startsWith('application/json'))) return c.json({ error: c.req.path === '/api/task-browser/host/upload' ? '上传需要使用 multipart/form-data' : '请求需要使用 JSON' }, 415);
     await next();
   });
   app.onError((error, c) => {

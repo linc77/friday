@@ -1,8 +1,9 @@
-export type TaskContextKind = 'terminal' | 'file' | 'directory' | 'code' | 'review-comment' | 'preview-annotation' | 'review-guide';
+export type TaskContextKind = 'terminal' | 'file' | 'directory' | 'code' | 'review-comment' | 'preview-annotation' | 'review-guide' | 'attachment';
 export type TaskContextReference = {
   id: string; kind: TaskContextKind; label: string; capturedAt: string; digest: string;
   path?: string; terminalId?: string; terminalLabel?: string; generation?: number;
   lineStart?: number; lineEnd?: number; truncated?: boolean; byteLength: number;
+  attachmentName?: string; mediaType?: string;
 };
 export type TaskContextScope = { taskId: string; projectId?: never; preparationId?: never } | { projectId: string; taskId?: never; preparationId?: string };
 export type TaskContextCapture = { reference: TaskContextReference; scope: TaskContextScope; cwd: string; text: string; intent: string };
@@ -12,7 +13,7 @@ export const contextID = (value: unknown): string => {
 };
 export const contextIDs = (value: unknown): string[] => {
   if (value === undefined) return [];
-  if (!Array.isArray(value) || value.length > 20) throw new Error('每条消息最多添加 20 个上下文引用');
+  if (!Array.isArray(value) || value.length > 100) throw new Error('每条消息最多添加 100 个附件或上下文引用');
   const ids = value.map(contextID); if (new Set(ids).size !== ids.length) throw new Error('上下文引用不能重复'); return ids;
 };
 export const contextLabel = (label: string) => label.replace(/[[\]\\\r\n]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200).replace(/[\uD800-\uDBFF]$/, '');

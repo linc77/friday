@@ -69,6 +69,15 @@ final class Connection {
     func data(_ path: String, method: String = "GET", body: [String: Any]? = nil, timeout: TimeInterval? = nil) async throws -> Data {
         var outgoing = try request(path, method: method, body: body); if let timeout { outgoing.timeoutInterval = timeout }
         let (data, response) = try await URLSession.shared.data(for: outgoing)
+        return try checked(data, response)
+    }
+    func upload(_ path: String, bytes: Data, mediaType: String) async throws -> Data {
+        var outgoing = try request(path, method: "POST"); outgoing.timeoutInterval = 180
+        outgoing.setValue(mediaType, forHTTPHeaderField: "Content-Type")
+        let (data, response) = try await URLSession.shared.upload(for: outgoing, from: bytes)
+        return try checked(data, response)
+    }
+    private func checked(_ data: Data, _ response: URLResponse) throws -> Data {
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             let failure = try? JSONDecoder().decode(APIError.self, from: data)
             if (response as? HTTPURLResponse)?.statusCode == 429 {

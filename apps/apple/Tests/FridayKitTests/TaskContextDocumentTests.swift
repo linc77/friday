@@ -2,8 +2,8 @@ import Foundation
 
 @main
 struct TaskContextDocumentTests {
-    static func reference(_ id: String, kind: String = "file", label: String = "src/中文 [file].ts") throws -> TaskContextReference {
-        let object: [String: Any] = ["id": id, "kind": kind, "label": label, "capturedAt": "2026-10-18T03:00:00Z", "digest": "captured-digest", "byteLength": 12]
+    static func reference(_ id: String, kind: String = "file", label: String = "src/中文 [file].ts", digest: String = "captured-digest") throws -> TaskContextReference {
+        let object: [String: Any] = ["id": id, "kind": kind, "label": label, "capturedAt": "2026-10-18T03:00:00Z", "digest": digest, "byteLength": 12]
         return try JSONDecoder().decode(TaskContextReference.self, from: JSONSerialization.data(withJSONObject: object))
     }
     static func main() throws {
@@ -47,6 +47,14 @@ struct TaskContextDocumentTests {
         let recovered = try JSONDecoder().decode(TaskMessageDraft.self, from: JSONEncoder().encode(queuedDraft))
         precondition(recovered.contextInsertion == pending, "A pending insertion keeps its scope and one-shot identity across reloads")
         precondition(recovered.contextInsertion?.identity != "http://host\ntask:two", "A pending reference must never enter another task's editor")
+        var attachment = try reference("ordinary-file", kind: "attachment", label: "报告.pdf")
+        attachment.attachmentName = "报告.pdf"; attachment.mediaType = "application/pdf"
+        let attachmentDraft = TaskMessageDraft(message: TaskContextDocument.token(attachment), images: [], requestId: "file-draft", contexts: [attachment])
+        let fileRoundTrip = try JSONDecoder().decode(TaskMessageDraft.self, from: JSONEncoder().encode(attachmentDraft))
+        precondition(fileRoundTrip.contexts?.first?.attachmentName == "报告.pdf" && fileRoundTrip.contexts?.first?.mediaType == "application/pdf")
+        let hundred = try (0..<100).map { try reference("file_\($0)", kind: "attachment", label: "\($0).txt", digest: "digest-\($0)") }
+        precondition(TaskContextDocument.batch(hundred, text: "draft", records: [], identity: "composer")?.insertion.additional?.count == 99)
+        precondition(TaskContextDocument.batch(hundred + [attachment], text: "draft", records: [], identity: "composer") == nil)
         print("Context reference ids, UTF-16 caret mapping, mention boundaries, late insertion, expired references and draft compatibility passed")
     }
 }

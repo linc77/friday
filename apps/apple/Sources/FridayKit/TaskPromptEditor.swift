@@ -527,7 +527,7 @@ private final class TaskNativeTextView: UITextView {
         if UIPasteboard.general.contains(pasteboardTypes: [TaskFileMentionTransfer.type]) {
             if isEditable, let payload = TaskFileMentionTransfer.read(.general), let data = payload.data { _ = fileMentions?.receive(data) }; return
         }
-        let providers = UIPasteboard.general.itemProviders.filter { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }
+        let providers = UIPasteboard.general.itemProviders.filter { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) || $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
         if !providers.isEmpty { onImages?(providers) }
         else if let text = TaskContextText.pasted() { replaceContext(selectedRange, with: renderPastedText?(text) ?? NSAttributedString(string: text)) }
     }

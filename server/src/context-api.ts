@@ -17,6 +17,19 @@ export function installContextAPI(app: Hono<{ Variables: { device: string } }>, 
   const source = (taskId?: string, projectId?: string, preparationId?: string) => ({ ...(taskId !== undefined ? { taskId, ...(projectId !== undefined ? { projectId } : {}) } : { projectId }), ...(preparationId !== undefined ? { preparationId } : {}) }) as TaskContextScope;
   app.get('/api/task-files/editors', async c => c.json(await hostEditors.snapshot(source(c.req.query('taskId'), c.req.query('projectId'), c.req.query('preparationId')), c.req.query('workspaceRoot'))));
   app.post('/api/task-files/open', async c => c.json(await hostEditors.open(await c.req.json())));
+  app.post('/api/task-contexts/attachments', async c => {
+    const scope = source(c.req.query('taskId'), c.req.query('projectId'), c.req.query('preparationId'));
+    // Authorize the selected owner before retaining the uploaded bytes.
+    await engine.contexts.owner(scope);
+    const reference = await engine.contexts.captureAttachment({ id: c.req.query('id'), scope, name: c.req.query('name'), mediaType: c.req.header('Content-Type')?.split(';')[0].trim() }, Buffer.from(await c.req.arrayBuffer()));
+    return c.json({ ...reference, snapshot: await engine.contexts.read(reference.id, scope) }, 201);
+  });
+  app.on(['GET', 'HEAD'], '/api/task-contexts/:id/content', async c => {
+    const file = await engine.contexts.attachment(c.req.param('id'), source(c.req.query('taskId'), c.req.query('projectId'), c.req.query('preparationId')));
+    const response = await taskMediaResponse(file, { method: c.req.method, range: c.req.header('Range'), ifNoneMatch: c.req.header('If-None-Match'), signal: c.req.raw.signal });
+    response.headers.set('Content-Disposition', response.headers.get('Content-Disposition')!.replace(/^inline;/, 'attachment;'));
+    return response;
+  });
   app.post('/api/task-contexts', async c => {
     const body = await c.req.json(); const reference = await engine.contexts.capture(body);
     return c.json({ ...reference, snapshot: await engine.contexts.read(reference.id, body.scope) }, 201);

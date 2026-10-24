@@ -15,30 +15,42 @@ enum IdeaImageCache {
         return root.appendingPathComponent(id)
     }
     static func localData(_ id: String) -> Data? { guard let path = try? url(id) else { return nil }; return try? Data(contentsOf: path) }
+    static func byteCount(_ id: String) -> Int { guard let path = try? url(id) else { return 0 }; return (try? path.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0 }
     static func store(_ data: Data, id: String) throws { try data.write(to: url(id), options: [.atomic, .completeFileProtectionUnlessOpen]) }
 
     @MainActor static func importImage(_ data: Data, name: String) throws -> IdeaImage {
         guard data.count <= 30 * 1024 * 1024 else { throw ConnectionError.message("请选择小于 30 MB 的图片。") }
         #if os(macOS)
         guard let original = NSImage(data: data), original.size.width > 0, original.size.height > 0 else { throw ConnectionError.message("无法读取这张图片。") }
+        #else
+        guard let original = UIImage(data: data), original.size.width > 0, original.size.height > 0 else { throw ConnectionError.message("无法读取这张图片。") }
+        #endif
+        let mediaType: String? = data.starts(with: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) ? "image/png"
+            : data.starts(with: [0xff, 0xd8, 0xff]) ? "image/jpeg"
+            : data.starts(with: Data("GIF87a".utf8)) || data.starts(with: Data("GIF89a".utf8)) ? "image/gif"
+            : data.starts(with: Data("RIFF".utf8)) && data.dropFirst(8).starts(with: Data("WEBP".utf8)) ? "image/webp" : nil
+        if let mediaType, data.count <= 10 * 1024 * 1024 {
+            let id = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            try store(data, id: id)
+            return IdeaImage(id: id, name: String(name.prefix(255)), mediaType: mediaType)
+        }
         let ratio = min(1, 2000 / max(original.size.width, original.size.height))
+        #if os(macOS)
         let size = NSSize(width: max(1, original.size.width * ratio), height: max(1, original.size.height * ratio))
         guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0), let context = NSGraphicsContext(bitmapImageRep: bitmap) else { throw ConnectionError.message("无法处理这张图片。") }
         NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = context
         original.draw(in: NSRect(origin: .zero, size: size)); NSGraphicsContext.restoreGraphicsState()
         guard let normalized = bitmap.representation(using: .png, properties: [:]) else { throw ConnectionError.message("无法处理这张图片。") }
         #else
-        guard let original = UIImage(data: data), original.size.width > 0, original.size.height > 0 else { throw ConnectionError.message("无法读取这张图片。") }
-        let ratio = min(1, 2000 / max(original.size.width, original.size.height))
         let size = CGSize(width: max(1, original.size.width * ratio), height: max(1, original.size.height * ratio))
         let format = UIGraphicsImageRendererFormat(); format.scale = 1
         let scaled = UIGraphicsImageRenderer(size: size, format: format).image { _ in original.draw(in: CGRect(origin: .zero, size: size)) }
         guard let normalized = scaled.pngData() else { throw ConnectionError.message("无法处理这张图片。") }
         #endif
-        guard normalized.count <= 8 * 1024 * 1024 else { throw ConnectionError.message("处理后的图片仍超过 8 MB，请选择较小的图片。") }
+        guard normalized.count <= 10 * 1024 * 1024 else { throw ConnectionError.message("处理后的图片仍超过 10 MB，请选择较小的图片。") }
         let id = SHA256.hash(data: normalized).map { String(format: "%02x", $0) }.joined()
         try store(normalized, id: id)
-        return IdeaImage(id: id, name: String(name.prefix(200)), mediaType: "image/png")
+        return IdeaImage(id: id, name: String(name.prefix(255)), mediaType: "image/png")
     }
 }
 

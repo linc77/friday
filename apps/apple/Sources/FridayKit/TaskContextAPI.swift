@@ -1,6 +1,16 @@
 import Foundation
 
 extension FridayStore {
+    func uploadTaskAttachment(scope: TaskContextScope, bytes: Data, name: String, mediaType: String, id: String) async throws -> TaskContextReference {
+        let server = connection.server, token = connection.token
+        var query = URLComponents(); query.queryItems = [URLQueryItem(name: "id", value: id), URLQueryItem(name: "name", value: name)]
+        let response = try await connection.upload("/api/task-contexts/attachments?\(scope.query)&\(query.percentEncodedQuery ?? "")", bytes: bytes, mediaType: mediaType)
+        let reference = try JSONDecoder().decode(TaskContextReference.self, from: response)
+        guard connection.server == server, connection.token == token else { throw ConnectionError.message("主机连接已切换") }
+        struct Captured: Decodable { let snapshot: TaskContextSnapshot }
+        if let captured = try? JSONDecoder().decode(Captured.self, from: response) { TaskContextCache.save(captured.snapshot, server: server, token: token) }
+        return reference
+    }
     func captureTaskContext(scope: TaskContextScope, input: [String: Any]) async throws -> TaskContextReference {
         let server = connection.server; let token = connection.token
         var body = input; body["scope"] = scope.body

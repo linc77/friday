@@ -17,7 +17,9 @@ struct TaskContextPreview: View {
             }
             if let snapshot {
                 Text(verbatim: snapshot.cwd).font(.caption).foregroundStyle(.secondary).lineLimit(2).textSelection(.enabled)
-                if let annotation=snapshot.browserAnnotation {
+                if reference.kind == "attachment" {
+                    TaskAttachmentDownload(store: store, reference: reference, scope: scope)
+                } else if let annotation=snapshot.browserAnnotation {
                     TaskBrowserAnnotationPreview(store:store,annotation:annotation)
                 } else if let review = snapshot.fileReview {
                     Text(verbatim: review.text).font(.body).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
