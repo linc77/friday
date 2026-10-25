@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel>
 <title>Friday Personal Preview</title><link>https://github.com/linc77/friday</link><description>Friday macOS updates</description><language>zh-CN</language>
-<item><title>Friday 0.1.0-beta.4</title><pubDate>Wed, 21 Oct 2026 01:10:58 GMT</pubDate>
+<item><title>Friday 0.1.0-beta.5</title><pubDate>Sun, 25 Oct 2026 04:46:48 GMT</pubDate>
 <description><![CDATA[<p>个人测试版，尚未经过 Developer ID 签名和 Apple 公证。</p><p>包含原生客户端、内置 Node 和后台服务。更新前请完成或停止正在执行的任务。</p>]]></description>
-<sparkle:version>4</sparkle:version><sparkle:shortVersionString>0.1.0-beta.4</sparkle:shortVersionString>
+<sparkle:version>5</sparkle:version><sparkle:shortVersionString>0.1.0-beta.5</sparkle:shortVersionString>
 <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-<enclosure url="https://github.com/linc77/friday/releases/download/v0.1.0-beta.4/Friday-0.1.0-beta.4-macOS-arm64.zip" sparkle:edSignature="qfp9g70eFX6CKRv3S9+RvmaIyJIP4SBgPdanwYMy6n41ETZPEK+SB61lCBPY49YJIBbDyPbnulMp++pdLfBGAg==" length="241181832" type="application/octet-stream"/>
+<enclosure url="https://github.com/linc77/friday/releases/download/v0.1.0-beta.5/Friday-0.1.0-beta.5-macOS-arm64.zip" sparkle:edSignature="/QvJqJW5R7y0DeVUo1XNCW1OsLYJs3T12oLRUNZJZc9uWdO1I4f05Y9VA2z0B9PuZjmyKOCsbe9vmf9iZKjzBw==" length="241850687" type="application/octet-stream"/>
 </item></channel></rss>
