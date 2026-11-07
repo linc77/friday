@@ -6,7 +6,6 @@ import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import { defineTask, type TaskId } from '@earendil-works/pi-durable';
 import type { Engine } from './engine.js';
 import { WorkspaceDoc } from './state.js';
-import { IdeaImages } from './ideas.js';
 import { branchBlocksTask } from './branch-switch.js';
 import { activeFork, headForkSourceBusy, activeRewind, activeStatuses, failedWorkspacePreparation, taskExecutionScopeMatches, type TaskExecutionScope, type IdeaImage, type QueuedTaskMessage, type WorkItem, type Workspace } from './types.js';
 import type { WatchNotification } from './task-change-request-watch-types.js';
@@ -142,7 +141,7 @@ export class TaskQueue {
   async enqueue(id: string, input: QueueMessageInput, requestId: string) {
     assertCurrentTaskMode(input);
     validRequest(requestId);
-    const images = await new IdeaImages(this.engine.directory).validate(input.images);
+    const images = await this.engine.images.validate(input.images);
     await this.engine.root.commit(async tx => {
       const state = await tx.doc(WorkspaceDoc);
       if (Object.hasOwn(state.requests, requestId)) {
@@ -203,7 +202,7 @@ export class TaskQueue {
 
   async edit(id: string, messageId: string, input: QueueMessageInput) {
     assertCurrentTaskMode(input);
-    const images = input.images === undefined ? undefined : await new IdeaImages(this.engine.directory).validate(input.images);
+    const images = input.images === undefined ? undefined : await this.engine.images.validate(input.images);
     await this.engine.root.commit(async tx => {
       const state = await tx.doc(WorkspaceDoc);
       const task = localTask(state.tasks.find(task => task.id === id));

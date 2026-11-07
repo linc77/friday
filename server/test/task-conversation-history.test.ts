@@ -6,7 +6,6 @@ import { tmpdir } from 'node:os';
 import { Engine } from '../src/engine.js';
 import { Auth } from '../src/auth.js';
 import { createAPI } from '../src/api.js';
-import { IdeaImages } from '../src/ideas.js';
 import type { ChatMessage, Executor, NativeForkRequest, NativeRewindRequest, TaskEvent, TaskRun, WorkItem } from '../src/types.js';
 
 const at = (n: number) => new Date(Date.UTC(2026, 9, 18) + n * 10).toISOString();
@@ -68,7 +67,7 @@ test('Opt-in snapshots keep ten complete user turns, including a 900-item turn, 
 
 test('Older pages load twenty whole turns and retained images, reach a selected boundary, and enumerate the entire history without duplicates', async t => {
   const { engine, directory } = await setup(t);
-  const image = await new IdeaImages(directory).save({ data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6lYQAAAAASUVORK5CYII=', name: 'original.png' });
+  const image = await engine.images.save({ data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6lYQAAAAASUVORK5CYII=', name: 'original.png' });
   await engine.mutate(state => { state.tasks[0].messages![10].images = [image]; });
   const live = await bounded(engine); const first = await engine.conversationHistory.page('task', live.conversationHistory!.nextCursor!);
   assert.equal(first.messages.length, 40); assert.equal(first.from, 60); assert.equal(first.to, 100); assert.equal(first.messages[0].id, 'user-30');

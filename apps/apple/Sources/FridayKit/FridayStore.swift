@@ -89,13 +89,27 @@ final class FridayStore: ObservableObject {
     private var taskStreams: [String: (token: UUID, task: Task<Void, Never>)] = [:]
     private var noteSyncTask: Task<Void, Never>?
     private var flushing = false
+    private var noteStorageReady = false
+    private var noteStorageLoadFailed = false
+    private var retryNoteImageUploads: Set<String> = []
     var notes: [Idea] {
         let pendingIDs = Set(outbox.map(\.id))
         return (outbox.map(\.note) + ideas.filter { !pendingIDs.contains($0.id) })
             .sorted { ($0.updatedAt ?? $0.createdAt) > ($1.updatedAt ?? $1.createdAt) }
     }
     init() {
-        if let data = UserDefaults.standard.data(forKey: "friday.outbox"), let pending = try? JSONDecoder().decode([OutboxIdea].self, from: data) { outbox = pending }
+        do {
+            let database = try ClientNoteDatabase.shared.get()
+            if let data = try database.outbox() {
+                outbox = try JSONDecoder().decode([OutboxIdea].self, from: data)
+                noteStorageReady = true
+            } else if let data = UserDefaults.standard.data(forKey: "friday.outbox") {
+                outbox = try JSONDecoder().decode([OutboxIdea].self, from: data)
+                // Keep legacy preferences/files until the complete envelope and
+                // all local originals have committed successfully.
+                if persistOutbox(outbox) { UserDefaults.standard.removeObject(forKey: "friday.outbox") }
+            } else { noteStorageReady = true }
+        } catch { noteStorageLoadFailed = true; self.error = error.localizedDescription }
         sidebarWorkingShelfEnabled = UserDefaults.standard.bool(forKey: FridayPreferenceKeys.workingShelfEnabled)
         sidebarPreferenceObserver = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: UserDefaults.standard, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -121,8 +135,9 @@ final class FridayStore: ObservableObject {
         let directory = root.appendingPathComponent("Ideas", isDirectory: true)
         for url in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] where url.pathExtension == "json" {
             guard let data = try? Data(contentsOf: url), let idea = try? JSONDecoder().decode(OutboxIdea.self, from: data) else { continue }
-            if !outbox.contains(where: { $0.id == idea.id }) { outbox.append(idea) }
-            persistOutbox()
+            var pending = outbox
+            if !pending.contains(where: { $0.id == idea.id }) { pending.append(idea) }
+            guard persistOutbox(pending) else { continue }
             try? FileManager.default.removeItem(at: url)
         }
         await flushOutbox()
@@ -138,6 +153,9 @@ final class FridayStore: ObservableObject {
         if snapshotIdentity != identity || previousHistoryGeneration != taskStreamState.historyGeneration { taskViewHistories = TaskViewHistoryCache() }
         snapshotIdentity = identity
         ideas = state.ideas; tasks = state.tasks; projects = state.projects; memories = state.memories
+        if !noteStorageReady, !noteStorageLoadFailed, persistOutbox(outbox) {
+            UserDefaults.standard.removeObject(forKey: "friday.outbox")
+        }
         TaskBrowserSessions.shared.reconcile(owner:browserClientID,connection:identity,taskIDs:Set(tasks.map(\.id)))
         taskViewHistories.retain(Set(tasks.map(\.id)))
         revision = state.revision
@@ -321,11 +339,11 @@ final class FridayStore: ObservableObject {
         // Preserve the server version on which an unsent offline edit was based.
         let version = previous != nil ? previous?.expectedUpdatedAt : expectedUpdatedAt
         let note = OutboxIdea(id: id, text: text, title: title, createdAt: createdAt, images: images, expectedUpdatedAt: version, editId: UUID().uuidString, taskId: taskId)
-        if let index = outbox.firstIndex(where: { $0.id == id }) { outbox[index] = note } else { outbox.append(note) }
+        var pending = outbox
+        if let index = pending.firstIndex(where: { $0.id == id }) { pending[index] = note } else { pending.append(note) }
         // Capture edits before any asynchronous work so leaving the editor or
         // quitting the client cannot interrupt the local save.
-        persistOutbox()
-        return true
+        return persistOutbox(pending)
     }
     func scheduleNoteSync(immediately: Bool = false) {
         noteSyncTask?.cancel()
@@ -339,10 +357,22 @@ final class FridayStore: ObservableObject {
             await flushOutbox()
         }
     }
-    private func persistOutbox() { UserDefaults.standard.set(try? JSONEncoder().encode(outbox), forKey: "friday.outbox") }
-    func persistPendingNotes() { persistOutbox() }
+    @discardableResult
+    private func persistOutbox(_ pending: [OutboxIdea]) -> Bool {
+        guard !noteStorageLoadFailed else { return false }
+        do {
+            let database = try ClientNoteDatabase.shared.get()
+            let ids = Set(pending.flatMap { ($0.images ?? []).map(\.id) })
+            for id in ids { _ = try IdeaImageCache.prepareLocalData(id) }
+            let remote = Set(ideas.flatMap { ($0.images ?? []).map(\.id) })
+            try database.replaceOutbox(JSONEncoder().encode(pending), imageIDs: ids, knownRemoteIDs: remote)
+            outbox = pending; noteStorageReady = true
+            return true
+        } catch { self.error = error.localizedDescription; return false }
+    }
+    func persistPendingNotes() { persistOutbox(outbox) }
     func flushOutbox() async {
-        guard !flushing, connected else { return }
+        guard !flushing, connected, noteStorageReady else { return }
         guard notesSupported else {
             if !outbox.isEmpty { error = "请先更新 Friday 主机以支持笔记。内容已保存在本机，更新后会继续同步。" }
             return
@@ -351,7 +381,10 @@ final class FridayStore: ObservableObject {
         var syncError: String?
         while let idea = outbox.first {
             do {
+                let knownImages = snapshotIdentity == connectionIdentity && !retryNoteImageUploads.contains(idea.id)
+                    ? Set(ideas.flatMap { ($0.images ?? []).map(\.id) }) : []
                 for image in idea.images ?? [] {
+                    if knownImages.contains(image.id) { continue }
                     // Content IDs make uploading cached images safe to retry.
                     if let data = IdeaImageCache.localData(image.id) {
                         _ = try await connection.data("/api/idea-images", method: "POST", body: ["id": image.id, "name": image.name, "data": data.base64EncodedString()])
@@ -363,19 +396,26 @@ final class FridayStore: ObservableObject {
                 let path = idea.expectedUpdatedAt == nil ? "/api/ideas" : "/api/ideas/\(idea.id)"
                 let saved = try await connection.decode(Idea.self, path, method: idea.expectedUpdatedAt == nil ? "POST" : "PUT", body: body)
                 if let index = ideas.firstIndex(where: { $0.id == saved.id }) { ideas[index] = saved } else { ideas.insert(saved, at: 0) }
-                if let index = outbox.firstIndex(where: { $0.id == idea.id }) {
+                var pending = outbox
+                if let index = pending.firstIndex(where: { $0.id == idea.id }) {
                     let sameContent = saved.text == idea.text.trimmingCharacters(in: .whitespacesAndNewlines)
                         && (saved.title ?? "") == (idea.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                         && (saved.images ?? []) == (idea.images ?? [])
-                    if outbox[index] == idea && sameContent { outbox.remove(at: index) }
+                    if pending[index] == idea && sameContent { pending.remove(at: index) }
                     else {
                         // A create may already exist after a lost response. Retain any later
                         // offline changes, then update the version actually acknowledged.
-                        outbox[index].expectedUpdatedAt = saved.updatedAt ?? saved.createdAt
+                        pending[index].expectedUpdatedAt = saved.updatedAt ?? saved.createdAt
                     }
                 }
-                persistOutbox()
-            } catch { syncError = error.localizedDescription; break }
+                guard persistOutbox(pending) else { syncError = error; break }
+                retryNoteImageUploads.remove(idea.id)
+            } catch {
+                // A legacy host may have lost an independent image file. The
+                // next retry re-uploads local originals even if metadata exists.
+                retryNoteImageUploads.insert(idea.id)
+                syncError = error.localizedDescription; break
+            }
         }
         await refresh()
         if let syncError { error = syncError }
@@ -385,8 +425,7 @@ final class FridayStore: ObservableObject {
             guard connected else { error = "连接主机后才能删除已同步的笔记。"; return false }
             guard await perform("/api/ideas/\(idea.id)", method: "DELETE") else { return false }
         }
-        outbox.removeAll { $0.id == idea.id }; persistOutbox()
-        return true
+        return persistOutbox(outbox.filter { $0.id != idea.id })
     }
     func imageData(_ id: String) async throws -> Data {
         if let data = IdeaImageCache.localData(id) { return data }

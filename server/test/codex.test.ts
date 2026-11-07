@@ -170,8 +170,8 @@ test('Conversation tools use read-only access before selection and return struct
 
 test('Codex sends uploaded images in both initial and live wire inputs', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-codex-images-')); await chmod(command, 0o755);
-  const { IdeaImages } = await import('../src/ideas.js');
-  const store = new IdeaImages(directory);
+  const { openFridayStorage } = await import('../src/durable-image-storage.js');
+  const { storage, images: store } = await openFridayStorage(directory);
   const image = await store.save({ data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j2ioAAAAASUVORK5CYII=', name: 'image.png' });
   const images = await store.resolve([image]); const executor = new CodexExecutor(command);
   try {
@@ -187,7 +187,7 @@ test('Codex sends uploaded images in both initial and live wire inputs', async (
       assert.deepEqual(input[1], { type: 'localImage', path: images[0]!.path });
       assert.equal(input[0].type, 'text');
     }
-  } finally { await rm(directory, { recursive: true, force: true }); }
+  } finally { await storage.close((await import('@earendil-works/chord/context')).BACKGROUND_CONTEXT); await rm(directory, { recursive: true, force: true }); }
 });
 
 

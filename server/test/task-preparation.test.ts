@@ -9,7 +9,7 @@ import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import { Engine } from '../src/engine.js';
 import { Auth } from '../src/auth.js';
 import { createAPI } from '../src/api.js';
-import { IdeaImages } from '../src/ideas.js';
+import type { IdeaImages } from '../src/ideas.js';
 import { planWorkspace, prepareWorkspace, retryWorkspacePlan } from '../src/task-workspace.js';
 import type { ExecutionRequest, Executor, WorkItem } from '../src/types.js';
 
@@ -59,7 +59,7 @@ test('Preparation retry retains its run, original input and images and deduplica
   const f = await fixture(); const executor = f.executor as RecordingExecutor;
   let engine = f.engine; const auth = new Auth(f.directory);
   try {
-    const image = await new IdeaImages(f.directory).save({ data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6lYQAAAAASUVORK5CYII=', name: 'original.png' });
+    const image = await f.engine.images.save({ data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6lYQAAAAASUVORK5CYII=', name: 'original.png' });
     const failed = await failedCheckout(f, [image]); const run = failed.runs![0];
     const original = await engine.harness.getTask(failed.durableId as TaskId, context);
     assert.equal(executor.calls.length, 0);

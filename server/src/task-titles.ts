@@ -3,7 +3,6 @@ import { defineTask, type TaskId, type Tx } from '@earendil-works/pi-durable';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import type { Engine } from './engine.js';
 import { WorkspaceDoc } from './state.js';
-import { IdeaImages } from './ideas.js';
 import { displayContextText } from './task-context-types.js';
 import { formatTaskTitleContext, generatedTaskTitle, limitTitleMessage, taskTitlePrompt } from './task-title-text.js';
 import type { Workspace, WorkItem } from './types.js';
@@ -63,7 +62,7 @@ export class TaskTitles {
               signal.throwIfAborted();
               await runtime.memo(key + '-linked-context', linked, ctx);
             }
-            const images = await new IdeaImages(this.engine.directory).resolve(content.images);
+            const images = await this.engine.images.resolve(content.images);
             const prompt = taskTitlePrompt(content.message, input.kind === 'regenerate' ? input.previousTitle : undefined, linked.context ?? undefined);
             const generation: WorkItem = { ...current, ...selected, modelOptions: selected.modelOptions ?? [], providerInstanceId: selected.providerInstanceId ?? selected.agent, nativeProviderAccount: undefined, codexHome: undefined, claudeHome: undefined, piHome: undefined, grokHome: undefined, id: `title-${task.id}-${attempt}`, threadId: null, turnId: null,
               cwd,

@@ -36,10 +36,10 @@ import { taskPullRequests } from './task-pull-requests.js';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import type { Models } from '@earendil-works/pi-ai/models';
 import { Harness, configure, createRegistry, defineExtension, defineTask, type Conversation, type ConversationId, type ModelRef, type TaskId, type DocumentWatch } from '@earendil-works/pi-durable';
-import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node';
+import { openFridayStorage } from './durable-image-storage.js';
 import type { Executor, ExecutionRequest, ExecutionUpdate, Workspace, WorkItem, TaskMode, TaskWorkspaceSelection, IdeaImage, TaskExecutionScope } from './types.js';
 import { activeFork, runningFork, headForkSourceBusy, headForkSourceIDs, activeGitOperation, activeRewind, activeStatuses, failedWorkspacePreparation, taskExecutionScopeMatches } from './types.js';
-import { IdeaImages } from './ideas.js';
+import type { IdeaImages } from './ideas.js';
 import { CodexExecutor } from './codex.js';
 import { fileURLToPath } from 'node:url';
 import { WorkspaceDoc } from './state.js';
@@ -151,6 +151,8 @@ export class Engine extends EventEmitter {
   readonly subagents: TaskSubagents;
   readonly subagentHistory: TaskSubagentHistory;
   harness!: Harness;
+  images!: IdeaImages;
+  private imageStorage?: Awaited<ReturnType<typeof openFridayStorage>>['storage'];
   root!: Conversation;
   watch?: DocumentWatch<Workspace>;
   async validateTaskProviderSelection(selection: TaskProviderSelection) {
@@ -357,7 +359,7 @@ export class Engine extends EventEmitter {
               preparingWorkspace = false;
             }
             if (!receipt) {
-              const executionImages = await new IdeaImages(this.directory).resolve(task.input.images);
+              const executionImages = await this.images.resolve(task.input.images);
               runtime.signal.throwIfAborted();
               let starting: Promise<void> | undefined;
               const beforeStart = () => starting ??= (async () => {
@@ -531,7 +533,10 @@ export class Engine extends EventEmitter {
       const registry = createRegistry();
       registry.install(defineExtension({ name: 'friday', tasks: [this.projectRepositories.definition, this.execution, this.response, this.branchSwitch, this.taskQueue.definition, this.projectScripts.definition, this.taskTitles.definition, this.gitOperations.definition, this.changeRequests.definition, this.changeRequestStacks.definition, this.changeRequestCheckouts.definition, this.reviewGuides.definition, this.taskRewinds.definition, this.terminals.definition, this.taskForks.definition, this.backgroundCommands.definition, this.nativeTurns.definition, this.nativeBackground.definition, this.backgroundStops.definition, this.subagents.definition, this.archives.definition, this.settles.definition, this.sessionActions.definition, this.delegations.definition, this.providerCreditResets.definition, this.taskFeedback.definition, this.usageLimitSources.definition] }));
       registry.install(this.assistant.extension);
-      this.harness = await Harness.open(await openNodeSqliteStorage(join(this.directory, 'friday.sqlite')), {
+      const persistence = await openFridayStorage(this.directory);
+      this.images = persistence.images;
+      this.imageStorage = persistence.storage;
+      this.harness = await Harness.open(persistence.storage, {
         models: this.agentOptions?.models ?? this.modelConnection.models, registry,
         settings: { toolExecution: 'sequential', retry: { maxRetries: 2 } },
         onReport: () => console.error('[Friday runtime] runtime failure'),
@@ -580,7 +585,7 @@ export class Engine extends EventEmitter {
       this.changeRequestDiscovery.start();
       this.changeRequestWatch.start();
       return this;
-    } catch (error) { await this.runtimeTools.close(); await this.changeRequestWatch.close(); await this.changeRequestSync.close(); await this.changeRequestDiscovery.close(); this.changeRequestLinks.close(); await this.sourceControl.close(); await this.terminals.close().catch(() => {}); this.contexts.close(); await this.harness?.close(context).catch(() => {}); this.lease.close(); throw error; }
+    } catch (error) { await this.runtimeTools.close(); await this.changeRequestWatch.close(); await this.changeRequestSync.close(); await this.changeRequestDiscovery.close(); this.changeRequestLinks.close(); await this.sourceControl.close(); await this.terminals.close().catch(() => {}); this.contexts.close(); await this.harness?.close(context).catch(() => {}); await this.imageStorage?.close(context).catch(() => {}); this.lease.close(); throw error; }
   }
   async snapshot(): Promise<Workspace> {
     const state: Workspace = structuredClone((await this.harness.snapshot(WorkspaceDoc, context))!);
@@ -799,8 +804,8 @@ export class Engine extends EventEmitter {
     if (previous && input.providerInstanceId !== undefined && input.providerInstanceId !== providerInstanceId) throw new Error('不能切换会话所属 Provider 实例，请新建任务');
     if (native && input.providerInstanceId !== undefined) throw new Error('Friday 主会话不使用任务 Provider 实例');
     if (!native) await this.providerInstances.get(agent as import('./provider-instances.js').ProviderDriver, providerInstanceId, true);
-    const images = await new IdeaImages(this.directory).validate(input.images);
-    const commandMessage = input.commandMessage ? { ...input.commandMessage, images: await new IdeaImages(this.directory).validate(input.commandMessage.images) } : undefined;
+    const images = await this.images.validate(input.images);
+    const commandMessage = input.commandMessage ? { ...input.commandMessage, images: await this.images.validate(input.commandMessage.images) } : undefined;
     if (commandMessage && input.command !== 'compact') throw new Error('压缩后消息需要原生压缩命令');
     if (native && images.length) throw new Error('请从我的任务中把图片发送给 Codex 或 Claude。');
     if (native && input.contextIds?.length) throw new Error('上下文引用用于本地 Agent 任务');
@@ -1144,7 +1149,7 @@ export class Engine extends EventEmitter {
       throw new Error('补充要求的发送结果尚未确认，请检查对话后再发送新的要求。');
     }
     if (task.agent !== 'friday' && task.canSteer === false) throw new Error('Agent 尚未准备好接收补充要求，请加入队列');
-    const images = await new IdeaImages(this.directory).validate(attached);
+    const images = await this.images.validate(attached);
     if (task.agent === 'friday') {
       if (contextIds?.length) throw new Error('上下文引用用于本地 Agent 任务');
       if (images.length) throw new Error('请从我的任务中把图片发送给 Codex 或 Claude。');
@@ -1155,7 +1160,7 @@ export class Engine extends EventEmitter {
       await this.patchTask(id, item => { item.events.push(event('user', text)); });
       return;
     }
-    const resolved = await new IdeaImages(this.directory).resolve(images);
+    const resolved = await this.images.resolve(images);
     const references = await this.contexts.references(text, contextIds, { task, project: snapshot.projects.find(project => project.id === task.projectId) }, images);
     // Reserve and persist the input before the external side effect. A lost receipt
     // or service crash must never cause an uncertain live message to be replayed.

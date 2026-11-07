@@ -14,9 +14,25 @@ enum IdeaImageCache {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         return root.appendingPathComponent(id)
     }
-    static func localData(_ id: String) -> Data? { guard let path = try? url(id) else { return nil }; return try? Data(contentsOf: path) }
-    static func byteCount(_ id: String) -> Int { guard let path = try? url(id) else { return 0 }; return (try? path.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0 }
-    static func store(_ data: Data, id: String) throws { try data.write(to: url(id), options: [.atomic, .completeFileProtectionUnlessOpen]) }
+    /// Note autosave checks metadata only; typing must not read every BLOB.
+    static func prepareLocalData(_ id: String) throws -> Bool {
+        let database = try ClientNoteDatabase.shared.get()
+        if try database.imageByteCount(id) != nil { return true }
+        let data: Data
+        do { data = try Data(contentsOf: url(id)) }
+        catch let error as CocoaError where error.code == .fileReadNoSuchFile { return false }
+        try database.storeImage(data, id: id)
+        return true
+    }
+    static func localData(_ id: String) -> Data? {
+        guard (try? prepareLocalData(id)) == true else { return nil }
+        return try? ClientNoteDatabase.shared.get().image(id)
+    }
+    static func byteCount(_ id: String) -> Int {
+        guard (try? prepareLocalData(id)) == true else { return 0 }
+        return (try? ClientNoteDatabase.shared.get().imageByteCount(id)) ?? 0
+    }
+    static func store(_ data: Data, id: String) throws { try ClientNoteDatabase.shared.get().storeImage(data, id: id) }
 
     @MainActor static func importImage(_ data: Data, name: String) throws -> IdeaImage {
         guard data.count <= 30 * 1024 * 1024 else { throw ConnectionError.message("请选择小于 30 MB 的图片。") }

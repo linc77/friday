@@ -8,7 +8,6 @@ import { activeStatuses, activeFork, activeRewind, type WorkItem, type Workspace
 import { executionRuns, forkMessageBoundary } from './task-run-order.js';
 import { renderHistory, selectHistory, type HistoricalMessage } from './vendor/t3-handoff-budget.mjs';
 import { TaskAttachmentFiles } from './task-attachments.js';
-import { IdeaImages } from './ideas.js';
 
 export type TaskContextTransfer = {
   id: string; kind: 'provider_handoff' | 'merge_back' | 'delegated_completion'; sourceTaskId: string; targetTaskId: string;
@@ -33,7 +32,7 @@ export class TaskTransfers {
       const run = runs.find(run => run.id === message.runId);
       let text = this.engine.contexts.project(message.text, message.contexts, message.images);
       if (message.images?.length) {
-        const files = await new IdeaImages(this.engine.directory).resolve(message.images);
+        const files = await this.engine.images.resolve(message.images);
         text += '\nHistorical image paths (inspect only when needed): ' + JSON.stringify(files.map(({ path, name, mediaType }) => ({ path, name, mediaType })));
       }
       messages.push({ role: message.role, text, threadId: source.id, runId: message.runId ?? null, itemId: message.id, providerThreadId: run?.threadId ?? null, status: run?.status ?? 'completed', kind: message.role === 'user' ? 'user_message' : 'assistant_message' });

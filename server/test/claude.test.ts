@@ -248,7 +248,7 @@ test('Claude tasks route through Durable, preserve provider/session across resta
 test('Claude sends typed image blocks in initial and live messages', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-claude-images-')); await chmod(binaryPath, 0o755);
   const connection = new ClaudeConnection(directory); const executor = new ClaudeExecutor(connection);
-  const { IdeaImages } = await import('../src/ideas.js'); const store = new IdeaImages(directory);
+  const { openFridayStorage } = await import('../src/durable-image-storage.js'); const { storage, images: store } = await openFridayStorage(directory);
   const data = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j2ioAAAAASUVORK5CYII=';
   const image = await store.save({ data, name: 'image.png' }); const images = await store.resolve([image]);
   try {
@@ -264,7 +264,7 @@ test('Claude sends typed image blocks in initial and live messages', async () =>
       assert.equal(message.message.content[0].type, 'text');
       assert.deepEqual(message.message.content[1], { type: 'image', source: { type: 'base64', media_type: 'image/png', data } });
     }
-  } finally { await connection.close(); await rm(directory, { recursive: true, force: true }); }
+  } finally { await connection.close(); await storage.close((await import('@earendil-works/chord/context')).BACKGROUND_CONTEXT); await rm(directory, { recursive: true, force: true }); }
 });
 
 

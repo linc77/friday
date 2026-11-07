@@ -7,7 +7,6 @@ import { randomUUID } from 'node:crypto';
 import { Engine } from '../src/engine.js';
 import { Auth } from '../src/auth.js';
 import { createAPI } from '../src/api.js';
-import { IdeaImages } from '../src/ideas.js';
 import type { ExecutionRequest, Executor, Workspace } from '../src/types.js';
 
 class ControlledExecutor implements Executor {
@@ -199,7 +198,7 @@ test('Connecting providers retain even an explicit steer as queued input, includ
   try {
     const id = await engine.createTask(input('readiness')); await until(engine, () => executor.calls.length === 1);
     await engine.updateExecution(id, { kind: 'ready', canSteer: false });
-    const image = await new IdeaImages(directory).save({ data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j2ioAAAAASUVORK5CYII=', name: 'queued.png' });
+    const image = await engine.images.save({ data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j2ioAAAAASUVORK5CYII=', name: 'queued.png' });
     const response = await app.request(`/api/tasks/${id}/message`, { method: 'POST', headers,
       body: JSON.stringify({ text: '', images: [image], requestId: 'image-only-queue', dispatchMode: 'steer' }) });
     assert.equal(response.status, 200);

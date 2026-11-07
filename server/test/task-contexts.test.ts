@@ -11,7 +11,7 @@ import type { Executor, ExecutionRequest } from '../src/types.js';
 import { taskGit } from '../src/git-process.js';
 import { createHash } from 'node:crypto';
 import { maxTaskFileBytes, TaskAttachmentFiles } from '../src/task-attachments.js';
-import { IdeaImages, maxImageBytes } from '../src/ideas.js';
+import { maxImageBytes } from '../src/ideas.js';
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
 import type { TaskId } from '@earendil-works/pi-durable';
 
@@ -208,7 +208,7 @@ test('T3 input and attachment limits allow 120k characters, 100 combined referen
   const owner = { project: (await engine.snapshot()).projects[0] }, images = Array.from({ length: 99 }, (_, index) => ({ id: String(index) }));
   assert.equal((await engine.contexts.references(contextLink(ref), [ref.id], owner, images)).length, 1);
   await assert.rejects(engine.contexts.references(contextLink(ref), [ref.id], owner, [...images, { id: '100' }]), /100/);
-  const imageStore = new IdeaImages(data), png = Buffer.alloc(maxImageBytes); Buffer.from('89504e470d0a1a0a', 'hex').copy(png);
+  const imageStore = engine.images, png = Buffer.alloc(maxImageBytes); Buffer.from('89504e470d0a1a0a', 'hex').copy(png);
   const image = await imageStore.save({ data: png.toString('base64'), name: 'large.png' });
   assert.equal((await imageStore.validate(Array(8).fill(image))).length, 1);
   await assert.rejects(imageStore.validate(Array(9).fill(image)), /80 MB/);

@@ -56,6 +56,7 @@ pnpm service:stop
 默认数据位置：`~/Library/Application Support/Friday/`。
 
 - `friday.sqlite`：Pi Durable 的状态、任务、想法、项目及显式记忆。
+- 笔记和任务上传的图片原始字节也保存在 `friday.sqlite` 的独立 BLOB 表，按 SHA-256 去重；状态快照只携带引用。首次运行新版会校验并迁入旧 `idea-images/`，原文件保留。该目录随后只供本地 Agent 使用，文件缺失或被修改会按数据库原图重建。
 - `artifacts/`：任务成果 Markdown。
 - `access.sqlite` / `owner-token`：设备授权及本机凭据，勿加入 Git 或公开分享。
 - `runtime/`：已安装的服务和依赖；`service*.log`：启动日志。
@@ -66,6 +67,10 @@ pnpm service:stop
 关闭客户端不影响执行。重启服务后，Friday 模型会话由 Pi Durable 接续；读取和幂等内部操作可恢复。文件写入、保存笔记和 Codex 调用为不可安全重放工具，中断后会向模型返回 interrupted，要求先核对当前状态。旧 Codex 任务仍保留原先的“待恢复”策略。取消不会撤销已经发生的改动。
 
 备份时先停止服务，再复制整个数据目录。如果需要保留 Codex 后续续聊能力，也应按其原生方式保留本地会话。不要只复制一个正在写入的 SQLite 文件。
+
+单独备份已经同步的笔记正文与图片，可在主机运行期间执行 `pnpm notes:backup /绝对路径/notes-backup.sqlite`（可用 `FRIDAY_DATA_DIR` 指定数据目录）。此命令使用 SQLite Backup API 导出一致快照，验证数据库、图片哈希和引用完整性后才发布备份文件，并拒绝覆盖已有文件。快照包含主数据库中的其他 Friday 状态；完整恢复 Friday 仍需上面的整个数据目录及原生 Agent 会话。图片迁移完成前不会生成这种单库备份。
+
+Apple 客户端将待同步笔记及本地图片保存到同一个私有 `notes.sqlite`，成功提交后才更新草稿状态；旧 UserDefaults 草稿及图片按需迁移，迁移失败保留原数据。已在主机保存、尚未下载到设备的图片作为显式远端引用保留。本机图片也供任务草稿使用，因此当前不会自动清理客户端原图。
 
 开发环境可以设置 `FRIDAY_DATA_DIR`、`FRIDAY_PORT`、`FRIDAY_HOST`；客户端本机默认端口为 4317。
 

@@ -18,7 +18,7 @@ import type { Engine } from './engine.js';
 import { Auth } from './auth.js';
 import { discoverAgents } from './agents.js';
 import { runningFork, activeGitOperation, activeRewind, activeStatuses, failedWorkspacePreparation, type TaskGitAction, type TaskRewindOperation } from './types.js';
-import { IdeaImages, ideaContent, maxImageBytes } from './ideas.js';
+import { ideaContent, maxImageBytes } from './ideas.js';
 import type { Idea } from './types.js';
 import { projectChanges } from './projects.js';
 import { TaskGitContexts, gitRefreshInterval } from './git-context.js';
@@ -70,7 +70,7 @@ function taskPrompt(value: unknown, images: unknown): string {
 }
 export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, integrations: { hostEditors?: import('./task-host-editors.js').TaskHostEditors; browserDiscovery?: import('./task-browser.js').TaskBrowserDiscovery; hostBrowsers?: import('./task-host-browser.js').TaskHostBrowsers } = {}) {
   const app = new Hono<{ Variables: { device: string } }>();
-  const images = new IdeaImages(engine.directory);
+  const images = engine.images;
   const gitContexts = new TaskGitContexts();
   const projectIdentities = new ProjectRepositoryIdentities();
   const taskGitStatuses = new TaskGitStatuses(engine.directory, engine.sourceControl);

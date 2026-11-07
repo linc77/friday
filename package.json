@@ -11,6 +11,7 @@
     "dev": "tsx watch server/src/main.ts",
     "start": "tsx server/src/main.ts",
     "typecheck": "tsc --noEmit",
+    "notes:backup": "tsx scripts/backup-notes.mjs",
     "test": "tsx --test --test-concurrency=4 server/test/*.test.ts",
     "check": "pnpm typecheck && pnpm test",
     "mac:build": "bash scripts/build-mac.sh",
