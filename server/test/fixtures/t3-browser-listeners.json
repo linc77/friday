@@ -1,0 +1,161 @@
+{
+  "source": "pingdotgg/t3code@8cd9641f76874f2ce17d6c80acd71fab1f0b99d3 apps/server/src/preview/PortScanner.ts",
+  "cases": [
+    {
+      "input": "p123\ncnode\nn*:3000\n",
+      "servers": [
+        {
+          "host": "localhost",
+          "port": 3000,
+          "url": "http://localhost:3000",
+          "processName": "node",
+          "pid": 123
+        }
+      ]
+    },
+    {
+      "input": "p123\ncnode\nn[::1]:8080\nnp123:4\n",
+      "servers": [
+        {
+          "host": "localhost",
+          "port": 8080,
+          "url": "http://localhost:8080",
+          "processName": "node",
+          "pid": 123
+        }
+      ]
+    },
+    {
+      "input": "p55\ncp npm\nn127.0.0.1:5173\nn*:5173\nnlocalhost:80\n",
+      "servers": [
+        {
+          "host": "localhost",
+          "port": 80,
+          "url": "http://localhost:80",
+          "processName": "p npm",
+          "pid": 55
+        },
+        {
+          "host": "localhost",
+          "port": 5173,
+          "url": "http://localhost:5173",
+          "processName": "p npm",
+          "pid": 55
+        }
+      ]
+    },
+    {
+      "input": "p1\ncsshd\nn192.168.1.5:22\nn[fe80::1]:333\n",
+      "servers": []
+    },
+    {
+      "input": "p4\ncserver\nn*:0\nn*:65536\nn*:65535\n",
+      "servers": [
+        {
+          "host": "localhost",
+          "port": 65535,
+          "url": "http://localhost:65535",
+          "processName": "server",
+          "pid": 4
+        }
+      ]
+    },
+    {
+      "input": "pbad\ncnone\nn*:4000\np33\ncreal\nn*:4000\n",
+      "servers": [
+        {
+          "host": "localhost",
+          "port": 4000,
+          "url": "http://localhost:4000",
+          "processName": "none",
+          "pid": null
+        }
+      ]
+    },
+    {
+      "input": "p123\ncnode\nn*:8080 (LISTEN)\nn*:777x\n",
+      "servers": [
+        {
+          "host": "localhost",
+          "port": 777,
+          "url": "http://localhost:777",
+          "processName": "node",
+          "pid": 123
+        },
+        {
+          "host": "localhost",
+          "port": 8080,
+          "url": "http://localhost:8080",
+          "processName": "node",
+          "pid": 123
+        }
+      ]
+    },
+    {
+      "input": "p12\ncnode\nn*:5000\np22cpython\nn*:5000\nn0.0.0.0:6000\n",
+      "servers": [
+        {
+          "host": "localhost",
+          "port": 5000,
+          "url": "http://localhost:5000",
+          "processName": "node",
+          "pid": 12
+        },
+        {
+          "host": "localhost",
+          "port": 6000,
+          "url": "http://localhost:6000",
+          "processName": null,
+          "pid": 22
+        }
+      ]
+    },
+    {
+      "input": "p0\nc \nn*:1000\n",
+      "servers": [
+        {
+          "host": "localhost",
+          "port": 1000,
+          "url": "http://localhost:1000",
+          "processName": null,
+          "pid": null
+        }
+      ]
+    },
+    {
+      "input": "p9\ncapp\nn[::]:3000\nn::1:3001\n",
+      "servers": [
+        {
+          "host": "localhost",
+          "port": 3000,
+          "url": "http://localhost:3000",
+          "processName": "app",
+          "pid": 9
+        },
+        {
+          "host": "localhost",
+          "port": 3001,
+          "url": "http://localhost:3001",
+          "processName": "app",
+          "pid": 9
+        }
+      ]
+    },
+    {
+      "input": "p12x\ncpid\nn*:3000\n",
+      "servers": [
+        {
+          "host": "localhost",
+          "port": 3000,
+          "url": "http://localhost:3000",
+          "processName": "pid",
+          "pid": 12
+        }
+      ]
+    },
+    {
+      "input": "",
+      "servers": []
+    }
+  ]
+}

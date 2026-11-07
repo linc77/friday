@@ -1,0 +1,161 @@
+{
+  "source": "pingdotgg/t3code@8cd9641f76874f2ce17d6c80acd71fab1f0b99d3 packages/shared/src/preview.ts",
+  "cases": [
+    {
+      "input": "localhost:3000",
+      "url": "http://localhost:3000/"
+    },
+    {
+      "input": "localhost",
+      "url": "http://localhost/"
+    },
+    {
+      "input": "127.0.0.1:8080/a?x=1#section",
+      "url": "http://127.0.0.1:8080/a?x=1#section"
+    },
+    {
+      "input": "0.0.0.0:5173",
+      "url": "http://0.0.0.0:5173/"
+    },
+    {
+      "input": "[::1]:3000",
+      "url": "http://[::1]:3000/"
+    },
+    {
+      "input": "[::]:3000",
+      "url": "http://[::]:3000/"
+    },
+    {
+      "input": "LOCALHOST:3/a",
+      "url": "http://localhost:3/a"
+    },
+    {
+      "input": "devbox:8080",
+      "url": "https://devbox:8080/"
+    },
+    {
+      "input": "example.com",
+      "url": "https://example.com/"
+    },
+    {
+      "input": "example.com:8080/path",
+      "url": "https://example.com:8080/path"
+    },
+    {
+      "input": "https://example.com/a b",
+      "url": "https://example.com/a%20b"
+    },
+    {
+      "input": "http://user:pass@example.com/",
+      "url": "http://user:pass@example.com/"
+    },
+    {
+      "input": "你好 世界",
+      "url": "https://duckduckgo.com/?q=%E4%BD%A0%E5%A5%BD%20%E4%B8%96%E7%95%8C"
+    },
+    {
+      "input": "hello world",
+      "url": "https://duckduckgo.com/?q=hello%20world"
+    },
+    {
+      "input": "hello",
+      "url": "https://duckduckgo.com/?q=hello"
+    },
+    {
+      "input": "foo bar/baz",
+      "url": "https://duckduckgo.com/?q=foo%20bar%2Fbaz"
+    },
+    {
+      "input": "about:blank",
+      "error": true
+    },
+    {
+      "input": "javascript:alert(1)",
+      "error": true
+    },
+    {
+      "input": "file:///tmp/a",
+      "error": true
+    },
+    {
+      "input": "data:text/plain,hi",
+      "error": true
+    },
+    {
+      "input": "mailto:a@example.com",
+      "error": true
+    },
+    {
+      "input": "ssh://host",
+      "error": true
+    },
+    {
+      "input": "wss://host",
+      "error": true
+    },
+    {
+      "input": "//example.com",
+      "url": "https://duckduckgo.com/?q=%2F%2Fexample.com"
+    },
+    {
+      "input": "http:example.com",
+      "error": true
+    },
+    {
+      "input": "https:example.com",
+      "error": true
+    },
+    {
+      "input": "",
+      "error": true
+    },
+    {
+      "input": "  ",
+      "error": true
+    },
+    {
+      "input": "http://[bad",
+      "error": true
+    },
+    {
+      "input": "https://例子.中国/页面?q=你好",
+      "url": "https://xn--fsqu00a.xn--fiqs8s/%E9%A1%B5%E9%9D%A2?q=%E4%BD%A0%E5%A5%BD"
+    },
+    {
+      "input": "example.com/#a",
+      "url": "https://example.com/#a"
+    },
+    {
+      "input": "127.1:3000",
+      "url": "https://127.0.0.1:3000/"
+    },
+    {
+      "input": "tel:123",
+      "error": true
+    },
+    {
+      "input": "foo:bar",
+      "error": true
+    },
+    {
+      "input": "foo:80",
+      "url": "https://foo:80/"
+    },
+    {
+      "input": "https://example.com:443/path",
+      "url": "https://example.com/path"
+    },
+    {
+      "input": "http://example.com:80/path",
+      "url": "http://example.com/path"
+    },
+    {
+      "input": "example.com.",
+      "url": "https://example.com./"
+    },
+    {
+      "input": "[::ffff:127.0.0.1]:3000",
+      "url": "https://[::ffff:7f00:1]:3000/"
+    }
+  ]
+}

@@ -1,0 +1,150 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm, chmod, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { defaultPiSettings, PiConnection, piLaunchArgs, piModelInventory, validatePiSettings } from '../src/pi-provider.js';
+import { PiExecutor } from '../src/pi.js';
+import { piFramer } from '../src/pi-rpc.js';
+import { piActiveBranch } from '../src/pi-history.js';
+import type { ExecutionUpdate, WorkItem } from '../src/types.js';
+import { terminalProviderEnvironment } from '../src/terminal-provider-environment.js';
+
+const fixture = fileURLToPath(new URL('./fixtures/pi.mjs', import.meta.url));
+const work = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'pi-task', agent: 'pi', cwd, title: 'Pi fixture', model: 'fixture/small', reasoningEffort: 'medium', currentRunId: 'pi-run-1', events: [], approvals: [], threadId: null, ...changes }) as WorkItem;
+async function setup(t: { after: (fn: () => Promise<unknown>) => void }) {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-pi-')), connection = new PiConnection(directory), executor = new PiExecutor(connection), wire = join(directory, 'wire.jsonl');
+  t.after(async () => { await executor.close(); await rm(directory, { recursive: true, force: true }); });
+  await chmod(fixture, 0o755);
+  await connection.save({ ...defaultPiSettings, enabled: true, binaryPath: fixture, homePath: join(directory, 'account'), environment: [{ name: 'PI_TEST_WIRE', value: wire }] });
+  const trace = async () => (await readFile(wire, 'utf8')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+  return { directory, connection, executor, trace };
+}
+async function until(read: () => Promise<boolean>) { const end = Date.now() + 5000; while (!await read()) { if (Date.now() > end) throw new Error('Pi fixture timed out'); await new Promise(resolve => setTimeout(resolve, 10)); } }
+test('Pi independent generation disables tools/extensions, persists the actual request before prompt and never borrows foreground history', async t => {
+  const fixture = await setup(t), updates: ExecutionUpdate[] = [];
+  const result = await fixture.executor.generateText({ task: work(fixture.directory, { threadId: '/unrelated/foreground.json', piHome: '/unrelated/account' }), purpose: 'task_title', prompt: 'Title', signal: AbortSignal.timeout(5000), update: async update => { updates.push(update); if (update.kind === 'turn') assert.ok(!(await fixture.trace()).some(value => value.type === 'prompt')); } });
+  assert.ok(result.includes('Pi'));
+  const trace = await fixture.trace(), prompt = trace.find(value => value.type === 'prompt');
+  assert.ok(prompt.argv.includes('--no-session')); assert.ok(prompt.argv.includes('--no-extensions')); assert.ok(prompt.argv.includes('--no-tools'));
+  assert.ok(!trace.some(value => value.type === 'switch_session'));
+  assert.ok(updates.some(value => value.kind === 'turn' && value.turnId === prompt.id));
+});
+test('Pi subagents use native details.results identity and lifecycle rather than tool output text', async t => {
+  const f = await setup(t), updates: ExecutionUpdate[] = [];
+  await f.executor.run({ task: work(f.directory), prompt: 'children', signal: AbortSignal.timeout(5000), update: async value => { updates.push(value); } });
+  const children = updates.filter(value => value.kind === 'subagent'), child = children.at(-1)!;
+  assert.equal(child.subagent.provider, 'pi'); assert.equal(child.subagent.nativeId, 'subagent-native:subagent:1');
+  assert.equal(child.subagent.status, 'completed'); assert.equal(child.subagent.result, 'Pi child result'); assert.equal(child.subagent.model, 'fixture/child');
+  assert.equal(new Set(children.map(value => value.subagent.id)).size, 1); assert.ok(children.some(value => value.subagent.status === 'running'));
+});
+
+test('Pi JSONL framing preserves Unicode separators and discards only an oversized LF frame', () => {
+  const frame = piFramer(80);
+  assert.deepEqual(frame('{"text":"café\u2028line\u2029end"}\r'), []);
+  assert.deepEqual(frame('\n'), ['{"text":"café\u2028line\u2029end"}']);
+  assert.deepEqual(frame('x'.repeat(100) + '\n{"next":true}\n'), ['{"next":true}']);
+});
+test('Pi history follows only complete active ancestry, never discarded append order', () => {
+  const entry = (id: string, parentId: string | null) => ({ id, parentId, type: 'message', message: { role: 'user' } });
+  const entries = [entry('root', null), entry('discarded', 'root'), entry('kept', 'root'), entry('discarded-later', 'discarded')];
+  assert.deepEqual(piActiveBranch({ entries, leafId: 'kept' }).map(value => value.id), ['root', 'kept']);
+  assert.throws(() => piActiveBranch({ entries, leafId: 'missing' }), /不完整/);
+  assert.throws(() => piActiveBranch({ entries: [entry('cycle', 'cycle')], leafId: 'cycle' }), /循环/);
+});
+test('Pi forks and rewinds exact native tree boundaries, retains source history and only inspects lost acknowledgements', async t => {
+  const f = await setup(t), runs: any[] = []; let threadId = '';
+  for (let index = 0; index < 2; index++) {
+    const run: any = { id: 'run-' + index, turnId: 'pi:run-' + index };
+    await f.executor.run({ task: work(f.directory, { currentRunId: run.id, threadId: threadId || null }), prompt: 'reply', signal: AbortSignal.timeout(5000), update: async update => {
+      if (update.kind === 'session') threadId = run.threadId = update.threadId;
+      if (update.kind === 'nativeHead') { run.nativeHead = update.head; run.nativeTurnIds = update.turnIds; }
+    } });
+    assert.equal(run.nativeTurnIds.length, 1); runs.push(run);
+  }
+  const source = work(f.directory, { threadId, piHome: join(f.directory, 'account'), runs }), sourceBytes = await readFile(threadId, 'utf8');
+  let started = false, candidate = '';
+  const request = { task: source, run: runs[0], expectedTurns: runs[0].nativeTurnIds, title: 'Fork', inspectOnly: false, signal: AbortSignal.timeout(5000), started: async () => { started = true; }, candidate: async (id: string) => { assert.ok(started); candidate = id; } };
+  const forked = await f.executor.fork(request);
+  assert.equal(forked.threadId, candidate); assert.notEqual(candidate, threadId); assert.equal(forked.turnIds[runs[0].turnId], runs[0].nativeTurnIds[0]);
+  assert.equal(piActiveBranch(JSON.parse(await readFile(candidate, 'utf8'))).filter(value => value.message?.role === 'user').length, 1);
+  const beforeInspect = (await f.trace()).filter(value => value.type === 'fork').length;
+  await f.executor.fork({ ...request, candidateId: candidate, inspectOnly: true, started: async () => assert.fail('inspection cannot fork') });
+  await assert.rejects(f.executor.fork({ ...request, inspectOnly: true }), /不会重复创建/);
+  assert.equal((await f.trace()).filter(value => value.type === 'fork').length, beforeInspect);
+  let original: any, rewindCandidate = '';
+  const rewind = { task: source, targetTurnId: runs[1].nativeTurnIds[0], removeTurns: runs[1].nativeTurnIds, keepTurns: runs[0].nativeTurnIds, signal: AbortSignal.timeout(5000), started: async (value: any) => { original = value; }, candidate: async (value: string) => { assert.ok(original); rewindCandidate = value; } };
+  const result = await f.executor.rewind(rewind);
+  assert.equal(result.threadId, rewindCandidate); assert.deepEqual(result.turns, runs[0].nativeTurnIds); assert.equal(await readFile(threadId, 'utf8'), sourceBytes);
+  assert.equal((await f.executor.rewind({ ...rewind, original, inspectOnly: true, task: { ...source, threadId: rewindCandidate }, started: async () => assert.fail('cannot repeat rewind') })).state, 'applied');
+  assert.equal((await f.executor.rewind({ ...rewind, original, inspectOnly: true })).state, 'unchanged');
+  await assert.rejects(f.executor.rewind({ ...rewind, removeTurns: ['unknown'] }), /边界不一致/);
+  assert.ok((await f.trace()).filter(value => value.type === 'fork').every(value => value.argv.includes('--no-extensions') && value.argv.includes('--no-tools')));
+});
+test('Pi model reasoning options follow native per-model maps and custom model IDs imply no capabilities', async () => {
+  const inputs = [{ provider: 'f', id: 'base', reasoning: true }, { provider: 'f', id: 'extra', reasoning: true, thinkingLevelMap: { high: null, xhigh: 9999, max: null } }, { provider: 'f', id: 'plain', reasoning: false }];
+  const models = piModelInventory({ models: inputs }, { model: inputs[1], thinkingLevel: 'high' });
+  assert.deepEqual(models[1]!.reasoningEfforts, ['off', 'minimal', 'low', 'medium', 'high']);
+  assert.deepEqual(models[2]!.reasoningEfforts, ['off', 'minimal', 'low', 'medium', 'xhigh']); assert.equal(models[2]!.defaultReasoningEffort, 'xhigh');
+  assert.deepEqual(models[3]!.reasoningEfforts, []); assert.throws(() => piModelInventory({ models: [{}] }, {}), /原生身份/);
+  for (const args of ['--mode rpc', '--session x', '--print hello', 'prompt', '@file', '--model', '--resume', '-- --not-a-flag']) assert.throws(() => piLaunchArgs(args), /参数|提示词/);
+  assert.deepEqual(piLaunchArgs('--model=provider/model --thinking high --custom-extension-flag="a b" --offline'), ['--model', 'provider/model', '--thinking', 'high', '--custom-extension-flag=a b', '--offline']);
+  assert.throws(() => validatePiSettings({ ...defaultPiSettings, permissionMode: 'plan' }), /权限|规划/);
+  assert.equal(validatePiSettings({ ...defaultPiSettings, permissionMode: 'acceptEdits' }).permissionMode, 'acceptEdits');
+});
+test('Pi owner settings redact credentials, preserve masked secrets, discover real commands and keep terminal account identity', async t => {
+  const { directory, connection } = await setup(t);
+  await connection.save({ ...defaultPiSettings, enabled: true, binaryPath: fixture, homePath: join(directory, 'account'), environment: [{ name: 'FIXTURE_KEY', value: 'never-public' }], customModels: [{ id: 'custom/model', name: 'Custom' }] });
+  const owner = await connection.status(true), remote = await connection.status(false);
+  assert.equal(owner.connected, true); assert.equal(remote.settings, null); assert.equal(owner.settings!.environment[0]!.value, null); assert.ok(!JSON.stringify(owner).includes('never-public'));
+  assert.deepEqual(owner.models.find(value => value.id === 'custom/model')?.reasoningEfforts, []);
+  await connection.save(owner.settings); assert.equal(JSON.parse(await readFile(join(directory, 'pi-provider.json'), 'utf8')).environment[0].value, 'never-public');
+  const workspace = await connection.workspace(directory); assert.equal(workspace.commands[0]!.name, 'compact'); assert.equal(workspace.commands[1]!.name, 'native-command'); assert.equal(workspace.skills[0]!.name, 'fixture');
+  const environment = await terminalProviderEnvironment(directory, { agent: 'pi', piHome: join(directory, 'account') }); assert.equal(environment.FIXTURE_KEY, 'never-public');
+  await assert.rejects(terminalProviderEnvironment(directory, { agent: 'pi', piHome: join(directory, 'other') }), /配置已改变/);
+});
+test('Pi persists the native session before prompt, streams Unicode output and resumes the same native file', async t => {
+  const { directory, connection, executor, trace } = await setup(t), before = join(directory, 'external-start');
+  const saved = (await connection.status(true)).settings!; await connection.save({ ...saved, environment: [...saved.environment, { name: 'PI_TEST_BEFORE_START', value: before }] });
+  const updates: ExecutionUpdate[] = []; let threadId = '';
+  const run = (task: WorkItem) => executor.run({ task, prompt: 'reply', signal: new AbortController().signal, update: async value => { updates.push(value); if (value.kind === 'session') threadId = value.threadId; }, beforeStart: async () => { assert.ok(threadId); await writeFile(before, threadId); } });
+  assert.equal(await run(work(directory)), 'Pi reply café\u2028line\u2029end');
+  const first = threadId; assert.ok(updates.some(value => value.kind === 'item' && value.item.kind === 'reasoning'));
+  assert.ok(updates.some(value => value.kind === 'item' && value.item.kind === 'command' && value.item.status === 'completed' && value.item.detail === 'fixture'));
+  assert.ok(updates.some(value => value.kind === 'contextUsage' && value.usage?.usedTokens === 123 && value.usage.maxTokens === 8192));
+  await run(work(directory, { currentRunId: 'pi-run-2', threadId: first, piHome: join(directory, 'account') })); assert.equal(threadId, first);
+  const records = await trace(), prompts = records.filter(value => value.type === 'prompt'); assert.equal(prompts.length, 2); assert.ok(prompts.every(value => value.sessionFile === first));
+  assert.equal(new Set(prompts.map(value => value.pid)).size, 1, 'Warm continuation retains the native RPC process');
+  assert.equal(records.filter(value => value.type === 'switch_session').length, 0, 'A warm native file is not switched or replayed');
+  await executor.stopNativeSession('pi-task', updates.filter(value => value.kind === 'session').at(-1)!.executionSessionId!);
+  await run(work(directory, { currentRunId: 'pi-run-3', threadId: first, piHome: join(directory, 'account') }));
+  const cold = await trace(); assert.ok(cold.some(value => value.type === 'switch_session' && value.sessionPath === first));
+  assert.equal(cold.filter(value => value.type === 'prompt').length, 3);
+  await assert.rejects(run(work(directory, { piHome: join(directory, 'other') })), /配置目录/);
+});
+test('Pi native approval and question responses retain native IDs and session grants survive continued rounds', async t => {
+  const { directory, executor, trace } = await setup(t); let threadId = '', approvals = 0;
+  const update = async (value: ExecutionUpdate) => {
+    if (value.kind === 'session') threadId = value.threadId;
+    if (value.kind === 'approval') { approvals++; await executor.answer('pi-task', value.approval.id, 'acceptForSession', value.approval.questions.length ? { [value.approval.questions[0]!.id]: ['Two'] } : {}); }
+  };
+  assert.equal(await executor.run({ task: work(directory), prompt: 'approval', signal: new AbortController().signal, update }), 'Approved native reply');
+  assert.equal(await executor.run({ task: work(directory, { threadId }), prompt: 'approval', signal: new AbortController().signal, update }), 'Approved native reply'); assert.equal(approvals, 1);
+  await executor.run({ task: work(directory, { threadId }), prompt: 'question', signal: new AbortController().signal, update }); assert.equal(approvals, 2);
+  const records = await trace(); assert.ok(records.some(value => value.type === 'extension_ui_response' && value.value === 'Two')); assert.ok(records.some(value => value.nativeResponse?.confirmed === true));
+});
+test('Pi cancellation terminates its real process group and native errors do not complete as successful text', async t => {
+  const { directory, executor, trace } = await setup(t), controller = new AbortController();
+  const running = executor.run({ task: work(directory), prompt: 'hold', signal: controller.signal, update: async () => {} });
+  await until(async () => (await trace()).some(value => value.child)); const child = (await trace()).find(value => value.child)!.child;
+  controller.abort(); await assert.rejects(running, /已中止/);
+  await until(async () => { try { process.kill(child, 0); return false; } catch { return true; } });
+  await assert.rejects(executor.run({ task: work(directory), prompt: 'error', signal: new AbortController().signal, update: async () => {} }), /Native model failure/);
+});
+test('Pi native settlement before the local question timeout cannot leave its run waiting forever', async t => {
+  const f = await setup(t), updates: ExecutionUpdate[] = [];
+  assert.equal(await f.executor.run({ task: work(f.directory), prompt: 'timeout', signal: AbortSignal.timeout(3000), update: async value => { updates.push(value); } }), '');
+  assert.ok(updates.some(value => value.kind === 'approvalResolved' && value.expired === true));
+  assert.equal((await f.trace()).filter(value => value.type === 'extension_ui_response').length, 0);
+});

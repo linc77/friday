@@ -34,9 +34,16 @@ struct TaskExecutionLocationPicker: View {
     let options: TaskWorkspaceOptions?
 
     var body: some View {
-        HStack(spacing: 8) {
-            choice("checkout", title: "当前工作区")
-            choice("worktree", title: "New Worktree")
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                choice("checkout", title: "当前工作区")
+                choice("worktree", title: "New Worktree")
+            }
+            if selection.mode == "worktree" {
+                Toggle(isOn: Binding(get: { selection.startFromOrigin ?? options?.preparationDefaults?.newWorktreesStartFromOrigin ?? true }, set: { selection.startFromOrigin = $0 })) {
+                    Text(friday: "从 origin 最新提交开始").font(.caption)
+                }.toggleStyle(.switch).controlSize(.small).padding(.horizontal, 10).padding(.bottom, 6).fridayInteractiveCursor()
+            }
         }
         .padding(5).background(FridayTheme.surface, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.10), lineWidth: 1))

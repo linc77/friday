@@ -1,0 +1,2584 @@
+{
+  "source": "@pierre/diffs@1.5.2 TextDocument + applyDocumentChangeToLineAnnotations; T3code 8cd9641 fileCommentAnnotations.ts",
+  "cases": [
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 0,
+        "length": 0
+      },
+      "replacement": "new\n",
+      "after": "new\na\nb\nc\nd\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 2,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        },
+        {
+          "start": 5,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 0,
+        "length": 3
+      },
+      "replacement": "x",
+      "after": "x\nc\nd\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 0,
+        "length": 8
+      },
+      "replacement": "",
+      "after": "",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": []
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 0,
+        "length": 0
+      },
+      "replacement": "\n\n",
+      "after": "\n\na\nb\nc\nd\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 3,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        },
+        {
+          "start": 5,
+          "end": 6
+        },
+        {
+          "start": 6,
+          "end": 7
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 2,
+        "length": 0
+      },
+      "replacement": "new\n",
+      "after": "a\nnew\nb\nc\nd\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        },
+        {
+          "start": 5,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 2,
+        "length": 3
+      },
+      "replacement": "x",
+      "after": "a\nx\nd\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 2,
+        "length": 6
+      },
+      "replacement": "",
+      "after": "a\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 2,
+        "length": 0
+      },
+      "replacement": "\n\n",
+      "after": "a\n\n\nb\nc\nd\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        },
+        {
+          "start": 5,
+          "end": 6
+        },
+        {
+          "start": 6,
+          "end": 7
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 1,
+        "length": 0
+      },
+      "replacement": "new\n",
+      "after": "anew\n\nb\nc\nd\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        },
+        {
+          "start": 5,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 1,
+        "length": 3
+      },
+      "replacement": "x",
+      "after": "axc\nd\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 1,
+        "length": 7
+      },
+      "replacement": "",
+      "after": "a",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 1,
+        "length": 0
+      },
+      "replacement": "\n\n",
+      "after": "a\n\n\nb\nc\nd\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        },
+        {
+          "start": 5,
+          "end": 6
+        },
+        {
+          "start": 6,
+          "end": 7
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 8,
+        "length": 0
+      },
+      "replacement": "new\n",
+      "after": "a\nb\nc\nd\nnew\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 5,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 8,
+        "length": 0
+      },
+      "replacement": "x",
+      "after": "a\nb\nc\nd\nx",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 8,
+        "length": 0
+      },
+      "replacement": "",
+      "after": "a\nb\nc\nd\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "source": "a\nb\nc\nd\n",
+      "range": {
+        "location": 8,
+        "length": 0
+      },
+      "replacement": "\n\n",
+      "after": "a\nb\nc\nd\n\n\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 6,
+          "end": 7
+        }
+      ]
+    },
+    {
+      "source": "\n\n\n",
+      "range": {
+        "location": 0,
+        "length": 0
+      },
+      "replacement": "new\n",
+      "after": "new\n\n\n\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 2,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "source": "\n\n\n",
+      "range": {
+        "location": 0,
+        "length": 3
+      },
+      "replacement": "x",
+      "after": "x",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": []
+    },
+    {
+      "source": "\n\n\n",
+      "range": {
+        "location": 0,
+        "length": 3
+      },
+      "replacement": "",
+      "after": "",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": []
+    },
+    {
+      "source": "\n\n\n",
+      "range": {
+        "location": 0,
+        "length": 0
+      },
+      "replacement": "\n\n",
+      "after": "\n\n\n\n\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 3,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        },
+        {
+          "start": 5,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "source": "\n\n\n",
+      "range": {
+        "location": 1,
+        "length": 0
+      },
+      "replacement": "new\n",
+      "after": "\nnew\n\n\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "source": "\n\n\n",
+      "range": {
+        "location": 1,
+        "length": 2
+      },
+      "replacement": "x",
+      "after": "\nx",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ]
+    },
+    {
+      "source": "\n\n\n",
+      "range": {
+        "location": 1,
+        "length": 2
+      },
+      "replacement": "",
+      "after": "\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ]
+    },
+    {
+      "source": "\n\n\n",
+      "range": {
+        "location": 1,
+        "length": 0
+      },
+      "replacement": "\n\n",
+      "after": "\n\n\n\n\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        },
+        {
+          "start": 5,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "source": "\n\n\n",
+      "range": {
+        "location": 3,
+        "length": 0
+      },
+      "replacement": "new\n",
+      "after": "\n\n\nnew\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "source": "\n\n\n",
+      "range": {
+        "location": 3,
+        "length": 0
+      },
+      "replacement": "x",
+      "after": "\n\n\nx",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ]
+    },
+    {
+      "source": "\n\n\n",
+      "range": {
+        "location": 3,
+        "length": 0
+      },
+      "replacement": "",
+      "after": "\n\n\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ]
+    },
+    {
+      "source": "\n\n\n",
+      "range": {
+        "location": 3,
+        "length": 0
+      },
+      "replacement": "\n\n",
+      "after": "\n\n\n\n\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 5,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 0,
+        "length": 0
+      },
+      "replacement": "new\n",
+      "after": "new\nα🙂\n二\nthree",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 2,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 0,
+        "length": 3
+      },
+      "replacement": "x",
+      "after": "x\n二\nthree",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 0,
+        "length": 11
+      },
+      "replacement": "",
+      "after": "",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": []
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 0,
+        "length": 0
+      },
+      "replacement": "\n\n",
+      "after": "\n\nα🙂\n二\nthree",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 3,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 4,
+        "length": 0
+      },
+      "replacement": "new\n",
+      "after": "α🙂\nnew\n二\nthree",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 4,
+        "length": 3
+      },
+      "replacement": "x",
+      "after": "α🙂\nxhree",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 4,
+        "length": 7
+      },
+      "replacement": "",
+      "after": "α🙂\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 4,
+        "length": 0
+      },
+      "replacement": "\n\n",
+      "after": "α🙂\n\n\n二\nthree",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 1,
+        "length": 0
+      },
+      "replacement": "new\n",
+      "after": "αnew\n🙂\n二\nthree",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 1,
+        "length": 3
+      },
+      "replacement": "x",
+      "after": "αx二\nthree",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 1,
+        "length": 10
+      },
+      "replacement": "",
+      "after": "α",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 1,
+        "length": 0
+      },
+      "replacement": "\n\n",
+      "after": "α\n\n🙂\n二\nthree",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 11,
+        "length": 0
+      },
+      "replacement": "new\n",
+      "after": "α🙂\n二\nthreenew\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 11,
+        "length": 0
+      },
+      "replacement": "x",
+      "after": "α🙂\n二\nthreex",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 11,
+        "length": 0
+      },
+      "replacement": "",
+      "after": "α🙂\n二\nthree",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ]
+    },
+    {
+      "source": "α🙂\n二\nthree",
+      "range": {
+        "location": 11,
+        "length": 0
+      },
+      "replacement": "\n\n",
+      "after": "α🙂\n二\nthree\n\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 0,
+        "length": 0
+      },
+      "replacement": "new\r\n",
+      "after": "new\r\na\r\nb\r\nc\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 2,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 0,
+        "length": 3
+      },
+      "replacement": "x",
+      "after": "xb\r\nc\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 0,
+        "length": 9
+      },
+      "replacement": "",
+      "after": "",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": []
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 0,
+        "length": 0
+      },
+      "replacement": "\r\n\r\n",
+      "after": "\r\n\r\na\r\nb\r\nc\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 3,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        },
+        {
+          "start": 5,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 3,
+        "length": 0
+      },
+      "replacement": "new\r\n",
+      "after": "a\r\nnew\r\nb\r\nc\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 3,
+        "length": 3
+      },
+      "replacement": "x",
+      "after": "a\r\nxc\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 3,
+        "length": 6
+      },
+      "replacement": "",
+      "after": "a\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 3,
+        "length": 0
+      },
+      "replacement": "\r\n\r\n",
+      "after": "a\r\n\r\n\r\nb\r\nc\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        },
+        {
+          "start": 5,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 1,
+        "length": 0
+      },
+      "replacement": "new\r\n",
+      "after": "anew\r\n\r\nb\r\nc\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 1,
+        "length": 3
+      },
+      "replacement": "x",
+      "after": "ax\r\nc\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 1,
+        "length": 8
+      },
+      "replacement": "",
+      "after": "a",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 1,
+        "length": 0
+      },
+      "replacement": "\r\n\r\n",
+      "after": "a\r\n\r\n\r\nb\r\nc\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 3,
+          "end": 4
+        },
+        {
+          "start": 4,
+          "end": 5
+        },
+        {
+          "start": 5,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 9,
+        "length": 0
+      },
+      "replacement": "new\r\n",
+      "after": "a\r\nb\r\nc\r\nnew\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 4,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 9,
+        "length": 0
+      },
+      "replacement": "x",
+      "after": "a\r\nb\r\nc\r\nx",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 9,
+        "length": 0
+      },
+      "replacement": "",
+      "after": "a\r\nb\r\nc\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ]
+    },
+    {
+      "source": "a\r\nb\r\nc\r\n",
+      "range": {
+        "location": 9,
+        "length": 0
+      },
+      "replacement": "\r\n\r\n",
+      "after": "a\r\nb\r\nc\r\n\r\n\r\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 3,
+          "end": 4
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 1,
+          "end": 2
+        },
+        {
+          "start": 2,
+          "end": 3
+        },
+        {
+          "start": 5,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "source": "",
+      "range": {
+        "location": 0,
+        "length": 0
+      },
+      "replacement": "new\n",
+      "after": "new\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ],
+      "expected": [
+        {
+          "start": 2,
+          "end": 2
+        }
+      ]
+    },
+    {
+      "source": "",
+      "range": {
+        "location": 0,
+        "length": 0
+      },
+      "replacement": "x",
+      "after": "x",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ]
+    },
+    {
+      "source": "",
+      "range": {
+        "location": 0,
+        "length": 0
+      },
+      "replacement": "",
+      "after": "",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ],
+      "expected": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ]
+    },
+    {
+      "source": "",
+      "range": {
+        "location": 0,
+        "length": 0
+      },
+      "replacement": "\n\n",
+      "after": "\n\n",
+      "annotations": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ],
+      "expected": [
+        {
+          "start": 3,
+          "end": 3
+        }
+      ]
+    }
+  ]
+}

@@ -11,8 +11,11 @@ extension FridayAppearance {
 }
 
 struct AppearanceSettingsView: View {
+    @ObservedObject var store: FridayStore
     @AppStorage(FridayPreferenceKeys.appearance) private var appearance: FridayAppearance = .system
     @AppStorage(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
+    @AppStorage("friday.composer.showSkillsInSlashMenu") private var showSkillsInSlashMenu = true
+    @AppStorage("friday.tasks.confirmArchive") private var confirmArchive = false
 
     var body: some View {
         SettingsPage(title: "外观", subtitle: "让 Friday 更合你的习惯。") {
@@ -59,6 +62,32 @@ struct AppearanceSettingsView: View {
                     .fridayInteractiveCursor()
                 }
             }
+            SettingsGroup("任务操作") {
+                SettingsRow("归档前确认", detail: "归档后可从已归档任务中恢复。") {
+                    Toggle(isOn: $confirmArchive) { Text(friday: "归档前确认") }.labelsHidden().toggleStyle(.switch).fridayInteractiveCursor()
+                }
+            }
+            SettingsGroup("任务侧栏") {
+                TaskSidebarSettingsRows()
+                SettingsDivider()
+                SettingsRow("Working 分组（Beta）", detail: "折叠正在处理的任务；需要你处理时回到活跃列表顶部，活跃列表按返回时间排序。") {
+                    Toggle(isOn: $store.sidebarWorkingShelfEnabled) { Text(friday: "Working 分组（Beta）") }
+                        .labelsHidden().toggleStyle(.switch).fridayInteractiveCursor()
+                }
+                if store.sidebarWorkingShelfEnabled {
+                    SettingsDivider()
+                    SettingsRow("恢复默认", detail: "关闭 Working 分组并恢复已保存的手动排序。") {
+                        Button(friday: "恢复默认") { store.sidebarWorkingShelfEnabled = false }.buttonStyle(FridayButtonStyle(compact: true))
+                    }
+                }
+            }
+            SettingsGroup("任务输入框") {
+                SettingsRow("在斜杠菜单中显示 Skill", detail: "关闭后仍可输入 $ 查找并选择可调用的 Skill。") {
+                    Toggle(isOn: $showSkillsInSlashMenu) { Text(friday: "在斜杠菜单中显示 Skill") }
+                        .labelsHidden().toggleStyle(.switch).fridayInteractiveCursor()
+                }
+            }
+            if store.taskAutoSettlementSupported { TaskSettlementSettingsView(store: store) }
         }
     }
 }

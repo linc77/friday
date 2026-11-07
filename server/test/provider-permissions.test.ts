@@ -24,9 +24,12 @@ test('Legacy provider settings default to Auto; older clients preserve saved per
         assert.throws(() => validate({ ...defaults, permissionMode }, saved), /权限模式/);
       }
     }
-    for (const permissionMode of ['acceptEdits', 'plan']) {
+    for (const permissionMode of ['acceptEdits']) {
       assert.equal(validateClaudeSettings({ ...defaultClaudeSettings, permissionMode }).permissionMode, permissionMode);
       assert.throws(() => validateSettings({ ...defaultCodexSettings, permissionMode }, defaultCodexSettings), /权限模式/);
     }
+    assert.throws(() => validateClaudeSettings({ ...defaultClaudeSettings, permissionMode: 'plan' }), /权限模式/);
+    await writeFile(join(directory, 'claude-provider.json'), JSON.stringify({ ...defaultClaudeSettings, permissionMode: 'plan' }));
+    assert.equal((await loadClaudeSettings(directory)).permissionMode, 'default');
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

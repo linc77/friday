@@ -15,10 +15,9 @@ export function discoverAgents(): AgentInfo[] {
   return [
     ['codex', 'Codex', '可选任务执行工具；账号、模型与运行配置见「Providers → Codex」'],
     ['claude', 'Claude Code', '可选任务执行工具；账号、模型与运行配置见「Providers → Claude」'],
-    ['hermes', 'Hermes', '已发现时显示安装状态；执行接入尚未完成'],
-    ['pi', 'Pi Coding Agent', '已发现时显示安装状态；独立 CLI 接入尚未完成'],
+    ['pi', 'Pi', '可选任务执行工具；原生 RPC 会话、模型与权限配置见「Providers → Pi」'],
   ].map(([id, name, description]) => {
     const executable = findExecutable(id);
-    return { id, name, description, installed: executable !== null, executable, executableSupported: id === 'codex' || id === 'claude' };
+    return { id, name, description, installed: executable !== null, executable, executableSupported: ['codex', 'claude', 'pi'].includes(id) };
   });
 }

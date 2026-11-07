@@ -7,7 +7,7 @@ export type PushDevice = { deviceId: string; token: string; environment: 'develo
 export type PushResult = { status: 'accepted' | 'retry' | 'failed' | 'uncertain' | 'unavailable'; reason?: string; invalidToken?: boolean };
 export interface PushSender { configured: boolean; initialize?(): Promise<void>; send(device: PushDevice, id: string, taskId: string, signal: AbortSignal): Promise<PushResult> }
 export type Delivery = { id: string; deviceId: string; taskId: string; status: string; attempts: number; expiresAt: number; error?: string };
-export const PushDoc = defineDoc<{ devices: PushDevice[]; deliveries: Delivery[] }>({ kind: 'friday.notifications', version: 1, scope: 'session', initial: () => ({ devices: [], deliveries: [] }) });
+export const PushDoc = defineDoc<{ devices: PushDevice[]; deliveries: Delivery[] }>({ kind: 'friday.notifications', version: 1, scope: 'session', checkpointWhen: () => false, initial: () => ({ devices: [], deliveries: [] }) });
 type SavedApns = { keyId: string; teamId: string; topic: string; privateKey: string };
 function validatedApns(value: unknown): SavedApns {
   if (!value || typeof value !== 'object') throw new Error('推送配置无效');

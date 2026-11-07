@@ -4,6 +4,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createModels } from '@earendil-works/pi-ai/models';
+import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
+import type { TaskId } from '@earendil-works/pi-durable';
 import { fauxProvider, fauxAssistantMessage, fauxToolCall } from '@earendil-works/pi-ai/providers/faux';
 import { Engine } from '../src/engine.js';
 import { Auth } from '../src/auth.js';
@@ -24,10 +26,11 @@ async function setup(push?: PushSender) {
   const faux = fauxProvider({ tokensPerSecond: 100000 }); const models = createModels(); models.setProvider(faux.provider);
   const agent = { models, model: { provider: faux.getModel().provider, modelId: faux.getModel().id } };
   const options = { push: push ?? { configured: false, send: async () => ({ status: 'unavailable' as const }) }, now: () => clock, pollMs: 20 };
-  let engine = await new Engine(directory, noLocalAgent, agent, options).open();
+  let engine = await new Engine(directory, noLocalAgent, agent, undefined, options).open();
   const auth = new Auth(directory); const code = auth.createPairing(); const phone = auth.pair(code.code, 'iPhone', 'test');
+  let api = createAPI(engine, auth, () => []);
   const call = async (path: string, body?: object, token = phone.token, method = body ? 'POST' : 'GET') => {
-    const result = await createAPI(engine, auth, () => []).request(path, { method, headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    const result = await api.request(path, { method, headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
     return { status: result.status, body: await result.json() as any };
   };
   const upload = (steps = 7400) => ({ uploadId: 'upload-1', capturedAt: new Date(clock).toISOString(), timezone: 'Asia/Shanghai', days: [
@@ -41,7 +44,7 @@ async function setup(push?: PushSender) {
   };
   return { get engine() { return engine; }, directory, auth, phone, call, upload, enable, faux,
     advance: (milliseconds: number) => { clock += milliseconds; },
-    reopen: async () => { await engine.close(); engine = await new Engine(directory, noLocalAgent, agent, options).open(); },
+    reopen: async () => { await engine.close(); engine = await new Engine(directory, noLocalAgent, agent, undefined, options).open(); api = createAPI(engine, auth, () => []); },
     cleanup: async () => { await engine.close(); auth.close(); await rm(directory, { recursive: true, force: true }); },
   };
 }
@@ -90,6 +93,51 @@ test('A daily background routine shares without model consent, delivers once, an
     await h.call('/api/health/share', { requestId: 'manual' });
     assert.equal((await h.engine.snapshot()).tasks[0].messages?.length, before! + 1);
     await assert.rejects(h.engine.createTask({ prompt: '分析一下', projectId: null, mode: 'auto', requestId: 'reply', continueId: healthConversationId }), /允许模型分析/);
+  } finally { await h.cleanup(); }
+});
+
+test('Native Durable sleeps retain the daily deadline across reopen and wake exactly one daily share', async () => {
+  const h = await setup();
+  try {
+    await h.enable();
+    const initial = await h.engine.proactive.state(); const id = initial.schedulerId! as TaskId;
+    await until(async () => (await h.engine.harness.getTask(id, context))?.state.status === 'sleeping');
+    const sleeping = (await h.engine.harness.getTask(id, context))!.state;
+    assert.equal(sleeping.status, 'sleeping');
+    await h.reopen();
+    assert.equal((await h.engine.proactive.state()).schedulerId, id);
+    assert.equal((await h.engine.proactive.state()).settings.nextRunAt, initial.settings.nextRunAt);
+    assert.deepEqual((await h.engine.harness.getTask(id, context))?.state, sleeping);
+    assert.equal((await h.engine.snapshot()).tasks.length, 0);
+    h.advance(60000); h.engine.harness.resume();
+    await until(async () => (await h.engine.snapshot()).tasks[0]?.status === 'completed');
+    assert.equal((await h.engine.proactive.state()).runs.length, 1);
+    assert.equal((await h.engine.snapshot()).tasks[0].messages?.length, 1);
+    await h.reopen();
+    assert.equal((await h.engine.proactive.state()).runs.length, 1);
+    assert.equal((await h.engine.snapshot()).tasks[0].messages?.length, 1);
+  } finally { await h.cleanup(); }
+});
+
+test('A notification retry sleeps durably and resumes after its saved backoff without resending early', async () => {
+  let calls = 0;
+  const h = await setup({ configured: true, send: async () => ++calls === 1 ? { status: 'retry' } : { status: 'accepted' } });
+  try {
+    await h.enable();
+    const settings = (await h.engine.proactive.state()).settings;
+    await h.call('/api/health/settings', { ...settings, hour: 10 }, h.phone.token, 'PUT');
+    await h.call('/api/notifications/device', { token: 'e'.repeat(64), environment: 'development' }, h.phone.token, 'PUT');
+    await h.call('/api/health/share', { requestId: 'retry-backoff' });
+    await until(async () => (await h.call('/api/health')).body.deliveries[0]?.status === 'retry');
+    const tasks = await h.engine.root.commit(tx => tx.scanTasks({ kind: 'friday.notify' }, 10), context);
+    const id = tasks.items[0].id;
+    const sleeping = (await h.engine.harness.getTask(id, context))!.state;
+    assert.equal(sleeping.status, 'sleeping'); assert.equal(calls, 1);
+    await h.reopen();
+    assert.deepEqual((await h.engine.harness.getTask(id, context))?.state, sleeping); assert.equal(calls, 1);
+    h.advance(60001); h.engine.harness.resume();
+    await until(async () => (await h.call('/api/health')).body.deliveries[0]?.status === 'accepted');
+    assert.equal(calls, 2);
   } finally { await h.cleanup(); }
 });
 

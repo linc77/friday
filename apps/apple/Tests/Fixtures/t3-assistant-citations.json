@@ -1,0 +1,2324 @@
+{
+  "source": "T3code 8cd9641 assistantTextSelection.ts + shared/assistantCitations.ts",
+  "cases": [
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 0,
+        "length": 1
+      },
+      "selector": {
+        "text": "B",
+        "start": 0,
+        "end": 1,
+        "prefix": "",
+        "suffix": "efore **plain** after"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=B&start=0&end=1&prefix=&suffix=efore+**plain**+after&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 1
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 13,
+        "end": 14
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 0,
+        "length": 7
+      },
+      "selector": {
+        "text": "Before\n",
+        "start": 0,
+        "end": 7,
+        "prefix": "",
+        "suffix": "**plain** after"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=Before%0A&start=0&end=7&prefix=&suffix=**plain**+after&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 7
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 13,
+        "end": 20
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 0,
+        "length": 11
+      },
+      "selector": {
+        "text": "Before\n**pl",
+        "start": 0,
+        "end": 11,
+        "prefix": "",
+        "suffix": "ain** after"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=Before%0A**pl&start=0&end=11&prefix=&suffix=ain**+after&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 11
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 13,
+        "end": 24
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 0,
+        "length": 20
+      },
+      "selector": {
+        "text": "Before\n**plain** aft",
+        "start": 0,
+        "end": 20,
+        "prefix": "",
+        "suffix": "er"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=Before%0A**plain**+aft&start=0&end=20&prefix=&suffix=er&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 20
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 13,
+        "end": 33
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 0,
+        "length": 22
+      },
+      "selector": {
+        "text": "Before\n**plain** after",
+        "start": 0,
+        "end": 22,
+        "prefix": "",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=Before%0A**plain**+after&start=0&end=22&prefix=&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 22
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 13,
+        "end": 35
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 1,
+        "length": 6
+      },
+      "selector": {
+        "text": "efore\n",
+        "start": 1,
+        "end": 7,
+        "prefix": "B",
+        "suffix": "**plain** after"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=efore%0A&start=1&end=7&prefix=B&suffix=**plain**+after&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 7
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 14,
+        "end": 20
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 1,
+        "length": 10
+      },
+      "selector": {
+        "text": "efore\n**pl",
+        "start": 1,
+        "end": 11,
+        "prefix": "B",
+        "suffix": "ain** after"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=efore%0A**pl&start=1&end=11&prefix=B&suffix=ain**+after&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 11
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 14,
+        "end": 24
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 1,
+        "length": 19
+      },
+      "selector": {
+        "text": "efore\n**plain** aft",
+        "start": 1,
+        "end": 20,
+        "prefix": "B",
+        "suffix": "er"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=efore%0A**plain**+aft&start=1&end=20&prefix=B&suffix=er&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 20
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 14,
+        "end": 33
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 1,
+        "length": 21
+      },
+      "selector": {
+        "text": "efore\n**plain** after",
+        "start": 1,
+        "end": 22,
+        "prefix": "B",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=efore%0A**plain**+after&start=1&end=22&prefix=B&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 22
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 14,
+        "end": 35
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 7,
+        "length": 4
+      },
+      "selector": {
+        "text": "**pl",
+        "start": 7,
+        "end": 11,
+        "prefix": "Before ",
+        "suffix": "ain** after"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=**pl&start=7&end=11&prefix=Before+&suffix=ain**+after&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 7,
+        "end": 11
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 20,
+        "end": 24
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 7,
+        "length": 13
+      },
+      "selector": {
+        "text": "**plain** aft",
+        "start": 7,
+        "end": 20,
+        "prefix": "Before ",
+        "suffix": "er"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=**plain**+aft&start=7&end=20&prefix=Before+&suffix=er&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 7,
+        "end": 20
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 20,
+        "end": 33
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 7,
+        "length": 15
+      },
+      "selector": {
+        "text": "**plain** after",
+        "start": 7,
+        "end": 22,
+        "prefix": "Before ",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=**plain**+after&start=7&end=22&prefix=Before+&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 7,
+        "end": 22
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 20,
+        "end": 35
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 11,
+        "length": 9
+      },
+      "selector": {
+        "text": "ain** aft",
+        "start": 11,
+        "end": 20,
+        "prefix": "Before **pl",
+        "suffix": "er"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=ain**+aft&start=11&end=20&prefix=Before+**pl&suffix=er&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 11,
+        "end": 20
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 24,
+        "end": 33
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 11,
+        "length": 11
+      },
+      "selector": {
+        "text": "ain** after",
+        "start": 11,
+        "end": 22,
+        "prefix": "Before **pl",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=ain**+after&start=11&end=22&prefix=Before+**pl&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 11,
+        "end": 22
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 24,
+        "end": 35
+      }
+    },
+    {
+      "source": "Before\n**plain** after",
+      "range": {
+        "location": 20,
+        "length": 2
+      },
+      "selector": {
+        "text": "er",
+        "start": 20,
+        "end": 22,
+        "prefix": "Before **plain** aft",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=er&start=20&end=22&prefix=Before+**plain**+aft&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 20,
+        "end": 22
+      },
+      "drift": "prefix added Before\n**plain** after",
+      "driftFind": {
+        "start": 33,
+        "end": 35
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 0,
+        "length": 1
+      },
+      "selector": {
+        "text": "a",
+        "start": 0,
+        "end": 1,
+        "prefix": "",
+        "suffix": " b c next"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=a&start=0&end=1&prefix=&suffix=+b+c+next&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 1
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 13,
+        "end": 14
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 0,
+        "length": 4
+      },
+      "selector": {
+        "text": "a  b",
+        "start": 0,
+        "end": 3,
+        "prefix": "",
+        "suffix": " c next"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=a++b&start=0&end=3&prefix=&suffix=+c+next&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 3
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 13,
+        "end": 16
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 0,
+        "length": 6
+      },
+      "selector": {
+        "text": "a  b\t ",
+        "start": 0,
+        "end": 4,
+        "prefix": "",
+        "suffix": "c next"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=a++b%09+&start=0&end=4&prefix=&suffix=c+next&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 4
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 13,
+        "end": 17
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 0,
+        "length": 11
+      },
+      "selector": {
+        "text": "a  b\t c\r\nne",
+        "start": 0,
+        "end": 8,
+        "prefix": "",
+        "suffix": "xt"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=a++b%09+c%0D%0Ane&start=0&end=8&prefix=&suffix=xt&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 8
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 13,
+        "end": 21
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 0,
+        "length": 13
+      },
+      "selector": {
+        "text": "a  b\t c\r\nnext",
+        "start": 0,
+        "end": 10,
+        "prefix": "",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=a++b%09+c%0D%0Anext&start=0&end=10&prefix=&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 10
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 13,
+        "end": 23
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 1,
+        "length": 3
+      },
+      "selector": {
+        "text": "  b",
+        "start": 1,
+        "end": 3,
+        "prefix": "a",
+        "suffix": " c next"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=++b&start=1&end=3&prefix=a&suffix=+c+next&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 3
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 14,
+        "end": 16
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 1,
+        "length": 5
+      },
+      "selector": {
+        "text": "  b\t ",
+        "start": 1,
+        "end": 4,
+        "prefix": "a",
+        "suffix": "c next"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=++b%09+&start=1&end=4&prefix=a&suffix=c+next&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 4
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 14,
+        "end": 17
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 1,
+        "length": 10
+      },
+      "selector": {
+        "text": "  b\t c\r\nne",
+        "start": 1,
+        "end": 8,
+        "prefix": "a",
+        "suffix": "xt"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=++b%09+c%0D%0Ane&start=1&end=8&prefix=a&suffix=xt&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 8
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 14,
+        "end": 21
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 1,
+        "length": 12
+      },
+      "selector": {
+        "text": "  b\t c\r\nnext",
+        "start": 1,
+        "end": 10,
+        "prefix": "a",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=++b%09+c%0D%0Anext&start=1&end=10&prefix=a&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 10
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 14,
+        "end": 23
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 4,
+        "length": 7
+      },
+      "selector": {
+        "text": "\t c\r\nne",
+        "start": 3,
+        "end": 8,
+        "prefix": "a b",
+        "suffix": "xt"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%09+c%0D%0Ane&start=3&end=8&prefix=a+b&suffix=xt&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 3,
+        "end": 8
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 16,
+        "end": 21
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 4,
+        "length": 9
+      },
+      "selector": {
+        "text": "\t c\r\nnext",
+        "start": 3,
+        "end": 10,
+        "prefix": "a b",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%09+c%0D%0Anext&start=3&end=10&prefix=a+b&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 3,
+        "end": 10
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 16,
+        "end": 23
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 6,
+        "length": 5
+      },
+      "selector": {
+        "text": "c\r\nne",
+        "start": 4,
+        "end": 8,
+        "prefix": "a b ",
+        "suffix": "xt"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=c%0D%0Ane&start=4&end=8&prefix=a+b+&suffix=xt&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 4,
+        "end": 8
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 17,
+        "end": 21
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 6,
+        "length": 7
+      },
+      "selector": {
+        "text": "c\r\nnext",
+        "start": 4,
+        "end": 10,
+        "prefix": "a b ",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=c%0D%0Anext&start=4&end=10&prefix=a+b+&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 4,
+        "end": 10
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 17,
+        "end": 23
+      }
+    },
+    {
+      "source": "a  b\t c\r\nnext",
+      "range": {
+        "location": 11,
+        "length": 2
+      },
+      "selector": {
+        "text": "xt",
+        "start": 8,
+        "end": 10,
+        "prefix": "a b c ne",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=xt&start=8&end=10&prefix=a+b+c+ne&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 8,
+        "end": 10
+      },
+      "drift": "prefix added a  b\t c\r\nnext",
+      "driftFind": {
+        "start": 21,
+        "end": 23
+      }
+    },
+    {
+      "source": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+      "range": {
+        "location": 0,
+        "length": 44
+      },
+      "selector": {
+        "text": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 sel",
+        "start": 0,
+        "end": 44,
+        "prefix": "",
+        "suffix": "ect 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82+sel&start=0&end=44&prefix=&suffix=ect+%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 44
+      },
+      "drift": "prefix added 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+      "driftFind": {
+        "start": 13,
+        "end": 57
+      }
+    },
+    {
+      "source": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+      "range": {
+        "location": 0,
+        "length": 86
+      },
+      "selector": {
+        "text": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+        "start": 0,
+        "end": 86,
+        "prefix": "",
+        "suffix": "🙂"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82+select+%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82&start=0&end=86&prefix=&suffix=%F0%9F%99%82&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 86
+      },
+      "drift": "prefix added 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+      "driftFind": {
+        "start": 13,
+        "end": 99
+      }
+    },
+    {
+      "source": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+      "range": {
+        "location": 0,
+        "length": 88
+      },
+      "selector": {
+        "text": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+        "start": 0,
+        "end": 88,
+        "prefix": "",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82+select+%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82&start=0&end=88&prefix=&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 88
+      },
+      "drift": "prefix added 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+      "driftFind": {
+        "start": 13,
+        "end": 101
+      }
+    },
+    {
+      "source": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+      "range": {
+        "location": 44,
+        "length": 42
+      },
+      "selector": {
+        "text": "ect 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+        "start": 44,
+        "end": 86,
+        "prefix": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 sel",
+        "suffix": "🙂"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=ect+%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82&start=44&end=86&prefix=%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82+sel&suffix=%F0%9F%99%82&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 44,
+        "end": 86
+      },
+      "drift": "prefix added 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+      "driftFind": {
+        "start": 57,
+        "end": 99
+      }
+    },
+    {
+      "source": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+      "range": {
+        "location": 44,
+        "length": 44
+      },
+      "selector": {
+        "text": "ect 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+        "start": 44,
+        "end": 88,
+        "prefix": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 sel",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=ect+%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82&start=44&end=88&prefix=%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82+sel&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 44,
+        "end": 88
+      },
+      "drift": "prefix added 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+      "driftFind": {
+        "start": 57,
+        "end": 101
+      }
+    },
+    {
+      "source": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+      "range": {
+        "location": 86,
+        "length": 2
+      },
+      "selector": {
+        "text": "🙂",
+        "start": 86,
+        "end": 88,
+        "prefix": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%F0%9F%99%82&start=86&end=88&prefix=%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82%F0%9F%99%82&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": null,
+      "drift": "prefix added 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂 select 🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂",
+      "driftFind": null
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 0,
+        "length": 1
+      },
+      "selector": {
+        "text": "é",
+        "start": 0,
+        "end": 1,
+        "prefix": "",
+        "suffix": " é 日本語 中文 end"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%C3%A9&start=0&end=1&prefix=&suffix=+e%CC%81+%E6%97%A5%E6%9C%AC%E8%AA%9E+%E4%B8%AD%E6%96%87+end&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 1
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 13,
+        "end": 14
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 0,
+        "length": 5
+      },
+      "selector": {
+        "text": "é é ",
+        "start": 0,
+        "end": 5,
+        "prefix": "",
+        "suffix": "日本語 中文 end"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%C3%A9+e%CC%81+&start=0&end=5&prefix=&suffix=%E6%97%A5%E6%9C%AC%E8%AA%9E+%E4%B8%AD%E6%96%87+end&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 5
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 13,
+        "end": 18
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 0,
+        "length": 7
+      },
+      "selector": {
+        "text": "é é 日本",
+        "start": 0,
+        "end": 7,
+        "prefix": "",
+        "suffix": "語 中文 end"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%C3%A9+e%CC%81+%E6%97%A5%E6%9C%AC&start=0&end=7&prefix=&suffix=%E8%AA%9E+%E4%B8%AD%E6%96%87+end&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 7
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 13,
+        "end": 20
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 0,
+        "length": 13
+      },
+      "selector": {
+        "text": "é é 日本語 中文﻿e",
+        "start": 0,
+        "end": 13,
+        "prefix": "",
+        "suffix": "nd"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%C3%A9+e%CC%81+%E6%97%A5%E6%9C%AC%E8%AA%9E+%E4%B8%AD%E6%96%87%EF%BB%BFe&start=0&end=13&prefix=&suffix=nd&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 13
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 13,
+        "end": 26
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 0,
+        "length": 15
+      },
+      "selector": {
+        "text": "é é 日本語 中文﻿end",
+        "start": 0,
+        "end": 15,
+        "prefix": "",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%C3%A9+e%CC%81+%E6%97%A5%E6%9C%AC%E8%AA%9E+%E4%B8%AD%E6%96%87%EF%BB%BFend&start=0&end=15&prefix=&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 15
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 13,
+        "end": 28
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 1,
+        "length": 4
+      },
+      "selector": {
+        "text": " é ",
+        "start": 1,
+        "end": 5,
+        "prefix": "é",
+        "suffix": "日本語 中文 end"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=+e%CC%81+&start=1&end=5&prefix=%C3%A9&suffix=%E6%97%A5%E6%9C%AC%E8%AA%9E+%E4%B8%AD%E6%96%87+end&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 5
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 14,
+        "end": 18
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 1,
+        "length": 6
+      },
+      "selector": {
+        "text": " é 日本",
+        "start": 1,
+        "end": 7,
+        "prefix": "é",
+        "suffix": "語 中文 end"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=+e%CC%81+%E6%97%A5%E6%9C%AC&start=1&end=7&prefix=%C3%A9&suffix=%E8%AA%9E+%E4%B8%AD%E6%96%87+end&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 7
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 14,
+        "end": 20
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 1,
+        "length": 12
+      },
+      "selector": {
+        "text": " é 日本語 中文﻿e",
+        "start": 1,
+        "end": 13,
+        "prefix": "é",
+        "suffix": "nd"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=+e%CC%81+%E6%97%A5%E6%9C%AC%E8%AA%9E+%E4%B8%AD%E6%96%87%EF%BB%BFe&start=1&end=13&prefix=%C3%A9&suffix=nd&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 13
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 14,
+        "end": 26
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 1,
+        "length": 14
+      },
+      "selector": {
+        "text": " é 日本語 中文﻿end",
+        "start": 1,
+        "end": 15,
+        "prefix": "é",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=+e%CC%81+%E6%97%A5%E6%9C%AC%E8%AA%9E+%E4%B8%AD%E6%96%87%EF%BB%BFend&start=1&end=15&prefix=%C3%A9&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 15
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 14,
+        "end": 28
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 5,
+        "length": 2
+      },
+      "selector": {
+        "text": "日本",
+        "start": 5,
+        "end": 7,
+        "prefix": "é é ",
+        "suffix": "語 中文 end"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%E6%97%A5%E6%9C%AC&start=5&end=7&prefix=%C3%A9+e%CC%81+&suffix=%E8%AA%9E+%E4%B8%AD%E6%96%87+end&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 5,
+        "end": 7
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 18,
+        "end": 20
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 5,
+        "length": 8
+      },
+      "selector": {
+        "text": "日本語 中文﻿e",
+        "start": 5,
+        "end": 13,
+        "prefix": "é é ",
+        "suffix": "nd"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%E6%97%A5%E6%9C%AC%E8%AA%9E+%E4%B8%AD%E6%96%87%EF%BB%BFe&start=5&end=13&prefix=%C3%A9+e%CC%81+&suffix=nd&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 5,
+        "end": 13
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 18,
+        "end": 26
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 5,
+        "length": 10
+      },
+      "selector": {
+        "text": "日本語 中文﻿end",
+        "start": 5,
+        "end": 15,
+        "prefix": "é é ",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%E6%97%A5%E6%9C%AC%E8%AA%9E+%E4%B8%AD%E6%96%87%EF%BB%BFend&start=5&end=15&prefix=%C3%A9+e%CC%81+&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 5,
+        "end": 15
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 18,
+        "end": 28
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 7,
+        "length": 6
+      },
+      "selector": {
+        "text": "語 中文﻿e",
+        "start": 7,
+        "end": 13,
+        "prefix": "é é 日本",
+        "suffix": "nd"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%E8%AA%9E+%E4%B8%AD%E6%96%87%EF%BB%BFe&start=7&end=13&prefix=%C3%A9+e%CC%81+%E6%97%A5%E6%9C%AC&suffix=nd&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 7,
+        "end": 13
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 20,
+        "end": 26
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 7,
+        "length": 8
+      },
+      "selector": {
+        "text": "語 中文﻿end",
+        "start": 7,
+        "end": 15,
+        "prefix": "é é 日本",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%E8%AA%9E+%E4%B8%AD%E6%96%87%EF%BB%BFend&start=7&end=15&prefix=%C3%A9+e%CC%81+%E6%97%A5%E6%9C%AC&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 7,
+        "end": 15
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 20,
+        "end": 28
+      }
+    },
+    {
+      "source": "é é 日本語 中文﻿end",
+      "range": {
+        "location": 13,
+        "length": 2
+      },
+      "selector": {
+        "text": "nd",
+        "start": 13,
+        "end": 15,
+        "prefix": "é é 日本語 中文 e",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=nd&start=13&end=15&prefix=%C3%A9+e%CC%81+%E6%97%A5%E6%9C%AC%E8%AA%9E+%E4%B8%AD%E6%96%87+e&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 13,
+        "end": 15
+      },
+      "drift": "prefix added é é 日本語 中文﻿end",
+      "driftFind": {
+        "start": 26,
+        "end": 28
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 0,
+        "length": 1
+      },
+      "selector": {
+        "text": "o",
+        "start": 0,
+        "end": 1,
+        "prefix": "",
+        "suffix": "ne repeated end one repeated end"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=o&start=0&end=1&prefix=&suffix=ne+repeated+end+one+repeated+end&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 1
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 13,
+        "end": 14
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 0,
+        "length": 11
+      },
+      "selector": {
+        "text": "one repeate",
+        "start": 0,
+        "end": 11,
+        "prefix": "",
+        "suffix": "d end one repeated end"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=one+repeate&start=0&end=11&prefix=&suffix=d+end+one+repeated+end&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 11
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 13,
+        "end": 24
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 0,
+        "length": 16
+      },
+      "selector": {
+        "text": "one repeated end",
+        "start": 0,
+        "end": 16,
+        "prefix": "",
+        "suffix": " one repeated end"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=one+repeated+end&start=0&end=16&prefix=&suffix=+one+repeated+end&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 16
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 13,
+        "end": 29
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 0,
+        "length": 31
+      },
+      "selector": {
+        "text": "one repeated end one repeated e",
+        "start": 0,
+        "end": 31,
+        "prefix": "",
+        "suffix": "nd"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=one+repeated+end+one+repeated+e&start=0&end=31&prefix=&suffix=nd&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 31
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 13,
+        "end": 44
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 0,
+        "length": 33
+      },
+      "selector": {
+        "text": "one repeated end one repeated end",
+        "start": 0,
+        "end": 33,
+        "prefix": "",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=one+repeated+end+one+repeated+end&start=0&end=33&prefix=&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 33
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 13,
+        "end": 46
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 1,
+        "length": 10
+      },
+      "selector": {
+        "text": "ne repeate",
+        "start": 1,
+        "end": 11,
+        "prefix": "o",
+        "suffix": "d end one repeated end"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=ne+repeate&start=1&end=11&prefix=o&suffix=d+end+one+repeated+end&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 11
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 14,
+        "end": 24
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 1,
+        "length": 15
+      },
+      "selector": {
+        "text": "ne repeated end",
+        "start": 1,
+        "end": 16,
+        "prefix": "o",
+        "suffix": " one repeated end"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=ne+repeated+end&start=1&end=16&prefix=o&suffix=+one+repeated+end&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 16
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 14,
+        "end": 29
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 1,
+        "length": 30
+      },
+      "selector": {
+        "text": "ne repeated end one repeated e",
+        "start": 1,
+        "end": 31,
+        "prefix": "o",
+        "suffix": "nd"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=ne+repeated+end+one+repeated+e&start=1&end=31&prefix=o&suffix=nd&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 31
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 14,
+        "end": 44
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 1,
+        "length": 32
+      },
+      "selector": {
+        "text": "ne repeated end one repeated end",
+        "start": 1,
+        "end": 33,
+        "prefix": "o",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=ne+repeated+end+one+repeated+end&start=1&end=33&prefix=o&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 33
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 14,
+        "end": 46
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 11,
+        "length": 5
+      },
+      "selector": {
+        "text": "d end",
+        "start": 11,
+        "end": 16,
+        "prefix": "one repeate",
+        "suffix": " one repeated end"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=d+end&start=11&end=16&prefix=one+repeate&suffix=+one+repeated+end&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 11,
+        "end": 16
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 24,
+        "end": 29
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 11,
+        "length": 20
+      },
+      "selector": {
+        "text": "d end one repeated e",
+        "start": 11,
+        "end": 31,
+        "prefix": "one repeate",
+        "suffix": "nd"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=d+end+one+repeated+e&start=11&end=31&prefix=one+repeate&suffix=nd&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 11,
+        "end": 31
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 24,
+        "end": 44
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 11,
+        "length": 22
+      },
+      "selector": {
+        "text": "d end one repeated end",
+        "start": 11,
+        "end": 33,
+        "prefix": "one repeate",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=d+end+one+repeated+end&start=11&end=33&prefix=one+repeate&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 11,
+        "end": 33
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 24,
+        "end": 46
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 16,
+        "length": 15
+      },
+      "selector": {
+        "text": " one repeated e",
+        "start": 16,
+        "end": 31,
+        "prefix": "one repeated end",
+        "suffix": "nd"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=+one+repeated+e&start=16&end=31&prefix=one+repeated+end&suffix=nd&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 16,
+        "end": 31
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 29,
+        "end": 44
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 16,
+        "length": 17
+      },
+      "selector": {
+        "text": " one repeated end",
+        "start": 16,
+        "end": 33,
+        "prefix": "one repeated end",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=+one+repeated+end&start=16&end=33&prefix=one+repeated+end&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 16,
+        "end": 33
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 29,
+        "end": 46
+      }
+    },
+    {
+      "source": "one repeated end one repeated end",
+      "range": {
+        "location": 31,
+        "length": 2
+      },
+      "selector": {
+        "text": "nd",
+        "start": 31,
+        "end": 33,
+        "prefix": "one repeated end one repeated e",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=nd&start=31&end=33&prefix=one+repeated+end+one+repeated+e&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 31,
+        "end": 33
+      },
+      "drift": "prefix added one repeated end one repeated end",
+      "driftFind": {
+        "start": 44,
+        "end": 46
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 0,
+        "length": 4
+      },
+      "selector": {
+        "text": "  le",
+        "start": 0,
+        "end": 3,
+        "prefix": "",
+        "suffix": "ft right "
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=++le&start=0&end=3&prefix=&suffix=ft+right+&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 3
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 12,
+        "end": 15
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 0,
+        "length": 7
+      },
+      "selector": {
+        "text": "  left\n",
+        "start": 0,
+        "end": 6,
+        "prefix": "",
+        "suffix": "right "
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=++left%0A&start=0&end=6&prefix=&suffix=right+&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 6
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 12,
+        "end": 18
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 0,
+        "length": 12
+      },
+      "selector": {
+        "text": "  left\nright",
+        "start": 0,
+        "end": 11,
+        "prefix": "",
+        "suffix": " "
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=++left%0Aright&start=0&end=11&prefix=&suffix=+&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 11
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 12,
+        "end": 23
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 0,
+        "length": 14
+      },
+      "selector": {
+        "text": "  left\nright  ",
+        "start": 0,
+        "end": 12,
+        "prefix": "",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=++left%0Aright++&start=0&end=12&prefix=&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 12
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 12,
+        "end": 24
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 1,
+        "length": 3
+      },
+      "selector": {
+        "text": " le",
+        "start": 0,
+        "end": 3,
+        "prefix": "",
+        "suffix": "ft right "
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=+le&start=0&end=3&prefix=&suffix=ft+right+&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 3
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 12,
+        "end": 15
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 1,
+        "length": 6
+      },
+      "selector": {
+        "text": " left\n",
+        "start": 0,
+        "end": 6,
+        "prefix": "",
+        "suffix": "right "
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=+left%0A&start=0&end=6&prefix=&suffix=right+&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 6
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 12,
+        "end": 18
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 1,
+        "length": 11
+      },
+      "selector": {
+        "text": " left\nright",
+        "start": 0,
+        "end": 11,
+        "prefix": "",
+        "suffix": " "
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=+left%0Aright&start=0&end=11&prefix=&suffix=+&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 11
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 12,
+        "end": 23
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 1,
+        "length": 13
+      },
+      "selector": {
+        "text": " left\nright  ",
+        "start": 0,
+        "end": 12,
+        "prefix": "",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=+left%0Aright++&start=0&end=12&prefix=&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 12
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 12,
+        "end": 24
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 4,
+        "length": 3
+      },
+      "selector": {
+        "text": "ft\n",
+        "start": 3,
+        "end": 6,
+        "prefix": " le",
+        "suffix": "right "
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=ft%0A&start=3&end=6&prefix=+le&suffix=right+&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 3,
+        "end": 6
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 15,
+        "end": 18
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 4,
+        "length": 8
+      },
+      "selector": {
+        "text": "ft\nright",
+        "start": 3,
+        "end": 11,
+        "prefix": " le",
+        "suffix": " "
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=ft%0Aright&start=3&end=11&prefix=+le&suffix=+&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 3,
+        "end": 11
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 15,
+        "end": 23
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 4,
+        "length": 10
+      },
+      "selector": {
+        "text": "ft\nright  ",
+        "start": 3,
+        "end": 12,
+        "prefix": " le",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=ft%0Aright++&start=3&end=12&prefix=+le&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 3,
+        "end": 12
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 15,
+        "end": 24
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 7,
+        "length": 5
+      },
+      "selector": {
+        "text": "right",
+        "start": 6,
+        "end": 11,
+        "prefix": " left ",
+        "suffix": " "
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=right&start=6&end=11&prefix=+left+&suffix=+&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 6,
+        "end": 11
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 18,
+        "end": 23
+      }
+    },
+    {
+      "source": "  left\nright  ",
+      "range": {
+        "location": 7,
+        "length": 7
+      },
+      "selector": {
+        "text": "right  ",
+        "start": 6,
+        "end": 12,
+        "prefix": " left ",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=right++&start=6&end=12&prefix=+left+&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 6,
+        "end": 12
+      },
+      "drift": "prefix added   left\nright  ",
+      "driftFind": {
+        "start": 18,
+        "end": 24
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 0,
+        "length": 1
+      },
+      "selector": {
+        "text": "[",
+        "start": 0,
+        "end": 1,
+        "prefix": "",
+        "suffix": "x](a) <b> & !()*' + / % ~"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%5B&start=0&end=1&prefix=&suffix=x%5D%28a%29+%3Cb%3E+%26+%21%28%29*%27+%2B+%2F+%25+%7E&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 1
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 13,
+        "end": 14
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 0,
+        "length": 8
+      },
+      "selector": {
+        "text": "[x](a) <",
+        "start": 0,
+        "end": 8,
+        "prefix": "",
+        "suffix": "b> & !()*' + / % ~"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%5Bx%5D%28a%29+%3C&start=0&end=8&prefix=&suffix=b%3E+%26+%21%28%29*%27+%2B+%2F+%25+%7E&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 8
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 13,
+        "end": 21
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 0,
+        "length": 13
+      },
+      "selector": {
+        "text": "[x](a) <b> & ",
+        "start": 0,
+        "end": 13,
+        "prefix": "",
+        "suffix": "!()*' + / % ~"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%5Bx%5D%28a%29+%3Cb%3E+%26+&start=0&end=13&prefix=&suffix=%21%28%29*%27+%2B+%2F+%25+%7E&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 13
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 13,
+        "end": 26
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 0,
+        "length": 24
+      },
+      "selector": {
+        "text": "[x](a) <b> & !()*' + / %",
+        "start": 0,
+        "end": 24,
+        "prefix": "",
+        "suffix": " ~"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%5Bx%5D%28a%29+%3Cb%3E+%26+%21%28%29*%27+%2B+%2F+%25&start=0&end=24&prefix=&suffix=+%7E&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 24
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 13,
+        "end": 37
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 0,
+        "length": 26
+      },
+      "selector": {
+        "text": "[x](a) <b> & !()*' + / % ~",
+        "start": 0,
+        "end": 26,
+        "prefix": "",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%5Bx%5D%28a%29+%3Cb%3E+%26+%21%28%29*%27+%2B+%2F+%25+%7E&start=0&end=26&prefix=&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 0,
+        "end": 26
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 13,
+        "end": 39
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 1,
+        "length": 7
+      },
+      "selector": {
+        "text": "x](a) <",
+        "start": 1,
+        "end": 8,
+        "prefix": "[",
+        "suffix": "b> & !()*' + / % ~"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=x%5D%28a%29+%3C&start=1&end=8&prefix=%5B&suffix=b%3E+%26+%21%28%29*%27+%2B+%2F+%25+%7E&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 8
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 14,
+        "end": 21
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 1,
+        "length": 12
+      },
+      "selector": {
+        "text": "x](a) <b> & ",
+        "start": 1,
+        "end": 13,
+        "prefix": "[",
+        "suffix": "!()*' + / % ~"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=x%5D%28a%29+%3Cb%3E+%26+&start=1&end=13&prefix=%5B&suffix=%21%28%29*%27+%2B+%2F+%25+%7E&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 13
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 14,
+        "end": 26
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 1,
+        "length": 23
+      },
+      "selector": {
+        "text": "x](a) <b> & !()*' + / %",
+        "start": 1,
+        "end": 24,
+        "prefix": "[",
+        "suffix": " ~"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=x%5D%28a%29+%3Cb%3E+%26+%21%28%29*%27+%2B+%2F+%25&start=1&end=24&prefix=%5B&suffix=+%7E&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 24
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 14,
+        "end": 37
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 1,
+        "length": 25
+      },
+      "selector": {
+        "text": "x](a) <b> & !()*' + / % ~",
+        "start": 1,
+        "end": 26,
+        "prefix": "[",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=x%5D%28a%29+%3Cb%3E+%26+%21%28%29*%27+%2B+%2F+%25+%7E&start=1&end=26&prefix=%5B&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 1,
+        "end": 26
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 14,
+        "end": 39
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 8,
+        "length": 5
+      },
+      "selector": {
+        "text": "b> & ",
+        "start": 8,
+        "end": 13,
+        "prefix": "[x](a) <",
+        "suffix": "!()*' + / % ~"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=b%3E+%26+&start=8&end=13&prefix=%5Bx%5D%28a%29+%3C&suffix=%21%28%29*%27+%2B+%2F+%25+%7E&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 8,
+        "end": 13
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 21,
+        "end": 26
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 8,
+        "length": 16
+      },
+      "selector": {
+        "text": "b> & !()*' + / %",
+        "start": 8,
+        "end": 24,
+        "prefix": "[x](a) <",
+        "suffix": " ~"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=b%3E+%26+%21%28%29*%27+%2B+%2F+%25&start=8&end=24&prefix=%5Bx%5D%28a%29+%3C&suffix=+%7E&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 8,
+        "end": 24
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 21,
+        "end": 37
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 8,
+        "length": 18
+      },
+      "selector": {
+        "text": "b> & !()*' + / % ~",
+        "start": 8,
+        "end": 26,
+        "prefix": "[x](a) <",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=b%3E+%26+%21%28%29*%27+%2B+%2F+%25+%7E&start=8&end=26&prefix=%5Bx%5D%28a%29+%3C&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 8,
+        "end": 26
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 21,
+        "end": 39
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 13,
+        "length": 11
+      },
+      "selector": {
+        "text": "!()*' + / %",
+        "start": 13,
+        "end": 24,
+        "prefix": "[x](a) <b> & ",
+        "suffix": " ~"
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%21%28%29*%27+%2B+%2F+%25&start=13&end=24&prefix=%5Bx%5D%28a%29+%3Cb%3E+%26+&suffix=+%7E&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 13,
+        "end": 24
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 26,
+        "end": 37
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 13,
+        "length": 13
+      },
+      "selector": {
+        "text": "!()*' + / % ~",
+        "start": 13,
+        "end": 26,
+        "prefix": "[x](a) <b> & ",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=%21%28%29*%27+%2B+%2F+%25+%7E&start=13&end=26&prefix=%5Bx%5D%28a%29+%3Cb%3E+%26+&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 13,
+        "end": 26
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 26,
+        "end": 39
+      }
+    },
+    {
+      "source": "[x](a) <b> & !()*' + / % ~",
+      "range": {
+        "location": 24,
+        "length": 2
+      },
+      "selector": {
+        "text": " ~",
+        "start": 24,
+        "end": 26,
+        "prefix": "[x](a) <b> & !()*' + / %",
+        "suffix": ""
+      },
+      "href": "t3-citation://v1/host%20%2F%3F%23%F0%9F%99%82/task/message?text=+%7E&start=24&end=26&prefix=%5Bx%5D%28a%29+%3Cb%3E+%26+%21%28%29*%27+%2B+%2F+%25&suffix=&comment=+optional+%2B+%2F%0A%E4%BA%8C+",
+      "label": "optional + / 二",
+      "find": {
+        "start": 24,
+        "end": 26
+      },
+      "drift": "prefix added [x](a) <b> & !()*' + / % ~",
+      "driftFind": {
+        "start": 37,
+        "end": 39
+      }
+    }
+  ]
+}

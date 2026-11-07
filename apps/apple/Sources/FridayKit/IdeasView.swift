@@ -98,6 +98,10 @@ struct InboxView: View {
             })
             #endif
         }
+        #if os(iOS)
+        .fridayMobileHomeScroll()
+        .fridayMobileHomeNavigation()
+        #endif
         #if os(macOS)
         .offset(y: reduceMotion ? 0 : pullReveal)
         .overlay(alignment: .top) { pullHint }

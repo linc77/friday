@@ -32,7 +32,10 @@ struct ProviderModelPreferencesTests {
         let decoded = try JSONDecoder().decode(CodexProviderSettings.self, from: JSONEncoder().encode(settings))
         precondition(decoded.customModels == settings.customModels)
         precondition(decoded.permissionMode == "default")
-        precondition(settings.body["permissionMode"] as? String == "default", "Settings writes include the chosen mode")
+        settings.permissionMode = "acceptEdits"
+        let claudeDecoded = try JSONDecoder().decode(CodexProviderSettings.self, from: JSONEncoder().encode(settings))
+        precondition(claudeDecoded.permissionMode == "acceptEdits", "Claude's accept edits choice survives settings transport")
+        precondition(settings.body["permissionMode"] as? String == "acceptEdits", "Settings writes include the chosen mode")
         print("Model favorites, visibility, order, host isolation, and settings compatibility passed")
     }
 }

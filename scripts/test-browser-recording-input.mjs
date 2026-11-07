@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {JSDOM} from 'jsdom';
+
+// Synthetic document only. This does not record a user page, window, keypress or screen.
+const dom=new JSDOM('<body><input id="ordinary"><input id="password" type="password"><iframe id="frame"></iframe><custom-box tabindex="0"></custom-box></body>',{url:'https://fixture.invalid/',runScripts:'outside-only',pretendToBeVisual:true});
+const window=dom.window,document=window.document,listeners=new Map(),messages=[],frames=new Map();let frameID=0;
+const add=window.addEventListener.bind(window),remove=window.removeEventListener.bind(window);
+window.addEventListener=(name,fn,options)=>{let list=listeners.get(name)??new Set();list.add(fn);listeners.set(name,list);add(name,fn,options);};
+window.removeEventListener=(name,fn,options)=>{listeners.get(name)?.delete(fn);remove(name,fn,options);};
+window.webkit={messageHandlers:{fridayBrowserRecording:{postMessage:message=>messages.push({...message})}}};
+window.requestAnimationFrame=fn=>{const id=++frameID;frames.set(id,fn);return id;};window.cancelAnimationFrame=id=>frames.delete(id);
+const flush=()=>{for(const [id,fn]of [...frames]){frames.delete(id);fn(0);}};
+window.eval(await readFile(new URL('../apps/apple/Sources/FridayKit/Resources/BrowserRecordingInput.js',import.meta.url),'utf8'));
+const api=window.FridayBrowserRecordingInput,fixture=JSON.parse(await readFile(new URL('../server/test/fixtures/t3-browser-capture.json',import.meta.url),'utf8'));
+for(const entry of fixture.keys)assert.equal(api.keyLabel(entry.input,entry.mac),entry.expected,JSON.stringify(entry.input));assert.equal(fixture.keys.length,184);
+const fire=(name,changes={})=>{for(const fn of [...(listeners.get(name)??[])])fn({isTrusted:true,isComposing:false,repeat:false,key:'a',ctrlKey:false,altKey:false,shiftKey:false,metaKey:false,pointerType:'mouse',clientX:10,clientY:20,relatedTarget:null,...changes});};
+api.start('first','document-1',true);const owned=[...listeners].flatMap(([name,values])=>[...values].map(fn=>[name,fn]));
+document.querySelector('#ordinary').focus();assert.equal(api.sensitive(),false);
+fire('keydown',{isTrusted:false});assert.equal(messages.length,0);fire('keydown',{isComposing:true});assert.equal(messages.length,0);fire('keydown',{repeat:true});assert.equal(messages.length,0);
+fire('keydown',{metaKey:true});assert.equal(messages.at(-1).label,'⌘A');assert.equal(messages.at(-1).nonce,'first');assert.equal(messages.at(-1).document,'document-1');assert.equal(messages.at(-1).held,true);
+fire('keyup');assert.equal(messages.at(-1).held,false);
+document.querySelector('#password').focus();assert.equal(api.sensitive(),true);fire('keydown',{key:'s'});assert.equal(messages.at(-1).label,null);fire('keyup');assert.equal(messages.at(-1).label,null);
+document.querySelector('#frame').focus();assert.equal(api.sensitive(),true);
+document.querySelector('custom-box').focus();assert.equal(api.sensitive(),true);
+const host=document.createElement('open-box');document.body.append(host);const shadow=host.attachShadow({mode:'open'}),input=document.createElement('input');shadow.append(input);input.focus();assert.equal(api.sensitive(),false);input.type='password';assert.equal(api.sensitive(),true);
+fire('pointermove',{clientX:1});fire('pointermove',{clientX:2});assert.equal(frames.size,1);flush();assert.equal(messages.at(-1).x,2);
+fire('pointermove',{clientX:3});fire('pointerup',{clientX:4});flush();assert.equal(messages.at(-1).phase,'up');assert.equal(messages.at(-1).x,4);
+fire('pointermove');fire('blur');flush();assert.equal(messages.at(-1).type,'clear');
+const count=messages.length;fire('pointerdown',{pointerType:'touch'});assert.equal(messages.length,count);
+assert.equal(api.stop('wrong'),false);assert.equal(api.stop('first'),true);for(const [name,fn]of owned)assert.equal(listeners.get(name).has(fn),false,'leaked '+name);assert.equal(frames.size,0);
+api.start('second','document-2',false);const before=messages.length;fire('keydown');assert.equal(messages.length,before);fire('pointerdown');assert.equal(messages.at(-1).nonce,'second');api.stop('second');window.close();
+console.log('Recording input: 184 pinned key labels, trusted events, IME/repeat guards, password/iframe/shadow privacy, frame coalescing, pointer release/blur ordering and listener cleanup passed (synthetic DOM).');

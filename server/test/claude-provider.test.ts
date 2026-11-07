@@ -18,7 +18,7 @@ test('Claude probes inherited configuration without a user turn and keeps secret
     assert.equal(state.connected, true); assert.equal(state.version, '2.1.285'); assert.equal(state.model, 'sonnet');
     assert.equal(state.account?.type, 'apiKey'); assert.equal(state.account?.email, 'claude@example.com');
     assert.deepEqual(state.models.map(model => model.id), ['default', 'sonnet', 'custom/gateway-model']);
-    assert.equal(state.models[0]?.resolvedModel, 'gateway-model'); assert.deepEqual(state.models[1]?.reasoningEfforts, ['medium', 'high']);
+    assert.equal(state.models[0]?.resolvedModel, 'gateway-model'); assert.deepEqual(state.models[1]?.reasoningEfforts, ['medium', 'high', 'ultrathink']);
     assert.deepEqual(state.models[2]?.reasoningEfforts, []); assert.equal(state.models[2]?.isCustom, true);
     assert.ok(!JSON.stringify(state).includes('private-claude-test-key'));
     assert.equal((await connection.status()).settings, null); assert.equal((await connection.status()).account?.email, null);

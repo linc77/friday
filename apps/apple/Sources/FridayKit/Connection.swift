@@ -22,7 +22,11 @@ enum SecureToken {
 }
 enum ConnectionError: LocalizedError {
     case message(String)
-    var errorDescription: String? { if case .message(let text) = self { return text }; return nil }
+    case http(String, statusCode: Int)
+    case rateLimited(String, retryAt: Date?)
+    var errorDescription: String? { switch self { case .message(let text), .rateLimited(let text, _), .http(let text, _): return text } }
+    var statusCode: Int? { if case .http(_, let code) = self { return code }; return nil }
+    var retryAt: Date? { if case .rateLimited(_, let date) = self { return date }; return nil }
 }
 @MainActor
 final class Connection {
@@ -55,21 +59,38 @@ final class Connection {
     }
     func request(_ path: String, method: String = "GET", body: [String: Any]? = nil) throws -> URLRequest {
         guard let base = URL(string: server), let host = base.host, ["http", "https"].contains(base.scheme ?? "") else { throw ConnectionError.message("请输入有效的服务地址") }
-        if base.scheme == "http" && !["127.0.0.1", "localhost", "::1"].contains(host) { throw ConnectionError.message("远程连接请使用 HTTPS 地址，例如 Tailscale Serve 提供的地址") }
+        if base.scheme == "http" && !["127.0.0.1", "localhost", "::1"].contains(host) { throw ConnectionError.message("远程连接请使用主机的 HTTPS 地址") }
         guard let url = URL(string: server.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + path) else { throw ConnectionError.message("服务地址无效") }
         var request = URLRequest(url: url); request.httpMethod = method; request.timeoutInterval = 30
         if path.hasPrefix("/api/") { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body); request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         return request
     }
-    func data(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> Data {
-        let (data, response) = try await URLSession.shared.data(for: request(path, method: method, body: body))
+    func data(_ path: String, method: String = "GET", body: [String: Any]? = nil, timeout: TimeInterval? = nil) async throws -> Data {
+        var outgoing = try request(path, method: method, body: body); if let timeout { outgoing.timeoutInterval = timeout }
+        let (data, response) = try await URLSession.shared.data(for: outgoing)
+        return try checked(data, response)
+    }
+    func upload(_ path: String, bytes: Data, mediaType: String) async throws -> Data {
+        var outgoing = try request(path, method: "POST"); outgoing.timeoutInterval = 180
+        outgoing.setValue(mediaType, forHTTPHeaderField: "Content-Type")
+        let (data, response) = try await URLSession.shared.upload(for: outgoing, from: bytes)
+        return try checked(data, response)
+    }
+    private func checked(_ data: Data, _ response: URLResponse) throws -> Data {
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw ConnectionError.message((try? JSONDecoder().decode(APIError.self, from: data).error) ?? "服务暂时无法响应")
+            let failure = try? JSONDecoder().decode(APIError.self, from: data)
+            if (response as? HTTPURLResponse)?.statusCode == 429 {
+                let retryAt = failure?.retryAt.map { Date(timeIntervalSince1970: $0 / 1000) }
+                    ?? (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Retry-After").flatMap(Double.init).map { Date().addingTimeInterval(max(0, $0)) }
+                throw ConnectionError.rateLimited(failure?.error ?? "Source Control 请求过于频繁，请稍后重试", retryAt: retryAt)
+            }
+            if let code = (response as? HTTPURLResponse)?.statusCode { throw ConnectionError.http(failure?.error ?? "服务暂时无法响应", statusCode: code) }
+            throw ConnectionError.message(failure?.error ?? "服务暂时无法响应")
         }
         return data
     }
-    func decode<T: Decodable>(_ type: T.Type, _ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> T {
-        try JSONDecoder().decode(type, from: await data(path, method: method, body: body))
+    func decode<T: Decodable>(_ type: T.Type, _ path: String, method: String = "GET", body: [String: Any]? = nil, timeout: TimeInterval? = nil) async throws -> T {
+        try JSONDecoder().decode(type, from: await data(path, method: method, body: body, timeout: timeout))
     }
 }

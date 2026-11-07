@@ -2,10 +2,11 @@ import { constants } from 'node:fs';
 import { open, readdir, realpath, stat, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Type, type Message } from '@earendil-works/pi-ai';
+import { Type } from 'typebox';
+import type { Message } from '@earendil-works/pi-ai';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import type { Context } from '@earendil-works/chord';
-import { AssistantEntry, defineExtension, defineTool, section, type ConversationId, type ConversationView, type LiveState, type ToolExecutionApi } from '@earendil-works/pi-durable';
+import { AssistantEntry, defineExtension, defineTool, section, type ConversationId, type ConversationView, type EntryRecord, type Cursor, type LiveState, type ToolExecutionApi } from '@earendil-works/pi-durable';
 import { WorkspaceDoc } from './state.js';
 import type { Engine } from './engine.js';
 import type { Approval, ChatMessage, WorkItem } from './types.js';
@@ -156,29 +157,53 @@ export class FridayAssistant {
   async run(work: WorkItem, prompt: string, requestId: string, ctx: Context, proactive = false) {
     const conversation = await this.engine.harness.conversation(work.conversationId as ConversationId, ctx);
     if (!conversation) throw new Error('Friday 会话不存在');
-    const watch = await conversation.watch(ctx);
-    const projectView = async (view: ConversationView) => {
+    const watch = await conversation.watch(ctx, { min: 100, max: 200 });
+    const messagesFrom = (entries: readonly EntryRecord[]) => {
       const messages: ChatMessage[] = [];
-      for (const entry of view.entries) {
+      for (const entry of entries) {
         if (entry.kind === 'friday.health-share' && typeof entry.data === 'object' && entry.data && 'text' in entry.data && typeof entry.data.text === 'string') messages.push({ id: String(entry.id), role: 'assistant', text: entry.data.text });
         if (entry.kind === 'friday.proactive') continue;
         for (const message of entry.model ?? []) {
-        if (message.role !== 'user' && message.role !== 'assistant') continue;
-        const value = messageText(message); if (value) messages.push({ id: String(entry.id), role: message.role, text: value.slice(-80_000) });
+          if (message.role !== 'user' && message.role !== 'assistant') continue;
+          const value = messageText(message); if (value) messages.push({ id: String(entry.id), role: message.role, text: value.slice(-80_000) });
         }
       }
+      return messages;
+    };
+    let olderBefore: ConversationView['before'];
+    let olderMessages: ChatMessage[] = [];
+    const projectView = async (view: ConversationView) => {
+      // 1.5 views are bounded entry windows (including tool results). Page older
+      // entries so a tool-heavy window still preserves our last 100 chat messages.
+      if (view.before !== olderBefore) {
+        olderMessages = [];
+        if (view.before !== undefined) {
+          let cursor: Cursor | undefined;
+          do {
+            const page = await conversation.entries({ maxEntryId: view.before, order: 'descending' }, 100, cursor, ctx);
+            olderMessages = [...messagesFrom([...page.items].reverse()), ...olderMessages].slice(-100);
+            cursor = page.next;
+          } while (cursor !== undefined && olderMessages.length < 100);
+        }
+        olderBefore = view.before;
+      }
+      const messages = [...olderMessages, ...messagesFrom(view.entries)];
       const live = view.docs['pi.live'] as LiveState | undefined;
       const partial = live?.generation?.message;
       if (partial) { const value = messageText(partial as Message); if (value) messages.push({ id: 'streaming', role: 'assistant', text: value.slice(-80_000) }); }
-      await this.engine.patchTask(work.id, task => { task.messages = messages.slice(-100); task.result = messages.findLast(m => m.role === 'assistant')?.text ?? ''; });
+      // A new user entry ends the previous answer. Until this turn emits text,
+      // its result must stay empty rather than borrowing an older reply.
+      const latest = messages.at(-1);
+      await this.engine.patchTask(work.id, task => { task.messages = messages.slice(-100); task.result = latest?.role === 'assistant' ? latest.text : ''; });
     };
     try {
       await projectView(watch.value);
-      watch.start(async view => { await projectView(view); });
+      watch.start(async call => { if (call.kind === 'value') await projectView(call.value); });
       const submitted = await conversation.submit({ type: 'input', content: prompt, requestId, whenBusy: 'followUp', ...(proactive ? { entry: { kind: 'friday.proactive', data: { source: 'health', requestId } } } : {}) }, ctx);
       const settled = await submitted.wait(ctx);
       if (settled.status !== 'done' || settled.type !== 'input') throw new Error(`Friday 没能完成本次请求：${'reason' in settled ? settled.reason : settled.status}`);
       await conversation.waitForIdle(ctx);
+      await watch.stop();
       const entry = await conversation.commit(tx => tx.entry(AssistantEntry, settled.answer), ctx);
       await projectView(watch.value);
       return (entry?.model ?? []).map(messageText).join('\n') || (await this.engine.snapshot()).tasks.find(t => t.id === work.id)?.workspaceRequest || '已完成。';

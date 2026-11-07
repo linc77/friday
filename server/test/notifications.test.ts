@@ -96,7 +96,7 @@ test('The native host persists a validated APNs key privately and reopens withou
 test('Only the host owner can configure APNs and paired devices never receive key material', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-apns-api-'));
   const sender = new ApnsSender({}, undefined, join(directory, 'apns-auth.json'));
-  const engine = await new Engine(directory, undefined, undefined, { push: sender }).open(); const auth = new Auth(directory);
+  const engine = await new Engine(directory, undefined, undefined, undefined, { push: sender }).open(); const auth = new Auth(directory);
   try {
     const phone = auth.pair(auth.createPairing().code, 'Phone', 'test'); const api = createAPI(engine, auth, () => []);
     const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });

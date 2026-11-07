@@ -5,7 +5,7 @@ export type HealthDay = {
   sleepMinutes: number | null; restingHeartRate: number | null; workoutMinutes: number | null;
 };
 export type HealthSource = { deviceId: string; enabled: boolean; capturedAt: string | null; receivedAt: string | null; uploadId: string | null; timezone: string; days: HealthDay[] };
-export const HealthDoc = defineDoc<{ sources: HealthSource[] }>({ kind: 'friday.health', version: 1, scope: 'session', initial: () => ({ sources: [] }) });
+export const HealthDoc = defineDoc<{ sources: HealthSource[] }>({ kind: 'friday.health', version: 1, scope: 'session', checkpointWhen: () => false, initial: () => ({ sources: [] }) });
 export function timezone(value: unknown): string {
   if (typeof value !== 'string' || value.length > 100) throw new Error('时区无效');
   try { new Intl.DateTimeFormat('en', { timeZone: value }).format(); } catch { throw new Error('时区无效'); }

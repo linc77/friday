@@ -3,6 +3,34 @@ import Foundation
 @main
 struct TaskWorkspaceTests {
     static func main() throws {
+        do {
+        let legacy = try JSONDecoder().decode(TaskWorkspaceSelection.self, from: Data(#"{"mode":"checkout"}"#.utf8))
+        precondition(legacy.preparationId == nil)
+        precondition(legacy.startFromOrigin == nil)
+        var remote = TaskWorkspaceSelection(); remote.mode = "worktree"; remote.startFromOrigin = false
+        precondition(remote.body["startFromOrigin"] as? Bool == false)
+        let restoredRemote = try JSONDecoder().decode(TaskWorkspaceSelection.self, from: JSONEncoder().encode(remote))
+        precondition(restoredRemote == remote)
+        remote.selectMode("checkout"); precondition(remote.body["startFromOrigin"] == nil)
+        let defaults = try JSONDecoder().decode(TaskWorkspaceOptions.self, from: Data(#"{"git":{"status":"repository","branch":"main","isWorktree":false},"branches":[],"hasCommit":true,"preparationDefaults":{"newWorktreesStartFromOrigin":false,"worktreeSubmodules":"top-level"}}"#.utf8))
+        var fresh = TaskWorkspaceSelection(); fresh.mode = "worktree"
+        precondition(fresh.resolved(in: defaults).startFromOrigin == false)
+        fresh.startFromOrigin = true; precondition(fresh.resolved(in: defaults).startFromOrigin == true)
+        let preferences = try JSONDecoder().decode(SourceControlPreferencesSnapshot.self, from: Data(#"{"version":4,"projectId":"p","defaults":{"removeAgentCreditsOnMerge":false,"newWorktreesStartFromOrigin":true,"worktreeSubmodules":"recursive"},"overrides":{"worktreeSubmodules":null},"effective":{"removeAgentCreditsOnMerge":false,"newWorktreesStartFromOrigin":true,"worktreeSubmodules":null},"source":"host","sources":{"worktreeSubmodules":"workspace"}}"#.utf8))
+        precondition(preferences.effective.worktreeSubmodules == nil && preferences.sources?["worktreeSubmodules"] == "workspace")
+        var prepared = TaskWorkspaceSelection(); prepared.mode = "worktree"; prepared.preparationId = "00000000-0000-0000-0000-000000000001"; prepared.preparedPath = "/work/prepared"; prepared.preparedBranch = "linc/pr-17/main"
+        let restored = try JSONDecoder().decode(TaskWorkspaceSelection.self, from: JSONEncoder().encode(prepared))
+        precondition(restored == prepared && restored.body["preparationId"] as? String == prepared.preparationId && restored.body["branch"] == nil && restored.body["preparedPath"] == nil)
+        prepared.selectMode("checkout"); precondition(prepared.preparationId == nil && prepared.preparedPath == nil)
+        var reused = TaskWorkspaceSelection(); reused.mode = "worktree"; reused.reuseTaskId = "source-task"
+        reused.branch = "refs/heads/topic"; reused.preparedBranch = "topic"; reused.preparedPath = "/work/existing"
+        reused.startFromOrigin = true
+        let restoredReuse = try JSONDecoder().decode(TaskWorkspaceSelection.self, from: JSONEncoder().encode(reused))
+        precondition(restoredReuse == reused && restoredReuse.isValid(in: defaults))
+        precondition(restoredReuse.body["reuseTaskId"] as? String == "source-task" && restoredReuse.body["branch"] as? String == "refs/heads/topic")
+        precondition(restoredReuse.body["preparedPath"] == nil && restoredReuse.body["startFromOrigin"] == nil && restoredReuse.body["preparationId"] == nil)
+        reused.selectMode("checkout"); precondition(reused.reuseTaskId == nil && reused.preparedPath == nil)
+        }
         let projects = [
             Project(id: "a", name: "Friday", path: "/work/friday", context: ""),
             Project(id: "b", name: "Other", path: "/work/other", context: "")
@@ -76,6 +104,24 @@ struct TaskWorkspaceTests {
         }
         let now = CodexTranscript.date("2026-10-07T12:00:00Z")!
         let completed = try rowTask([:])
+        precondition(completed.pinnedAt == nil && completed.archivedAt == nil && completed.unread == nil, "Older task records have no task-management metadata")
+        let pinned = try rowTask(["pinnedAt": "2026-10-07T11:00:00Z", "unread": true])
+        let snoozed = try rowTask(["snoozedUntil": "2026-10-08T00:00:00Z", "pinnedAt": "2026-10-07T11:00:00Z"])
+        let archived = try rowTask(["archivedAt": "2026-10-07T11:00:00Z"])
+        let settled = try rowTask(["settledAt": "2026-10-07T11:00:00Z"])
+        let old = try rowTask(["updatedAt": "2026-10-01T00:00:00Z"])
+        let woken = try rowTask(["updatedAt": "2026-10-01T00:00:00Z", "unsettledAt": "2026-10-07T11:00:00Z"])
+        let alwaysActive = try rowTask(["updatedAt": "2026-10-01T00:00:00Z", "autoSettle": false])
+        precondition(TaskWorkspaces.shelf(pinned, now: now) == .pinned && pinned.unread == true)
+        precondition(TaskWorkspaces.shelf(snoozed, now: now) == .snoozed, "Snoozed pins stay in Snoozed until their wake time")
+        precondition(TaskWorkspaces.shelf(snoozed, now: now.addingTimeInterval(86_400)) == .pinned, "Wake restores the original pin")
+        precondition(TaskWorkspaces.shelf(settled, now: now) == .settled)
+        precondition(TaskWorkspaces.shelf(old, now: now) == .settled, "T3 auto-settles idle tasks after three days")
+        precondition(TaskWorkspaces.shelf(woken, now: now) == .active && TaskWorkspaces.shelf(alwaysActive, now: now) == .active)
+        precondition(TaskWorkspaces.tasks([archived], scope: nil, projects: projects).isEmpty)
+        precondition(TaskWorkspaces.tasks([archived], scope: nil, projects: projects, includeArchived: true).count == 1)
+        precondition(TaskWorkspaces.shelfTasks([archived, pinned], shelf: .pinned, now: now).count == 1)
+        print("Task pin, archive, unread, snooze/wake and manual/automatic settlement compatibility passed")
         let invalidUpdate = try rowTask(["updatedAt": "invalid"])
         let invalidDates = try rowTask(["updatedAt": "invalid", "createdAt": "invalid"])
         precondition(TaskRowPresentation.age(completed, now: now) == "7h")

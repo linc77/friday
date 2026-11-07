@@ -19,20 +19,24 @@ struct WorkspaceDeleteButton: View {
             Button(friday: "删除 Workspace", role: .destructive, action: delete)
             Button(friday: "取消", role: .cancel) {}
         } message: {
-            Text(project.name) + Text("\n\n") + Text(friday: "目录文件和已有任务会保留。")
+            Text(project.name) + Text("\n\n") + Text(friday: project.clone?.blocksTasks == true ? "未完成的克隆会清理本次克隆内容；已完成的项目文件和已有任务会保留。" : "目录文件和已有任务会保留。")
         }
     }
 
     private func delete() {
         guard !busy, store.connected else { return }
         busy = true; error = nil
+        let identity = store.connectionIdentity
         Task {
-            defer { busy = false }
+            defer { if identity == store.connectionIdentity { busy = false } }
+            guard identity == store.connectionIdentity, store.snapshotIdentity == identity else { return }
             do {
                 _ = try await store.connection.data("/api/projects/\(project.id)", method: "DELETE")
+                guard identity == store.connectionIdentity else { return }
                 await store.refresh()
+                guard identity == store.connectionIdentity else { return }
                 onDeleted()
-            } catch { self.error = error.localizedDescription }
+            } catch { if identity == store.connectionIdentity { self.error = error.localizedDescription } }
         }
     }
 }

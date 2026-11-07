@@ -6,6 +6,7 @@ import AppKit
 struct CodexSettingsView: View {
     @ObservedObject var store: FridayStore
     var provider = "codex"
+    var instanceId: String? = nil
     @ObservedObject private var modelPreferences = ProviderModelPreferences.shared
     @Environment(\.openURL) private var openURL
     @State private var state: CodexConnectionState?
@@ -19,9 +20,16 @@ struct CodexSettingsView: View {
     @State private var addingModel = false
     @State private var customModelID = ""
     @State private var customModelName = ""
-    private var providerName: String { provider == "claude" ? "Claude" : "Codex" }
-    private var endpoint: String { "/api/agents/\(provider)" }
-    private var preferences: ModelPickerPreferences { modelPreferences.get(server: store.connection.server, provider: provider) }
+    private var providerName: String { TaskProviderCatalog.name(provider) }
+    private var variablePlaceholder: String { provider == "codex" ? "OPENAI_BASE_URL" : "ANTHROPIC_API_KEY" }
+    private var permissionHelp: String {
+        if provider == "pi" { return "Auto 允许 Pi 执行工具；手动确认会在写入或运行命令前请求授权。" }
+        return "Auto 使用工具自带的自动审批；需要补充信息时仍会询问。"
+    }
+    private var homeVariable: String { provider == "pi" ? "PI_CODING_AGENT_DIR" : provider == "codex" ? "CODEX_HOME" : "CLAUDE_CONFIG_DIR" }
+    private var homePlaceholder: String { provider == "pi" ? "~/.pi/agent" : provider == "codex" ? "~/.codex" : "~/.claude" }
+    private func endpoint(_ path: String = "") -> String { TaskProviderCatalog.endpoint(provider, instance: instanceId, path: path) }
+    private var preferences: ModelPickerPreferences { modelPreferences.get(server: store.connection.server, provider: instanceId ?? provider) }
     private var models: [CodexProviderModel] {
         let discovered = (state?.models ?? []).filter { $0.isCustom != true }
         let ids = Set(discovered.map(\.id))
@@ -67,7 +75,7 @@ struct CodexSettingsView: View {
             details
             if let error { Text(error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
         }
-        .task(id: store.connected) { if store.connected { await refresh() } }
+        .task(id: store.connectionIdentity + ":" + String(store.connected) + ":" + (instanceId ?? provider)) { if store.connected { await refresh() } }
         .task(id: state?.loginPending) {
             guard state?.loginPending == true else { return }
             while !Task.isCancelled && state?.loginPending == true {
@@ -114,17 +122,21 @@ struct CodexSettingsView: View {
                         .font(.system(size: 12)).foregroundStyle(.secondary).textSelection(.enabled)
                 }
             }
+            if provider == "pi", owner, state?.connected != true {
+                Text(friday: "在主机运行 pi /login，或配置 Pi 模型凭据后重新检测。")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).textSelection(.enabled)
+            }
             if owner {
                 SettingsGroup("运行配置") {
                     runtimeField("可执行文件", detail: "当前服务使用的本地程序。", placeholder: provider, value: $draft.binaryPath)
                     SettingsDivider()
-                    runtimeField(provider == "codex" ? "CODEX_HOME" : "CLAUDE_CONFIG_DIR", detail: "读取已有的账号、模型和网关配置。", placeholder: provider == "codex" ? "~/.codex" : "~/.claude", value: $draft.homePath)
+                    runtimeField(homeVariable, detail: "读取已有的账号、模型和网关配置。", placeholder: homePlaceholder, value: $draft.homePath)
                     if provider == "codex" {
                         SettingsDivider()
                         runtimeField("独立账号目录", detail: "单独保存账号凭据，共享 CODEX_HOME 中的配置和会话。", placeholder: "可选", value: $draft.shadowHomePath)
                     }
                     SettingsDivider()
-                    runtimeField("启动参数", detail: provider == "codex" ? "传给 Codex app-server 的额外参数。" : "支持 --model、--effort 和 --setting-sources。", placeholder: "可选", value: $draft.launchArgs)
+                    runtimeField("启动参数", detail: provider == "pi" ? "传给 Pi RPC 的额外参数；会话和执行模式由 Friday 管理。" : provider == "codex" ? "传给 Codex app-server 的额外参数。" : "支持 --model、--effort 和 --setting-sources。", placeholder: "可选", value: $draft.launchArgs)
                 }
                 environment
             }
@@ -132,17 +144,16 @@ struct CodexSettingsView: View {
                 SettingsGroup("权限") {
                     SettingsRow("权限模式", detail: "新任务和续聊使用此设置；正在执行的任务不受影响。") {
                         Picker(selection: $draft.permissionMode) {
-                            Text("Auto").tag("auto")
+                            Text(friday: provider == "pi" ? "完全访问" : "Auto").tag("auto")
                             Text(friday: "手动确认").tag("default")
-                            if provider == "claude" {
+                            if provider == "claude" || provider == "pi" {
                                 Text(friday: "自动接受编辑").tag("acceptEdits")
-                                Text(friday: "规划模式").tag("plan")
                             }
                         } label: { Text(friday: "权限模式") }
                             .labelsHidden().frame(maxWidth: 210).fridayInteractiveCursor().disabled(busy)
                     }
                     SettingsDivider()
-                    Text(friday: "Auto 使用工具自带的自动审批；需要补充信息时仍会询问。")
+                    Text(fridayString: permissionHelp)
                         .font(.system(size: 12)).foregroundStyle(.secondary).padding(14)
                 }
             }
@@ -280,7 +291,7 @@ struct CodexSettingsView: View {
     }
 
     private func updatePreferences(_ change: (inout ModelPickerPreferences) -> Void) {
-        modelPreferences.update(server: store.connection.server, provider: provider, change)
+        modelPreferences.update(server: store.connection.server, provider: instanceId ?? provider, change)
     }
     private func moveModel(_ id: String, by offset: Int) {
         var ids = displayModels.map(\.id)
@@ -317,7 +328,7 @@ struct CodexSettingsView: View {
             if addingVariable {
                 SettingsDivider()
                 VStack(alignment: .leading, spacing: 10) {
-                    TextField(provider == "codex" ? "OPENAI_BASE_URL" : "ANTHROPIC_API_KEY", text: $variableName).textFieldStyle(.roundedBorder).accessibilityLabel(Text(friday: "变量名称"))
+                    TextField(variablePlaceholder, text: $variableName).textFieldStyle(.roundedBorder).accessibilityLabel(Text(friday: "变量名称"))
                     SecureField(friday: "变量值", text: $variableValue).textFieldStyle(.roundedBorder)
                     HStack { Spacer(); Button(friday: "添加") {
                         let name = variableName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -338,25 +349,31 @@ struct CodexSettingsView: View {
         }
     }
     @MainActor private func refresh(force: Bool = false) async {
+        let account = store.connectionIdentity
         busy = true; defer { busy = false }
         do {
-            apply(try await store.connection.decode(CodexConnectionState.self, force && owner ? endpoint + "/check" : endpoint, method: force && owner ? "POST" : "GET", body: force && owner ? [:] : nil))
+            let value = try await store.connection.decode(CodexConnectionState.self, force && owner ? endpoint("/check") : endpoint(), method: force && owner ? "POST" : "GET", body: force && owner ? [:] : nil)
+            guard store.connectionIdentity == account, !Task.isCancelled else { return }; apply(value)
             error = nil
-        } catch { self.error = error.localizedDescription }
+        } catch { if store.connectionIdentity == account { self.error = error.localizedDescription } }
     }
     @MainActor private func save() async {
+        let account = store.connectionIdentity
         busy = true; defer { busy = false }
         do {
-            let value = try await store.connection.decode(CodexConnectionState.self, endpoint + "/settings", method: "PUT", body: draft.body)
+            let value = try await store.connection.decode(CodexConnectionState.self, endpoint("/settings"), method: "PUT", body: draft.body)
+            guard store.connectionIdentity == account else { return }
             saved = value.settings; draft = value.settings ?? draft; state = value; error = nil
-        } catch { self.error = error.localizedDescription }
+        } catch { if store.connectionIdentity == account { self.error = error.localizedDescription } }
     }
     @MainActor private func login() async {
+        let account = store.connectionIdentity
         busy = true; defer { busy = false }
         do {
-            let response = try await store.connection.decode(CodexLoginResponse.self, "/api/agents/codex/login", method: "POST", body: [:])
+            let response = try await store.connection.decode(CodexLoginResponse.self, endpoint("/login"), method: "POST", body: [:])
+            guard store.connectionIdentity == account else { return }
             if let url = URL(string: response.url) { openURL(url) }
-            apply(try await store.connection.decode(CodexConnectionState.self, "/api/agents/codex")); error = nil
-        } catch { self.error = error.localizedDescription }
+            apply(try await store.connection.decode(CodexConnectionState.self, endpoint())); error = nil
+        } catch { if store.connectionIdentity == account { self.error = error.localizedDescription } }
     }
 }

@@ -9,6 +9,8 @@ import { Engine } from '../src/engine.js';
 import { Auth } from '../src/auth.js';
 import { createAPI } from '../src/api.js';
 import type { ExecutionRequest, Executor, Workspace, WorkItem } from '../src/types.js';
+import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
+import { WorkspaceDoc } from '../src/state.js';
 
 const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 async function fixture() {
@@ -184,16 +186,24 @@ test('An existing Worktree task switches its own checkout and blocks changes whi
   } finally { await engine.close(); await f.cleanup(); }
 });
 
-test('Queued branch changes reserve the checkout, survive restart and deduplicate a lost response', async () => {
+test('Legacy queued branch changes reserve the checkout, survive restart and deduplicate a lost response', async () => {
   const f = await fixture(); const directory = join(f.directory, 'service');
   const executor: Executor = { async run(request) { await new Promise<void>((_, reject) => request.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })); return ''; }, async answer() {}, async steer() {} };
   let engine = await new Engine(directory, executor).open();
   try {
-    // This unrelated task holds the local agent lane, leaving the switch queued.
+    // Recreate a persisted v1 request from the former global FIFO. Its explicit
+    // dependency must still work after new threads become independent.
     await engine.createTask({ prompt: 'Wait elsewhere', projectId: null, mode: 'research', agent: 'codex', requestId: 'hold' });
     await until(engine, s => s.tasks[0]?.status === 'running');
     await engine.mutate(s => { s.tasks.push(existingTask(f.repo)); });
-    await engine.switchTaskBranch('existing', 'refs/heads/feature/other', 'queued-switch');
+    const plan = await planWorkspace({ mode: 'checkout', branch: 'refs/heads/feature/other' }, f.repo, directory, 'existing');
+    await engine.root.commit(async tx => {
+      const state = await tx.doc(WorkspaceDoc);
+      const durableId = await tx.createTask(engine.branchSwitch, { id: 'existing', requestId: 'queued-switch', plan, predecessor: state.tasks[0].durableId }, { ownership: { kind: 'conversation' } });
+      state.tasks[1].branchChange = { requestId: 'queued-switch', branch: 'refs/heads/feature/other', root: plan.root, status: 'queued' };
+      state.branchRequests = { 'queued-switch': { taskId: 'existing', branch: 'refs/heads/feature/other' } };
+      state.queueTail = durableId; state.revision++;
+    }, BACKGROUND_CONTEXT);
     await assert.rejects(engine.createTask({ prompt: 'Continue', projectId: null, mode: 'research', continueId: 'existing', requestId: 'racing-turn' }), /正在切换分支/);
     await assert.rejects(engine.switchTaskBranch('existing', 'refs/heads/main', 'racing-switch'), /正在切换分支/);
     assert.equal(git(f.repo, 'branch', '--show-current'), 'main');
@@ -203,6 +213,21 @@ test('Queued branch changes reserve the checkout, survive restart and deduplicat
     git(f.repo, 'switch', 'main');
     await engine.switchTaskBranch('existing', 'refs/heads/feature/other', 'queued-switch');
     assert.equal(git(f.repo, 'branch', '--show-current'), 'main', 'A retried old request never repeats the side effect');
+  } finally { await engine.close(); await f.cleanup(); }
+});
+
+test('A branch change is independent of a running thread in an unrelated workspace', async () => {
+  const f = await fixture(); const directory = join(f.directory, 'service');
+  const executor: Executor = { async run(request) { await new Promise<void>((_, reject) => request.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })); return ''; }, async answer() {}, async steer() {} };
+  const engine = await new Engine(directory, executor).open();
+  try {
+    await engine.createTask({ prompt: 'Wait elsewhere', projectId: null, mode: 'research', agent: 'codex', requestId: 'independent' });
+    await until(engine, s => s.tasks[0]?.status === 'running');
+    await engine.mutate(s => { s.tasks.push(existingTask(f.repo)); });
+    await engine.switchTaskBranch('existing', 'refs/heads/feature/other', 'switch-independent');
+    await until(engine, s => s.tasks[1].branchChange?.status === 'completed');
+    assert.equal((await engine.snapshot()).tasks[0].status, 'running');
+    assert.equal(git(f.repo, 'branch', '--show-current'), 'feature/other');
   } finally { await engine.close(); await f.cleanup(); }
 });
 

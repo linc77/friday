@@ -7,7 +7,6 @@ trap 'rm -rf "$FRIDAY_CHECK_DIR"' EXIT
 swiftc -parse-as-library \
   apps/apple/Sources/FridayKit/Models.swift \
   apps/apple/Sources/FridayKit/CodexTranscript.swift \
-  apps/apple/Sources/FridayKit/MarkdownBlocks.swift \
   apps/apple/Sources/FridayKit/SnapshotStream.swift \
   apps/apple/Tests/FridayKitTests/SnapshotStreamTests.swift \
   -o "$FRIDAY_CHECK_DIR/check"
@@ -15,6 +14,7 @@ swiftc -parse-as-library \
 if [[ "$(uname -s)" == "Darwin" ]]; then
   swiftc -parse-as-library \
     apps/apple/Sources/FridayKit/TaskImagePasteboard.swift \
+    apps/apple/Sources/FridayKit/TaskAttachmentImport.swift \
     apps/apple/Tests/FridayKitTests/TaskImagePasteboardTests.swift \
     -o "$FRIDAY_CHECK_DIR/clipboard-check"
   "$FRIDAY_CHECK_DIR/clipboard-check"

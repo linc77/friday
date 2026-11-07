@@ -1,0 +1,55 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, readFile, rm, chmod } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { codexUsageLimits, claudeUsageLimits } from '../src/provider-usage-limits.js';
+import { defaultCodexSettings } from '../src/codex-settings.js';
+import { defaultClaudeSettings } from '../src/claude-provider.js';
+import { Engine } from '../src/engine.js';
+import { Auth } from '../src/auth.js';
+import { createAPI } from '../src/api.js';
+
+test('Pinned usage windows keep percentages, main Codex allowance and duration fallbacks, with unknown data distinct from zero', () => {
+  assert.deepEqual(codexUsageLimits(null).windows, []);
+  assert.deepEqual(codexUsageLimits({ rateLimits: { limitId: 'spark', primary: { usedPercent: 99 } } }).windows, []);
+  const main = codexUsageLimits({ rateLimits: { primary: { usedPercent: 99 } }, rateLimitsByLimitId: { codex: { primary: { usedPercent: 20 }, secondary: { usedPercent: 80 } } } });
+  assert.equal(codexUsageLimits({ rateLimits: { primary: { usedPercent: 5, windowDurationMins: 0 } } }).windows[0].windowDurationMins, 0);
+  assert.deepEqual(main.windows.map(row => [row.kind, row.usedPercent, row.windowDurationMins]), [['session', 20, 300], ['weekly', 80, 10080]]);
+  for (const planType of ['free', 'go']) assert.equal(codexUsageLimits({ rateLimits: { planType, primary: { usedPercent: 0 } } }).windows[0].kind, 'monthly');
+  const clamped = codexUsageLimits({ rateLimits: { primary: { usedPercent: -10, resetsAt: 2_000_000_000 }, secondary: { usedPercent: 120, resetsAt: Infinity } } });
+  assert.equal(clamped.windows[0].usedPercent, 0); assert.equal(clamped.windows[0].resetsAt, '2033-05-18T03:33:20.000Z'); assert.equal(clamped.windows[1].usedPercent, 100); assert.equal(clamped.windows[1].resetsAt, undefined);
+  assert.equal(codexUsageLimits({ rateLimits: { primary: { usedPercent: NaN } } }).windows.length, 0);
+  assert.equal(claudeUsageLimits({ rate_limits_available: false }).unavailable?.reason, 'unsupported');
+  const claude = claudeUsageLimits({ rate_limits_available: true, rate_limits: { five_hour: { utilization: 0.8 }, seven_day: { utilization: 80 }, seven_day_sonnet: { utilization: 99 }, model_scoped: [{ display_name: 'Future Model', utilization: 23 }, { display_name: 'Bad', utilization: Infinity }] } });
+  assert.deepEqual(claude.windows.map(row => [row.label, row.usedPercent]), [['Session', 0.8], ['Weekly', 80], ['Weekly · Future Model', 23]], 'The probe is already a percentage; deprecated hard-coded model buckets do not appear');
+});
+
+test('Authenticated provider probes are read-only, cached by account settings and force-refreshable; task account boundaries remain enforced', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-usage-probe-')), data = join(directory, 'data'), home = join(directory, 'home'); await mkdir(home);
+  const codex = fileURLToPath(new URL('fixtures/codex-provider.mjs', import.meta.url)), claude = fileURLToPath(new URL('fixtures/claude-provider.mjs', import.meta.url));
+  await chmod(codex, 0o755); await chmod(claude, 0o755);
+  const executor = { async run(): Promise<string> { throw new Error('A usage probe must never execute a turn'); }, async answer() {}, async steer() {} };
+  const engine = await new Engine(data, executor, undefined, { changeRequestSyncIntervalMs: 0 }).open(), auth = new Auth(data), api = createAPI(engine, auth, () => []);
+  t.after(async () => { await engine.close(); auth.close(); await rm(directory, { recursive: true, force: true }); });
+  await engine.codexConnection.save({ ...defaultCodexSettings, binaryPath: codex, homePath: home });
+  await engine.claudeConnection.save({ ...defaultClaudeSettings, binaryPath: claude, homePath: home });
+  const post = (body: object, authorized = true) => api.request('/api/composer/usage-limits', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authorized ? { Authorization: 'Bearer ' + auth.token } : {}) }, body: JSON.stringify(body) });
+  assert.equal((await post({ provider: 'codex' }, false)).status, 401);
+  assert.equal((await post({ provider: 'other' })).status, 400); assert.equal((await post({ provider: 'codex', taskId: 'missing' })).status, 400);
+  const first = await Promise.all([post({ provider: 'codex' }), post({ provider: 'codex' })]); assert(first.every(response => response.status === 200));
+  assert.equal((await first[0].json()).windows[0].usedPercent, 11);
+  await post({ provider: 'codex' }); await post({ provider: 'codex', reload: true });
+  let wire = (await readFile(join(data, 'wire.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+  assert.equal(wire.filter(message => message.method === 'account/rateLimits/read').length, 2); assert(!wire.some(message => ['thread/start', 'thread/resume', 'turn/start'].includes(message.method)));
+  const response = await post({ provider: 'claude' }); assert.equal(response.status, 200); const result = await response.json(); assert.deepEqual(result.windows.map((window: { usedPercent: number }) => window.usedPercent), [23, 45, 67]);
+  assert(!JSON.stringify(result).includes(home)); assert(!JSON.stringify(result).includes(auth.token));
+  wire = (await readFile(join(data, 'claude-wire.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+  assert(wire.some(message => message.request?.subtype === 'get_usage' && message.request.skip_behaviors === true)); assert(!wire.some(message => message.type === 'user'));
+  const now = new Date().toISOString();
+  await engine.mutate(state => { state.tasks = [{ id: 'old-account', agent: 'codex', projectId: null, cwd: home, title: 'Old', prompt: 'Old', result: '', mode: 'research', status: 'completed', threadId: 'old', turnId: null, durableId: null, artifact: null, error: null, events: [], approvals: [], createdAt: now, updatedAt: now, lastRequestId: 'old', codexHome: join(directory, 'other-account') }]; });
+  assert.equal((await post({ provider: 'codex', taskId: 'old-account' })).status, 400); assert.equal((await post({ provider: 'claude', taskId: 'old-account' })).status, 400);
+  await engine.claudeConnection.save({ ...defaultClaudeSettings, binaryPath: claude, homePath: home, environment: [{ name: 'FRIDAY_TEST_USAGE', value: 'unsupported' }] });
+  assert.equal((await (await post({ provider: 'claude' })).json()).unavailable.reason, 'unsupported', 'Changing settings does not reuse another account probe');
+});

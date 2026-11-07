@@ -1,0 +1,666 @@
+{
+  "source": "pingdotgg/t3code@8cd9641f76874f2ce17d6c80acd71fab1f0b99d3",
+  "limits": {
+    "uploadFiles": 20,
+    "uploadBytes": 104857600,
+    "downloadFiles": 20,
+    "downloadBytes": 1073741824
+  },
+  "editing": [
+    {
+      "key": "c",
+      "modifiers": 0,
+      "command": null
+    },
+    {
+      "key": "c",
+      "modifiers": 1,
+      "command": null
+    },
+    {
+      "key": "c",
+      "modifiers": 2,
+      "command": "copy"
+    },
+    {
+      "key": "c",
+      "modifiers": 3,
+      "command": null
+    },
+    {
+      "key": "c",
+      "modifiers": 4,
+      "command": "copy"
+    },
+    {
+      "key": "c",
+      "modifiers": 5,
+      "command": null
+    },
+    {
+      "key": "c",
+      "modifiers": 6,
+      "command": null
+    },
+    {
+      "key": "c",
+      "modifiers": 7,
+      "command": null
+    },
+    {
+      "key": "c",
+      "modifiers": 8,
+      "command": null
+    },
+    {
+      "key": "c",
+      "modifiers": 9,
+      "command": null
+    },
+    {
+      "key": "c",
+      "modifiers": 10,
+      "command": "copy"
+    },
+    {
+      "key": "c",
+      "modifiers": 11,
+      "command": null
+    },
+    {
+      "key": "c",
+      "modifiers": 12,
+      "command": "copy"
+    },
+    {
+      "key": "c",
+      "modifiers": 13,
+      "command": null
+    },
+    {
+      "key": "c",
+      "modifiers": 14,
+      "command": null
+    },
+    {
+      "key": "c",
+      "modifiers": 15,
+      "command": null
+    },
+    {
+      "key": "C",
+      "modifiers": 0,
+      "command": null
+    },
+    {
+      "key": "C",
+      "modifiers": 1,
+      "command": null
+    },
+    {
+      "key": "C",
+      "modifiers": 2,
+      "command": "copy"
+    },
+    {
+      "key": "C",
+      "modifiers": 3,
+      "command": null
+    },
+    {
+      "key": "C",
+      "modifiers": 4,
+      "command": "copy"
+    },
+    {
+      "key": "C",
+      "modifiers": 5,
+      "command": null
+    },
+    {
+      "key": "C",
+      "modifiers": 6,
+      "command": null
+    },
+    {
+      "key": "C",
+      "modifiers": 7,
+      "command": null
+    },
+    {
+      "key": "C",
+      "modifiers": 8,
+      "command": null
+    },
+    {
+      "key": "C",
+      "modifiers": 9,
+      "command": null
+    },
+    {
+      "key": "C",
+      "modifiers": 10,
+      "command": "copy"
+    },
+    {
+      "key": "C",
+      "modifiers": 11,
+      "command": null
+    },
+    {
+      "key": "C",
+      "modifiers": 12,
+      "command": "copy"
+    },
+    {
+      "key": "C",
+      "modifiers": 13,
+      "command": null
+    },
+    {
+      "key": "C",
+      "modifiers": 14,
+      "command": null
+    },
+    {
+      "key": "C",
+      "modifiers": 15,
+      "command": null
+    },
+    {
+      "key": "x",
+      "modifiers": 0,
+      "command": null
+    },
+    {
+      "key": "x",
+      "modifiers": 1,
+      "command": null
+    },
+    {
+      "key": "x",
+      "modifiers": 2,
+      "command": "cut"
+    },
+    {
+      "key": "x",
+      "modifiers": 3,
+      "command": null
+    },
+    {
+      "key": "x",
+      "modifiers": 4,
+      "command": "cut"
+    },
+    {
+      "key": "x",
+      "modifiers": 5,
+      "command": null
+    },
+    {
+      "key": "x",
+      "modifiers": 6,
+      "command": null
+    },
+    {
+      "key": "x",
+      "modifiers": 7,
+      "command": null
+    },
+    {
+      "key": "x",
+      "modifiers": 8,
+      "command": null
+    },
+    {
+      "key": "x",
+      "modifiers": 9,
+      "command": null
+    },
+    {
+      "key": "x",
+      "modifiers": 10,
+      "command": "cut"
+    },
+    {
+      "key": "x",
+      "modifiers": 11,
+      "command": null
+    },
+    {
+      "key": "x",
+      "modifiers": 12,
+      "command": "cut"
+    },
+    {
+      "key": "x",
+      "modifiers": 13,
+      "command": null
+    },
+    {
+      "key": "x",
+      "modifiers": 14,
+      "command": null
+    },
+    {
+      "key": "x",
+      "modifiers": 15,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 0,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 1,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 2,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 3,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 4,
+      "command": "selectAll"
+    },
+    {
+      "key": "a",
+      "modifiers": 5,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 6,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 7,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 8,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 9,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 10,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 11,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 12,
+      "command": "selectAll"
+    },
+    {
+      "key": "a",
+      "modifiers": 13,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 14,
+      "command": null
+    },
+    {
+      "key": "a",
+      "modifiers": 15,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 0,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 1,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 2,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 3,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 4,
+      "command": "undo"
+    },
+    {
+      "key": "z",
+      "modifiers": 5,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 6,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 7,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 8,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 9,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 10,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 11,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 12,
+      "command": "redo"
+    },
+    {
+      "key": "z",
+      "modifiers": 13,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 14,
+      "command": null
+    },
+    {
+      "key": "z",
+      "modifiers": 15,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 0,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 1,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 2,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 3,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 4,
+      "command": "undo"
+    },
+    {
+      "key": "Z",
+      "modifiers": 5,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 6,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 7,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 8,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 9,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 10,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 11,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 12,
+      "command": "redo"
+    },
+    {
+      "key": "Z",
+      "modifiers": 13,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 14,
+      "command": null
+    },
+    {
+      "key": "Z",
+      "modifiers": 15,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 0,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 1,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 2,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 3,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 4,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 5,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 6,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 7,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 8,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 9,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 10,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 11,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 12,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 13,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 14,
+      "command": null
+    },
+    {
+      "key": "v",
+      "modifiers": 15,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 0,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 1,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 2,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 3,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 4,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 5,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 6,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 7,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 8,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 9,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 10,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 11,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 12,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 13,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 14,
+      "command": null
+    },
+    {
+      "key": "other",
+      "modifiers": 15,
+      "command": null
+    }
+  ],
+  "upload": {
+    "files": [
+      {
+        "name": "测试🙂.txt",
+        "mimeType": "text/plain",
+        "base64": "aGVsbG8g5Lit5paH8J+Zggo="
+      },
+      {
+        "name": "quote\"name.txt",
+        "mimeType": "text/plain",
+        "base64": "AP8NCgEi"
+      }
+    ],
+    "digest": "86e197cccdb784deb0155bdb222433dc3b2ea4314ca5b6df1150cf104febedc2"
+  }
+}

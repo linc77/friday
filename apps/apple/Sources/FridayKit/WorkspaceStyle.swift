@@ -1,7 +1,7 @@
 import Foundation
 
 enum WorkspaceStyle {
-    static let icons = ["folder", "terminal", "curlybraces", "app", "globe", "book.closed", "lightbulb", "paintbrush", "hammer", "star", "heart", "briefcase"]
+    static let icons = ["folder", "terminal", "curlybraces", "app", "globe", "book.closed", "lightbulb", "paintbrush", "hammer", "star", "heart", "briefcase", "ellipsis.message"]
     static let colors = ["gray", "blue", "teal", "green", "yellow", "orange", "pink", "purple"]
     static let iconLabels = ["文件夹", "终端", "代码", "应用", "网页", "书籍", "灵感", "画笔", "工具", "星标", "爱心", "工作"]
     static let colorLabels = ["灰色", "蓝色", "青色", "绿色", "黄色", "橙色", "粉色", "紫色"]

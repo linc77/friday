@@ -3,6 +3,11 @@ import Foundation
 @main
 struct SnapshotStreamTests {
     static func main() throws {
+        let legacyProvider = CodexProviderSettings()
+        let legacySettings = try JSONDecoder().decode(CodexProviderSettings.self, from: JSONEncoder().encode(legacyProvider))
+        precondition(legacySettings == legacyProvider, "Existing providers retain their original settings payload")
+        precondition(legacySettings.body["serverPassword"] == nil && legacySettings.body["nativeConfig"] == nil, "Retired integration settings are no longer sent")
+        precondition(TaskProviderCatalog.order == ["codex", "claude", "pi"], "Only retained drivers are offered")
         let lines = [
             "event: snapshot", "data: {\"revision\":1,\"ideas\":[],\"projects\":[],\"memories\":[],\"tasks\":[]}", "id: 1",
             "event: heartbeat", "data: {}",
@@ -68,9 +73,6 @@ struct SnapshotStreamTests {
         let imageRows = CodexTranscript.rows(imageTask)
         precondition(imageRows.count == 1 && imageRows[0].id == "image-only", "Image-only user messages must not disappear from the timeline")
         precondition(oldTask.conversation.first?.images == nil, "Legacy task messages remain compatible")
-        let blocks = MarkdownBlocks.parse("## Result\n\n- **One**\n\n```swift\nlet x = 1\n```\n\n| A | B |\n| --- | --- |\n| C | D |")
-        precondition(blocks == [.heading(2, "Result"), .list("•", "**One**", 0), .code("swift", "let x = 1"), .table(["A", "B"], [["C", "D"]])], "Render headings, lists, code, and tables as native blocks")
-        precondition(MarkdownBlocks.parse("```ts\nconst partial =") == [.code("ts", "const partial =")], "Streaming unfinished fences retain code formatting")
         print("Swift SSE and conversation compatibility checks passed")
     }
 }

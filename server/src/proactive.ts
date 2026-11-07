@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import { configure, defineDoc, defineExtension, defineTask, defineTool, section, type ConversationId, type TaskId, type Tx } from '@earendil-works/pi-durable';
-import { Type } from '@earendil-works/pi-ai';
+import { Type } from 'typebox';
 import type { Engine } from './engine.js';
 import { WorkspaceDoc } from './state.js';
 import { activeStatuses, type WorkItem } from './types.js';
@@ -11,7 +11,7 @@ import { ApnsSender, PushDoc, type PushResult, type PushSender } from './notific
 
 type Settings = { enabled: boolean; modelConsent: boolean; hour: number; minute: number; timezone: string; sourceDeviceId: string | null; generation: number; nextRunAt: number | null; focus?: string };
 type PersonalState = { settings: Settings; schedulerId: number | null; runs: { key: string; taskId: number; at: number }[]; lastRunAt: string | null; lastError: string | null };
-export const PersonalDoc = defineDoc<PersonalState>({ kind: 'friday.personal', version: 1, scope: 'session', initial: () => ({
+export const PersonalDoc = defineDoc<PersonalState>({ kind: 'friday.personal', version: 1, scope: 'session', checkpointWhen: () => false, initial: () => ({
   settings: { enabled: false, modelConsent: false, hour: 8, minute: 30, timezone: 'Asia/Shanghai', sourceDeviceId: null, generation: 0, nextRunAt: null },
   schedulerId: null, runs: [], lastRunAt: null, lastError: null,
 }) });
@@ -40,7 +40,8 @@ export class Proactive {
     this.notify = defineTask<{ deliveryId: string; generation: number }, { phase: 'send'; retryAt: number }, { status: string }>({
       name: 'friday.notify', version: 1, initial: () => ({ phase: 'send', retryAt: 0 }),
       phases: { send: async (task, runtime, ctx) => {
-        if (task.state.checkpoint.retryAt) await runtime.sleep(task.state.checkpoint.retryAt, ctx);
+        // Reopen checkpoints created before native sleeping tasks were available.
+        if (task.state.checkpoint.retryAt > this.now) return runtime.sleepUntil(task.state.checkpoint.retryAt, { phase: 'send', retryAt: 0 }, ctx);
         const settings = (await this.state()).settings;
         const snapshot = await this.engine.harness.snapshot(PushDoc, ctx);
         const delivery = snapshot!.deliveries.find(d => d.id === task.input.deliveryId);
@@ -54,7 +55,7 @@ export class Proactive {
           await runtime.commit(async tx => {
             const item = (await tx.doc(PushDoc)).deliveries.find(d => d.id === delivery.id)!;
             item.status = 'awaiting_setup'; item.error = !device ? '手机尚未注册通知' : '主机尚未配置 APNs';
-            return { status: 'running', checkpoint: { phase: 'send', retryAt: this.now + (options.pollMs ?? 30000) } };
+            return { status: 'sleeping', until: this.now + (options.pollMs ?? 30000), checkpoint: { phase: 'send', retryAt: 0 } };
           }, ctx); return;
         }
         if (!status) {
@@ -70,7 +71,7 @@ export class Proactive {
             const doc = await tx.doc(PushDoc); const item = doc.deliveries.find(d => d.id === delivery.id)!;
             item.status = result.status; item.error = result.reason;
             if (result.invalidToken) doc.devices = doc.devices.filter(d => d.deviceId !== device!.deviceId || d.token !== device!.token);
-            if ((result.status === 'retry' && item.attempts < 4) || result.status === 'unavailable') return { status: 'running', checkpoint: { phase: 'send', retryAt: this.now + Math.min(300000, 30000 * 2 ** item.attempts) } };
+            if ((result.status === 'retry' && item.attempts < 4) || result.status === 'unavailable') return { status: 'sleeping', until: this.now + Math.min(300000, 30000 * 2 ** item.attempts), checkpoint: { phase: 'send', retryAt: 0 } };
             if (result.status === 'retry') { item.status = 'failed'; item.error = '通知重试次数已用尽，请检查主机网络'; }
             return { status: 'terminal', outcome: { status: 'completed', result: { status: result.status } } };
           }, ctx); return;
@@ -138,7 +139,7 @@ export class Proactive {
     this.scheduler = defineTask<null, { phase: 'tick'; wakeAt: number }, never>({
       name: 'friday.routines', version: 1, initial: () => ({ phase: 'tick', wakeAt: 0 }),
       phases: { tick: async (task, runtime, ctx) => {
-        if (task.state.checkpoint.wakeAt) await runtime.sleep(task.state.checkpoint.wakeAt, ctx);
+        if (task.state.checkpoint.wakeAt > this.now) return runtime.sleepUntil(task.state.checkpoint.wakeAt, { phase: 'tick', wakeAt: 0 }, ctx);
         await runtime.commit(async tx => {
           const state = await tx.doc(PersonalDoc); const settings = state.settings;
           if (settings.enabled && settings.nextRunAt !== null && this.now >= settings.nextRunAt) {
@@ -148,7 +149,7 @@ export class Proactive {
               settings.nextRunAt = nextDaily(this.now, settings.hour, settings.minute, settings.timezone);
             } else if (await this.queue(tx, state, key)) settings.nextRunAt = nextDaily(this.now, settings.hour, settings.minute, settings.timezone);
           }
-          return { status: 'running', checkpoint: { phase: 'tick', wakeAt: this.now + (options.pollMs ?? 30000) } };
+          return { status: 'sleeping', until: this.now + (options.pollMs ?? 30000), checkpoint: { phase: 'tick', wakeAt: 0 } };
         }, ctx);
       } },
       abort: async (_task, runtime, ctx) => { await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'aborted' } }), ctx); },

@@ -29,6 +29,7 @@ struct ProjectsView: View {
                                     FridaySymbolImage(systemName: "arrow.up.right").font(.caption).foregroundStyle(.tertiary)
                                 }
                                 Text(project.name).font(.headline).lineLimit(2)
+                                if let clone = project.clone, clone.blocksTasks { Text(friday: clone.phase == "running" ? "正在克隆仓库" : "仓库克隆未完成").font(.caption).foregroundStyle(.orange) }
                                 Group {
                                     if project.context.isEmpty { Text(friday: "添加 Workspace 背景，让 Friday 更了解这件事。") }
                                     else { Text(project.context) }
@@ -44,7 +45,7 @@ struct ProjectsView: View {
                 }
             }.padding(28).frame(maxWidth: 960).frame(maxWidth: .infinity)
         }.background(FridayTheme.canvas)
-        .sheet(isPresented: $adding) { ProjectEditor(store: store, project: nil).environment(\.locale, locale) }
+        .sheet(isPresented: $adding) { WorkspaceAddView(store: store).environment(\.locale, locale) }
         .sheet(item: $editing) { ProjectEditor(store: store, project: $0).environment(\.locale, locale) }
     }
 }
@@ -73,9 +74,11 @@ struct ProjectEditor: View {
     @State private var color = "blue"
     @State private var busy = false
     @State private var error: String?
+    @State private var scriptsShown = false
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack { Text(fridayString: project == nil ? "添加 Workspace" : "Workspace 背景").font(.title2.bold()); Spacer(); Button(friday: "取消") { dismiss() } }
+            if let project { ProjectCloneControl(store: store, project: project) }
             TextField(friday: "Workspace 名称", text: $name).textFieldStyle(.roundedBorder)
             WorkspaceAppearancePicker(icon: $icon, color: $color)
             HStack {
@@ -90,6 +93,7 @@ struct ProjectEditor: View {
             if let error = error ?? store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
             HStack {
                 if let project {
+                    Button(friday: "项目脚本…") { scriptsShown = true }.buttonStyle(FridayButtonStyle(compact: true))
                     WorkspaceDeleteButton(store: store, project: project, busy: $busy, error: $error, onDeleted: { dismiss() })
                 }
                 Spacer(); Button(friday: "保存 Workspace") {
@@ -101,6 +105,15 @@ struct ProjectEditor: View {
         .frame(width: 560)
         #endif
         .interactiveDismissDisabled(busy)
+        .sheet(isPresented: $scriptsShown) { if let project {
+            VStack(spacing: 0) {
+                HStack { Spacer(); Button(friday: "完成") { scriptsShown = false } }.padding(12)
+                ProjectScriptsSettingsView(store: store, initialProjectId: project.id)
+            }
+            #if os(macOS)
+            .frame(width: 720, height: 650)
+            #endif
+        } }
         .onAppear {
             if let project {
                 name = project.name; path = project.path; context = project.context
@@ -145,6 +158,7 @@ struct ConnectionView: View {
     @State private var code = ""
     @State private var name = ""
     @State private var busy = false
+    @State private var changingHost = false
     #endif
     @State private var pairing: PairingCode?
     @State private var error: String?
@@ -170,7 +184,9 @@ struct ConnectionView: View {
             hostSettings
             deviceSettings
             #if os(iOS)
-            pairingSettings
+            if store.connection.token.isEmpty || changingHost {
+                pairingSettings
+            }
             #endif
             if let error = error ?? store.error {
                 Text(fridayString: error).font(.caption).foregroundStyle(.orange)
@@ -200,10 +216,26 @@ struct ConnectionView: View {
                     .lineLimit(2).truncationMode(.middle)
             }
             #endif
-            SettingsDivider()
-            SettingsRow("重新连接", detail: "主机需要保持运行，才能继续处理任务。") {
+            if !store.connected {
+                SettingsDivider()
                 Button(friday: "重新连接") { Task { await store.connect() } }
+                    .buttonStyle(FridayButtonStyle(compact: true))
+                    .padding(16)
             }
+            #if os(iOS)
+            if !store.connection.token.isEmpty {
+                SettingsDivider()
+                Button(friday: changingHost ? "取消" : "更换主机") {
+                    changingHost.toggle()
+                    server = store.connection.server
+                    code = ""
+                    error = nil
+                }
+                .buttonStyle(FridayButtonStyle(compact: true))
+                .disabled(busy)
+                .padding(16)
+            }
+            #endif
         }
     }
 
@@ -228,7 +260,7 @@ struct ConnectionView: View {
                     }
                 }
             }
-            Text(friday: "远程访问需要可用的 HTTPS 地址，例如通过 Tailscale Serve 连接你的主机。")
+            Text(friday: "远程访问需要主机的固定 HTTPS 地址。")
                 .font(.system(size: 12)).foregroundStyle(.secondary)
             SettingsGroup("已连接的设备") {
                 if store.devices.isEmpty {
@@ -242,10 +274,6 @@ struct ConnectionView: View {
                         }.disabled(!store.connected)
                     }
                 }
-            }
-        } else {
-            SettingsGroup("设备访问") {
-                SettingsRow("在主机上管理设备", detail: "请在主机客户端生成配对码或撤销其他设备的访问权限。") { EmptyView() }
             }
         }
     }
@@ -272,7 +300,12 @@ struct ConnectionView: View {
                 Button(friday: busy ? "正在连接…" : "连接") {
                     busy = true
                     Task {
-                        do { try await store.pair(server: server, code: code, name: name); code = ""; error = nil }
+                        do {
+                            try await store.pair(server: server, code: code, name: name)
+                            code = ""
+                            error = nil
+                            changingHost = false
+                        }
                         catch { self.error = error.localizedDescription }
                         busy = false
                     }

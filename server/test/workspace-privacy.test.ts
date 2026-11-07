@@ -1,0 +1,36 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { taskGit } from '../src/git-process.js';
+import { planWorkspace, prepareWorkspace } from '../src/task-workspace.js';
+import { privateWorkspacePaths } from '../src/workspace-privacy.js';
+
+test('Private boundaries accept actual registered linked worktrees and reject spoofed Git files and symlink replacements', async t => {
+  const base = await realpath(await mkdtemp(join(tmpdir(), 'friday-private-boundary-')));
+  t.after(() => rm(base, { recursive: true, force: true }));
+  const source = join(base, 'source'); const directory = join(base, 'private'); await mkdir(source); await mkdir(directory);
+  await taskGit(source, ['init', '-q']);
+  await taskGit(source, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-qm', 'Initial']);
+  const plan = await planWorkspace({ mode: 'worktree' }, source, directory, 'registered');
+  await prepareWorkspace(plan, async () => {}); plan.state = 'ready';
+  const privacy = { directory, workspace: plan };
+  assert.deepEqual(await privateWorkspacePaths(plan.cwd, privacy), []);
+  assert.deepEqual(await privateWorkspacePaths(plan.cwd, directory), ['']);
+  assert.deepEqual(await privateWorkspacePaths(base, privacy), ['private']);
+  const realGitFile = await import('node:fs/promises').then(fs => fs.readFile(join(plan.root, '.git'), 'utf8'));
+  await writeFile(join(plan.root, '.git'), `gitdir: ${join(source, '.git')}\n`);
+  assert.deepEqual(await privateWorkspacePaths(plan.cwd, privacy), ['']);
+  await writeFile(join(plan.root, '.git'), realGitFile);
+  await taskGit(source, ['worktree', 'remove', '--force', plan.root]);
+  await symlink(source, plan.root);
+  assert.deepEqual(await privateWorkspacePaths(plan.cwd, privacy), ['']);
+  await rm(plan.root); const internal = join(directory, 'internal'); await mkdir(internal);
+  await taskGit(internal, ['init', '-q']); await symlink(internal, plan.root);
+  assert.deepEqual(await privateWorkspacePaths(plan.cwd, privacy), ['']);
+  assert.deepEqual(await privateWorkspacePaths(directory, privacy), ['']);
+  const fake = { ...plan, root: join(directory, 'worktrees', 'fake'), cwd: join(directory, 'worktrees', 'fake') };
+  await mkdir(fake.root); await writeFile(join(fake.root, '.git'), `gitdir: ${join(source, '.git')}\n`);
+  assert.deepEqual(await privateWorkspacePaths(fake.cwd, { directory, workspace: fake }), ['']);
+});

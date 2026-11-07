@@ -1,0 +1,1566 @@
+{
+  "sourceRevision": "8cd9641f76874f2ce17d6c80acd71fab1f0b99d3",
+  "cases": [
+    [
+      {
+        "op": [
+          "begin",
+          "a",
+          "pin",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "a"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "b",
+          "pin",
+          "B"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "b"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 2
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "capture",
+          "old"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 2
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo",
+          "old"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": false
+        },
+        "undone": [
+          "B",
+          "A"
+        ]
+      },
+      {
+        "op": [
+          "undo",
+          "old"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": false
+        },
+        "undone": [
+          "B",
+          "A"
+        ]
+      }
+    ],
+    [
+      {
+        "op": [
+          "begin",
+          "a",
+          "pin",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "a"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "capture",
+          "old"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "b",
+          "pin",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "b"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": false,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo",
+          "old"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": false,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": false
+        },
+        "undone": [
+          "A"
+        ]
+      }
+    ],
+    [
+      {
+        "op": [
+          "begin",
+          "a",
+          "settle",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "a"
+        ],
+        "notice": {
+          "kind": "settle",
+          "count": 1
+        },
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "b",
+          "snooze",
+          "B"
+        ],
+        "notice": {
+          "kind": "settle",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "b"
+        ],
+        "notice": {
+          "kind": "snooze",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "c",
+          "settle",
+          "C"
+        ],
+        "notice": {
+          "kind": "snooze",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true,
+          "c": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "c"
+        ],
+        "notice": {
+          "kind": "settle",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true,
+          "c": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo"
+        ],
+        "notice": {
+          "kind": "snooze",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true,
+          "c": false
+        },
+        "undone": [
+          "C"
+        ]
+      },
+      {
+        "op": [
+          "undo"
+        ],
+        "notice": {
+          "kind": "settle",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": false,
+          "c": false
+        },
+        "undone": [
+          "C",
+          "B"
+        ]
+      },
+      {
+        "op": [
+          "undo"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": false,
+          "c": false
+        },
+        "undone": [
+          "C",
+          "B",
+          "A"
+        ]
+      }
+    ],
+    [
+      {
+        "op": [
+          "begin",
+          "a",
+          "settle",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "a"
+        ],
+        "notice": {
+          "kind": "settle",
+          "count": 1
+        },
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "b",
+          "snooze",
+          "B"
+        ],
+        "notice": {
+          "kind": "settle",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "b"
+        ],
+        "notice": {
+          "kind": "snooze",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "c",
+          "settle",
+          "C"
+        ],
+        "notice": {
+          "kind": "snooze",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true,
+          "c": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "c"
+        ],
+        "notice": {
+          "kind": "settle",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true,
+          "c": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "invalidate",
+          "snooze",
+          "B"
+        ],
+        "notice": {
+          "kind": "settle",
+          "count": 2
+        },
+        "current": {
+          "a": true,
+          "b": false,
+          "c": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": false,
+          "c": false
+        },
+        "undone": [
+          "C",
+          "A"
+        ]
+      }
+    ],
+    [
+      {
+        "op": [
+          "begin",
+          "a",
+          "archive",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "a"
+        ],
+        "notice": {
+          "kind": "archive",
+          "count": 1
+        },
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "advance",
+          4000
+        ],
+        "notice": {
+          "kind": "archive",
+          "count": 1
+        },
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "b",
+          "archive",
+          "B"
+        ],
+        "notice": {
+          "kind": "archive",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "b"
+        ],
+        "notice": {
+          "kind": "archive",
+          "count": 2
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "capture",
+          "old"
+        ],
+        "notice": {
+          "kind": "archive",
+          "count": 2
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "advance",
+          4999
+        ],
+        "notice": {
+          "kind": "archive",
+          "count": 2
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "advance",
+          1
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": false
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo",
+          "old"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": false
+        },
+        "undone": []
+      }
+    ],
+    [
+      {
+        "op": [
+          "begin",
+          "a",
+          "pin",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "a"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "b",
+          "pin",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "advance",
+          6000
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "b"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": false,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": false
+        },
+        "undone": [
+          "A"
+        ]
+      }
+    ],
+    [
+      {
+        "op": [
+          "begin",
+          "a",
+          "pin",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "invalidate",
+          "pin",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": false
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "a"
+        ],
+        "notice": null,
+        "current": {
+          "a": false
+        },
+        "undone": []
+      }
+    ],
+    [
+      {
+        "op": [
+          "begin",
+          "a",
+          "archive",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "a"
+        ],
+        "notice": {
+          "kind": "archive",
+          "count": 1
+        },
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "capture",
+          "old"
+        ],
+        "notice": {
+          "kind": "archive",
+          "count": 1
+        },
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "invalidate",
+          "archive",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": false
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo",
+          "old"
+        ],
+        "notice": null,
+        "current": {
+          "a": false
+        },
+        "undone": []
+      }
+    ],
+    [
+      {
+        "op": [
+          "begin",
+          "a",
+          "pin",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "a"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "b",
+          "snooze",
+          "A"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "b"
+        ],
+        "notice": {
+          "kind": "snooze",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "invalidate",
+          "pin",
+          "A"
+        ],
+        "notice": {
+          "kind": "snooze",
+          "count": 1
+        },
+        "current": {
+          "a": false,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "invalidate",
+          "snooze",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": false
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "c",
+          "settle",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": false,
+          "c": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "c"
+        ],
+        "notice": {
+          "kind": "settle",
+          "count": 1
+        },
+        "current": {
+          "a": false,
+          "b": false,
+          "c": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": false,
+          "c": false
+        },
+        "undone": [
+          "A"
+        ]
+      }
+    ],
+    [
+      {
+        "op": [
+          "begin",
+          "a",
+          "pin",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "b",
+          "settle",
+          "B"
+        ],
+        "notice": null,
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "b"
+        ],
+        "notice": {
+          "kind": "settle",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "a"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "b": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo"
+        ],
+        "notice": {
+          "kind": "settle",
+          "count": 1
+        },
+        "current": {
+          "a": false,
+          "b": true
+        },
+        "undone": [
+          "A"
+        ]
+      },
+      {
+        "op": [
+          "undo"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "b": false
+        },
+        "undone": [
+          "A",
+          "B"
+        ]
+      }
+    ],
+    [
+      {
+        "op": [
+          "begin",
+          "d1",
+          "discard",
+          "D1"
+        ],
+        "notice": null,
+        "current": {
+          "d1": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "d1"
+        ],
+        "notice": {
+          "kind": "discard",
+          "count": 1
+        },
+        "current": {
+          "d1": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "d2",
+          "discard",
+          "D2"
+        ],
+        "notice": {
+          "kind": "discard",
+          "count": 1
+        },
+        "current": {
+          "d1": true,
+          "d2": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "d2"
+        ],
+        "notice": {
+          "kind": "discard",
+          "count": 2
+        },
+        "current": {
+          "d1": true,
+          "d2": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo"
+        ],
+        "notice": null,
+        "current": {
+          "d1": false,
+          "d2": false
+        },
+        "undone": [
+          "D2",
+          "D1"
+        ]
+      }
+    ],
+    [
+      {
+        "op": [
+          "begin",
+          "a",
+          "pin",
+          "A"
+        ],
+        "notice": null,
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "a"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "d",
+          "discard",
+          "D"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "d": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "d"
+        ],
+        "notice": {
+          "kind": "discard",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "d": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "capture",
+          "stale"
+        ],
+        "notice": {
+          "kind": "discard",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "d": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "begin",
+          "next",
+          "discard",
+          "D"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "d": false,
+          "next": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "next"
+        ],
+        "notice": {
+          "kind": "discard",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "d": false,
+          "next": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo",
+          "stale"
+        ],
+        "notice": {
+          "kind": "discard",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "d": false,
+          "next": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo"
+        ],
+        "notice": {
+          "kind": "pin",
+          "count": 1
+        },
+        "current": {
+          "a": true,
+          "d": false,
+          "next": false
+        },
+        "undone": [
+          "D"
+        ]
+      },
+      {
+        "op": [
+          "undo"
+        ],
+        "notice": null,
+        "current": {
+          "a": false,
+          "d": false,
+          "next": false
+        },
+        "undone": [
+          "D",
+          "A"
+        ]
+      }
+    ],
+    [
+      {
+        "op": [
+          "begin",
+          "d",
+          "discard",
+          "D"
+        ],
+        "notice": null,
+        "current": {
+          "d": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "record",
+          "d"
+        ],
+        "notice": {
+          "kind": "discard",
+          "count": 1
+        },
+        "current": {
+          "d": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "capture",
+          "stale"
+        ],
+        "notice": {
+          "kind": "discard",
+          "count": 1
+        },
+        "current": {
+          "d": true
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "advance",
+          5000
+        ],
+        "notice": null,
+        "current": {
+          "d": false
+        },
+        "undone": []
+      },
+      {
+        "op": [
+          "undo",
+          "stale"
+        ],
+        "notice": null,
+        "current": {
+          "d": false
+        },
+        "undone": []
+      }
+    ]
+  ],
+  "archiveCases": [
+    {
+      "providerStatus": "preparing",
+      "fridayStatus": "running",
+      "active": false,
+      "expected": false
+    },
+    {
+      "providerStatus": "preparing",
+      "fridayStatus": "running",
+      "active": true,
+      "expected": false
+    },
+    {
+      "providerStatus": "starting",
+      "fridayStatus": "running",
+      "active": false,
+      "expected": false
+    },
+    {
+      "providerStatus": "starting",
+      "fridayStatus": "running",
+      "active": true,
+      "expected": false
+    },
+    {
+      "providerStatus": "running",
+      "fridayStatus": "running",
+      "active": false,
+      "expected": false
+    },
+    {
+      "providerStatus": "running",
+      "fridayStatus": "running",
+      "active": true,
+      "expected": false
+    },
+    {
+      "providerStatus": "queued",
+      "fridayStatus": "queued",
+      "active": false,
+      "expected": true
+    },
+    {
+      "providerStatus": "queued",
+      "fridayStatus": "queued",
+      "active": true,
+      "expected": false
+    },
+    {
+      "providerStatus": "waiting",
+      "fridayStatus": "waiting",
+      "active": false,
+      "expected": true
+    },
+    {
+      "providerStatus": "waiting",
+      "fridayStatus": "waiting",
+      "active": true,
+      "expected": true
+    },
+    {
+      "providerStatus": "idle",
+      "fridayStatus": "completed",
+      "active": false,
+      "expected": true
+    },
+    {
+      "providerStatus": "idle",
+      "fridayStatus": "completed",
+      "active": true,
+      "expected": true
+    },
+    {
+      "providerStatus": "error",
+      "fridayStatus": "failed",
+      "active": false,
+      "expected": true
+    },
+    {
+      "providerStatus": "error",
+      "fridayStatus": "failed",
+      "active": true,
+      "expected": true
+    },
+    {
+      "providerStatus": "stopped",
+      "fridayStatus": "cancelled",
+      "active": false,
+      "expected": true
+    },
+    {
+      "providerStatus": "stopped",
+      "fridayStatus": "cancelled",
+      "active": true,
+      "expected": true
+    }
+  ],
+  "draftCases": [
+    {
+      "text": "",
+      "images": 0,
+      "contexts": 0,
+      "expected": false
+    },
+    {
+      "text": "",
+      "images": 1,
+      "contexts": 0,
+      "expected": true
+    },
+    {
+      "text": "",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "  \n",
+      "images": 0,
+      "contexts": 0,
+      "expected": false
+    },
+    {
+      "text": "  \n",
+      "images": 1,
+      "contexts": 0,
+      "expected": true
+    },
+    {
+      "text": "  \n",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "  \n",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "  \n",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "  \n",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "  \n",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "  \n",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "unfinished",
+      "images": 0,
+      "contexts": 0,
+      "expected": true
+    },
+    {
+      "text": "unfinished",
+      "images": 1,
+      "contexts": 0,
+      "expected": true
+    },
+    {
+      "text": "unfinished",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "unfinished",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "unfinished",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "unfinished",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "unfinished",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    },
+    {
+      "text": "unfinished",
+      "images": 0,
+      "contexts": 1,
+      "expected": true
+    }
+  ]
+}

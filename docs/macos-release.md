@@ -6,11 +6,21 @@
 
 ## 安装与服务
 
-1. 打开 DMG，把 Friday 拖入 Applications，再从应用程序目录启动。
+1. 打开 DMG，双击 Friday 进入原生安装窗口。在窗口中双击居中的图标或按 Return，将应用安装到「应用程序」并自动打开；系统应用程序目录不可写且没有待替换版本时，安装到当前用户的 `~/Applications`。
 2. 如果 macOS 阻止未公证测试版，在系统设置 → 隐私与安全性中允许这次打开；不要关闭系统安全保护。
 3. 在系统登录项中允许 Friday 后台运行。菜单「Friday → 软件更新与后台服务」提供服务状态、启停和更新入口。
 
+DMG 的 Finder 窗口使用普通白色背景，只提供安装器入口。双击后显示 `scripts/dmg-installer-window.swift` 实现的 SwiftUI 原生窗口，初始内容尺寸为 640 × 400 pt，支持拉伸、最大化与全屏。黑灰色光晕按实际窗口尺寸实时绘制，图标和文字始终作为一组居中；长错误说明可滚动查看。窗口打开时停留在待安装状态，用户主动双击图标、按 Return 或使用辅助功能激活后才开始安装。品牌图标保持静态，安装期间显示实际阶段文字，不播放循环动效。不修改全局 Finder 设置；制作入口布局时需要允许构建终端通过 AppleScript 控制 Finder。
+
+可见图标是 `scripts/dmg-installer.swift` 编译的原生安装入口，具有独立的 installer Bundle Identifier，原始签名应用作为包内 payload 保留。安装时在目标目录旁暂存、校验代码签名，再替换应用；替换失败时恢复原版本。拒绝覆盖其他 Bundle Identifier 的同名应用或符号链接，也不覆盖正在运行的 Friday。发行版后台服务仍在运行时，先通过「软件更新与后台服务」停止服务并退出客户端后再安装；该流程不强停任务，不更改用户数据。安装后启动失败则保留安装结果，供用户手动打开，不自动重放启动或回滚已可能启动的程序。
+
+只预览安装界面时运行 `pnpm mac:dmg:preview`，在 `dist/` 生成带工作区标识的开发 DMG 与 `Friday-<workspace>-Installer.app`，并直接打开原生安装窗口供用户检查缩放效果。预览不会自动安装，只有用户激活安装动作后才复制应用。此命令只构建当前工作区的开发客户端、安装器与 DMG，不生成更新 ZIP、不签署 Sparkle 更新，也不发布版本。正式发布仍使用下方流程。
+
+`pnpm mac:dmg:check` 仅在临时目录内检查安装入口的首次安装、同应用替换、签名损坏拒绝、替换失败恢复、同名其他应用保护和符号链接保护，不写入真实应用程序目录，也不启动应用。
+
 个人测试版通过用户级 LaunchAgent 注册 `dev.friday.app.server`，plist 位于 `~/Library/LaunchAgents`，程序位于 App 内。测试签名下的 SMAppService 遇到了系统启动约束，因此该路径留待 Developer ID 版本验证后接入。退出客户端不会停止后台服务。通过上述窗口停止服务会保留全部数据，并记住停止状态。
+
+服务使用 `Interactive` 调度：客户端的 HTTP 请求依赖它即时响应，HTTP 连接不能为 `Adaptive` 服务传递 XPC 优先级；`Background` 类别可能让冷启动受到严重限流。服务仍由 LaunchAgent 独立管理，关闭窗口不停止执行。
 
 数据沿用 `~/Library/Application Support/Friday`。首次安装会检测旧 `dev.friday.server` 服务，在没有活动任务时停止旧服务、保存原 LaunchAgent 配置并备份数据库，再启用内置服务。旧 `runtime` 目录保留，不随 App 更新覆盖。
 
@@ -19,6 +29,42 @@
 ## 构建与发布
 
 版本、递增整数 build、固定运行时校验值和更新公钥由 `release/macos.json` 管理。每次发布增加 version 和 build；保持 Bundle Identifier、更新公钥和数据目录不变。
+
+macOS 打包显式使用支持 `--build-system swiftbuild` 的 Swift 工具链，构建与查询产物路径必须使用同一 backend。不要改回 native backend：其生成的 `Bundle.module` 只查找 App 根目录与构建机绝对路径，而包内资源位于 `Contents/Resources`，离开构建环境后会在启动时崩溃（beta.7 曾受此影响）。不要在 App 根目录添加资源链接，这会破坏严格代码签名验证。
+
+修改 Swift 构建方式或资源打包路径后运行 `node scripts/test-mac-resource-bundles.mjs`。该最小检查编译独立的 Debug/Release 资源探针，将签名 App 压缩、移除构建目录后再解压，验证实际 `Bundle.module` 加载；不启动 Friday 窗口或后台服务。完整发布仍需检查真实客户端启动，服务健康检查无法覆盖客户端资源崩溃。
+
+### 更新公告
+
+每次发布必须同时编写 `release/<version>.md`，文件中的 `friday-build` 必须与 `release/macos.json` 的 build 一致。例如：
+
+```markdown
+# Friday 0.1.0 Beta 6
+
+<!-- friday-build: 6 -->
+
+## 新功能
+
+- 用用户能理解的文字说明新增功能。
+
+## 改进
+
+- 说明已有体验的变化。
+
+## 修复
+
+- 说明解决了什么问题。
+
+## 安装与更新
+
+安装说明和已知限制继续写在这里，供 GitHub 完整公告阅读。
+```
+
+三个分类可以省略没有内容的部分；分类条目使用纯文字列表。旧版未分类的顶层列表显示为「更新」。历史文件保留原 build，不得重复；缺少当前版本公告或 build 不匹配会直接阻止构建。
+
+构建时从这些文件生成并内置 `ReleaseNotes.json`，只包含当前及更早的版本。打包时从应用内同一份数据生成 Sparkle 公告，按安装版本隐藏已安装及更早的内容；跨版本更新会展示所有中间版本的变化。首次启用公告的客户端打开时显示当前版，此后升级只显示未读版本，关闭公告后记录已读；普通重启不会重复弹出。菜单「Friday → 更新公告…」和「软件更新与后台服务 → 查看更新公告…」始终可回看全部已内置历史，离线也可阅读。开发工作区与发布版的已读记录相互独立。
+
+定向检查：`node scripts/test-release-notes.mjs`，覆盖公告解析、Sparkle 版本筛选、跨版本合并及阅读记录。真实 Sparkle 下载、替换与重启仍需按发布验收流程检查。
 
 更新私钥只存在当前 Mac 钥匙串的 `dev.friday.mac.updates` Sparkle account，不能提交 Git。换电脑发布时需要安全迁移该密钥。公钥允许公开。
 

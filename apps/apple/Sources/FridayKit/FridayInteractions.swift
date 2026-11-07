@@ -5,7 +5,7 @@ import AppKit
 
 extension View {
     /// Apply to the control's complete hit area, inside any `.disabled` modifier.
-    func fridayInteractiveCursor() -> some View {
+    public func fridayInteractiveCursor() -> some View {
         modifier(FridayInteractiveCursor())
     }
 }
