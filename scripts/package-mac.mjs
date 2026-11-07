@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderReleaseNotesHTML } from './release-notes.mjs';
+import { buildDmg } from './build-dmg.mjs';
 const root = dirname(dirname(fileURLToPath(import.meta.url))); process.chdir(root);
 const config = JSON.parse(await readFile('dist/build.json', 'utf8'));
 if (!config.standalone) throw new Error('Build with --standalone before packaging.');
@@ -33,12 +34,8 @@ const appcast = `<?xml version="1.0" encoding="utf-8"?>
 <enclosure url="https://github.com/linc77/friday/releases/download/${tag}/${basename}.zip" sparkle:edSignature="${signature}" length="${size}" type="application/octet-stream"/>
 </item></channel></rss>\n`;
 await writeFile(join(output, 'appcast.xml'), appcast);
-const stage = join(root, 'dist/dmg-stage'); await rm(stage, { recursive: true, force: true }); await mkdir(stage, { recursive: true });
-run('/usr/bin/ditto', ['dist/Friday.app', join(stage, 'Friday.app')]);
-run('/bin/ln', ['-s', '/Applications', join(stage, 'Applications')]);
-await writeFile(join(stage, '安装说明.txt'), 'Friday 个人测试版（Apple Silicon，macOS 14+）\n\n将 Friday 拖入 Applications，然后从应用程序目录打开。\n如 macOS 阻止打开此未公证的测试版，请在系统设置 → 隐私与安全性中允许这次打开。\n允许 Friday 在系统登录项中后台运行。\n菜单 Friday → 软件更新与后台服务 可检查更新和管理服务。\n退出窗口不会停止后台服务；停止服务可在上述窗口操作，数据会保留。\n');
-const dmg = join(output, basename + '.dmg'); await rm(dmg, { force: true });
-run('/usr/bin/hdiutil', ['create', '-volname', 'Friday', '-srcfolder', stage, '-ov', '-format', 'UDZO', dmg]);
+const dmg = join(output, basename + '.dmg');
+await buildDmg({ appPath: join(root, 'dist/Friday.app'), outputPath: dmg });
 let checksums = '';
 for (const path of [zip, dmg]) checksums += createHash('sha256').update(await readFile(path)).digest('hex') + '  ' + path.split('/').at(-1) + '\n';
 await writeFile(join(output, 'SHA256SUMS.txt'), checksums);

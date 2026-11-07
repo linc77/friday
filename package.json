@@ -17,6 +17,8 @@
     "mac:release": "pnpm check && pnpm apple:check && node scripts/build-mac.mjs --standalone && node scripts/package-mac.mjs",
     "mac:publish": "node scripts/publish-mac.mjs",
     "mac:open": "bash scripts/open-mac.sh",
+    "mac:dmg:preview": "pnpm mac:build && node scripts/build-dmg.mjs --preview",
+    "mac:dmg:check": "node scripts/test-dmg-installer.mjs",
     "apple:check": "bash scripts/test-apple.sh",
     "apple:composer:check": "bash scripts/test-task-composer.sh",
     "markdown:assets": "node scripts/build-markdown-assets.mjs",
