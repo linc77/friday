@@ -49,6 +49,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>读取你选择的睡眠、步数、活动能量、静息心率和运动分钟，与你的 Friday 主机同步，用于每天的健康分享。</string>
+	<key>FridayPushEnabled</key>
+	<true/>
+	<key>FridayPushEnvironment</key>
+	<string>$(APS_ENVIRONMENT)</string>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>

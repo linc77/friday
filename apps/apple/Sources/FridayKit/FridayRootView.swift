@@ -114,6 +114,7 @@ public struct FridayRootView: View {
                         NavigationLink(friday: "外观") { AppearanceSettingsView(store: store) }
                         NavigationLink(friday: "已归档任务") { TaskArchivedTasks(store: store) }
                         NavigationLink(friday: "连接与设备") { ConnectionView(store: store) }
+                        NavigationLink(friday: "健康与主动分享") { HealthSettingsView(store: store) }
                     }
                     .fridayMobileHomeScroll()
                     .fridayMobileHomeNavigation()
@@ -170,7 +171,18 @@ public struct FridayRootView: View {
             if phase == .background {FridayClientLifecycle.enteredBackground()}
             if phase == .active {FridayClientLifecycle.cancelQuit()}
             #endif
-            if phase == .active { Task { await store.importSharedIdeas(); await store.connect() } }
+            if phase == .active {
+                #if os(iOS)
+                Task { await HealthSync.shared.sync() }
+                #endif
+                Task { await store.importSharedIdeas(); await store.connect() }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .fridayOpenConversation)) { note in
+            if let id = note.object as? String { UserDefaults.standard.removeObject(forKey: "friday.openConversation"); openConversation(id) }
+        }
+        .onAppear {
+            if let id = UserDefaults.standard.string(forKey: "friday.openConversation") { UserDefaults.standard.removeObject(forKey: "friday.openConversation"); openConversation(id) }
         }
         #if os(macOS)
         .onChange(of: store.connectionIdentity) { _, _ in taskModelJump = nil; taskTitleEditors = [] }

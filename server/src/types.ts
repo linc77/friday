@@ -223,6 +223,8 @@ export type WorkItem = {
   backgroundActivity?: { commands: number; unknownCommands: number; monitors?: number; subagents?: number; backgroundTasks?: number; unknownTasks?: number; waiting?: boolean; canStop?: boolean };
   conversationId?: number; messages?: ChatMessage[];
   assistantActivity?: AssistantActivity;
+  personalTopic?: 'health';
+  healthContext?: boolean;
   codexHome?: string;
   claudeHome?: string;
   piHome?: string;

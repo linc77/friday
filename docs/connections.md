@@ -77,6 +77,10 @@ pnpm remote:stop
 
 此次替换只改变网络入口，不改动既有快照、概览/任务 SSE、离线想法和请求去重。旧主机的协议兼容路径也属于同步能力，不是旧网络方案的残留。消息请求超时不等于主机未接受；更换隧道不能代替提交回执、断线恢复及真实收发的验收。
 
+## 健康数据与通知
+
+健康摘要使用独立的 HealthKit 后台回调与本地待同步文件，经相同的已配对 HTTPS 主机地址上传；系统不保证后台采集准点。配置 APNs 的 Friday target 可以接收每日分享通知，点击进入健康对话。FridayPersonal 支持健康同步，但不含 APNs。新增健康链路尚待真机验收，配置见 README「健康与主动分享」。
+
 ## 参考
 
 - [Cloudflare Tunnel 设置](https://developers.cloudflare.com/tunnel/get-started/)

@@ -55,6 +55,8 @@ import { finishAssistantTranscript } from './assistant-transcript.js';
 import { planExistingTaskWorkspace, planWorkspace, prepareWorkspace } from './task-workspace.js';
 import { resolveSourceControlPreferences } from './source-control-preferences.js';
 import { defineBranchSwitch, assertCheckoutIdle, branchBlocksTask } from './branch-switch.js';
+import { Proactive } from './proactive.js';
+import type { PushSender } from './notifications.js';
 import { applyTaskMetadata, priorTaskMetadata, recordTaskMetadata, taskCanSettle, type TaskMetadataChange } from './task-metadata.js';
 import { applyTaskSidebarMove, pinOrderKeyBetween, taskSidebarSection, taskSidebarSettledAt, type TaskSidebarMove } from './task-sidebar-order.js';
 import { taskSidebarActivity } from './task-sidebar-activity.js';
@@ -158,6 +160,7 @@ export class Engine extends EventEmitter {
   readonly execution;
   readonly response;
   readonly branchSwitch;
+  readonly proactive: Proactive;
   readonly taskQueue: TaskQueue;
   readonly gitOperations: TaskGitOperations;
   readonly reviewGuides: TaskReviewGuides;
@@ -193,7 +196,8 @@ export class Engine extends EventEmitter {
   readonly claudeConnection: ClaudeConnection;
   readonly piConnection: PiConnection;
   private readonly customExecutor: boolean;
-  constructor(readonly directory: string, executor?: Executor, readonly agentOptions?: { models: Models; model: ModelRef }, sourceControlOptions?: SourceControlConnectionOptions) {
+  private readonly personalClock?: () => number;
+  constructor(readonly directory: string, executor?: Executor, readonly agentOptions?: { models: Models; model: ModelRef }, sourceControlOptions?: SourceControlConnectionOptions, personalOptions?: { push?: PushSender; now?: () => number; pollMs?: number }) {
     super();
     this.sourceControl = new SourceControlConnections(new SourceControlCredentials(directory), sourceControlOptions);
     this.changeRequestSync = new TaskChangeRequestSync(this, sourceControlOptions?.changeRequestSyncIntervalMs);
@@ -207,6 +211,7 @@ export class Engine extends EventEmitter {
     this.projectRepositories = new ProjectRepositoryOperations(this,sourceControlOptions?.execute);
     this.taskSearch = new TaskSearch(directory);
     this.customExecutor = executor !== undefined;
+    this.personalClock = personalOptions?.now;
     this.modelConnection = new ModelConnection(directory);
     this.providerInstances = new ProviderInstances(directory, (driver, path) => {
       switch (driver) {
@@ -221,6 +226,7 @@ export class Engine extends EventEmitter {
     this.piConnection = this.providerInstances.default('pi');
     this.executor = executor ?? new LocalAgentExecutor(this.providerInstances.defaultExecutors(), { resolve: task => this.providerInstances.executor(task), close: () => this.providerInstances.close() });
     this.assistant = new FridayAssistant(this);
+    this.proactive = new Proactive(this, personalOptions);
     this.response = this.createResponse();
     this.branchSwitch = defineBranchSwitch(this);
     this.execution = defineTask<Input, Checkpoint, { status: string }, {}>({
@@ -505,8 +511,9 @@ export class Engine extends EventEmitter {
     try {
       await this.modelConnection.open();
       const registry = createRegistry();
-      registry.install(defineExtension({ name: 'friday', tasks: [this.projectRepositories.definition, this.execution, this.response, this.branchSwitch, this.taskQueue.definition, this.projectScripts.definition, this.taskTitles.definition, this.gitOperations.definition, this.changeRequests.definition, this.changeRequestStacks.definition, this.changeRequestCheckouts.definition, this.reviewGuides.definition, this.taskRewinds.definition, this.terminals.definition, this.taskForks.definition, this.backgroundCommands.definition, this.nativeTurns.definition, this.nativeBackground.definition, this.backgroundStops.definition, this.subagents.definition, this.archives.definition, this.settles.definition, this.sessionActions.definition, this.delegations.definition, this.providerCreditResets.definition, this.taskFeedback.definition, this.usageLimitSources.definition] }));
+      registry.install(defineExtension({ name: 'friday', tasks: [this.proactive.scheduler, this.proactive.share, this.proactive.notify, this.projectRepositories.definition, this.execution, this.response, this.branchSwitch, this.taskQueue.definition, this.projectScripts.definition, this.taskTitles.definition, this.gitOperations.definition, this.changeRequests.definition, this.changeRequestStacks.definition, this.changeRequestCheckouts.definition, this.reviewGuides.definition, this.taskRewinds.definition, this.terminals.definition, this.taskForks.definition, this.backgroundCommands.definition, this.nativeTurns.definition, this.nativeBackground.definition, this.backgroundStops.definition, this.subagents.definition, this.archives.definition, this.settles.definition, this.sessionActions.definition, this.delegations.definition, this.providerCreditResets.definition, this.taskFeedback.definition, this.usageLimitSources.definition] }));
       registry.install(this.assistant.extension);
+      registry.install(this.proactive.assistantExtension);
       const persistence = await openFridayStorage(this.directory);
       this.images = persistence.images;
       this.imageStorage = persistence.storage;
@@ -514,6 +521,7 @@ export class Engine extends EventEmitter {
         models: this.agentOptions?.models ?? this.modelConnection.models, registry,
         settings: { toolExecution: 'sequential', retry: { maxRetries: 2 } },
         onReport: () => console.error('[Friday runtime] runtime failure'),
+        ...(this.personalClock ? { now: this.personalClock } : {}),
       }, context);
       this.root = await this.harness.root(context);
       await this.root.commit(async tx => { const state = await tx.doc(WorkspaceDoc); state.projectScriptSettles ??= {}; for (const task of state.tasks) if (task.settledAt && (!task.settleCleanup || task.settleCleanup.status === 'completed')) state.projectScriptSettles[task.id] ??= task.settledAt; }, context);
@@ -552,6 +560,7 @@ export class Engine extends EventEmitter {
       this.watch = await this.harness.watchDoc(WorkspaceDoc, context);
       this.watch?.start(async () => { this.emit('change'); this.changeRequestSync.notify(); this.changeRequestWatch.reconcile(); });
       this.sourceControl.reads.start();
+      await this.proactive.start();
       this.harness.resume();
       await this.taskSettlement.start();
       this.usageLimitSources.start();
@@ -770,6 +779,7 @@ export class Engine extends EventEmitter {
     const snapshot = await this.snapshot();
     if (Object.hasOwn(snapshot.requests, input.requestId)) return snapshot.requests[input.requestId];
     const previous = snapshot.tasks.find(t => t.id === input.continueId);
+    if ((previous?.personalTopic === 'health' || previous?.healthContext) && !(await this.proactive.state()).settings.modelConsent) throw new Error('此对话包含健康数据；要继续发送给模型，请先在「健康与主动分享」中允许模型分析，或新开普通对话');
     if (previous?.subagentOrigin) throw new Error('原生子 Agent 不接收新的用户输入，请返回父任务');
     if (previous?.delegationOrigin && !previous.queue?.messages.some(entry => entry.id === input.queueMessageId && entry.creationSource === 'delegated')) throw new Error('委派子任务不接收新的用户输入；新的评审轮次请重新委派');
     const agent = previous?.agent ?? input.agent ?? 'friday';
@@ -933,7 +943,7 @@ export class Engine extends EventEmitter {
           task.conversationId = conversation.id;
         }
         // Keep history, but use Friday's current provider on every new user turn.
-        await configure(tx, task.conversationId as ConversationId, { model: this.agentOptions?.model ?? this.modelConnection.model, thinkingLevel: this.agentOptions ? 'medium' : 'high', extensions: [this.assistant.extension] });
+        await configure(tx, task.conversationId as ConversationId, { model: this.agentOptions?.model ?? this.modelConnection.model, thinkingLevel: this.agentOptions ? 'medium' : 'high', extensions: [task.personalTopic === 'health' ? this.proactive.assistantExtension : this.assistant.extension] });
       }
       const durableId = native
         ? await tx.createTask(this.response, { id: task.id, predecessor, prompt: input.prompt, requestId: input.requestId }, { ownership: { kind: 'conversation' } })

@@ -41,11 +41,17 @@ export function assistantTranscript(entries: readonly EntryRecord[], live?: Live
     if (text || thinking || tools.length) messages.push({ id, role: message.role, text,
       ...(thinking ? { thinking } : {}), ...(tools.length ? { tools } : {}), ...(streaming ? { streaming: true } : {}) });
   };
-  for (const entry of entries) (entry.model ?? []).forEach((message, index) => {
-    const id = message.role === 'assistant' && entry.byTaskId !== undefined
-      ? `friday-response:${entry.byTaskId}:${message.timestamp}:${index}` : index === 0 ? String(entry.id) : `${entry.id}:${index}`;
-    append(message, id);
-  });
+  for (const entry of entries) {
+    if (entry.kind === 'friday.health-share' && typeof entry.data === 'object' && entry.data && 'text' in entry.data && typeof entry.data.text === 'string') {
+      messages.push({ id: String(entry.id), role: 'assistant', text: entry.data.text.slice(-80_000) });
+    }
+    if (entry.kind === 'friday.proactive') continue;
+    (entry.model ?? []).forEach((message, index) => {
+      const id = message.role === 'assistant' && entry.byTaskId !== undefined
+        ? `friday-response:${entry.byTaskId}:${message.timestamp}:${index}` : index === 0 ? String(entry.id) : `${entry.id}:${index}`;
+      append(message, id);
+    });
+  }
   if (live?.generation?.message && live.run) {
     const id = `friday-response:${live.run.taskId}:${live.generation.message.timestamp}:0`;
     if (!messages.some(message => message.id === id)) append(live.generation.message as Message, id, true);

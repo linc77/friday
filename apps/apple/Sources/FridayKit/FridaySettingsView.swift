@@ -10,6 +10,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
     case browser = "浏览器"
     case archived = "已归档任务"
     case devices = "设备管理"
+    case health = "健康与主动分享"
 
     var id: String { rawValue }
 
@@ -23,6 +24,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
         case .browser: "globe"
         case .archived: "archivebox"
         case .devices: "laptopcomputer.and.iphone"
+        case .health: "heart.text.square"
         }
     }
 
@@ -36,6 +38,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
         case .browser: "浏览器 浏览配置 默认 缩放 外观 Cookie 缓存 网页 Browser Profiles Appearance Zoom Cache"
         case .archived: "归档 历史 任务 恢复 删除 Workspace Archived Threads Restore Delete"
         case .devices: "设备管理 iPhone Mac 主机 连接 配对码 访问 撤销 重新连接 Devices Host Connection Access Reconnect"
+        case .health: "健康 主动 分享 睡眠 步数 心率 推送 通知 APNs Health Proactive Sleep Activity Notifications"
         }
     }
 }
@@ -66,6 +69,7 @@ struct FridaySettingsView: View {
                 case .browser: TaskBrowserPreferencesView(store:store,preferences:TaskBrowserPreferences.shared(server:store.connection.server))
                 case .archived: TaskArchivedTasks(store: store)
                 case .devices: ConnectionView(store: store)
+                case .health: HealthSettingsView(store: store)
                 }
             }
             .id(selection)
@@ -103,7 +107,7 @@ struct FridaySettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     navigationGroup("通用", sections: [.appearance,.browser,.archived])
-                    navigationGroup("Friday", sections: [.providers, .textGeneration, .sourceControl, .projectScripts])
+                    navigationGroup("Friday", sections: [.providers, .health, .textGeneration, .sourceControl, .projectScripts])
                     navigationGroup("连接与同步", sections: [.devices])
                     if filteredSections.isEmpty {
                         Text(friday: "没有匹配的设置")

@@ -43,6 +43,22 @@ Friday 现在自己运行模型决策循环。每个会话在提交前原子保�
 
 第一版管理的是 Friday 创建的任务。没有宣称能接管 Codex 桌面端、Claude Code 或其他工具已经打开的任意会话。
 
+## 健康数据与主动任务
+
+健康观测保存在独立的 `friday.health` session document，不进入显式长期记忆或所有客户端的完整 SSE 快照。摘要按来源设备绑定，先开启来源再接受上传；以采集时间拒绝旧请求覆盖新摘要。每次替换最近 14 天的完整聚合结果，处理近期删除与修订。撤销设备同时删除该来源摘要与 APNs token，并暂停相关分享。
+
+`friday.routines` 是 conversation-owned 的 Durable background task，使用 1.5 的原生 `sleeping` 状态持久保存下一次唤醒时间，等待期间不持有 invocation。通知重试也保存原生休眠状态；旧版 checkpoint 中的等待时间通过 `sleepUntil` 接续。`friday.personal` 保存每天的当地时间、时区、下一次执行时间和最近运行身份；按当地日历计算下次时间，处理夏令时，不用固定 24 小时偏移。关窗不影响任务，休眠期间不会执行；恢复后跳过超过四小时的旧分享。
+
+`friday.health-share` 与普通 Friday 请求沿用同一队列依赖，复用一个独立的「健康与作息」conversation，不每日新建产品任务。模型分析需单独启用；健康专用 extension 只读取当前来源的结构化摘要与显式偏好，没有本地文件和外部 Agent 工具。系统触发的输入使用 `friday.proactive` entry，客户端消息投影跳过该输入，避免冒充用户发言。纯本机摘要使用不进入模型上下文的 `friday.health-share` entry。未允许模型分析时，健康对话的模型续聊会被拒绝。
+
+Friday 主对话和健康对话提供 `health_status`、`health_summary` 与 `set_health_routine` 工具。状态工具不返回健康数字，摘要工具在执行前检查显式模型授权，并在输出工具结果前原子标记 WorkItem 的 healthContext。撤回模型授权会停止所有含健康历史的活跃 Friday 对话，后续续聊和每轮动态 prompt 也检查授权，避免普通对话继续发送之前读取的健康历史。每日约定工具只调整时间、启停和关注内容，不更改健康来源或模型授权；使用调用参数中的 generation 做乐观并发校验，重复执行旧调用不能覆盖用户之后的改动。设置页保存也检查已读取的 generation，避免覆盖另一设备或对话刚修改的安排。
+
+分享完成与 `friday.notifications` outbox、`friday.notify` 任务创建在同一 Durable commit 内保存。APNs 调用之前保存 sending 意图，之后保存回执；若重启看到 sending，标为 uncertain 而不盲目重发。已知可重试错误有上限和退避，无配置或 token 时等到四小时过期。通知载荷仅含通用提示、任务 ID 与通知 ID；token、密钥路径和原始健康摘要 document 不进入通用状态快照。生成后的健康分享消息仍作为对话同步给已配对设备。APNs 接受、设备实际送达与用户已读没有被混为同一状态。
+
+原生 Mac 主机通过 owner-only `/api/notifications/provider` 保存或移除 APNs 配置，配对设备仅可读取 configured 标志。私钥经过 P-256 校验后串行、原子保存到 0600 的 `apns-auth.json`，不进入 Durable document、SSE 或模型上下文。每次发送固定使用一份凭据快照，避免配置更换时混用新旧 Key ID 与签名；没有本机配置时继续支持启动环境变量。
+
+Pi Durable / pi-ai / Chord 沿用 main 的 1.5.0；健康与通知文档显式配置 checkpoint 策略，工具 schema 使用 typebox。会话投影保留 main 的有界窗口分页及回复去重，同时过滤主动触发输入。存储沿用 main 的 SQLite 图片引用事务适配器，避免绕过图片迁移或原子性检查。真实 HealthKit 与 APNs 仍须设备验收。
+
 ## 三层记忆
 
 | 层 | 内容 | 写入与读取 |

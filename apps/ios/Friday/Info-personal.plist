@@ -15,6 +15,8 @@
     <key>NSLocalNetworkUsageDescription</key><string>连接你自己的 Friday 主机。</string>
     <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
     <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLSchemes</key><array><string>friday</string></array></dict></array>
+    <key>NSHealthShareUsageDescription</key><string>读取你选择的睡眠、步数、活动能量、静息心率和运动分钟，与你的 Friday 主机同步，用于每天的健康分享。</string>
+    <key>FridayPushEnabled</key><false/>
     <key>UTExportedTypeDeclarations</key><array><dict>
         <key>UTTypeIdentifier</key><string>dev.friday.task-sidebar-row</string>
         <key>UTTypeDescription</key><string>Friday task sidebar row</string>

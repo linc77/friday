@@ -215,6 +215,9 @@ final class FridayStore: ObservableObject {
                     let snapshot = try await overviewSnapshot()
                     if Task.isCancelled || connectionIdentity != identity { return }
                     apply(snapshot, sourceSession: source); connected = true; error = nil
+                    #if os(iOS)
+                    Task { await HealthSync.shared.sync() }
+                    #endif
                     await flushOutbox()
                     guard connectionIdentity == identity else { return }
                     var request = try connection.request(snapshot.taskStreamSession == nil ? "/api/events?history=turns&compactItems=1&itemHistory=1" : "/api/overview/events"); request.timeoutInterval = 86_400
