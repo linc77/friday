@@ -18,17 +18,17 @@ struct TaskQueueTests {
         let queue = try JSONDecoder().decode(TaskMessageQueue.self, from: Data(queueJSON.utf8))
         precondition(queue.pending.map(\.id) == ["one", "steering"], "The currently executing turn never reappears as a future queued message")
         precondition(queue.pending[0].editable && !queue.pending[1].editable)
-        let oldDraft = try JSONDecoder().decode(TaskMessageDraft.self, from: Data(#"{"message":"Unsent draft","images":[],"requestId":"old"}"#.utf8))
-        precondition(oldDraft.queueEdit == nil)
-        precondition(oldDraft.interactionMode == nil)
+        let oldDraft = try JSONDecoder().decode(TaskMessageDraft.self, from: Data(#"{"message":"Unsent draft","images":[],"requestId":"old","interactionMode":"plan"}"#.utf8))
+        precondition(oldDraft.queueEdit == nil && oldDraft.message == "Unsent draft")
+        let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(oldDraft)) as! [String: Any]
+        precondition(encoded["interactionMode"] == nil, "Legacy mode is ignored without losing the draft text")
         let editing = TaskMessageDraft(message: "Edited queued text", images: [], requestId: "edit",
-            queueEdit: QueuedMessageEditDraft(id: "one", message: oldDraft.message, images: oldDraft.images, requestId: oldDraft.requestId, interactionMode: "default"), interactionMode: "plan")
+            queueEdit: QueuedMessageEditDraft(id: "one", message: oldDraft.message, images: oldDraft.images, requestId: oldDraft.requestId))
         let restored = try JSONDecoder().decode(TaskMessageDraft.self, from: JSONEncoder().encode(editing))
         precondition(restored.message == "Edited queued text" && restored.queueEdit?.message == "Unsent draft" && restored.queueEdit?.requestId == "old",
                      "Editing a queued message preserves both the edits and the previous unsent draft across restarts")
-        precondition(restored.interactionMode == "plan" && restored.queueEdit?.interactionMode == "default", "A queued Plan-mode edit restores the unsent draft's original interaction mode")
         var rewinding = oldDraft
-        rewinding.rewindEdit = TaskRewindDraft(requestId: "rewind-request", applied: false, original: TaskComposerDraftBackup(message: oldDraft.message, images: oldDraft.images, requestId: oldDraft.requestId, interactionMode: "plan"))
+        rewinding.rewindEdit = TaskRewindDraft(requestId: "rewind-request", applied: false, original: TaskComposerDraftBackup(message: oldDraft.message, images: oldDraft.images, requestId: oldDraft.requestId))
         let restoredRewind = try JSONDecoder().decode(TaskMessageDraft.self, from: JSONEncoder().encode(rewinding))
         precondition(restoredRewind.rewindEdit?.requestId == "rewind-request" && restoredRewind.rewindEdit?.applied == false)
         precondition(restoredRewind.rewindEdit?.original.message == "Unsent draft" && restoredRewind.rewindEdit?.original.requestId == "old", "A pending rewind retains its request identity and the previous unsent draft across restarts")

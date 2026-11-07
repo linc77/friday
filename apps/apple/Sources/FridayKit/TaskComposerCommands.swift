@@ -33,7 +33,6 @@ struct TaskComposerCatalog: Decodable {
     }
     struct Command: Decodable { let name: String; var description: String? = nil; var argumentHint: String? = nil }
     let provider: String; let cwd: String; let checkedAt: String; let skills: [Skill]; let commands: [Command]
-    var supportsPlan: Bool? = nil
 }
 
 enum TaskComposerCommands {
@@ -70,22 +69,18 @@ enum TaskComposerCommands {
         guard suffix.isEmpty || suffix.unicodeScalars.first.map({ commandWhitespace.contains($0) }) == true else { return nil }
         return command
     }
-    static func standaloneMode(_ text: String) -> String? {
-        let command = text.trimmingCharacters(in: commandWhitespace).lowercased()
-        return command == "/plan" ? "plan" : command == "/default" ? "default" : nil
-    }
-    static func options(_ query: TaskMentionQuery, catalog: TaskComposerCatalog?, showSkills: Bool, compactAvailable: Bool, usageLimitsAvailable: Bool = false, provider: String? = nil) -> [TaskFileEntry] {
+    static func options(_ query: TaskMentionQuery, catalog: TaskComposerCatalog?, showSkills: Bool, compactAvailable: Bool, usageLimitsAvailable: Bool = false) -> [TaskFileEntry] {
         var seen: Set<String> = []
         let skills = (catalog?.skills ?? []).filter { $0.enabled && $0.userInvocable != false && seen.insert($0.name.trimmingCharacters(in: .whitespaces).lowercased()).inserted }
         let skillRows = skills.map { TaskFileEntry(path: "skill:" + $0.name, name: query.kind == "skill" ? displayName($0) : "/skill:" + $0.name, kind: "skill", detail: $0.shortDescription ?? $0.description ?? $0.scope.map { $0 + " skill" }) }
         var rows: [TaskFileEntry] = []
         if query.kind == "slash" {
-            rows = [("model", "Switch response model for this thread"), ("plan", "Switch this thread into plan mode"), ("default", "Switch this thread back to normal build mode")].filter { (provider ?? catalog?.provider).map(TaskProviderCatalog.supportsInteractionModes) != false || catalog?.supportsPlan == true || $0.0 == "model" }.map {
+            rows = [("model", "Switch response model for this thread")].map {
                 TaskFileEntry(path: "builtin:" + $0.0, name: "/" + $0.0, kind: "builtin", detail: $0.1)
             }
             if query.range.location == 0 {
                 let hiddenSkills = Set(showSkills ? skills.map { $0.name.lowercased() } : [])
-                let commands = (catalog?.commands ?? []).filter { $0.name != "usage-limits" || !usageLimitsAvailable }
+                let commands = (catalog?.commands ?? []).filter { !["plan", "default"].contains($0.name.lowercased()) && ($0.name != "usage-limits" || !usageLimitsAvailable) }
                     + (usageLimitsAvailable ? [.init(name: "usage-limits", description: "Show this provider's usage limits")] : [])
                 rows += commands.filter { !hiddenSkills.contains($0.name.lowercased()) && ($0.name != "compact" || compactAvailable) }.map {
                     TaskFileEntry(path: "command:" + $0.name, name: "/" + $0.name, kind: "provider-command", detail: $0.description ?? $0.argumentHint)

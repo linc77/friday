@@ -12,7 +12,7 @@ import { nativeProviderDefaults } from '../src/native-provider-config.js';
 import type { WorkItem, ExecutionUpdate } from '../src/types.js';
 // @ts-expect-error Independent JavaScript HTTP fixture, never production code.
 import { openCodeFixture } from './fixtures/opencode.mjs';
-const task = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'opencode-task', agent: 'opencode', cwd, model: 'native/model', reasoningEffort: 'high', threadId: null, currentRunId: 'opencode-run', interactionMode: 'default', events: [], approvals: [], ...changes }) as WorkItem;
+const task = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'opencode-task', agent: 'opencode', cwd, model: 'native/model', reasoningEffort: 'high', threadId: null, currentRunId: 'opencode-run', events: [], approvals: [], ...changes }) as WorkItem;
 async function setup(t: { after(fn: () => Promise<unknown>): void }, generation: 1 | 2, local = false) {
   const directory = await mkdtemp(join(tmpdir(), 'friday-opencode-')), fixture = local ? undefined : await openCodeFixture({ generation, directory }), wire = join(directory, 'wire.jsonl'), connection = new OpenCodeConnection(directory), executor = new OpenCodeExecutor(connection);
   const binary = fileURLToPath(new URL('./fixtures/opencode.mjs', import.meta.url)); await chmod(binary, 0o755);

@@ -18,7 +18,6 @@ struct SnapshotStreamTests {
         nativeSettings.nativeConfig?.apiKey = ""
         precondition((nativeSettings.body["nativeConfig"] as? [String: Any])?["apiKey"] as? String == "", "An explicit native key clear must remain distinct from a masked key")
         precondition(TaskProviderCatalog.order == ["codex", "claude", "cursor", "grok", "opencode", "antigravity", "pi", "muse", "acp-registry"], "Implemented drivers follow the fixed T3 builtin order")
-        precondition(TaskProviderCatalog.supportsInteractionModes("cursor") && TaskProviderCatalog.supportsInteractionModes("opencode") && !TaskProviderCatalog.supportsInteractionModes("muse"), "Only native mode-capable providers offer Plan")
         let lines = [
             "event: snapshot", "data: {\"revision\":1,\"ideas\":[],\"projects\":[],\"memories\":[],\"tasks\":[]}", "id: 1",
             "event: heartbeat", "data: {}",

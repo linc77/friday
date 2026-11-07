@@ -22,10 +22,10 @@ test('Goal and feedback parsers preserve pinned command boundaries, case, argume
 test('A native goal starts paused, uses the selected turn configuration, holds automatic continuations and publishes terminal usage',async t=>{
   const directory=await mkdtemp(join(tmpdir(),'friday-goals-'));t.after(()=>rm(directory,{recursive:true,force:true}));await chmod(command,0o755);
   const updates:ExecutionUpdate[]=[];const executor=new CodexExecutor(command);
-  const result=await executor.run({task:{...work(directory),interactionMode:'plan'},prompt:'Friday wrapper must not become the objective',userText:'/goal Build all changes',signal:AbortSignal.timeout(5000),update:async value=>{updates.push(value);await new Promise(resolve=>setTimeout(resolve,8));}});
+  const result=await executor.run({task:{...work(directory)},prompt:'Friday wrapper must not become the objective',userText:'/goal Build all changes',signal:AbortSignal.timeout(5000),update:async value=>{updates.push(value);await new Promise(resolve=>setTimeout(resolve,8));}});
   assert.equal(result,'Result goal-turn-2');const calls=await wire(directory);
   assert.deepEqual(calls.filter(call=>call.method==='thread/goal/set').map(call=>call.params.status),['paused','active']);
-  const turn=calls.find(call=>call.method==='turn/start').params;assert.equal(turn.input[0].text,'Build all changes');assert.equal(turn.collaborationMode.mode,'plan');assert.equal(turn.sandboxPolicy.type,'readOnly');
+  const turn=calls.find(call=>call.method==='turn/start').params;assert.equal(turn.input[0].text,'Build all changes');assert.equal(turn.collaborationMode.mode,'default');assert.equal(turn.sandboxPolicy.type,'workspaceWrite');
   assert.deepEqual(updates.filter(value=>value.kind==='turn').map(value=>value.turnId),['goal-turn-1','goal-turn-2']);
   assert.ok(updates.some(value=>value.kind==='goal'&&value.goal?.status==='complete'&&value.goal.tokensUsed===1250));await executor.close();
 });

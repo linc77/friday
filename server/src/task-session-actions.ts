@@ -1,3 +1,4 @@
+import { assertCurrentTaskMode } from './legacy-task-mode.js';
 import { randomUUID } from 'node:crypto';
 import { defineTask, type TaskId } from '@earendil-works/pi-durable';
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
@@ -9,7 +10,7 @@ import { taskProviderInstance, providerDrivers, providerInstanceID, type Provide
 import { providerOptionSelections, type ProviderOptionSelection } from './provider-models.js';
 import { taskTransferDigest, taskTransferRequestID, type TaskContextTransfer } from './task-transfers.js';
 
-export type TaskProviderSelection = { agent: ProviderDriver; providerInstanceId: string; model?: string; reasoningEffort?: string; modelOptions?: ProviderOptionSelection[]; interactionMode: 'default' | 'plan' };
+export type TaskProviderSelection = { agent: ProviderDriver; providerInstanceId: string; model?: string; reasoningEffort?: string; modelOptions?: ProviderOptionSelection[] };
 export type TaskProviderHistory = { epoch: string; agent: string; providerInstanceId: string; threadId: string | null; executionSessionId?: string; nativeProviderAccount?: string; codexHome?: string; claudeHome?: string; piHome?: string; grokHome?: string; runId?: string; at: string };
 export type TaskSessionOperation = {
   id: string; requestId: string; durableId: number; kind: 'disconnect' | 'handoff'; status: 'pending' | 'completed' | 'uncertain';
@@ -72,7 +73,7 @@ export class TaskSessionActions {
               task.contextTransfers ??= []; for (const transfer of task.contextTransfers) if (transfer.kind === 'provider_handoff' && transfer.status === 'pending') transfer.status = 'superseded';
               task.contextTransfers.push(operation.transfer!);
               task.agent = operation.target!.agent; task.providerInstanceId = operation.target!.providerInstanceId; task.providerEpoch = randomUUID();
-              task.model = operation.target!.model; task.reasoningEffort = operation.target!.reasoningEffort; task.modelOptions = operation.target!.modelOptions ?? []; task.interactionMode = operation.target!.interactionMode;
+              task.model = operation.target!.model; task.reasoningEffort = operation.target!.reasoningEffort; task.modelOptions = operation.target!.modelOptions ?? [];
               task.threadId = null; task.turnId = null; task.canSteer = false; task.contextUsage = null; task.goal = null;
               delete task.currentRunId;
               for (const key of ['executionSessionId','nativeProviderAccount','nativeHead','codexHome','claudeHome','piHome','grokHome','claudeResumeSessionAt','claudeResumePendingRun','nativeHeadForkSupported','nativeHistory'] as const) delete task[key];
@@ -131,8 +132,8 @@ export class TaskSessionActions {
   }
   private selection(value?: TaskProviderSelection): TaskProviderSelection {
     if (!value || !providerDrivers.includes(value.agent)) throw new Error('请选择已接入的 Agent');
+    assertCurrentTaskMode(value);
     const model = (value: unknown) => { if (value === undefined || value === '') return undefined; if (typeof value !== 'string' || value.length > 120 || /[\x00-\x1f]/.test(value)) throw new Error('模型参数无效'); return value; };
-    const interactionMode = value.interactionMode ?? 'default'; if (!['default','plan'].includes(interactionMode)) throw new Error('交互模式无效');
-    return { agent: value.agent, providerInstanceId: providerInstanceID(value.providerInstanceId ?? value.agent), model: model(value.model), reasoningEffort: model(value.reasoningEffort), modelOptions: providerOptionSelections(value.modelOptions) ?? [], interactionMode };
+    return { agent: value.agent, providerInstanceId: providerInstanceID(value.providerInstanceId ?? value.agent), model: model(value.model), reasoningEffort: model(value.reasoningEffort), modelOptions: providerOptionSelections(value.modelOptions) ?? [] };
   }
 }

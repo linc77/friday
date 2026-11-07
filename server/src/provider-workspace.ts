@@ -3,7 +3,7 @@ import { realpath } from 'node:fs/promises';
 import type { Engine } from './engine.js';
 import type { ProviderSkill } from './claude-skills.js';
 export type ProviderCommand = { name: string; description?: string; argumentHint?: string; builtin?: boolean };
-export type ProviderWorkspace = { provider: string; providerInstanceId?: string; cwd: string; checkedAt: string; skills: ProviderSkill[]; commands: ProviderCommand[]; supportsPlan?: boolean };
+export type ProviderWorkspace = { provider: string; providerInstanceId?: string; cwd: string; checkedAt: string; skills: ProviderSkill[]; commands: ProviderCommand[] };
 
 export class ProviderWorkspaceCache<T extends { checkedAt: string } = ProviderWorkspace> {
   private values = new Map<string, T>();

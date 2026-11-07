@@ -14,7 +14,7 @@ const DAY = 86_400_000; const NOW = Date.now(); const iso = (offset: number) => 
 const item = (id: string, values: Partial<WorkItem> = {}): WorkItem => ({ id, title: id, prompt: 'Original input', result: 'Original result', projectId: 'project', cwd: '/project', agent: 'codex', mode: 'research',
   status: 'completed', createdAt: iso(-10 * DAY), updatedAt: iso(-4 * DAY), durableId: null, threadId: 'native-' + id, turnId: 'turn-' + id, events: [], approvals: [], artifact: null, error: null, lastRequestId: id, ...values });
 const run = (values: Partial<TaskRun> = {}): TaskRun => ({ id: 'run', durableId: null, messageId: 'message', requestId: 'request', cwd: '/project', at: iso(-5 * DAY), startedAt: iso(-5 * DAY),
-  completedAt: iso(-4 * DAY), status: 'completed', mode: 'research', interactionMode: 'default', ...values });
+  completedAt: iso(-4 * DAY), status: 'completed', mode: 'research', ...values });
 const workspace = (): Workspace => ({ revision: 0, tasks: [], requests: {}, ideas: [], memories: [], projects: [] });
 
 test('Auto-settle settings preserve T3 defaults, fractional API bounds, null inheritance and strict patch scope', () => {

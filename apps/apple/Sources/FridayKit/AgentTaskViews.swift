@@ -80,14 +80,6 @@ struct NewAgentTaskView: View {
             if drafts[draftKey] == nil { drafts[draftKey] = AgentTaskDraft() }; drafts[draftKey]?.contextInsertion = value
         })
     }
-    private var interactionMode: Binding<String> {
-        Binding(get: { drafts[draftKey]?.interactionMode ?? "default" }, set: { value in
-            if drafts[draftKey] == nil { drafts[draftKey] = AgentTaskDraft() }
-            drafts[draftKey]?.interactionMode = value
-            if !sending { drafts[draftKey]?.requestId = UUID().uuidString }
-        })
-    }
-
     var body: some View {
         GeometryReader { geometry in
             ScrollView {
@@ -199,7 +191,7 @@ struct NewAgentTaskView: View {
                 }.font(.caption).multilineTextAlignment(.center)
             }
             AgentTaskComposer(store: store, projectPath: workspace.wrappedValue.preparedPath ?? project?.path, projectId: project?.id, projectPreparationId: workspace.wrappedValue.preparationId, workspace: workspace,
-                workspaceState: workspaceState, workspaceReady: workspaceReady, requiresProject: true, discardDraft: discardDraft, message: message, images: images, contexts: contexts, contextInsertion: contextInsertion, interactionMode: interactionMode, sending: sending, send: send)
+                workspaceState: workspaceState, workspaceReady: workspaceReady, requiresProject: true, discardDraft: discardDraft, message: message, images: images, contexts: contexts, contextInsertion: contextInsertion, sending: sending, send: send)
         }
     }
 
@@ -250,7 +242,7 @@ struct NewAgentTaskView: View {
         Task { @MainActor in
             defer { if submissionRequest == request { sending = false; submissionRequest = nil } }
             do {
-                let id = try await store.createTask(prompt: draft.message, requestId: draft.requestId, projectId: project.id, agent: submission.provider, providerInstanceId: submission.providerInstanceId, model: submission.model, reasoningEffort: submission.effort, modelOptions: submission.modelOptions, interactionMode: submission.interactionMode, workspace: project.isScratch == true && executionWorkspace.reuseTaskId == nil ? nil : executionWorkspace, images: draft.images, contexts: draft.contexts ?? [])
+                let id = try await store.createTask(prompt: draft.message, requestId: draft.requestId, projectId: project.id, agent: submission.provider, providerInstanceId: submission.providerInstanceId, model: submission.model, reasoningEffort: submission.effort, modelOptions: submission.modelOptions, workspace: project.isScratch == true && executionWorkspace.reuseTaskId == nil ? nil : executionWorkspace, images: draft.images, contexts: draft.contexts ?? [])
                 guard identity == store.connectionIdentity, submissionRequest == request else { return }
                 drafts[project.id] = nil; onCreated(id)
             } catch { if identity == store.connectionIdentity, submissionRequest == request { self.error = error.localizedDescription } }
@@ -287,7 +279,6 @@ struct AgentTaskDraft: Codable, Equatable {
     var images: [IdeaImage] = []
     var workspace = TaskWorkspaceSelection()
     var requestId = UUID().uuidString
-    var interactionMode: String? = nil
     var contexts: [TaskContextReference]? = nil
     var contextInsertion: TaskContextInsertion? = nil
     var hasUserContent: Bool { TaskDraftContent.hasUserContent(message, images: images.count, contexts: contexts?.count ?? 0, pendingContext: contextInsertion != nil) }
@@ -316,7 +307,6 @@ struct AgentTaskComposer: View {
     @Binding var images: [IdeaImage]
     @Binding var contexts: [TaskContextReference]
     @Binding var contextInsertion: TaskContextInsertion?
-    @Binding var interactionMode: String
     let sending: Bool
     let send: (TaskComposerSubmission) -> Void
     @AppStorage("friday.tasks.followUpBehavior") private var followUpBehavior = "queue"
@@ -407,7 +397,7 @@ struct AgentTaskComposer: View {
             && task.branchChange?.active != true && task.queue?.pending.isEmpty != false && !sending && !compaction.busy && editingQueuedMessageId == nil
     }
     private var resumeCompactionTokens: Double? {
-        guard canCompactContext, proposedPlan == nil, !resumeCompactionDismissed, compactionPreferenceIdentity == compactionPreferenceScope, commandCatalog.catalog?.commands.contains(where: { $0.name == "compact" }) == true,
+        guard canCompactContext, !resumeCompactionDismissed, compactionPreferenceIdentity == compactionPreferenceScope, commandCatalog.catalog?.commands.contains(where: { $0.name == "compact" }) == true,
               let usage = task?.contextUsage, usage.offersResumeCompaction(provider: provider, now: contextNow) else { return nil }
         return usage.usedTokens
     }
@@ -459,11 +449,10 @@ struct AgentTaskComposer: View {
     private var fileMentionRegistration: String { fullEditorIdentity + fileMentionScope + String(fileMentionsEnabled) + String(reviewEnabled) + (editingQueuedMessageId ?? "") + contexts.filter { $0.kind == "review-comment" }.map(\.id).joined(separator: ":") }
     private var showsStop: Bool { (active || backgroundStopAvailable || task?.watchingPullRequests == true) && draftEmpty && editingQueuedMessageId == nil }
     private var canResume: Bool { task.map { !$0.active && !$0.sessionBusy && $0.preparationFailure == nil && $0.claudeResumePendingRun == nil && (["failed", "cancelled", "interrupted"].contains($0.status) || ($0.queue?.paused == true && $0.queue?.pending.isEmpty == false)) } ?? false }
-    private var canSteer: Bool { active && task?.status != "queued" && interactionMode == (task?.interactionMode ?? "default") && (task?.canSteer ?? (task?.turnId != nil)) }
+    private var canSteer: Bool { active && task?.status != "queued" && (task?.canSteer ?? (task?.turnId != nil)) }
     private var dispatchMode: TaskComposerDispatch { TaskComposerDispatch.resolve(running: active, canSteer: canSteer, preference: followUpBehavior, alternate: alternateDown) }
     private var editingAvailable: Bool { editingQueuedMessageId == nil || task?.queue?.messages.first(where: { $0.id == editingQueuedMessageId })?.editable == true }
-    private var proposedPlan: TaskEvent? { TaskExecutionPresentation.currentPlan(task, mode: interactionMode, editing: editingQueuedMessageId != nil) }
-    private var disabled: Bool { sending || switchingProvider || compaction.busy || compactingContext || importing || capturingContext || contextInsertion != nil || TaskContextDocument.missing(message, records: contexts) || stopping || switchingBranch || task?.gitBusy == true || task?.sessionBusy == true || task?.claudeResumePendingRun != nil || task?.branchChange?.active == true || !store.connected || (draftEmpty && proposedPlan == nil) || !editingAvailable || (requiresProject && projectPath == nil) || !workspaceReady || (!active && state?.connected != true) }
+    private var disabled: Bool { sending || switchingProvider || compaction.busy || compactingContext || importing || capturingContext || contextInsertion != nil || TaskContextDocument.missing(message, records: contexts) || stopping || switchingBranch || task?.gitBusy == true || task?.sessionBusy == true || task?.claudeResumePendingRun != nil || task?.branchChange?.active == true || !store.connected || draftEmpty || !editingAvailable || (requiresProject && projectPath == nil) || !workspaceReady || (!active && state?.connected != true) }
     private var selectedModel: CodexProviderModel? { state?.models.first { $0.id == (model.isEmpty ? state?.model : model) } }
     private var compact: Bool {
         #if os(macOS)
@@ -481,8 +470,6 @@ struct AgentTaskComposer: View {
         if requiresProject && projectPath == nil {
             return store.projects.isEmpty ? "先添加一个 Workspace…" : "先选择上方的 Workspace…"
         }
-        if proposedPlan != nil { return "补充意见以细化方案，或直接实施…" }
-        if interactionMode == "plan" { return "先研究什么，再提出方案…" }
         return active ? "补充任务要求…" : "这个任务要完成什么…"
     }
 
@@ -573,7 +560,7 @@ struct AgentTaskComposer: View {
         .onChange(of: task?.providerEpoch) { _, _ in
             guard let task else { return }
             provider = task.agent; instanceId = task.resolvedProviderInstance; model = task.model ?? ""; restoreOptions(task.modelOptions ?? [], effort: task.reasoningEffort ?? ""); showModels = false
-            interactionMode = task.interactionMode ?? "default"; beforeQueueEdit = nil
+            beforeQueueEdit = nil
         }
     }
 
@@ -595,7 +582,7 @@ struct AgentTaskComposer: View {
                     states[instance.id] = state
                 } catch { if !Task.isCancelled, store.connectionIdentity == account, store.taskStreamSession == service, instance.id == selectedInstance { self.error = error.localizedDescription } }
             }
-            if task == nil && !choseProvider && states[selectedInstance]?.connected != true, let available = store.providerInstances.first(where: { $0.enabled && states[$0.id]?.connected == true }) { provider = available.driver; instanceId = available.id; model = ""; effort = ""; if !TaskProviderCatalog.supportsInteractionModes(provider, state: states[available.id]) { interactionMode = "default" }; error = nil }
+            if task == nil && !choseProvider && states[selectedInstance]?.connected != true, let available = store.providerInstances.first(where: { $0.enabled && states[$0.id]?.connected == true }) { provider = available.driver; instanceId = available.id; model = ""; effort = ""; error = nil }
 
         }
         .onChange(of: store.connectionIdentity) { _, _ in stoppingTaskId = nil; stoppingRequest = nil; error = nil }
@@ -628,7 +615,7 @@ struct AgentTaskComposer: View {
             guard let mention else { suggestions = []; loadingSuggestions = false; return }
             if mention.kind != nil {
                 let compactAllowed = canCompactContext && message.trimmingCharacters(in: .whitespacesAndNewlines) == mention.source && images.isEmpty && TaskContextDocument.used(message, records: contexts).isEmpty
-                suggestions = TaskComposerCommands.options(mention, catalog: commandCatalog.catalog, showSkills: showSkillsInSlashMenu, compactAvailable: compactAllowed, usageLimitsAvailable: usageLimitsAvailable, provider: provider)
+                suggestions = TaskComposerCommands.options(mention, catalog: commandCatalog.catalog, showSkills: showSkillsInSlashMenu, compactAvailable: compactAllowed, usageLimitsAvailable: usageLimitsAvailable)
                 selectedSuggestion = 0; loadingSuggestions = false; return
             }
             let identity = fullEditorIdentity; loadingSuggestions = true; selectedSuggestion = 0
@@ -726,14 +713,6 @@ struct AgentTaskComposer: View {
                         .buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: "取消编辑"))
                 }.font(.caption).foregroundStyle(editingAvailable ? Color.secondary : Color.orange)
             }
-            if let proposedPlan {
-                HStack(spacing: 8) {
-                    FridaySymbolImage(systemName: "list.bullet.clipboard").foregroundStyle(.secondary)
-                    Text(friday: "方案已就绪").foregroundStyle(.secondary)
-                    if let title = TaskExecutionPresentation.planTitle(proposedPlan.text) { Text(verbatim: title).lineLimit(1).truncationMode(.middle) }
-                    Spacer(minLength: 0)
-                }.font(.caption)
-            }
             if let task, let approval = task.approvals.first(where: { $0.state == "pending" }) {
                 TaskPendingAction(store: store, task: task, approval: approval, stop: stop).id(approval.id)
             } else {
@@ -754,14 +733,6 @@ struct AgentTaskComposer: View {
                 suggestions: suggestions, selectedSuggestion: selectedSuggestion, loadingSuggestions: loadingSuggestions,
                 moveSuggestion: { moveSuggestion($0) }, chooseSuggestion: chooseSuggestion, dismissSuggestions: { suppressedMention = mention; mention = nil }, chooseEntry: captureEntry, fileMentions: fileMentionContext,selectionChanged:{ citationCaret=$0 })
             HStack(spacing: 12) {
-                Button { interactionMode = interactionMode == "plan" ? "default" : "plan" } label: {
-                    FridaySymbolImage(systemName: interactionMode == "plan" ? "list.bullet.clipboard.fill" : "list.bullet.clipboard")
-                        .font(.system(size: 15)).frame(width: 24, height: 24)
-                }.buttonStyle(FridaySymbolButtonStyle()).foregroundStyle(interactionMode == "plan" ? FridayTheme.accent : .secondary)
-                    .disabled(sending || importing || !TaskProviderCatalog.supportsInteractionModes(provider, state: states[selectedInstance]))
-                    .accessibilityLabel(Text(friday: "切换计划模式"))
-                    .accessibilityValue(Text(friday: interactionMode == "plan" ? "计划模式" : "普通模式"))
-                    .help(Text(friday: interactionMode == "plan" ? "计划模式" : "普通模式"))
                 modelControls
                 Divider().frame(height: 16)
                 TaskReasoningEffortControl(selection: $effort, efforts: selectedModel?.reasoningEfforts ?? [],
@@ -838,22 +809,7 @@ struct AgentTaskComposer: View {
     }
 
     @ViewBuilder private var primaryAction: some View {
-        if proposedPlan != nil {
-            HStack(spacing: 1) {
-                Button { submit(alternate: false) } label: {
-                    if sending { ProgressView().controlSize(.small) }
-                    else { Text(friday: draftEmpty ? "实施" : "细化") }
-                }.buttonStyle(FridayButtonStyle(prominent: true, compact: true))
-                    .disabled(disabled || compact).keyboardShortcut(.return, modifiers: .command)
-                if draftEmpty {
-                    Menu {
-                        Button(friday: "在新任务中实施", systemImage: "plus.bubble") { submit(alternate: false, newThread: true) }
-                    } label: { FridaySymbolImage(systemName: "chevron.down").font(.system(size: 10)).frame(width: 18, height: 28) }
-                        .menuStyle(.borderlessButton).fixedSize().fridayInteractiveCursor()
-                        .disabled(disabled || compact).accessibilityLabel(Text(friday: "实施选项"))
-                }
-            }
-        } else if showsStop {
+        if showsStop {
             Button(action: stop) {
                 FridaySymbolImage(systemName: "stop.fill").font(.system(size: 8, weight: .medium))
             }.buttonStyle(AgentTaskActionButtonStyle(destructive: true))
@@ -887,15 +843,12 @@ struct AgentTaskComposer: View {
         }
     }
 
-    private func submit(alternate: Bool, newThread: Bool = false) {
+    private func submit(alternate: Bool) {
         guard !disabled, !compact else { return }
         if provider == "codex", images.isEmpty, contexts.isEmpty, contextInsertion == nil, let command = TaskComposerCommands.feedback(message) {
             guard let task, task.threadId != nil, commandCatalog.catalog?.commands.contains(where: { $0.name == "feedback" }) == true else { error = "请先开始一条 Codex 会话后提交反馈"; return }
             guard !codexCommands.busy, codexCommands.pending == nil else { error = "请先检查上次反馈的提交结果。"; return }
             message = ""; mention = nil; submitFeedback(command, task: task); return
-        }
-        if TaskProviderCatalog.supportsInteractionModes(provider, state: states[selectedInstance]), let mode = TaskComposerCommands.standaloneMode(message), images.isEmpty, contexts.isEmpty, contextInsertion == nil {
-            interactionMode = mode; message = ""; mention = nil; return
         }
         if message.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "/usage-limits", usageLimitsAvailable {
             message = ""; mention = nil; showingUsageLimits = true; reloadUsageLimits(); return
@@ -906,7 +859,7 @@ struct AgentTaskComposer: View {
         }
         send(TaskComposerSubmission(provider: provider, model: model, effort: effort,
             dispatch: TaskComposerDispatch.resolve(running: active, canSteer: canSteer, preference: followUpBehavior, alternate: alternate),
-            interactionMode: !TaskProviderCatalog.supportsInteractionModes(provider, state: states[selectedInstance]) || proposedPlan != nil && draftEmpty ? "default" : interactionMode, planEventID: proposedPlan?.id, implementInNewThread: newThread, compactBeforeSend: compactsBeforeSend, providerInstanceId: selectedInstance, modelOptions: modelOptions))
+            compactBeforeSend: compactsBeforeSend, providerInstanceId: selectedInstance, modelOptions: modelOptions))
     }
     private func reloadUsageLimits(force: Bool = false) {
         guard TaskProviderCatalog.hasUsageLimits(provider) else { return }
@@ -916,7 +869,7 @@ struct AgentTaskComposer: View {
         }
     }
     private func submitFeedback(_ command: String, task: WorkItem) { Task { await codexCommands.feedback(store: store, task: task, command: command) } }
-    private func runGoalCommand(_ command: String, task: WorkItem) { Task { await codexCommands.goal(store: store, task: task, command: command, model: model, effort: effort, mode: interactionMode) } }
+    private func runGoalCommand(_ command: String, task: WorkItem) { Task { await codexCommands.goal(store: store, task: task, command: command, model: model, effort: effort) } }
     private func compactContext(clearDraft: Bool = false) {
         guard let task, canCompactContext || compaction.pending != nil else { return }
         let draft = message, identity = commandIdentity
@@ -991,7 +944,6 @@ struct AgentTaskComposer: View {
             } else if entry.kind == "builtin" {
                 insertion.plainText = ""
                 if name == "model" { insertion.focus = false; showModels = true }
-                else { interactionMode = name == "plan" ? "plan" : "default" }
             } else { insertion.plainText = (entry.kind == "skill" ? "$" : "/") + name + " " }
             contextInsertion = insertion; mention = nil; return
         }
@@ -1103,31 +1055,6 @@ struct AgentTaskComposer: View {
         if case .text(let value) = selections.first(where: { reasoningIDs.contains($0.id) })?.value { effort = value } else { effort = savedEffort }
         modelOptions = selections.filter { !reasoningIDs.contains($0.id) }
     }
-    private var extraModelOptions: [ProviderOptionDescriptor] { selectedModel?.optionDescriptors?.filter { !$0.isReasoning } ?? [] }
-    private func optionValue(_ descriptor: ProviderOptionDescriptor) -> ProviderOptionValue? {
-        modelOptions.first(where: { $0.id == descriptor.id })?.value ?? descriptor.currentValue ?? descriptor.options?.first(where: { $0.isDefault == true }).map { .text($0.id) }
-    }
-    private func setOption(_ descriptor: ProviderOptionDescriptor, _ value: ProviderOptionValue?) {
-        modelOptions.removeAll { $0.id == descriptor.id }
-        if let value { modelOptions.append(ProviderOptionSelection(id: descriptor.id, value: value)) }
-    }
-    @ViewBuilder private var nativeOptionControls: some View {
-        if !extraModelOptions.isEmpty {
-            Menu {
-                ForEach(extraModelOptions) { descriptor in
-                    if descriptor.type == "boolean" {
-                        Toggle(isOn: Binding(get: { optionValue(descriptor) == .flag(true) }, set: { setOption(descriptor, .flag($0)) })) { Text(descriptor.label) }
-                    } else {
-                        Picker(selection: Binding(get: { if case .text(let value) = optionValue(descriptor) { return value }; return "" }, set: { setOption(descriptor, $0.isEmpty ? nil : .text($0)) })) {
-                            Text(friday: "工具默认").tag("")
-                            ForEach(descriptor.options ?? []) { Text($0.label).tag($0.id) }
-                        } label: { Text(descriptor.label) }
-                    }
-                }
-            } label: { FridaySymbolLabel(friday: "模型选项", systemImage: "slider.horizontal.3") }
-                .menuStyle(.borderlessButton).fixedSize().fridayInteractiveCursor().disabled(active || sending)
-        }
-    }
     private var modelControls: some View {
         HStack(spacing: 12) {
             if showsBranchControl {
@@ -1144,31 +1071,29 @@ struct AgentTaskComposer: View {
                 .popover(isPresented: $showModels) {
                     TaskModelPicker(server: store.connection.server, scope: store.connectionIdentity, states: states, lockedProvider: canChangeProvider ? nil : task?.agent, provider: provider, model: selectedModel?.id ?? model, instances: store.providerInstances, instanceId: selectedInstance, lockedInstance: canChangeProvider ? nil : task?.resolvedProviderInstance, select: chooseModel).environment(\.locale, locale)
                 }
-            nativeOptionControls
         }
     }
 
     private func chooseModel(_ choice: TaskModelChoice) {
         guard !switchingProvider else { return }
-        let mode = TaskProviderCatalog.supportsInteractionModes(choice.provider, state: states[choice.selectionId]) ? interactionMode : "default"
         showModels = false
         if let task, choice.provider != task.agent || choice.selectionId != task.resolvedProviderInstance {
             guard canChangeProvider else { return }
             let identity = editorIdentity, connection = store.connectionIdentity
-            let key = (task.providerEpoch ?? task.agent + ":" + task.resolvedProviderInstance) + ":" + choice.id + ":" + mode
+            let key = (task.providerEpoch ?? task.agent + ":" + task.resolvedProviderInstance) + ":" + choice.id
             let requestID = providerChangeRequests[key] ?? UUID().uuidString; providerChangeRequests[key] = requestID
             switchingProvider = true; error = nil
             Task { @MainActor in
                 defer { if editorIdentity == identity, store.connectionIdentity == connection { switchingProvider = false } }
                 do {
-                    try await store.taskSessionAction(task.id, kind: "handoff", target: ["agent": choice.provider, "providerInstanceId": choice.selectionId, "model": choice.model.id, "modelOptions": [], "interactionMode": mode], requestID: requestID)
+                    try await store.taskSessionAction(task.id, kind: "handoff", target: ["agent": choice.provider, "providerInstanceId": choice.selectionId, "model": choice.model.id, "modelOptions": []], requestID: requestID)
                     guard editorIdentity == identity, store.connectionIdentity == connection else { return }
                     guard store.tasks.first(where: { $0.id == task.id }).map({ $0.agent == choice.provider && $0.resolvedProviderInstance == choice.selectionId }) == true else { return }
-                    choseProvider = true; provider = choice.provider; instanceId = choice.selectionId; model = choice.model.id; effort = ""; modelOptions = []; interactionMode = mode
+                    choseProvider = true; provider = choice.provider; instanceId = choice.selectionId; model = choice.model.id; effort = ""; modelOptions = []
                 } catch { if editorIdentity == identity, store.connectionIdentity == connection { self.error = error.localizedDescription } }
             }
         } else {
-            choseProvider = true; provider = choice.provider; instanceId = choice.selectionId; model = choice.model.id; effort = ""; modelOptions = []; interactionMode = mode
+            choseProvider = true; provider = choice.provider; instanceId = choice.selectionId; model = choice.model.id; effort = ""; modelOptions = []
         }
     }
 

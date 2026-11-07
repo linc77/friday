@@ -26,12 +26,6 @@ struct TaskExecutionPresentationTests {
         precondition(TaskFileTree.directories(paths: paths, cwd: "/project") == ["src", "src/nested"])
         precondition(TaskExecutionPresentation.relativePath("/project-other/file", cwd: "/project") == "/project-other/file")
 
-        let markdown = "<proposed_plan>\n# Durable Tasks\n\n## Summary\n\nMake it persistent.\n\n1. Inspect\n\n2. Change\n\n3. Verify\n</proposed_plan>"
-        precondition(TaskExecutionPresentation.planTitle(markdown) == "Durable Tasks")
-        precondition(TaskExecutionPresentation.planFilename(markdown) == "durable-tasks.md")
-        precondition(TaskExecutionPresentation.displayedPlan(markdown).hasPrefix("Make it persistent."))
-        precondition(TaskExecutionPresentation.planPreview(markdown, maxLines: 2) == "Make it persistent.\n\n1. Inspect\n\n...")
-        precondition(TaskExecutionPresentation.planMarkdown("# Title\n\nUse `<proposed_plan>` as a literal.").contains("`<proposed_plan>`"))
         let prefs = TaskPanelPreferences(diff: TaskDiffSelection(eventID: "historical-event", path: "src/a.swift"), width: 540)
         let restored = try JSONDecoder().decode(TaskPanelPreferences.self, from: JSONEncoder().encode(prefs))
         precondition(restored.diff == prefs.diff && restored.width == 540)
@@ -47,16 +41,13 @@ struct TaskExecutionPresentationTests {
         let task = try JSONDecoder().decode(WorkItem.self, from: JSONSerialization.data(withJSONObject: payload))
         let rows = CodexTranscript.rows(task)
         precondition(rows.count == 2, "The saved result does not duplicate a proposed-plan event")
-        guard case .proposal = rows.last?.content else { preconditionFailure("Render a dedicated proposed-plan card") }
+        guard case .reply(let legacyText) = rows.last?.content else { preconditionFailure("Legacy proposals remain ordinary readable replies") }; precondition(legacyText == "# Legacy plan")
         var planEvent = try JSONSerialization.jsonObject(with: JSONEncoder().encode(legacyEvent)) as! [String: Any]
         planEvent["kind"] = "proposal"; planEvent["turnId"] = "turn"; planEvent["status"] = "completed"
         payload["events"] = [planEvent]; payload["interactionMode"] = "plan"
         payload["messages"] = [["id": "initial", "role": "user", "text": "Question", "at": "2026-10-17T10:00:00Z"],
                                ["id": "saved-plan-answer", "role": "assistant", "text": "# Legacy plan", "turnId": "turn", "at": "2026-10-17T12:05:00Z"]]
         let planning = try JSONDecoder().decode(WorkItem.self, from: JSONSerialization.data(withJSONObject: payload))
-        precondition(TaskExecutionPresentation.currentPlan(planning, mode: "plan", editing: false)?.id == "old")
-        precondition(TaskExecutionPresentation.currentPlan(planning, mode: "default", editing: false) == nil)
-        precondition(TaskExecutionPresentation.currentPlan(planning, mode: "plan", editing: true) == nil)
         precondition(CodexTranscript.rows(planning).count == 2, "A plan generated for more than five seconds still deduplicates by its native turn")
 
         let runPrefs = TaskPanelPreferences(diff: TaskDiffSelection(runID: "1", path: "file"), width: 500)
@@ -146,6 +137,6 @@ struct TaskExecutionPresentationTests {
         nativePayload["agent"] = "claude"
         forkableChild = try JSONDecoder().decode(WorkItem.self, from: JSONSerialization.data(withJSONObject: nativePayload))
         precondition(!TaskNativeForkBoundary.supported(forkableChild, id: "observed-turn"))
-        print("Diff alignment, native and Friday fork boundaries, historical identity, plan preview, fork lineage and transcript deduplication passed")
+        print("Diff alignment, native and Friday fork boundaries, historical identity, legacy replies, fork lineage and transcript deduplication passed")
     }
 }

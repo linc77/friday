@@ -172,7 +172,7 @@ export class TaskForks {
         agent: source.agent, providerInstanceId: source.providerInstanceId ?? source.agent, providerEpoch: providerEpoch(source), mode: source.mode, status: 'completed', createdAt: at, updatedAt: at,
         durableId: null, threadId: null, turnId: null, result, error: null, events: history.events, approvals: [], artifact: null, lastRequestId: input.requestId,
         messages: history.messages, runs: history.runs, currentRunId: history.runID, canSteer: false, unread: false, readAt: at,
-        interactionMode: source.interactionMode ?? 'default', model: source.model, reasoningEffort: source.reasoningEffort, modelOptions: source.modelOptions,
+         model: source.model, reasoningEffort: source.reasoningEffort, modelOptions: source.modelOptions,
         eventArchive: { count: 0, version: 0, coverage: source.eventArchive?.coverage ?? 'legacy', recent: [] },
         ...(source.executionWorkspace ? { executionWorkspace: copy(source.executionWorkspace) } : {}),
         ...(source.codexHome ? { codexHome: source.codexHome } : {}), ...(source.claudeHome ? { claudeHome: source.claudeHome } : {}),

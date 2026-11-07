@@ -12,7 +12,7 @@ import type { ExecutionUpdate, WorkItem } from '../src/types.js';
 import { terminalProviderEnvironment } from '../src/terminal-provider-environment.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/pi.mjs', import.meta.url));
-const work = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'pi-task', agent: 'pi', cwd, title: 'Pi fixture', model: 'fixture/small', reasoningEffort: 'medium', currentRunId: 'pi-run-1', events: [], approvals: [], threadId: null, interactionMode: 'default', ...changes }) as WorkItem;
+const work = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'pi-task', agent: 'pi', cwd, title: 'Pi fixture', model: 'fixture/small', reasoningEffort: 'medium', currentRunId: 'pi-run-1', events: [], approvals: [], threadId: null, ...changes }) as WorkItem;
 async function setup(t: { after: (fn: () => Promise<unknown>) => void }) {
   const directory = await mkdtemp(join(tmpdir(), 'friday-pi-')), connection = new PiConnection(directory), executor = new PiExecutor(connection), wire = join(directory, 'wire.jsonl');
   t.after(async () => { await executor.close(); await rm(directory, { recursive: true, force: true }); });

@@ -38,7 +38,7 @@ export class AcpSessions {
     const id = request.task.id; if (this.closed || this.running.has(id)) throw new Error('ACP 会话仍在执行或已关闭'); this.running.add(id);
     let session: AcpOwnedSession | undefined, release: (() => void) | undefined;
     try {
-      const runtime = await this.connection.runtime({ ...request.task, interactionMode: request.purpose ? 'plan' : request.task.interactionMode }), cwd = await realpath(request.task.cwd);
+      const runtime = await this.connection.runtime(request.task, { readOnly: !!request.purpose }), cwd = await realpath(request.task.cwd);
       if (request.task.nativeProviderAccount && request.task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条原生 ACP 会话使用的工具与账号配置');
       if (request.purpose) { runtime.clientFiles = false; runtime.autoApprove = false; }
       request.signal.throwIfAborted(); session = this.sessions.get(id);

@@ -11,7 +11,7 @@ export type CodexModel = ProviderModel;
 type Probe = { connected: boolean; installed: boolean; version: string | null; account: { type: string; email: string | null; plan: string | null } | null; models: CodexModel[]; checkedAt: string; error: string | null };
 export type ModelStatus = Omit<Probe, 'connected'> & {
   provider: string; displayName: string; enabled: boolean; model: string; connected: boolean; loginPending: boolean;
-  supportsPlan?: boolean; supportsTextGeneration?: boolean; supportsInvestigation?: boolean;
+  supportsTextGeneration?: boolean; supportsInvestigation?: boolean;
   settings: (Omit<CodexSettings, 'environment'> & { environment: { name: string; value: null; hasValue: boolean }[]; serverUrl?: string; serverPassword?: null; serverPasswordConfigured?: boolean; cursorUsageKeychainEnabled?: boolean; nativeConfig?: import('./acp-provider-settings.js').AcpProviderPublicConfig }) | null;
 };
 

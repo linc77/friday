@@ -90,7 +90,7 @@ export class ProviderInstances {
     const connection = await this.get(driver, instanceId), state = await connection.status(owner, reload);
     const record = (await this.read()).find(value => value.instanceId === instanceId && !value.removed);
     if (!record) throw new Error('Provider 实例已移除');
-    return { ...state, supportsTextGeneration: supportsTextGeneration(driver) && (driver !== 'antigravity' || state.supportsPlan === true), supportsInvestigation: supportsInvestigation(driver), enabled: record.enabled && state.enabled, connected: record.enabled && state.connected, models: state.models.map(model => ({ ...model, optionDescriptors: providerOptionDescriptors(model) })) };
+    return { ...state, supportsTextGeneration: supportsTextGeneration(driver) && (driver !== 'antigravity' || state.supportsTextGeneration === true), supportsInvestigation: supportsInvestigation(driver), enabled: record.enabled && state.enabled, connected: record.enabled && state.connected, models: state.models.map(model => ({ ...model, optionDescriptors: providerOptionDescriptors(model) })) };
   }
   async credentialPeers(driver: ProviderDriver, instanceId: string) {
     if (driver !== 'acp-registry') return [instanceId];

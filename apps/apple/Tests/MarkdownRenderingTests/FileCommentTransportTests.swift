@@ -39,12 +39,11 @@ private final class ReviewProtocol: URLProtocol, @unchecked Sendable {
         let store = FridayStore(); store.connection.server = "https://friday-file-review.test"; store.connection.token = "fixture"
         _ = ReviewProtocol.requests.take()
         let task = TaskContextScope(taskID: "task"), project = TaskContextScope(projectID: "project")
-        for action in 0..<4 {
-            let ref = reference(store, scope: action == 3 ? project : task), text = TaskContextDocument.token(ref)
+        for action in 0..<3 {
+            let ref = reference(store, scope: action == 2 ? project : task), text = TaskContextDocument.token(ref)
             if action == 0 { try await store.sendTaskMessage(taskId: "task", text: text, requestId: "message", images: [], model: nil, effort: nil, contexts: [ref]) }
             if action == 1 { try await store.editQueuedMessage(taskId: "task", messageId: "queued", text: text, images: [], model: nil, effort: nil, contexts: [ref]) }
-            if action == 2 { _ = try await store.followUpPlan("task", eventID: "plan", text: text, images: [], requestID: "refine", newThread: false, model: "model", effort: "low", contexts: [ref]) }
-            if action == 3 { _ = try await store.createTask(prompt: text, requestId: "new", projectId: "project", agent: "codex", contexts: [ref]) }
+            if action == 2 { _ = try await store.createTask(prompt: text, requestId: "new", projectId: "project", agent: "codex", contexts: [ref]) }
             let requests = ReviewProtocol.requests.take().filter { $0.2 != "GET" }
             XCTAssertEqual(requests.count, 2); XCTAssertEqual(requests.first?.0, "/api/task-contexts")
             XCTAssertEqual(requests.first?.1["contents"] as? String, "unsaved"); XCTAssertEqual(requests.first?.1["comment"] as? String, "Fix this")
@@ -67,12 +66,11 @@ private final class ReviewProtocol: URLProtocol, @unchecked Sendable {
     func testEveryBrowserAnnotationSubmissionUsesItsDedicatedCaptureBeforeSendingTheExistingDraft() async throws {
         XCTAssertTrue(URLProtocol.registerClass(ReviewProtocol.self));defer {URLProtocol.unregisterClass(ReviewProtocol.self);_=ReviewProtocol.requests.take()}
         let store=FridayStore();store.connection.server="https://friday-file-review.test";store.connection.token="annotation-fixture";_=ReviewProtocol.requests.take()
-        for action in 0..<4 {
-            let scope=action==3 ? TaskContextScope(projectID:"project"):TaskContextScope(taskID:"task"),ref=try annotation(store,scope:scope),text="existing draft "+TaskContextDocument.token(ref)
+        for action in 0..<3 {
+            let scope=action==2 ? TaskContextScope(projectID:"project"):TaskContextScope(taskID:"task"),ref=try annotation(store,scope:scope),text="existing draft "+TaskContextDocument.token(ref)
             if action==0 {try await store.sendTaskMessage(taskId:"task",text:text,requestId:"message",images:[],model:nil,effort:nil,contexts:[ref])}
             if action==1 {try await store.editQueuedMessage(taskId:"task",messageId:"queued",text:text,images:[],model:nil,effort:nil,contexts:[ref])}
-            if action==2 {_=try await store.followUpPlan("task",eventID:"plan",text:text,images:[],requestID:"refine",newThread:false,model:"model",effort:"low",contexts:[ref])}
-            if action==3 {_=try await store.createTask(prompt:text,requestId:"new",projectId:"project",agent:"codex",contexts:[ref])}
+            if action==2 {_=try await store.createTask(prompt:text,requestId:"new",projectId:"project",agent:"codex",contexts:[ref])}
             let requests=ReviewProtocol.requests.take().filter {$0.2 != "GET"};XCTAssertEqual(requests.count,2);XCTAssertEqual(requests.first?.0,"/api/task-contexts/browser-annotation")
             let record=requests.first?.1["annotation"] as? [String:Any];XCTAssertEqual(record?["comment"] as? String,"keep original draft");XCTAssertEqual(requests.last?.1["contextIds"] as? [String],[ref.id]);XCTAssertNil(requests.last?.1["annotation"]);XCTAssertNil(requests.last?.1["annotationDraft"])
             XCTAssertTrue((requests.last?.1["prompt"] as? String ?? requests.last?.1["text"] as? String ?? "").hasPrefix("existing draft "))

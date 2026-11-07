@@ -23,7 +23,6 @@ export class ClaudeSubagents {
   private toolOwners = new Map<string, Agent>();
   private taskOwners = new Map<string, Agent>();
   private permissions = new Map<string, { agentId?: string }>();
-  private plans = new Map<string, { agentId?: string; markdown: string }>();
   private pending = new Map<string, SDKMessage[]>();
   private seen = new Set<string>();
   private accepting = true;
@@ -40,15 +39,9 @@ export class ClaudeSubagents {
     const status = blocked ? 'waiting' : 'running';
     if (agent.state.status !== status) { agent.state.status = status; await this.emit(agent); }
   }
-  async propose(tool: string, markdown: string, agentId?: string) {
-    if (!this.accepting) return;
-    const agent = this.toolOwners.get(tool) ?? (agentId ? this.agents.get(agentId) : undefined);
-    if (agent) await agent.transcript.propose(tool, markdown); else this.plans.set(tool, { agentId, markdown });
-  }
   private async associate(tool: string, agent: Agent) {
     this.toolOwners.set(tool, agent);
     if (this.permissions.has(tool)) await this.permission(tool, true, this.permissions.get(tool)?.agentId);
-    const plan = this.plans.get(tool); if (plan) { this.plans.delete(tool); await agent.transcript.propose(tool, plan.markdown); }
   }
   async routeToolOutput(message: SDKMessage) {
     const value = message as any;
@@ -127,7 +120,7 @@ export class ClaudeSubagents {
         agent = next; this.agents.set(value.task_id, agent);
         if (agent.launchId) this.byLaunch.set(agent.launchId, agent);
         await this.emit(agent); await agent.transcript.start();
-        for (const [tool, pending] of [...this.permissions, ...this.plans]) if (pending.agentId === state.nativeId) await this.associate(tool, agent);
+        for (const [tool, pending] of this.permissions) if (pending.agentId === state.nativeId) await this.associate(tool, agent);
       } else {
         if (value.prompt) agent.state.prompt = text(value.prompt);
         await this.emit(agent);
@@ -168,6 +161,6 @@ export class ClaudeSubagents {
     this.accepting = false;
     for (const agent of this.agents.values()) if (!subagentEnded(agent.state.status) && agent.state.status !== 'unknown') await this.finish(agent, interrupted ? 'interrupted' : 'unknown');
     this.pending.clear();
-    this.permissions.clear(); this.plans.clear();
+    this.permissions.clear();
   }
 }

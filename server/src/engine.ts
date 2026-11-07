@@ -1,3 +1,4 @@
+import { assertCurrentTaskMode } from './legacy-task-mode.js';
 import { providerOptionSelections } from './provider-models.js';
 import { ProviderInstances, providerDrivers, taskProviderInstance } from './provider-instances.js';
 import { availableScratchRoot, ensureScratchRoot, isScratchProjectPath, planScratchWorkspace, verifyScratchWorkspace } from './managed-scratch-workspace.js';
@@ -36,7 +37,7 @@ import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import type { Models } from '@earendil-works/pi-ai/models';
 import { Harness, configure, createRegistry, defineExtension, defineTask, type Conversation, type ConversationId, type ModelRef, type TaskId, type DocumentWatch } from '@earendil-works/pi-durable';
 import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node';
-import type { Executor, ExecutionRequest, ExecutionUpdate, Workspace, WorkItem, TaskMode, TaskWorkspaceSelection, IdeaImage, TaskInteractionMode, TaskExecutionScope } from './types.js';
+import type { Executor, ExecutionRequest, ExecutionUpdate, Workspace, WorkItem, TaskMode, TaskWorkspaceSelection, IdeaImage, TaskExecutionScope } from './types.js';
 import { activeFork, runningFork, headForkSourceBusy, headForkSourceIDs, activeGitOperation, activeRewind, activeStatuses, failedWorkspacePreparation, taskExecutionScopeMatches } from './types.js';
 import { IdeaImages } from './ideas.js';
 import { CodexExecutor } from './codex.js';
@@ -75,7 +76,6 @@ import { TaskRuntimeTools } from './task-runtime-tools.js';
 import { TaskDelegations, delegatedQuestion, type DelegationCreation } from './task-delegations.js';
 import { canSnoozeTask, clearTaskSnooze, reconcileTaskSnooze, taskIsSnoozed, taskSnoozeWakeAt } from './task-snooze.js';
 import { TaskQueue, queueRunning, type QueueMessageInput } from './task-queue.js';
-import { currentTaskPlan, taskInteractionMode } from './task-plans.js';
 import { TaskGitOperations } from './task-git-operations.js';
 import { TaskChangeRequestActions } from './task-change-request-actions.js';
 import { SourceControlConnections, type SourceControlConnectionOptions } from './source-control-connections.js';
@@ -154,12 +154,11 @@ export class Engine extends EventEmitter {
   root!: Conversation;
   watch?: DocumentWatch<Workspace>;
   async validateTaskProviderSelection(selection: TaskProviderSelection) {
+    assertCurrentTaskMode(selection);
     const connection = await this.providerInstances.get(selection.agent, selection.providerInstanceId, true);
-    if (selection.interactionMode === 'plan' && ['pi', 'muse', 'grok'].includes(selection.agent)) throw new Error('此 Agent 没有原生计划模式');
     if (this.customExecutor) return;
     const options = { model: selection.model, reasoningEffort: selection.reasoningEffort, modelOptions: selection.modelOptions };
-    if (connection instanceof AcpProviderConnection) await connection.runtime({ ...options, interactionMode: selection.interactionMode });
-    else await connection.runtime(options);
+    await connection.runtime(options);
   }
   private lease!: DatabaseSync;
   private closed = false;
@@ -304,6 +303,7 @@ export class Engine extends EventEmitter {
           const finalized = new Promise<void>(resolve => { finalize = resolve; });
           try {
             let work = (await this.snapshot()).tasks.find(t => t.id === task.input.id)!;
+            if (!receipt) assertCurrentTaskMode(work);
             if (work.forkOperation?.dispatchRunId === runID && activeFork(work.forkOperation)) throw new Error(work.forkOperation.error ?? '原生分叉尚未确认，未发送新的用户要求');
             if (!receipt && work.executionWorkspace && work.executionWorkspace.state !== 'ready') {
               preparingWorkspace = true;
@@ -784,48 +784,21 @@ export class Engine extends EventEmitter {
     return id;
   }
 
-  async followUpPlan(id: string, eventID: string, input: { text: string; requestId: string; newThread: boolean; images?: IdeaImage[]; contextIds?: string[]; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[] }) {
-    const state = await this.snapshot();
-    if (Object.hasOwn(state.requests, input.requestId)) {
-      const receipt = state.requests[input.requestId]; const target = state.tasks.find(value => value.id === receipt);
-      if (receipt === id || target?.planOrigin?.taskId === id && target.planOrigin.eventId === eventID) return receipt;
-      throw new Error('原请求已经处理或这个请求 ID 已被使用，请查看已有任务');
-    }
-    const source = state.tasks.find(value => value.id === id);
-    if (!source || source.agent === 'friday') throw new Error('本地任务不存在');
-    const event = currentTaskPlan({ ...source, events: await this.taskHistory.events(source) }, eventID);
-    const refine = !!input.text.trim() || !!input.images?.length;
-    if (refine && input.newThread) throw new Error('请在原任务中细化方案，再选择新任务实施');
-    const prompt = refine ? input.text : `PLEASE IMPLEMENT THIS PLAN:\n${event.text.trim()}`;
-    const title = event.text.match(/^\s{0,3}#{1,6}\s+(.+)$/m)?.[1]?.trim();
-    return this.createTask({ prompt, images: input.images, contextIds: input.contextIds, requestId: input.requestId, continueId: input.newThread ? undefined : id,
-      agent: source.agent as 'codex' | 'claude', projectId: source.projectId, mode: refine ? source.mode : 'code',
-      model: input.model ?? source.model, reasoningEffort: input.reasoningEffort ?? source.reasoningEffort, modelOptions: input.modelOptions ?? source.modelOptions,
-      interactionMode: refine ? 'plan' : 'default',
-      planSource: { taskId: id, eventId: eventID, text: event.text, cwd: source.cwd },
-      ...(input.newThread ? { title: title ? `Implement ${title}` : 'Implement plan' } : {}) });
-  }
-
-  async createTask(input: { command?: 'compact'; commandThreadId?: string; commandMessage?: QueueMessageInput & { requestId: string }; prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; providerInstanceId?: string; agent?: 'friday' | 'codex' | 'claude' | 'pi' | 'grok' | 'cursor' | 'muse' | 'opencode' | 'acp-registry' | 'antigravity'; parentId?: string; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; interactionMode?: TaskInteractionMode; workspace?: TaskWorkspaceSelection; images?: IdeaImage[]; contextIds?: string[]; queueMessageId?: string; queueDispatcherId?: number; title?: string; planSource?: { taskId: string; eventId: string; text: string; cwd: string } }, delegation?: DelegationCreation) {
+  async createTask(input: { command?: 'compact'; commandThreadId?: string; commandMessage?: QueueMessageInput & { requestId: string }; prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; providerInstanceId?: string; agent?: 'friday' | 'codex' | 'claude' | 'pi' | 'grok' | 'cursor' | 'muse' | 'opencode' | 'acp-registry' | 'antigravity'; parentId?: string; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; workspace?: TaskWorkspaceSelection; images?: IdeaImage[]; contextIds?: string[]; queueMessageId?: string; queueDispatcherId?: number; title?: string }, delegation?: DelegationCreation) {
+    assertCurrentTaskMode(input);
     if (['__proto__', 'constructor', 'prototype'].includes(input.requestId)) throw new Error('请求 ID 无效');
     const snapshot = await this.snapshot();
     if (Object.hasOwn(snapshot.requests, input.requestId)) return snapshot.requests[input.requestId];
     const previous = snapshot.tasks.find(t => t.id === input.continueId);
     if (previous?.subagentOrigin) throw new Error('原生子 Agent 不接收新的用户输入，请返回父任务');
     if (previous?.delegationOrigin && !previous.queue?.messages.some(entry => entry.id === input.queueMessageId && entry.creationSource === 'delegated')) throw new Error('委派子任务不接收新的用户输入；新的评审轮次请重新委派');
-    const planSource = input.planSource ? snapshot.tasks.find(t => t.id === input.planSource!.taskId) : undefined;
-    const interactionMode = taskInteractionMode(input.interactionMode) ?? previous?.interactionMode ?? 'default';
     const agent = previous?.agent ?? input.agent ?? 'friday';
     const native = agent === 'friday';
     const modelOptions = providerOptionSelections(input.modelOptions ?? (input.model !== undefined && input.model !== previous?.model ? [] : previous?.modelOptions)) ?? [];
-    const providerInstanceId = previous ? taskProviderInstance(previous) : input.providerInstanceId ?? (planSource ? taskProviderInstance(planSource) : agent);
+    const providerInstanceId = previous ? taskProviderInstance(previous) : input.providerInstanceId ?? agent;
     if (previous && input.providerInstanceId !== undefined && input.providerInstanceId !== providerInstanceId) throw new Error('不能切换会话所属 Provider 实例，请新建任务');
     if (native && input.providerInstanceId !== undefined) throw new Error('Friday 主会话不使用任务 Provider 实例');
     if (!native) await this.providerInstances.get(agent as import('./provider-instances.js').ProviderDriver, providerInstanceId, true);
-    if (native && interactionMode === 'plan') throw new Error('计划模式用于本地 Agent 任务');
-    if (agent === 'pi' && interactionMode === 'plan') throw new Error('Pi 未提供原生计划模式，请使用默认模式');
-    if (agent === 'muse' && interactionMode === 'plan') throw new Error('Muse 未提供原生计划模式，请使用默认模式');
-    if (agent === 'grok' && interactionMode === 'plan') throw new Error('Grok 未提供原生交互模式切换，请使用默认模式');
     const images = await new IdeaImages(this.directory).validate(input.images);
     const commandMessage = input.commandMessage ? { ...input.commandMessage, images: await new IdeaImages(this.directory).validate(input.commandMessage.images) } : undefined;
     if (commandMessage && input.command !== 'compact') throw new Error('压缩后消息需要原生压缩命令');
@@ -836,15 +809,14 @@ export class Engine extends EventEmitter {
     if (!native && !this.customExecutor) {
       const connection = await this.providerInstances.get(agent as import('./provider-instances.js').ProviderDriver, providerInstanceId, true);
       if (!connection) throw new Error('此 Agent 尚未接入任务执行');
-      if (connection instanceof AcpProviderConnection) await connection.runtime({ model: input.model ?? previous?.model, reasoningEffort: input.reasoningEffort ?? previous?.reasoningEffort, modelOptions, interactionMode });
-      else await connection.runtime({ model: input.model ?? previous?.model, reasoningEffort: input.reasoningEffort ?? previous?.reasoningEffort, modelOptions });
+      await connection.runtime({ model: input.model ?? previous?.model, reasoningEffort: input.reasoningEffort ?? previous?.reasoningEffort, modelOptions });
     }
     if (!native && input.mode === 'assistant') throw new Error('主对话由 Friday 处理，请从任务入口调用本地 Agent');
     const project = snapshot.projects.find(p => p.id === input.projectId);
     if(project?.clone&&project.clone.phase!=='done')throw new Error(project.clone.phase==='running'?'仓库正在克隆，请完成后再开始任务':'仓库尚未克隆完成，请先重试克隆');
     // Removing a Workspace registration retains its existing execution directory
     // and Agent session. Only that same conversation can use the retained link.
-    const retained = previous ?? planSource;
+    const retained = previous;
     const retainedWorkspace = retained !== undefined && retained.projectId !== null && retained.projectId === input.projectId;
     if (input.projectId && !project && !retainedWorkspace) throw new Error('项目不存在');
     if (input.mode === 'code' && !project && !retainedWorkspace) throw new Error('代码任务需要先选择一个项目目录');
@@ -855,11 +827,11 @@ export class Engine extends EventEmitter {
     const prepared = input.workspace?.preparationId ? await this.changeRequestCheckouts.adopt(project!.id, input.workspace.preparationId) : undefined;
     if (prepared && prepared.saved.mode !== input.workspace!.mode) throw new Error('PR／MR 执行位置已改变');
     const reuseSource = input.workspace?.reuseTaskId ? snapshot.tasks.find(task => task.id === input.workspace!.reuseTaskId) : undefined;
-    if (input.workspace?.reuseTaskId && (!reuseSource || reuseSource.projectId !== project!.id || prepared || input.planSource)) throw new Error('原任务不属于所选 Workspace');
+    if (input.workspace?.reuseTaskId && (!reuseSource || reuseSource.projectId !== project!.id || prepared)) throw new Error('原任务不属于所选 Workspace');
     if (scratchProject && reuseSource?.executionWorkspace?.scratch) await verifyScratchWorkspace(reuseSource.executionWorkspace);
     if (project?.managedFolder) await verifyManagedProjectFolder(project.managedFolder,this.directory);
     const executionWorkspace = delegation?.workspace ?? prepared?.plan ?? (reuseSource ? { ...await planExistingTaskWorkspace(input.workspace!, scratchProject ? reuseSource.cwd : project!.path, reuseSource), ...(scratchProject && reuseSource.executionWorkspace?.scratch ? { scratch: structuredClone(reuseSource.executionWorkspace.scratch) } : {}) }
-      : scratchProject && !previous && !input.planSource ? planScratchWorkspace(project!.path, taskId, input.prompt)
+      : scratchProject && !previous ? planScratchWorkspace(project!.path, taskId, input.prompt)
       : input.workspace || project?.managedFolder ? await planWorkspace(input.workspace ?? {mode:'checkout'}, project!.path, this.directory, taskId) : undefined);
     if (executionWorkspace && project?.managedFolder) executionWorkspace.projectFolder = structuredClone(project.managedFolder);
     if (!delegation && !prepared && !reuseSource && executionWorkspace?.mode === 'worktree') {
@@ -867,7 +839,7 @@ export class Engine extends EventEmitter {
       executionWorkspace.startFromOrigin = input.workspace!.startFromOrigin ?? preferences.newWorktreesStartFromOrigin;
       executionWorkspace.submoduleMode = preferences.worktreeSubmodules;
     }
-    const skill = await readFile(fileURLToPath(new URL(`../../skills/${interactionMode === 'plan' ? 'project-research' : input.mode === 'auto' ? 'personal-assistant' : input.mode === 'code' ? 'code-validation' : 'project-research'}/SKILL.md`, import.meta.url)), 'utf8');
+    const skill = await readFile(fileURLToPath(new URL(`../../skills/${input.mode === 'auto' ? 'personal-assistant' : input.mode === 'code' ? 'code-validation' : 'project-research'}/SKILL.md`, import.meta.url)), 'utf8');
     const id = await this.root.commit(async tx => {
       const workspace = await tx.doc(WorkspaceDoc);
       if (Object.hasOwn(workspace.requests, input.requestId)) {
@@ -883,14 +855,11 @@ export class Engine extends EventEmitter {
       if (input.ideaId && !sourceIdea) throw new Error('想法不存在');
       if (sourceIdea?.taskId) return sourceIdea.taskId;
       let work = input.continueId ? workspace.tasks.find(t => t.id === input.continueId) : undefined;
-      const savedOrigin = input.planSource ? workspace.tasks.find(t => t.id === input.planSource!.taskId) : undefined;
-      const origin = savedOrigin ? { ...savedOrigin, events: await this.taskHistory.events(savedOrigin, tx) } : undefined;
-      if (input.planSource && (!origin || origin.cwd !== input.planSource.cwd || currentTaskPlan(origin, input.planSource.eventId).text !== input.planSource.text)) throw new Error('方案或工作区已经改变，请重新查看');
       if (input.projectId && !workspace.projects.some(p => p.id === input.projectId)
-          && (!work || work.projectId !== input.projectId) && (!origin || origin.projectId !== input.projectId)) throw new Error('项目不存在');
+          && (!work || work.projectId !== input.projectId)) throw new Error('项目不存在');
       if (prepared && !workspace.changeRequestCheckouts?.some(p => p.id === prepared.saved.id && p.status === 'ready' && p.projectId === project!.id) || prepared && workspace.projects.find(p => p.id === project!.id)?.path !== project!.path) throw new Error('PR／MR 准备目录已改变');
       if (work && headForkSourceBusy(workspace.tasks, work.id)) throw new Error('正在分叉当前原生会话头，请等待分叉完成');
-      if (!(executionWorkspace?.scratch && executionWorkspace.state !== 'ready') && branchBlocksTask(workspace, executionWorkspace?.cwd ?? work?.cwd ?? origin?.cwd ?? project?.path ?? join(this.directory, 'artifacts'))) throw new Error('当前工作区正在切换分支，请完成后再发送任务');
+      if (!(executionWorkspace?.scratch && executionWorkspace.state !== 'ready') && branchBlocksTask(workspace, executionWorkspace?.cwd ?? work?.cwd ?? project?.path ?? join(this.directory, 'artifacts'))) throw new Error('当前工作区正在切换分支，请完成后再发送任务');
       if (input.continueId && !work) throw new Error('任务不存在');
       if (work?.backgroundStop?.status === 'pending') throw new Error('正在停止后台工作，请等待完成后继续');
       if (work?.archiveCleanup?.status === 'pending') throw new Error('正在清理归档会话，请等待完成后继续');
@@ -918,17 +887,16 @@ export class Engine extends EventEmitter {
       if (executionWorkspace?.mode === 'checkout' && !executionWorkspace.scratch && executionWorkspace.state !== 'ready') assertCheckoutIdle(workspace, executionWorkspace.root);
       const stamp = now();
       if (work && taskSidebarSection(work, stamp) === 'settled') { work.activeOrderKey = null; work.unsettledAt = stamp; }
-      const references = native ? [] : await this.contexts.references(input.prompt, input.contextIds, { task: work, project, inheritedTask: origin ?? reuseSource, preparationId: prepared?.saved.id }, images);
+      const references = native ? [] : await this.contexts.references(input.prompt, input.contextIds, { task: work, project, inheritedTask: reuseSource, preparationId: prepared?.saved.id }, images);
       const task: WorkItem = work ?? {
         id: taskId, title: input.title?.slice(0, 200).replace(/[\uD800-\uDBFF]$/, '') ?? (displayContextText(input.prompt).trim().slice(0, 64).replace(/[\uD800-\uDBFF]$/, '') || '图片任务'), prompt: input.prompt, projectId: input.projectId,
-        cwd: executionWorkspace?.cwd ?? origin?.cwd ?? project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent, ...(!native ? { providerInstanceId } : {}),
+        cwd: executionWorkspace?.cwd ?? project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent, ...(!native ? { providerInstanceId } : {}),
         status: 'queued', createdAt: stamp, updatedAt: stamp, durableId: null, threadId: null, turnId: null,
         result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: input.requestId,
         messages: [], workspaceRequest: null,
         ...(!native ? { eventArchive: { count: 0, version: 0, coverage: 'complete' as const, recent: [] } } : {}),
         ...(executionWorkspace ? { executionWorkspace } : {}),
         ...(prepared ? { changeRequests: [prepared.saved.pullRequest] } : {}),
-        ...(!executionWorkspace && origin?.executionWorkspace ? { executionWorkspace: JSON.parse(JSON.stringify(origin.executionWorkspace)) } : {}),
         ...(input.parentId ? { parentId: input.parentId } : {}),
         ...(input.model !== undefined ? { model: input.model } : {}),
         ...(input.reasoningEffort !== undefined ? { reasoningEffort: input.reasoningEffort } : {}),
@@ -940,25 +908,25 @@ export class Engine extends EventEmitter {
       } else if (!native && work && task.result && task.messages.filter(message => !message.revertedAt).at(-1)?.text !== task.result) {
         task.messages.push({ id: randomUUID(), role: 'assistant', text: task.result });
       }
-      if (!input.command) task.messages.push({ id: queueEntry?.id ?? randomUUID(), role: 'user', text: input.prompt, at: stamp, ...(images.length ? { images } : {}), ...(references.length ? { contexts: references } : {}), ...(!native ? { interactionMode } : {}), ...(queueEntry?.creationSource ? { creationSource: queueEntry.creationSource, ...(queueEntry.notification ? { notification: queueEntry.notification } : {}) } : {}) });
+      if (!input.command) task.messages.push({ id: queueEntry?.id ?? randomUUID(), role: 'user', text: input.prompt, at: stamp, ...(images.length ? { images } : {}), ...(references.length ? { contexts: references } : {}), ...(queueEntry?.creationSource ? { creationSource: queueEntry.creationSource, ...(queueEntry.notification ? { notification: queueEntry.notification } : {}) } : {}) });
       if (!native) {
         if (input.model !== undefined) { if (task.model !== input.model) task.contextUsage = null; task.model = input.model; }
         if (input.reasoningEffort !== undefined) task.reasoningEffort = input.reasoningEffort;
         if (JSON.stringify(task.modelOptions?.find(option => option.id === 'contextWindow')?.value) !== JSON.stringify(modelOptions.find(option => option.id === 'contextWindow')?.value)) task.contextUsage = null;
         task.modelOptions = modelOptions;
       }
+      delete (task as { interactionMode?: unknown }).interactionMode;
+      delete (task as { planOrigin?: unknown }).planOrigin;
       task.mode = input.mode; if (!input.command) { task.result = ''; task.artifact = null; }
       const contextBeforeCompaction = input.command ? JSON.parse(JSON.stringify(task.contextUsage ?? null)) as import('./task-context-usage.js').TaskContextUsage | null : undefined;
       if (input.command) task.contextUsage = null;
       task.workspaceRequest = null; task.turnId = null;
-      if (!native) task.interactionMode = interactionMode;
-      if (input.planSource) task.planOrigin = { taskId: input.planSource.taskId, eventId: input.planSource.eventId };
       task.canSteer = false;
       task.archivedAt = null; task.settledAt = null; clearTaskSnooze(task); task.settledOverride = null;
       // Starting previously queued input is not a new read receipt from a user.
       if (!queueEntry) { task.unread = false; task.readAt = stamp; }
       const effectiveProject = workspace.projects.find(p => p.id === task.projectId);
-      const hasWorkspace = effectiveProject !== undefined || ((work !== undefined || origin !== undefined) && task.projectId !== null);
+      const hasWorkspace = effectiveProject !== undefined || (work !== undefined && task.projectId !== null);
       const contextTransfers = native ? [] : this.transfers.pending(task, input.command);
       const forkPredecessor = native ? undefined : await this.taskForks.prepareDispatch(tx, task);
       if (forkPredecessor !== undefined) predecessor = forkPredecessor;
@@ -966,7 +934,7 @@ export class Engine extends EventEmitter {
       const promptParts = [
         !native && !task.threadId && !resolvingNativeFork && !contextTransfers.some(transfer => transfer.kind === 'provider_handoff') && task.messages.filter(message => !message.revertedAt).length > 1 ? `Previous conversation (context only; do not replay past actions):\n${task.messages.filter(message => !message.revertedAt).slice(0, -1).map(m => `${m.role}: ${this.contexts.project(m.text, m.contexts, m.images)}`).join('\n\n')}` : '',
         `Task: ${this.contexts.project(input.prompt, references, images) || '请查看附带图片。'}`,
-        interactionMode === 'plan' ? 'Interaction mode: Plan. Inspect and ask clarifying questions as needed. Propose an actionable plan, then stop and wait for feedback or an explicit implementation request. Do not modify project files or start implementation during this turn.' : task.mode === 'auto'
+        task.mode === 'auto'
           ? `Understand the user's intent and respond or act accordingly. ${hasWorkspace ? 'The user selected the workspace below. Only modify files when requested; inspect and explain read-only requests without changing files.' : 'No workspace is selected. Answer questions and research normally. If a local workspace is needed, call friday_request_workspace and stop this turn. Never guess a working directory or attempt file changes before selection.'}`
           : `Mode: ${task.mode}. ${task.mode === 'research' ? 'Research and report. Do not modify project files. Cite sources when researching externally.' : 'Implement the requested change, perform relevant verification, and report the files changed.'}`,
         effectiveProject ? `Project: ${effectiveProject.name}\nProject context:\n${effectiveProject.context}` : '',
@@ -995,7 +963,7 @@ export class Engine extends EventEmitter {
         if (forkPredecessor !== undefined) task.forkOperation!.dispatchRunId = runID;
         task.currentRunId = runID; task.runs ??= [];
         task.runs.push({ id: runID, durableId, messageId: message?.id ?? '', agent: task.agent, providerInstanceId: taskProviderInstance(task), providerEpoch: providerEpoch(task), ...(contextTransfers.length ? { contextTransferIds: contextTransfers.map(transfer => transfer.id) } : {}), ...(input.command ? { command: input.command } : {}), requestId: input.requestId, cwd: task.cwd, at: stamp,
-          status: 'queued', mode: task.mode, interactionMode, modelOptions: task.modelOptions, ...(task.model ? { model: task.model } : {}), ...(task.reasoningEffort ? { reasoningEffort: task.reasoningEffort } : {}) });
+          status: 'queued', mode: task.mode, modelOptions: task.modelOptions, ...(task.model ? { model: task.model } : {}), ...(task.reasoningEffort ? { reasoningEffort: task.reasoningEffort } : {}) });
         for (const transfer of contextTransfers) { transfer.status = 'consumed'; transfer.consumedAt = stamp; transfer.runId = runID; }
       }
       if (native) workspace.assistantQueueTail = durableId;

@@ -23,7 +23,7 @@ export function taskSummary(task: WorkItem, sequence: number): WorkItem {
     ...(queue ? { queue: { ...queue, messages: queue.messages.map(({ contexts: _contexts, ...message }) => ({ ...message, text: '', images: [] })) } } : {}),
     ...(gitOperation ? { gitOperation: { ...gitOperation, files: [], output: [], commitMessage: '', generatedPullRequest: undefined, generation: undefined, generations: undefined } } : {}),
     ...(rewindOperation ? { rewindOperation: { ...rewindOperation, removedRunIds: [], removedExecutionRunIds: [], removeTurns: [], keepTurns: [], checkpoint: undefined, backup: undefined, nativeStart: undefined, nativeResult: undefined,
-      editor: { text: '', images: [], interactionMode: rewindOperation.editor.interactionMode } } } : {}),
+      editor: { text: '', images: [] } } } : {}),
     ...(task.forkOperation ? { forkOperation: { ...task.forkOperation, expectedTurns: [], nativeResult: undefined, nativePrefix: undefined } } : {}),
     ...(history ? { history: { ...history, recent: [], touches: [], messageTouches: [] } } : {}) };
 }

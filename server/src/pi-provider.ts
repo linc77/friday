@@ -36,7 +36,6 @@ export function piLaunchArgs(value: string): string[] {
 export function validatePiSettings(value: unknown, previous = defaultPiSettings) {
   const settings = validateSettings(value, previous, 'Pi', piThinkingLevels);
   if (settings.shadowHomePath) throw new Error('Pi 请通过配置目录管理账号');
-  if (settings.permissionMode === 'plan') throw new Error('Pi 不支持规划权限模式');
   if (settings.environment.some(entry => ['PI_CODING_AGENT_DIR', 'FRIDAY_MCP_URL', 'FRIDAY_MCP_BEARER_TOKEN', 'FRIDAY_PI_RUNTIME_MODE', 'FRIDAY_PI_MCP_EXTENSION_PATH'].includes(entry.name))) throw new Error('请通过 Pi 配置目录和 Friday 任务设置管理运行环境');
   piLaunchArgs(settings.launchArgs); return settings;
 }

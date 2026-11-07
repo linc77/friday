@@ -1,3 +1,4 @@
+import { assertCurrentTaskMode } from './legacy-task-mode.js';
 import { providerOptionSelections } from './provider-models.js';
 import { providerDrivers, providerInstanceID, taskProviderInstance } from './provider-instances.js';
 import { publicProviderState } from './provider-public-state.js';
@@ -30,7 +31,6 @@ import { TaskSettlementSettingsConflict } from './task-settlement.js';
 import { ChangeRequestLinksConflict } from './task-change-request-links.js';
 import { installSourceControlPreferencesAPI } from './source-control-preferences.js';
 import { changeScope, readTaskChanges, readTaskDiff } from './task-changes.js';
-import { saveTaskPlan, taskInteractionMode } from './task-plans.js';
 import { TaskGitStatuses } from './task-git-status.js';
 import { discoverPublishProviders, repositoryPublishInput } from './task-repository-publish.js';
 import { SourceControlCredentialConflict } from './source-control-credentials.js';
@@ -364,12 +364,12 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
   });
   app.delete('/api/memories/:id', async c => { await engine.mutate(s => { s.memories = s.memories.filter(m => m.id !== c.req.param('id')); }); return c.json({ ok: true }); });
   app.post('/api/tasks', async c => {
-    const body = await c.req.json();
+    const body = await c.req.json(); assertCurrentTaskMode(body);
     if (body.agent && !['friday', 'codex', 'claude', 'pi', 'grok', 'cursor', 'muse', 'opencode', 'acp-registry', 'antigravity'].includes(body.agent)) throw new Error('此 Agent 尚未接入任务执行');
     const mode = body.mode ?? 'auto';
     if (!['auto', 'assistant', 'research', 'code'].includes(mode)) throw new Error('任务类型无效');
     const attached = await images.validate(body.images);
-    const id = await engine.createTask({ prompt: taskPrompt(body.prompt, attached), images: attached, contextIds: contextIDs(body.contextIds), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode, agent: body.agent ?? 'friday', providerInstanceId: body.providerInstanceId === undefined ? undefined : providerInstanceID(body.providerInstanceId), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions), interactionMode: taskInteractionMode(body.interactionMode), requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined, workspace: workspaceSelection(body.workspace) });
+    const id = await engine.createTask({ prompt: taskPrompt(body.prompt, attached), images: attached, contextIds: contextIDs(body.contextIds), projectId: body.projectId ? text(body.projectId, '项目 ID', 80) : null, mode, agent: body.agent ?? 'friday', providerInstanceId: body.providerInstanceId === undefined ? undefined : providerInstanceID(body.providerInstanceId), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions), requestId: text(body.requestId, '请求 ID', 100), ideaId: typeof body.ideaId === 'string' ? body.ideaId : undefined, workspace: workspaceSelection(body.workspace) });
     return c.json({ id }, 201);
   });
   app.post('/api/composer/capabilities', async c => {
@@ -554,24 +554,6 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     if (!task || task.agent === 'friday') return c.json({ error: '本地任务不存在' }, 404);
     return c.json(await readTaskDiff(task.cwd, c.req.query('path') ?? '', changeScope(c.req.query('scope')), { directory: engine.directory, workspace: task.executionWorkspace }));
   });
-  app.post('/api/tasks/:id/plan/save', async c => {
-    const state = await engine.snapshot(); const task = state.tasks.find(t => t.id === c.req.param('id'));
-    if (!task || task.agent === 'friday') return c.json({ error: '本地任务不存在' }, 404);
-    if (branchBlocksTask(state, task.cwd)) throw new Error('工作区有 Git 操作正在进行，请完成后再保存方案');
-    const body = await c.req.json();
-    return c.json(await saveTaskPlan({ ...task, events: await engine.taskHistory.events(task) }, body.eventId, body.path));
-  });
-  app.post('/api/tasks/:id/plan/follow-up', async c => {
-    const body = await c.req.json(); const attached = await images.validate(body.images);
-    if (body.newThread !== undefined && typeof body.newThread !== 'boolean') throw new Error('实施位置无效');
-    const refinement = body.text === undefined || body.text === '' ? '' : taskPrompt(body.text, attached);
-    const id = await engine.followUpPlan(c.req.param('id'), text(body.eventId, '方案 ID', 300), {
-      text: refinement, newThread: body.newThread === true, requestId: text(body.requestId, '请求 ID', 100), images: attached,
-      contextIds: contextIDs(body.contextIds),
-      model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions),
-    });
-    return c.json({ id }, 201);
-  });
   app.post('/api/tasks/:id/branch', async c => {
     const body = await c.req.json();
     const branch = workspaceSelection({ mode: 'checkout', branch: text(body.branch, '分支', 1024) })!.branch!;
@@ -626,18 +608,17 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     await engine.deleteTask(c.req.param('id')); return c.json({ ok: true });
   });
   app.post('/api/tasks/:id/message', async c => {
-    const body = await c.req.json(); const attached = await images.validate(body.images); const prompt = taskPrompt(body.text, attached); const requestId = text(body.requestId, '请求 ID', 100);
+    const body = await c.req.json(); assertCurrentTaskMode(body); const attached = await images.validate(body.images); const prompt = taskPrompt(body.text, attached); const requestId = text(body.requestId, '请求 ID', 100);
     const task = (await engine.snapshot()).tasks.find(t => t.id === c.req.param('id'));
     if (!task) throw new Error('任务不存在');
     if (body.providerInstanceId !== undefined && providerInstanceID(body.providerInstanceId) !== taskProviderInstance(task)) throw new Error('不能切换会话所属 Provider 实例');
-    const interactionMode = taskInteractionMode(body.interactionMode);
     const dispatch = body.dispatchMode ?? 'auto';
     if (!['auto', 'steer', 'queue'].includes(dispatch)) throw new Error('消息发送方式无效');
     if (body.compactBeforeSend !== undefined && typeof body.compactBeforeSend !== 'boolean') throw new Error('压缩后发送参数无效');
     if (body.compactBeforeSend === true) {
       const threadId = text(body.threadId, '原生会话 ID', 200);
       return c.json({ id: await compactTask(engine, task.id, { requestId, threadId, nextMessage: {
-        text: prompt, images: attached, contextIds: contextIDs(body.contextIds), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions), interactionMode,
+        text: prompt, images: attached, contextIds: contextIDs(body.contextIds), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions),
       } }) });
     }
     if (task.agent !== 'friday' && prompt.trim().toLowerCase() === '/compact' && attached.length === 0 && contextIDs(body.contextIds).length === 0) {
@@ -648,23 +629,23 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
       await engine.steer(task.id, prompt, requestId, attached, contextIDs(body.contextIds));
     } else if (dispatch === 'queue' || (task.agent !== 'friday' && (
       failedWorkspacePreparation(task) ||
-      (activeStatuses.includes(task.status) && (task.status === 'queued' || task.canSteer === false || (interactionMode !== undefined && interactionMode !== (task.interactionMode ?? 'default')))) ||
+      (activeStatuses.includes(task.status) && (task.status === 'queued' || task.canSteer === false)) ||
       (!activeStatuses.includes(task.status) && (task.queue?.dispatcherId != null || task.queue?.messages.some(item => item.status === 'queued')))
     ))) {
-      await engine.taskQueue.enqueue(task.id, { text: prompt, images: attached, contextIds: contextIDs(body.contextIds), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions), interactionMode }, requestId);
+      await engine.taskQueue.enqueue(task.id, { text: prompt, images: attached, contextIds: contextIDs(body.contextIds), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions) }, requestId);
     } else if (activeStatuses.includes(task.status)) {
       if (body.model !== undefined || body.reasoningEffort !== undefined || body.modelOptions !== undefined) throw new Error('请在当前执行结束后切换模型');
       await engine.steer(task.id, prompt, requestId, attached, contextIDs(body.contextIds));
     }
-    else await engine.createTask({ prompt, images: attached, contextIds: contextIDs(body.contextIds), requestId, projectId: task.projectId, mode: task.mode, continueId: task.id, model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions), interactionMode });
+    else await engine.createTask({ prompt, images: attached, contextIds: contextIDs(body.contextIds), requestId, projectId: task.projectId, mode: task.mode, continueId: task.id, model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions) });
     return c.json({ id: task.id });
   });
   app.patch('/api/tasks/:id/queue/:messageId', async c => {
-    const body = await c.req.json();
+    const body = await c.req.json(); assertCurrentTaskMode(body);
     const attached = body.images === undefined ? undefined : await images.validate(body.images);
     const existing = (await engine.snapshot()).tasks.find(task => task.id === c.req.param('id'))?.queue?.messages.find(message => message.id === c.req.param('messageId'));
     const prompt = taskPrompt(body.text, attached ?? existing?.images);
-    await engine.taskQueue.edit(c.req.param('id'), c.req.param('messageId'), { text: prompt, images: attached, ...(body.contextIds !== undefined ? { contextIds: contextIDs(body.contextIds) } : {}), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions), interactionMode: taskInteractionMode(body.interactionMode) });
+    await engine.taskQueue.edit(c.req.param('id'), c.req.param('messageId'), { text: prompt, images: attached, ...(body.contextIds !== undefined ? { contextIds: contextIDs(body.contextIds) } : {}), model: optionalModel(body.model), reasoningEffort: optionalModel(body.reasoningEffort), modelOptions: providerOptionSelections(body.modelOptions) });
     return c.json({ ok: true });
   });
   app.delete('/api/tasks/:id/queue/:messageId', async c => {

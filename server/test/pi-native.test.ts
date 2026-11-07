@@ -61,7 +61,7 @@ test('Installed Pi loads the Friday extension, executes MCP and write tools, req
     if (value.kind === 'session') { threadId = value.threadId; persisted = true; }
     if (value.kind === 'approval') { assert.ok(persisted); approved++; await executor.answer('native-pi', value.approval.id, 'accept', {}); }
   };
-  const task = { id: 'native-pi', agent: 'pi', cwd, model: 'fixture/fixture-model', interactionMode: 'default', events: [], approvals: [], threadId: null, currentRunId: 'native-1' } as unknown as WorkItem;
+  const task = { id: 'native-pi', agent: 'pi', cwd, model: 'fixture/fixture-model', events: [], approvals: [], threadId: null, currentRunId: 'native-1' } as unknown as WorkItem;
   try {
     assert.equal(await executor.run({ task, prompt: 'Read fixture MCP status and write the fixture file.', signal: controller.signal, update, beforeStart: async () => assert.ok(persisted), taskMcp: { url: base + '/mcp', headers: { Authorization: 'Bearer fixture-private-mcp' } } }), 'Installed Pi native reply');
     assert.equal(approved, 1); assert.deepEqual(mcpCalls, ['task_status']); assert.equal(await readFile(output, 'utf8'), 'Written by installed Pi via native tool');

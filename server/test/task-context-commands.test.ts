@@ -153,7 +153,7 @@ test('Compact and send atomically saves one queued message, waits for native suc
   t.after(async () => { release(); await engine.close(); auth.close(); await rm(directory, { recursive: true, force: true }); });
   await engine.mutate(state => { state.tasks = [work(directory)]; });
   let api = createAPI(engine, auth, () => []); const headers = { Authorization: 'Bearer ' + auth.token, 'Content-Type': 'application/json' };
-  const input = { text: 'Following user request', requestId: 'compact-and-send', threadId: 'protocol-thread', compactBeforeSend: true, model: 'chosen-model', interactionMode: 'plan' };
+  const input = { text: 'Following user request', requestId: 'compact-and-send', threadId: 'protocol-thread', compactBeforeSend: true, model: 'chosen-model' };
   const send = () => api.request('/api/tasks/task/message', { method: 'POST', headers, body: JSON.stringify(input) });
   const replies = await Promise.all([send(), send()]); assert(replies.every(reply => reply.status === 200));
   const deadline = Date.now() + 5000;
@@ -162,7 +162,7 @@ test('Compact and send atomically saves one queued message, waits for native suc
   assert.equal(during.messages?.length, 2); assert.equal(calls.length, 1); assert.equal(calls[0].command, 'compact');
   release();
   while ((await engine.snapshot()).tasks[0].queue?.messages[0].status !== 'completed') { assert(Date.now() < deadline); await new Promise(resolve => setTimeout(resolve, 5)); }
-  assert.equal(calls.length, 2); assert.equal(calls[1].command, undefined); assert.equal(calls[1].task.model, 'chosen-model'); assert.equal(calls[1].task.interactionMode, 'plan'); assert.match(calls[1].prompt, /Following user request/);
+  assert.equal(calls.length, 2); assert.equal(calls[1].command, undefined); assert.equal(calls[1].task.model, 'chosen-model'); assert.match(calls[1].prompt, /Following user request/);
   await engine.close(); engine = await new Engine(directory, executor, undefined, options).open(); api = createAPI(engine, auth, () => []);
   assert.equal((await send()).status, 200); assert.equal(calls.length, 2); assert.equal((await engine.snapshot()).tasks[0].queue?.messages.length, 1);
   assert.equal((await api.request('/api/tasks/task/message', { method: 'POST', headers, body: JSON.stringify({ ...input, requestId: 'old-thread', threadId: 'wrong' }) })).status, 400);

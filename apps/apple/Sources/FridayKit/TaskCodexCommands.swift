@@ -34,14 +34,14 @@ import UIKit
             pending = nil; notice = receipt; await store.refresh()
         } catch { if operation == token, identity == store.connectionIdentity { failure = error.localizedDescription } }
     }
-    func goal(store: FridayStore, task: WorkItem, command: String, model: String, effort: String, mode: String) async {
+    func goal(store: FridayStore, task: WorkItem, command: String, model: String, effort: String) async {
         guard !busy, store.connected, !task.active else { return }
         let identity = store.connectionIdentity, token = UUID(), context = key(store: store, task: task, kind: command), server = store.connection.server
         let submission = TaskDraftCache.load(Submission.self, server: server, context: context) ?? Submission(threadId: task.threadId ?? "", command: command)
         operation = token; kind = "goal"; busy = true; failure = nil; TaskDraftCache.save(submission, server: server, context: context)
         defer { if operation == token { busy = false } }
         do {
-            try await store.sendTaskMessage(taskId: task.id, text: command, requestId: submission.requestId, images: [], model: model.isEmpty ? nil : model, effort: effort.isEmpty ? nil : effort, interactionMode: mode)
+            try await store.sendTaskMessage(taskId: task.id, text: command, requestId: submission.requestId, images: [], model: model.isEmpty ? nil : model, effort: effort.isEmpty ? nil : effort)
             if TaskDraftCache.load(Submission.self, server: server, context: context)?.requestId == submission.requestId { TaskDraftCache.save(Optional<Submission>.none, server: server, context: context) }
         } catch { if operation == token, identity == store.connectionIdentity { failure = error.localizedDescription } }
     }

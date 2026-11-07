@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Approval, TaskEvent, TaskInteractionMode, TaskMode, WorkItem } from './types.js';
+import type { Approval, TaskEvent, TaskMode, WorkItem } from './types.js';
 import type { ClaudeBackgroundTask } from './claude-background.js';
 import { claudeBackgroundEnded } from './claude-background.js';
 import type { ProviderDriver } from './provider-instances.js';
@@ -15,7 +15,7 @@ export type NativeObservedUpdate =
   | { kind: 'approval'; approval: Approval }
   | { kind: 'approvalResolved'; id: string; expired?: boolean }
   | { kind: 'event'; eventKind: string; text: string };
-export type NativeTurnParameters = { cwd: string; mode: TaskMode; interactionMode?: TaskInteractionMode; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[] };
+export type NativeTurnParameters = { cwd: string; mode: TaskMode; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[] };
 type NativeTurnScope = { provider?: ProviderDriver; providerInstanceId?: string };
 export type ProviderBackgroundTask = Omit<ClaudeBackgroundTask, 'provider'> & { provider: ProviderDriver; canStop?: boolean; holdsCompletion?: boolean; output?: { text: string; truncated: boolean } };
 export type NativeRuntimeUpdate =

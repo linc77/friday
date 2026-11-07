@@ -68,7 +68,6 @@ export class GrokExecutor implements Executor {
   async run(request: ExecutionRequest): Promise<string> { return request.purpose ? isolatedTextGeneration(request, prepared => this.sessions.run(prepared)) : this.sessions.run(request); }
   private async runNative(request: ExecutionRequest, owned: GrokNativeSession, nativeId?: string): Promise<string> {
     const { task, update, signal } = request;
-    if (task.interactionMode === 'plan') throw new Error('Grok 未提供原生交互模式切换，请使用默认模式');
     const runtime = owned.runtime;
     if (task.grokHome && task.grokHome !== runtime.home) throw new Error('请恢复这条 Grok 会话使用的配置目录');
     if (signal.aborted) throw cancelled();
@@ -190,7 +189,7 @@ export class GrokExecutor implements Executor {
       if (request.purpose) { const error = new Error('独立文字生成不接受工具或交互式请求'); finish(undefined, error); throw RequestError.invalidRequest(error.message); }
       const input = acpRecord(context.params); if (!input) throw RequestError.invalidParams();
       const method = context.method.replace(/^_/, ''), permission = method === 'session/request_permission', question = method === 'x.ai/ask_user_question';
-      if (!permission && !question && method !== 'x.ai/exit_plan_mode') throw RequestError.methodNotFound(context.method);
+      if (!permission && !question) throw RequestError.methodNotFound(context.method);
       const unwrapped: AcpRecord = acpRecord(input.params) && typeof input.method === 'string' ? { ...input.params, _meta: { ...acpRecord(input._meta), ...acpRecord(input.params._meta) } } : input;
       const params = permission ? acpPermissionRequest(unwrapped, context.requestId) : unwrapped;
       await chain;
@@ -198,12 +197,6 @@ export class GrokExecutor implements Executor {
       const childIdentity = typeof childNativeId === 'string' ? children?.identityForNative(childNativeId) : undefined;
       if (childNativeId && !childIdentity || !childIdentity && (!belongsToPrompt(params) || terminal)) throw RequestError.requestCancelled();
       if (!childIdentity) await bind(params.sessionId);
-      if (method === 'x.ai/exit_plan_mode') {
-        const text = typeof params.planContent === 'string' && params.planContent.trim() ? params.planContent.trim() : message.trim();
-        if (!text) throw RequestError.invalidParams();
-        put(`proposal:${randomUUID()}`, 'proposal', text, { text, status: 'completed', completedAt: now() }); await flush();
-        return { outcome: 'abandoned', feedback: "The client captured your proposed plan. Stop here and wait for the user's feedback or implementation request in a later turn." };
-      }
       const questions = question && Array.isArray(params.questions) ? params.questions : [];
       if (question && (!questions.length || questions.length > 8 || questions.some((value: any) => typeof value?.question !== 'string' || !value.question.trim()))) throw RequestError.invalidParams();
       const id = `grok:${randomUUID()}`, receipt = client.watchReply(context.requestId);

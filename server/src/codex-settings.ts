@@ -9,7 +9,7 @@ export type CodexSettings = {
   enabled: boolean; displayName: string; binaryPath: string; homePath: string; shadowHomePath: string;
   launchArgs: string; model: string; reasoningEffort: string; environment: { name: string; value: string }[];
   customModels: { id: string; name: string }[];
-  permissionMode: 'auto' | 'default' | 'acceptEdits' | 'plan' | 'fullAccess';
+  permissionMode: 'auto' | 'default' | 'acceptEdits' | 'fullAccess';
 };
 export const defaultCodexSettings: CodexSettings = {
   enabled: true, displayName: 'Codex', binaryPath: 'codex', homePath: '', shadowHomePath: '',
@@ -43,7 +43,7 @@ export function validateSettings(input: unknown, previous: CodexSettings, provid
   const value = input as Record<string, unknown>;
   if (typeof value.enabled !== 'boolean') throw new Error('启用状态无效。');
   const permissionMode = value.permissionMode === undefined ? previous.permissionMode : value.permissionMode;
-  const permissionModes = provider === 'Claude' ? ['auto', 'default', 'acceptEdits', 'plan'] : ['Pi', 'Antigravity'].includes(provider) ? ['auto', 'default', 'acceptEdits'] : ['Grok', 'Cursor'].includes(provider) ? ['auto', 'default', 'fullAccess'] : ['auto', 'default'];
+  const permissionModes = ['Claude', 'Pi', 'Antigravity'].includes(provider) ? ['auto', 'default', 'acceptEdits'] : ['Grok', 'Cursor'].includes(provider) ? ['auto', 'default', 'fullAccess'] : ['auto', 'default'];
   if (typeof permissionMode !== 'string' || !permissionModes.includes(permissionMode)) throw new Error('权限模式无效。');
   const result: CodexSettings = {
     enabled: value.enabled, displayName: field(value.displayName, '显示名称', 80) || provider,

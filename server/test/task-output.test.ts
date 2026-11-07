@@ -30,7 +30,7 @@ async function setup(t: { after: (fn: () => Promise<unknown>) => void }) {
     durableId: null, threadId: 'native', turnId: 'turn', currentRunId: 'run', result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: 'input',
     eventArchive: { count: 0, version: 0, coverage: 'complete', recent: [] },
     messages: [{ id: 'input', role: 'user', text: 'Inspect', at, runId: 'run', turnId: 'turn' }],
-    runs: [{ id: 'run', durableId: null, requestId: 'input', messageId: 'input', cwd, at, status: 'running', mode: 'research', interactionMode: 'default', threadId: 'native', turnId: 'turn' }] };
+    runs: [{ id: 'run', durableId: null, requestId: 'input', messageId: 'input', cwd, at, status: 'running', mode: 'research', threadId: 'native', turnId: 'turn' }] };
   await engine.mutate(state => { state.tasks.push(task); });
   const item = (id = 'cmd', detail = '', status: TaskEvent['status'] = 'running'): TaskEvent => ({ id, kind: 'command', text: 'pnpm check', at, status, detail, turnId: 'turn', itemId: id });
   return { get engine() { return engine; }, data, item,

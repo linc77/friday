@@ -187,9 +187,6 @@ struct CodexSettingsView: View {
                             if provider == "claude" || provider == "pi" || provider == "antigravity" {
                                 Text(friday: "自动接受编辑").tag("acceptEdits")
                             }
-                            if provider == "claude" {
-                                Text(friday: "规划模式").tag("plan")
-                            }
                         } label: { Text(friday: "权限模式") }
                             .labelsHidden().frame(maxWidth: 210).fridayInteractiveCursor().disabled(busy)
                     }

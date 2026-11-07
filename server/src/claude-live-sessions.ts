@@ -92,7 +92,7 @@ export class ClaudeLiveSessions {
     session.current = context;
     context.activation = (async () => {
       await session.send({ kind: 'nativeTurnStart', key, sessionId: session.token, threadId: session.threadId, turnId: id,
-        parameters: { cwd: session.task.cwd, mode: session.task.mode, interactionMode: session.task.interactionMode,
+        parameters: { cwd: session.task.cwd, mode: session.task.mode,
           model: session.configuration.model, reasoningEffort: session.configuration.effort, modelOptions: session.task.modelOptions } });
       await context.transcript.start(); await context.update({ kind: 'ready', canSteer: true }); context.accepting = true;
     })();
@@ -138,7 +138,8 @@ export class ClaudeLiveSessions {
         source.query = query({ prompt: source.inputs, options: {
           cwd: task.cwd, pathToClaudeCodeExecutable: configured.command, env: configured.env, model: configured.apiModel, effort: configured.apiEffort as EffortLevel | undefined, settings: configured.modelSettings,
           ...(task.threadId ? { resume: source.threadId, ...(task.claudeResumeSessionAt ? { resumeSessionAt: task.claudeResumeSessionAt } : {}) } : { sessionId: source.threadId }),
-          abortController: source.controller, includePartialMessages: true, permissionMode: task.interactionMode === 'plan' ? 'plan' : configured.permissionMode,
+          abortController: source.controller, includePartialMessages: true, permissionMode: configured.permissionMode,
+          disallowedTools: ['EnterPlanMode', 'ExitPlanMode'],
           settingSources: configured.settingSources, ...(task.mode === 'research' ? { tools: ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch'] } : {}),
           ...(request.taskMcp ? { mcpServers: { friday_tasks: { type: 'http', ...request.taskMcp } } } : {}),
           systemPrompt: { type: 'preset', preset: 'claude_code', append: 'You are Claude Code executing a specific local task delegated by Friday. Respond naturally in Chinese. Stay within the user request and selected workspace. Friday owns the main conversation. Do not commit, push, deploy, purchase, send messages, or spawn subagents unless explicitly requested. On continuation inspect current results before repeating any external action. Report concrete results and limitations.' + (request.taskMcp ? '\n\n' + TASK_TOOL_INSTRUCTIONS : '') },
@@ -152,7 +153,7 @@ export class ClaudeLiveSessions {
         }
         if (configured.apiModel !== source.configuration.apiModel) await source.query.setModel(configured.apiModel);
         if (configured.apiEffort !== source.configuration.apiEffort || configured.modelSettings.fastMode !== source.configuration.modelSettings.fastMode || configured.modelSettings.ultracode !== source.configuration.modelSettings.ultracode) await source.query.applyFlagSettings({ ...(configured.apiEffort === undefined ? {} : { effortLevel: configured.apiEffort as EffortLevel }), fastMode: configured.modelSettings.fastMode ?? null, ultracode: configured.modelSettings.ultracode ?? null });
-        await source.query.setPermissionMode(task.interactionMode === 'plan' ? 'plan' : configured.permissionMode);
+        await source.query.setPermissionMode(configured.permissionMode);
         source.configuration = configured; source.task = { ...task };
       }
       if (request.command === 'compact' && !(await source.query.supportedCommands()).some(command => command.name === 'compact')) throw new Error('这个 Claude Code 版本尚未提供上下文压缩命令');
@@ -357,14 +358,7 @@ export class ClaudeLiveSessions {
     if (context.held.length) { context.confirmed = true; for (const held of context.held.splice(0)) await this.handle(session, context, held); }
     if (session.closing || context.interrupted) return { behavior: 'deny', message: '任务已结束', interrupt: true };
     if (context.taskMcp && !options.agentID && !session.subagents.ownsTool(options.toolUseID) && options.mcpServer?.name === 'friday_tasks' && options.mcpServer.source === 'dynamic' && taskRuntimeToolDefinitions.some(tool => name === 'mcp__friday_tasks__' + tool.name)) return { behavior: 'allow', updatedInput: input };
-    if (name === 'ExitPlanMode') {
-      if (typeof input.plan === 'string') {
-        if (options.agentID || session.subagents.ownsTool(options.toolUseID)) await session.subagents.propose(options.toolUseID, input.plan, options.agentID);
-        else await context.transcript.propose(options.toolUseID, input.plan);
-      }
-      return { behavior: 'deny', message: 'Friday captured your proposed plan. Stop here and wait for feedback or an explicit implementation request.' };
-    }
-    if (context.task.interactionMode === 'plan' && ['Bash', 'Monitor', 'Write', 'Edit', 'NotebookEdit', 'EnterWorktree', 'ExitWorktree'].includes(name)) return { behavior: 'deny', message: 'This turn is in Plan mode. Only inspect and propose a plan.' };
+
     const id = randomUUID(); const raw = name === 'AskUserQuestion' && Array.isArray(input.questions) ? input.questions as Record<string, any>[] : [];
     const questions = raw.map((question, index) => ({ id: `q${index}`, header: String(question.header ?? ''), question: String(question.question ?? ''),
       options: (Array.isArray(question.options) ? question.options : []).map((option: any) => ({ label: String(option.label), description: String(option.description ?? '') })),

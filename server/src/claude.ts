@@ -53,7 +53,6 @@ export class ClaudeExecutor implements Executor {
     const investigating = purpose === 'review_guide';
     const background = purpose === 'git_text' || purpose === 'task_title' || investigating;
     const configured = await this.connection.runtime(task);
-    const planning = task.interactionMode === 'plan';
     if (signal.aborted) throw new Error('任务已中止');
     if (task.threadId && task.claudeHome && task.claudeHome !== configured.home) throw new Error('此对话使用另一个 Claude 配置目录，请恢复原目录后续聊，或开始新任务。');
     const sessionId = task.threadId ?? randomUUID(); const turnId = randomUUID();
@@ -73,23 +72,16 @@ export class ClaudeExecutor implements Executor {
         cwd: task.cwd, pathToClaudeCodeExecutable: configured.command, env: configured.env,
         model: configured.apiModel, effort: configured.apiEffort as EffortLevel | undefined, settings: configured.modelSettings,
         ...(task.threadId ? { resume: sessionId, ...(task.claudeResumeSessionAt ? { resumeSessionAt: task.claudeResumeSessionAt } : {}) } : { sessionId }),
-        abortController, includePartialMessages: true, permissionMode: investigating ? 'dontAsk' : planning ? 'plan' : configured.permissionMode, settingSources: background ? [] : configured.settingSources,
+        abortController, includePartialMessages: true, permissionMode: investigating ? 'dontAsk' : configured.permissionMode, settingSources: background ? [] : configured.settingSources,
         ...(background ? { tools: investigating ? ['Read','Grep','Glob','Bash'] : [], mcpServers: {}, strictMcpConfig: true, plugins: [] } : {}),
         ...(investigating || purpose === 'task_title' ? { outputFormat: { type: 'json_schema', schema: investigating ? REVIEW_GUIDE_OUTPUT_SCHEMA : TASK_TITLE_OUTPUT_SCHEMA } } : {}),
         ...(investigating ? { allowedTools: ['Read','Grep','Glob','Bash(git diff:*)','Bash(git log:*)','Bash(git show:*)'], settings: { ...configured.modelSettings, disableAllHooks: true } } : {}),
         // Independent local tasks do not spawn more agents. Research stays read-only.
-        disallowedTools: ['Agent', 'Task', ...(investigating ? ['Bash(git * --output*)','Bash(git * -o *)'] : []), ...(task.mode === 'research' || !task.projectId ? [...(investigating ? [] : ['Bash']), 'Write', 'Edit', 'NotebookEdit', 'EnterWorktree', 'ExitWorktree'] : [])],
+        disallowedTools: ['Agent', 'Task', 'EnterPlanMode', 'ExitPlanMode', ...(investigating ? ['Bash(git * --output*)','Bash(git * -o *)'] : []), ...(task.mode === 'research' || !task.projectId ? [...(investigating ? [] : ['Bash']), 'Write', 'Edit', 'NotebookEdit', 'EnterWorktree', 'ExitWorktree'] : [])],
         systemPrompt: { type: 'preset', preset: 'claude_code', append: 'You are Claude Code executing a specific local task delegated by Friday. Respond naturally in Chinese. Stay within the user request and selected workspace. Friday owns the main conversation. Do not commit, push, deploy, purchase, send messages, or spawn subagents unless explicitly requested. On continuation inspect current results before repeating any external action. Report concrete results and limitations.' },
         canUseTool: async (name, input, options) => {
           if (investigating) return reviewGuideTool(name, input, task.cwd);
           if (background) return { behavior: 'deny', message: 'Tools are unavailable during text generation.' };
-          if (name === 'ExitPlanMode') {
-            if (typeof input.plan === 'string' && input.plan.trim()) await transcript.propose(options.toolUseID, input.plan);
-            return { behavior: 'deny', message: 'Friday captured your proposed plan. Stop here and wait for feedback or an explicit implementation request in a later turn.' };
-          }
-          if (planning && ['Bash', 'Write', 'Edit', 'NotebookEdit', 'EnterWorktree', 'ExitWorktree'].includes(name)) {
-            return { behavior: 'deny', message: 'This turn is in Plan mode. Only inspect and propose a plan; do not run commands that require broader permissions or modify project files.' };
-          }
           const id = randomUUID();
           const raw = name === 'AskUserQuestion' && Array.isArray(input.questions) ? input.questions as Record<string, any>[] : [];
           const questions = raw.map((q, index) => ({ id: `q${index}`, header: String(q.header ?? ''), question: String(q.question ?? ''),

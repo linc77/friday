@@ -100,7 +100,7 @@ test('Control messages remain available outside the fallback window and a large 
   const f = await setup(t, { messages });
   await f.engine.patchTask('task', task => {
     task.runs = [3, 199].map(index => ({ id: 'run-' + index, messageId: 'message-' + index, requestId: 'request-' + index, durableId: null,
-      cwd: task.cwd, at: at(index * 2 + 1), status: index === 3 ? 'running' : 'completed', mode: 'research', interactionMode: 'default' }));
+      cwd: task.cwd, at: at(index * 2 + 1), status: index === 3 ? 'running' : 'completed', mode: 'research' }));
     task.currentRunId = 'run-3';
   });
   const live = await project(f.engine); assert.equal(live.conversationHistory?.visibleMessageIds?.length, 75); assert.equal(live.messages?.length, 76);
@@ -121,7 +121,7 @@ test('A legacy prefix and its cursors survive new user turns; ordinary turns are
       task.messages.push({ id: 'user-' + index, role: 'user', text: 'Request ' + index, at: date, runId },
         { id: 'answer-' + index, role: 'assistant', text: 'Answer ' + index, at: at(2000 + index * 1000 + 950), runId });
       task.runs.push({ id: runId, durableId: null, messageId: 'user-' + index, requestId: 'request-' + index, cwd: task.cwd, at: date,
-        status: 'completed', mode: 'research', interactionMode: 'default' });
+        status: 'completed', mode: 'research' });
       if (index === 11) for (let item = 0; item < 900; item++) task.events.push({ ...event(1000 + item), id: 'tool-' + item, kind: 'command', runId, at: at(13001 + item) });
     }
   });
@@ -159,7 +159,7 @@ test('Wake starts use T3 raw-turn limits while Steer and tool activity keep thei
   assert.equal(selected.entries.filter(entry => entry.event?.kind === 'notification').length, 150);
   const f = await setup(t, { messages: task.messages, events });
   await f.engine.mutate(state => { state.tasks[0].runs = [{ id: 'run', messageId: 'user', requestId: 'user', durableId: null, cwd: state.tasks[0].cwd,
-    at: at(0), status: 'completed', mode: 'research', interactionMode: 'default' }]; });
+    at: at(0), status: 'completed', mode: 'research' }]; });
   const live = await project(f.engine);
   assert.equal(live.conversationHistory?.kind, 'items', 'Notification starts use item coordinates even when the task already had a user turn');
   assert.equal(live.events.filter(event => event.kind === 'notification').length, 150); assert.equal(live.events.filter(event => event.kind === 'command').length, 900);

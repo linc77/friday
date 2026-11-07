@@ -17,7 +17,7 @@ const item = (overrides: Partial<WorkItem> = {}): WorkItem => ({ id: 'thread', t
   prompt: 'Original input', result: 'Original result', status: 'completed', createdAt: iso(-10 * DAY), updatedAt: iso(-5 * DAY),
   durableId: null, threadId: 'native-thread', turnId: 'native-turn', error: null, artifact: null, lastRequestId: 'original', events: [], approvals: [], ...overrides });
 const run = (overrides: Partial<TaskRun> = {}): TaskRun => ({ id: 'run', durableId: null, messageId: 'message', requestId: 'request', cwd: '/owned-fixture',
-  at: iso(-DAY), startedAt: iso(-DAY), status: 'completed', completedAt: iso(1_000), mode: 'research', interactionMode: 'default', ...overrides });
+  at: iso(-DAY), startedAt: iso(-DAY), status: 'completed', completedAt: iso(1_000), mode: 'research', ...overrides });
 const pending = { id: 'question', method: 'requestUserInput', title: 'Question', detail: 'Private question', questions: [], state: 'pending' as const };
 const metadata = (task: WorkItem, body: unknown, at = iso(0)) => applyTaskMetadata(task, taskMetadataChange(body), at);
 

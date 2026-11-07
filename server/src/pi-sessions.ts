@@ -122,7 +122,6 @@ export class PiSessions {
     if (this.closed || this.running.has(request.task.id)) throw new Error('Pi 会话仍在执行或已关闭');
     this.running.add(request.task.id); let session: PiNativeSession | undefined, releaseTools: (() => void) | undefined;
     try {
-      if (request.task.interactionMode === 'plan') throw new Error('Pi 未提供原生计划模式，请使用默认模式');
       const runtime = await this.connection.runtime(request.task), account = piSessionAccount(runtime.settings), policyKey = JSON.stringify([account, runtime.permissionMode]);
       if (request.task.piHome && request.task.piHome !== runtime.home || request.task.nativeProviderAccount && request.task.nativeProviderAccount !== account) throw new Error('请恢复这条 Pi 会话使用的配置目录与账号');
       request.signal.throwIfAborted(); const cwd = await realpath(request.task.cwd);

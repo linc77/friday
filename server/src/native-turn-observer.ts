@@ -31,7 +31,7 @@ export class NativeTurnObserver {
     slot.ready = (async () => {
       await Promise.race([Promise.all([source.finalized ?? Promise.resolve(), previous, beforeAdmit?.()]), this.closeSignal]);
       if (this.closed || slot.completed) throw new Error('原生连接已关闭，未启动后续观察');
-      await source.update({ kind: 'nativeTurnStart', ...scope, turnId: nativeId, parameters: { cwd: source.task.cwd, mode: source.task.mode, interactionMode: source.task.interactionMode, ...(source.task.model ? { model: source.task.model } : {}), ...(source.task.reasoningEffort ? { reasoningEffort: source.task.reasoningEffort } : {}), modelOptions: source.task.modelOptions ?? [] } });
+      await source.update({ kind: 'nativeTurnStart', ...scope, turnId: nativeId, parameters: { cwd: source.task.cwd, mode: source.task.mode, ...(source.task.model ? { model: source.task.model } : {}), ...(source.task.reasoningEffort ? { reasoningEffort: source.task.reasoningEffort } : {}), modelOptions: source.task.modelOptions ?? [] } });
       slot.started = true;
       if (this.closed || slot.completed) {
         await source.update({ kind: 'nativeTurnFinish', ...scope, status: 'interrupted', result: slot.result, error: '原生连接在观察登记期间关闭，未重放执行' });

@@ -21,7 +21,7 @@ for (const flavor of ['devin', 'copilot'] as const) test(`Registry ${flavor} nat
   // no live Registry lookup or install is required by this protocol fixture.
   f.connection.runtime = async selection => ({ ...await runtime(selection), registrySubagents: flavor });
   const updates: ExecutionUpdate[] = [];
-  const result = await f.executor.run({ task: { id: 'parent', agent: 'acp-registry', currentRunId: 'parent-run', cwd: f.cwd, model: 'native-model', interactionMode: 'default', events: [], approvals: [] } as unknown as WorkItem, prompt: 'children-' + flavor, signal: AbortSignal.timeout(6000), update: async value => { updates.push(value); } });
+  const result = await f.executor.run({ task: { id: 'parent', agent: 'acp-registry', currentRunId: 'parent-run', cwd: f.cwd, model: 'native-model', events: [], approvals: [] } as unknown as WorkItem, prompt: 'children-' + flavor, signal: AbortSignal.timeout(6000), update: async value => { updates.push(value); } });
   const children = updates.filter(value => value.kind === 'subagent'), child = children.at(-1)!;
   assert.equal(new Set(children.map(value => value.subagent.id)).size, 1); assert.equal(child.subagent.status, 'completed');
   assert.equal(child.subagent.result, flavor === 'devin' ? 'Devin child result' : 'Copilot child result'); assert.ok(!result.includes(child.subagent.result!));
@@ -32,7 +32,7 @@ for (const flavor of ['devin', 'copilot'] as const) test(`Registry ${flavor} nat
 for (const provider of ['acp-registry', 'antigravity'] as const) {
   test(`${provider} independent generation follows its actual capability and cannot borrow a foreground session`, async t => {
     const fixture = await setup(t, provider);
-    const input = { task: { id: 'generation', agent: provider, cwd: fixture.cwd, model: 'native-model', reasoningEffort: 'low', threadId: 'foreground', nativeProviderAccount: 'foreground-account', interactionMode: 'default', mode: 'research', events: [], approvals: [] } as unknown as WorkItem, purpose: 'task_title' as const, prompt: 'Title', signal: AbortSignal.timeout(5000), update: async () => {} };
+    const input = { task: { id: 'generation', agent: provider, cwd: fixture.cwd, model: 'native-model', reasoningEffort: 'low', threadId: 'foreground', nativeProviderAccount: 'foreground-account', mode: 'research', events: [], approvals: [] } as unknown as WorkItem, purpose: 'task_title' as const, prompt: 'Title', signal: AbortSignal.timeout(5000), update: async () => {} };
     if (provider === 'acp-registry') { await assert.rejects(fixture.executor.generateText(input), /不支持独立文字生成/); assert.ok(!(await fixture.trace()).some(value => value.method === 'session/prompt')); return; }
     assert.ok((await fixture.executor.generateText(input)).trim());
     const trace = await fixture.trace();
@@ -41,7 +41,7 @@ for (const provider of ['acp-registry', 'antigravity'] as const) {
     assert.ok(trace.filter(value => value.method === 'initialize').every(value => value.params.clientCapabilities.fs.writeTextFile === false));
   });
   test(`${provider} native discovery keeps credentials private and its actual model/command catalog scoped to the workspace`, async t => {
-    const { connection, directory, cwd, trace } = await setup(t, provider), owner = await connection.status(true); assert.equal(owner.installed, true); assert.equal(owner.connected, true, owner.error ?? 'Not connected'); assert.equal(owner.supportsPlan, true); assert.deepEqual(owner.models.map(value => value.id), ['native-model', 'other-model']); assert.equal(owner.settings?.nativeConfig?.apiKey, null); assert.ok(!JSON.stringify(owner).includes('fixture-gemini-secret')); assert.equal((await connection.status(false)).settings, null);
+    const { connection, directory, cwd, trace } = await setup(t, provider), owner = await connection.status(true); assert.equal(owner.installed, true); assert.equal(owner.connected, true, owner.error ?? 'Not connected'); assert.equal(owner.supportsTextGeneration, true); assert.deepEqual(owner.models.map(value => value.id), ['native-model', 'other-model']); assert.equal(owner.settings?.nativeConfig?.apiKey, null); assert.ok(!JSON.stringify(owner).includes('fixture-gemini-secret')); assert.equal((await connection.status(false)).settings, null);
     assert.equal((await stat(join(directory, provider + '-provider.json'))).mode & 0o777, 0o600);
     assert.ok(!(await trace()).some(value => value.method === 'session/prompt')); const workspace = await connection.workspace(cwd); assert.equal(workspace.cwd, cwd); assert.equal(workspace.commands[0]?.name, 'compress'); if (provider === 'acp-registry') { assert.equal(workspace.skills[0]?.name, 'review'); assert.equal(workspace.skills[0]?.path, 'acp://skill/review'); }
     if (provider === 'antigravity') assert.ok((await trace()).filter(value => value.method === 'initialize').every(value => value.params.clientCapabilities.fs.writeTextFile === false));
@@ -52,8 +52,8 @@ for (const provider of ['acp-registry', 'antigravity'] as const) {
     const { connection, executor, directory, cwd, trace } = await setup(t, provider); let native = '', account = '';
     const task = (changes: Partial<WorkItem> = {}) => ({ id: 'native-provider', agent: provider, cwd, model: 'other-model', reasoningEffort: 'high', currentRunId: 'run', ...changes }) as WorkItem;
     const update = async (value: ExecutionUpdate) => { if (value.kind === 'session') { native = value.threadId; account = value.nativeProviderAccount!; } };
-    assert.equal(await executor.run({ task: task({ interactionMode: 'plan' }), prompt: 'reply', signal: new AbortController().signal, update }), 'ACP reply café\u2028line\u2029end'); const session = native;
-    await executor.run({ task: task({ threadId: native, nativeProviderAccount: account, interactionMode: 'default' }), prompt: 'continue', signal: new AbortController().signal, update }); assert.equal(native, session); assert.ok((await trace()).some(value => value.method === 'session/set_mode' && value.params.modeId === 'default'));
+    assert.equal(await executor.run({ task: task(), prompt: 'reply', signal: new AbortController().signal, update }), 'ACP reply café\u2028line\u2029end'); const session = native;
+    await executor.run({ task: task({ threadId: native, nativeProviderAccount: account }), prompt: 'continue', signal: new AbortController().signal, update }); assert.equal(native, session); assert.ok((await trace()).filter(value => value.method === 'session/set_mode').every(value => value.params.modeId === 'default'), 'Foreground work never selects native plan mode');
     await executor.run({ task: task({ threadId: native, nativeProviderAccount: account }), prompt: 'must not be compressed', command: 'compact', signal: new AbortController().signal, update }); assert.ok((await trace()).some(value => value.prompt === '/compress'));
     if (provider === 'antigravity') { const runtime = await connection.runtime(), one = await connection.client(runtime, cwd), two = await connection.client(runtime, cwd), records = (await trace()).filter(value => value.method === 'initialize'), a = records.at(-2)!.tempDirectory, b = records.at(-1)!.tempDirectory; assert.equal(records.at(-1)!.params.clientCapabilities.fs.writeTextFile, true); assert.notEqual(a, b); await one.close(); await assert.rejects(stat(a), { code: 'ENOENT' }); assert.ok((await stat(b)).isDirectory()); await two.close(); }
     assert.ok(directory);

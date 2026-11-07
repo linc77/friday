@@ -16,7 +16,7 @@ const item = (id: string, values: Partial<WorkItem> = {}): WorkItem => ({ id, ti
   projectId: 'project', cwd: '/project', createdAt: at(1), updatedAt: at(12), durableId: null, threadId: 'thread-' + id, turnId: 'turn-' + id,
   events: [], approvals: [], error: null, artifact: null, lastRequestId: 'request-' + id, autoSettle: false, ...values });
 const run = (id: string, requested: string, values: Partial<TaskRun> = {}): TaskRun => ({ id, messageId: 'message-' + id, requestId: 'request-' + id, durableId: null, cwd: '/project', at: requested,
-  status: 'running', mode: 'research', interactionMode: 'default', ...values });
+  status: 'running', mode: 'research', ...values });
 const state = (tasks: WorkItem[]): Workspace => ({ revision: 0, tasks, projects: [{ id: 'project', name: 'Project', path: '/project', context: '' }], ideas: [], memories: [], requests: {} });
 
 test('Working activity keeps pending approvals, questions, plans, failures and workspace requests in the inbox', () => {
@@ -27,7 +27,7 @@ test('Working activity keeps pending approvals, questions, plans, failures and w
     waiting.approvals[0].state = 'answered'; assert.equal(taskSidebarSection(waiting, at(12), true), 'working');
   }
   for (const status of ['completed', 'failed', 'cancelled', 'interrupted', 'needs_project'] as const) assert.equal(taskSidebarActivity(item(status, { status })).working, false);
-  assert.equal(taskSidebarActivity(item('plan', { status: 'completed', interactionMode: 'plan', events: [{ id: 'proposal', kind: 'proposal', text: '# Plan', at: at(11), status: 'completed' }] })).working, false);
+  assert.equal(taskSidebarActivity(item('plan', { status: 'completed', events: [{ id: 'proposal', kind: 'proposal', text: '# Plan', at: at(11), status: 'completed' }] })).working, false);
   assert.equal(taskSidebarActivity(item('between', { status: 'completed', queue: { dispatcherId: 1, paused: false, messages: [] } })).working, true);
   assert.equal(taskSidebarSection(item('pin', { pinnedAt: at(2) }), at(12), true), 'pinned');
   assert.equal(taskSidebarSection(item('settled', { settledAt: at(2) }), at(12), true), 'settled');

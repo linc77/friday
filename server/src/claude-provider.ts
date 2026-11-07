@@ -33,7 +33,12 @@ export function validateClaudeSettings(value: unknown, previous = defaultClaudeS
 }
 
 export async function loadClaudeSettings(directory: string): Promise<CodexSettings> {
-  try { return validateClaudeSettings(JSON.parse(await readFile(join(directory, 'claude-provider.json'), 'utf8'))); }
+  try {
+    const saved = JSON.parse(await readFile(join(directory, 'claude-provider.json'), 'utf8'));
+    // Retired read-only settings fall back to explicit permission prompts.
+    if (saved?.permissionMode === 'plan') saved.permissionMode = 'default';
+    return validateClaudeSettings(saved);
+  }
   catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return structuredClone(defaultClaudeSettings); throw error; }
 }
 async function claudeAccountRuntime(settings: CodexSettings) {

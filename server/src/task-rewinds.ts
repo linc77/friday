@@ -162,14 +162,14 @@ export class TaskRewinds {
       const keepTurns = [...new Set([...legacyTurns.filter(turn => !removedNative.has(turn)), ...executionKeep.filter(run => run.threadId === work.threadId && run.turnId).flatMap(run => run.nativeTurnIds ?? [run.turnId!])])];
       if (!input.newSession && work.agent !== 'claude' && executionRemoved.some(run => run.threadId && run.threadId !== work.threadId)) throw new Error('所选历史跨越多个原生会话，请从保留历史建立新会话');
       const durableId = await tx.createTask(this.definition, { id, operationId: operationID, attempt: 0 }, { ownership: { kind: 'conversation' } });
-      const editorSelection = target.providerEpoch && target.providerEpoch !== providerEpoch(work) ? { interactionMode: work.interactionMode ?? 'default', model: work.model, reasoningEffort: work.reasoningEffort, modelOptions: work.modelOptions } : target;
+      const editorSelection = target.providerEpoch && target.providerEpoch !== providerEpoch(work) ? {  model: work.model, reasoningEffort: work.reasoningEffort, modelOptions: work.modelOptions } : target;
       if (work.rewindOperation) { work.rewindOperations ??= []; work.rewindOperations.push(copy(work.rewindOperation)); }
       work.rewindOperation = { id: operationID, durableId, requestId: input.requestId, messageId: message.id, runId: target.id, removedRunIds: removed.map(run => run.id),
         removedExecutionRunIds: executionRemoved.map(run => run.id),
         status: 'queued', phase: 'native', restoreFiles: input.restoreFiles, cwd: work.cwd, fingerprint: input.fingerprint, fingerprintVersion: 3,
         createdAt: stamp(), updatedAt: stamp(), sourceThreadId: work.threadId, sourceTurnId: work.turnId, targetTurnId: removeTurns[0] ?? null, removeTurns, keepTurns,
         ...(executionRemoved[0]?.before ? { checkpoint: copy(executionRemoved[0].before) } : {}), ...(input.fileFingerprint ? { fileFingerprint: input.fileFingerprint } : {}), ...(input.newSession ? { resolution: 'new_session' } : {}), attempt: 0,
-        editor: { text: message.text, images: copy(message.images ?? []), ...(message.contexts?.length ? { contexts: copy(message.contexts) } : {}), interactionMode: editorSelection.interactionMode, modelOptions: editorSelection.modelOptions ?? [], ...(editorSelection.model ? { model: editorSelection.model } : {}), ...(editorSelection.reasoningEffort ? { reasoningEffort: editorSelection.reasoningEffort } : {}) } };
+        editor: { text: message.text, images: copy(message.images ?? []), ...(message.contexts?.length ? { contexts: copy(message.contexts) } : {}), modelOptions: editorSelection.modelOptions ?? [], ...(editorSelection.model ? { model: editorSelection.model } : {}), ...(editorSelection.reasoningEffort ? { reasoningEffort: editorSelection.reasoningEffort } : {}) } };
       state.rewindRequests ??= {}; state.rewindRequests[input.requestId] = { taskId: id, operationId: operationID }; state.revision++;
     }, context);
     this.engine.harness.resume();

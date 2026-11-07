@@ -10,7 +10,7 @@ import { nativeProviderDefaults } from '../src/native-provider-config.js';
 import { NATIVE_SESSION_IDLE_TIMEOUT_MS, NATIVE_SESSION_MAX_IDLE_PIN_MS, type NativeSessionIdlePolicy } from '../src/native-session-idle.js';
 import type { WorkItem, ExecutionUpdate } from '../src/types.js';
 const binary = fileURLToPath(new URL('./fixtures/muse.mjs', import.meta.url));
-const task = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'muse-task', agent: 'muse', cwd, model: 'muse-native', reasoningEffort: 'high', threadId: null, currentRunId: 'muse-run', interactionMode: 'default', events: [], approvals: [], ...changes }) as WorkItem;
+const task = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'muse-task', agent: 'muse', cwd, model: 'muse-native', reasoningEffort: 'high', threadId: null, currentRunId: 'muse-run', events: [], approvals: [], ...changes }) as WorkItem;
 test('Muse native subagent item revisions preserve one child identity when a native session appears only at completion', async t => {
   const f = await setup(t), updates: ExecutionUpdate[] = [];
   await f.executor.run({ task: task(f.directory), prompt: 'children', signal: AbortSignal.timeout(5000), update: async value => { updates.push(value); } });

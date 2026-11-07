@@ -112,7 +112,7 @@ export class TaskDelegations {
   }
   async start(parentId: string, actor: WatchActor, raw: unknown, fallbackRequestId: string, signal: AbortSignal) {
     const value = object(raw);
-    if (Object.keys(value).some(key => !['task','target','title','role','isolation','mode','timeoutMs','clientRequestId','runtimeMode','interactionMode'].includes(key))) throw new Error('子任务参数无效');
+    if (Object.keys(value).some(key => !['task','target','title','role','isolation','mode','timeoutMs','clientRequestId','runtimeMode'].includes(key))) throw new Error('子任务参数无效');
     const prompt = text(value.task, 120_000)!, title = text(value.title, 512, true), clientId = text(value.clientRequestId ?? fallbackRequestId, 256)!;
     if (value.role !== undefined && !['implementation','research','review','design','test','general'].includes(String(value.role))) throw new Error('子任务角色无效');
     if (value.isolation !== undefined && !['shared','worktree'].includes(String(value.isolation)) || value.mode !== undefined && !['async','wait'].includes(String(value.mode))) throw new Error('子任务执行方式无效');
@@ -133,9 +133,7 @@ export class TaskDelegations {
       const inheritSelection = sameInstance && (target.model === undefined || target.model === parent.model);
       const model = text(target.model, 1024, true) ?? (sameInstance ? parent.model : undefined);
       const options = target.options === undefined ? inheritSelection ? parent.modelOptions : [] : Array.isArray(target.options) ? target.options : Object.entries(object(target.options)).map(([id,value]) => ({id,value}));
-      const interactionMode = value.interactionMode === undefined || value.interactionMode === 'inherit' ? parent.interactionMode ?? 'default' : value.interactionMode;
-      if (interactionMode !== 'default' && interactionMode !== 'plan') throw new Error('子任务交互模式无效');
-      const selection = { agent, providerInstanceId: instance.instanceId, model, modelOptions: options as WorkItem['modelOptions'], reasoningEffort: inheritSelection && target.options === undefined ? parent.reasoningEffort : undefined, interactionMode: interactionMode as 'default' | 'plan' };
+      const selection = { agent, providerInstanceId: instance.instanceId, model, modelOptions: options as WorkItem['modelOptions'], reasoningEffort: inheritSelection && target.options === undefined ? parent.reasoningEffort : undefined };
       await this.engine.validateTaskProviderSelection(selection);
       const childId = randomUUID(), isolation = value.isolation === 'worktree' ? 'worktree' : 'shared';
       const workspace = await this.workspace(parent, childId, isolation, signal);

@@ -51,7 +51,6 @@ for (const provider of ['cursor', 'muse', 'opencode'] as const) {
     assert.equal(prompts(await fixture.trace()), provider === 'muse' ? before : before + 1);
     await fixture.close(); engine = await fixture.reopen(); await engine.createTask({ ...input, continueId: id, requestId: 'native-continue', prompt: 'continue' }); task = await terminal(); assert.equal(task.status, 'completed', task.error ?? 'Continuation failed'); assert.equal(task.threadId, native);
     assert.ok(await terminalProviderEnvironment(fixture.directory, task));
-    if (provider === 'muse') await assert.rejects(engine.createTask({ ...input, requestId: 'plan', interactionMode: 'plan' }), /计划模式/);
   });
   test(`${provider} API protects settings from devices and active runs, and cancellation stops the native tool child`, async t => {
     const fixture = await setup(t, provider), engine = fixture.current(), auth = new Auth(fixture.directory); t.after(async () => auth.close()); const api = createAPI(engine, auth, () => []), headers = { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' };

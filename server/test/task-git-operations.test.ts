@@ -272,8 +272,6 @@ test('Automatic commit text uses a separate persisted session and refuses conten
   await assert.rejects(engine.createTask({ prompt: 'Do not overlap from a parent workspace', projectId: 'parent', mode: 'code', agent: 'codex', requestId: 'parent-overlap' }), /工作区/);
   await assert.rejects(engine.updateTaskMetadata(id, { archived: true }), /停止任务/);
   assert.equal((await post('/api/service/update', {})).status, 409);
-  const savedPlan = await post(`/api/tasks/${id}/plan/save`, { eventId: 'missing-plan', path: 'plan.md' });
-  assert.equal(savedPlan.status, 400); assert.match((await savedPlan.json()).error, /Git 操作/);
   await put('scope/selected.txt', 'user edited during generation\n'); release();
   const result = await operation(); assert.equal(result.status, 'failed'); assert.match(result.error ?? '', /改动内容已经改变/);
   assert.equal(await readFile(join(cwd, 'scope/selected.txt'), 'utf8'), 'user edited during generation\n');

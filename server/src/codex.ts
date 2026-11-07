@@ -279,12 +279,11 @@ export class CodexExecutor implements Executor {
         rpc.send({ method: 'initialized' });
       }
       const unscoped = !task.projectId || background;
-      const planning = task.interactionMode === 'plan';
       const params = {
         ...(taskMcp && !background ? { config: { mcp_servers: { friday_tasks: { url: taskMcp.url, http_headers: taskMcp.headers } } }, developerInstructions: taskInstructions + '\n\n' + TASK_TOOL_INSTRUCTIONS } : {}),
         cwd: task.cwd, model: configured?.model, approvalPolicy: unscoped ? 'never' : 'on-request',
         approvalsReviewer: !unscoped && (configured?.permissionMode ?? 'auto') === 'auto' ? 'auto_review' : 'user',
-        sandbox: planning || task.mode === 'research' || unscoped ? 'read-only' : 'workspace-write',
+        sandbox: task.mode === 'research' || unscoped ? 'read-only' : 'workspace-write',
       };
       let textConfig: Record<string, unknown> | undefined;
       if (background) {
@@ -309,7 +308,6 @@ export class CodexExecutor implements Executor {
       if (signal.aborted) throw new Error('任务已中止');
       // Match T3 Code: model defaults can disable public reasoning summaries,
       // so request them explicitly on every turn, including resumed threads.
-      if (planning && !model) throw new Error('Codex 没有返回计划模式可用的模型，请重新检查 Provider 连接');
       await beforeStart?.();
       if (nativeCommand === 'compact') {
         await rpc.call('thread/compact/start', { threadId: run.threadId });
@@ -335,8 +333,8 @@ export class CodexExecutor implements Executor {
       const turn = await rpc.call('turn/start', { threadId: run.threadId, model, effort: effort ?? undefined, serviceTier: configured?.serviceTier ?? null, summary: 'detailed',
         ...(investigating ? { outputSchema: REVIEW_GUIDE_OUTPUT_SCHEMA } : purpose === 'task_title' ? { outputSchema: TASK_TITLE_OUTPUT_SCHEMA } : {}),
         // Explicit default also clears a plan-mode preset retained by a resumed thread.
-        ...(model ? { collaborationMode: { mode: planning ? 'plan' : 'default', settings: { model, reasoning_effort: effort, developer_instructions: null } } } : {}),
-        ...(planning || investigating ? { sandboxPolicy: { type: 'readOnly', networkAccess: false } } : response.sandbox ? { sandboxPolicy: response.sandbox } : {}),
+        ...(model ? { collaborationMode: { mode: 'default', settings: { model, reasoning_effort: effort, developer_instructions: null } } } : {}),
+        ...(investigating ? { sandboxPolicy: { type: 'readOnly', networkAccess: false } } : response.sandbox ? { sandboxPolicy: response.sandbox } : {}),
         clientUserMessageId: task.lastRequestId, input: goalCommand?.type === 'resume' ? [] : codexInput(codexSkillMentionText(goalCommand?.type === 'set' ? goalCommand.objective : prompt), images) });
       await registerTurn(turn.turn.id);
       if (activatingGoal) {

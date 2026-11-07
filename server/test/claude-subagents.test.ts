@@ -68,13 +68,12 @@ test('Explicit host interruption suppresses late prose while disconnect preserve
   }
 });
 
-test('An early child permission and plan wait for the real child identity and remain scoped to that conversation', async t => {
+test('An early child permission waits for the real child identity and remains scoped to that conversation', async t => {
   const f = fixture(); t.after(() => f.tracker.close());
-  await f.tracker.permission('write', true, 'agent'); await f.tracker.propose('plan', '# Child plan', 'agent'); assert.equal(f.updates.length, 0);
+  await f.tracker.permission('write', true, 'agent'); assert.equal(f.updates.length, 0);
   await f.tracker.handle(f.tool({ prompt: 'Inspect' }), f.origin); await f.tracker.handle(f.started(), f.origin);
-  assert.equal(f.updates.at(-1)!.subagent.status, 'waiting'); assert.ok(f.updates.some(update => update.value?.kind === 'item' && update.value.item.kind === 'proposal' && update.value.item.turnId === update.subagent.childTurnId));
+  assert.equal(f.updates.at(-1)!.subagent.status, 'waiting');
   await f.tracker.permission('write', false, 'agent'); assert.equal(f.updates.at(-1)!.subagent.status, 'running');
-  f.tracker.ignoreFrames(); const before = f.updates.length; await f.tracker.propose('plan', '# Late plan', 'agent'); assert.equal(f.updates.length, before);
 });
 
 test('A resumed nested agent retains its original parent even when the follow-up was sent from the root', async t => {

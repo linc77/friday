@@ -148,7 +148,7 @@ export class AcpProviderConnection implements AcpNativeConnection {
   private baseRuntime(settings: AcpProviderSettings, account: string): AcpNativeRuntime { return { provider: this.provider, name: acpProviderName(this.provider), model: settings.model || 'native-default', defaultModel: 'native-default', effort: settings.reasoningEffort, account, command: settings.binaryPath, args: [], env: {}, ...(this.provider === 'antigravity' ? { authMethod: settings.nativeConfig.authMethod, authenticateEagerly: true, resumeMethod: 'resume', clientFiles: true } : {}), autoApprove: settings.permissionMode === 'auto', ...(this.provider === 'acp-registry' && settings.nativeConfig.source === 'registry' && settings.nativeConfig.registryAgentId === 'devin' ? { registrySubagents: 'devin' as const } : this.provider === 'acp-registry' && (settings.nativeConfig.source === 'registry' && settings.nativeConfig.registryAgentId === 'github-copilot-cli' || settings.nativeConfig.source === 'local' && /^copilot(\.exe|\.cmd)?$/i.test(settings.binaryPath.split(/[\\/]/).pop() ?? '')) ? { registrySubagents: 'copilot' as const } : {}) }; }
   private redact(error: unknown, settings: AcpProviderSettings) { let text = error instanceof Error ? error.message : 'ACP 工具检测失败'; for (const secret of [settings.nativeConfig.apiKey, ...settings.environment.map(value => value.value)].filter(Boolean)) text = text.replaceAll(secret, '[redacted]'); return text.slice(0, 2000); }
   private async inspect(settings: AcpProviderSettings, account: string, cwd: string): Promise<ModelStatus> {
-      const value: ModelStatus = { provider: this.provider, displayName: settings.displayName, enabled: settings.enabled, model: settings.model, installed: false, connected: false, loginPending: false, account: null, models: [], settings: null, checkedAt: new Date().toISOString(), version: null, error: null, supportsPlan: false }; if (!settings.enabled) return value;
+      const value: ModelStatus = { provider: this.provider, displayName: settings.displayName, enabled: settings.enabled, model: settings.model, installed: false, connected: false, loginPending: false, account: null, models: [], settings: null, checkedAt: new Date().toISOString(), version: null, error: null, supportsTextGeneration: false }; if (!settings.enabled) return value;
       let lease: AcpNativeLease | undefined;
       try {
         const runtime = { ...this.baseRuntime(settings, account), clientFiles: false }; lease = await this.client(runtime, cwd); value.installed = true; value.version = lease.initialized.agentInfo?.version ?? null;
@@ -160,7 +160,7 @@ export class AcpProviderConnection implements AcpNativeConnection {
         lease.client.onNotification = (method, params) => { const value = acpRecord(params); if (method === 'session/update' && value?.update?.sessionUpdate === 'available_commands_update' && Array.isArray(value.update.availableCommands)) commands = value.update.availableCommands; };
         lease.client.onRequest = async context => { if (context.method === 'session/request_permission') return { outcome: { outcome: 'cancelled' } }; throw new Error('Read-only ACP metadata probe'); };
         const session = await acpNativeSession(lease.client, lease.initialized, { cwd, resumeMethod: runtime.resumeMethod, mcpServers: [] });
-        await new Promise(resolve => setTimeout(resolve, 500)); value.models = acpNativeModels(session); value.supportsPlan = !!planAvailable(session); value.connected = true; value.model = settings.model || value.models.find(value => value.isDefault)?.id || value.models[0]?.id || 'native-default';
+        await new Promise(resolve => setTimeout(resolve, 500)); value.models = acpNativeModels(session); value.supportsTextGeneration = !!planAvailable(session); value.connected = true; value.model = settings.model || value.models.find(value => value.isDefault)?.id || value.models[0]?.id || 'native-default';
         const plan = session.modes?.availableModes?.find((value: AcpRecord) => ['plan', 'architect'].includes(value.id))?.id ?? session.configOptions?.filter((option: AcpRecord) => ['mode', 'collaboration_mode'].includes(option.category)).flatMap(acpConfigValues).find((value: string) => ['plan', 'architect'].includes(value)); if (plan) this.planModes.set(account, plan);
         const normal = session.modes?.currentModeId ?? session.configOptions?.find((option: AcpRecord) => ['mode', 'collaboration_mode'].includes(option.category))?.currentValue; if (typeof normal === 'string' && !['plan', 'architect'].includes(normal)) this.normalModes.set(account, normal);
         const accepted = new Set<string>(), nativeCommands = [], nativeSkills = [];
@@ -174,7 +174,7 @@ export class AcpProviderConnection implements AcpNativeConnection {
         if (this.provider === 'antigravity') {
           const env = { ...process.env, ...Object.fromEntries(settings.environment.map(value => [value.name, value.value])) }; nativeSkills.push(...await antigravitySkills(cwd, this.discoveryHome ?? (env.HOME?.trim() || env.USERPROFILE?.trim() || homedir())));
         }
-        this.discovered.set(JSON.stringify([account, cwd]), { provider: this.provider, cwd, supportsPlan: value.supportsPlan, checkedAt: new Date().toISOString(), skills: nativeSkills, commands: nativeCommands });
+        this.discovered.set(JSON.stringify([account, cwd]), { provider: this.provider, cwd, checkedAt: new Date().toISOString(), skills: nativeSkills, commands: nativeCommands });
       } catch (error) { value.error = this.redact(error, settings); } finally { await lease?.close(); }
       return value;
   }
@@ -187,13 +187,13 @@ export class AcpProviderConnection implements AcpNativeConnection {
     this.lastStatus = result;
     return { ...result, error: this.loginError ?? result.error, loginPending: !!this.loggingIn, models: appendCustomModels(result.models, settings.customModels), settings: owner ? acpProviderPublicSettings(settings) : null };
   }
-  async runtime(selection?: ProviderModelSelection & { interactionMode?: string }) {
+  async runtime(selection?: ProviderModelSelection, { readOnly = false }: { readOnly?: boolean } = {}) {
     if (this.closed || this.saving || this.authPending) throw new Error('请等待原生 ACP 工具的配置或登录操作结束');
     const state = await this.status(), settings = await loadAcpProviderSettings(this.directory, this.provider); const peer = AcpProviderConnection.credentialOwners.get(this.credentialPath(settings)); if (peer && peer !== this) throw new Error('同一原生工具的另一个实例正在认证'); if (!state.enabled || !state.connected) throw new Error(state.error || '请先启用并连接原生 ACP 工具');
     const model = selection?.model || settings.model || state.model, selected = state.models.find(value => value.id === model), options = selected ? selectedProviderOptions(selected, selection) : undefined, effort = options?.effort || (selection?.model ? '' : settings.reasoningEffort); if (!selected || effort && !selected.reasoningEfforts.includes(effort)) throw new Error('ACP 模型或原生推理选项已改变，请重新选择');
-    if (selection?.interactionMode === 'plan' && !state.supportsPlan) throw new Error('此 ACP 工具未声明原生计划模式');
+    if (readOnly && !state.supportsTextGeneration) throw new Error('此 ACP 工具未提供只读执行能力');
     const account = await this.accountIdentity(settings), compact = this.discovered.get(JSON.stringify([account, this.directory]))?.commands.find(value => ['compact', 'compress'].includes(value.name));
-    return { ...this.baseRuntime(settings, account), model, effort, modelOptions: options?.values ?? {}, ...(compact ? { compactCommand: compact.name } : {}), ...(selection?.interactionMode === 'plan' ? { nativeMode: this.planModes.get(account) ?? 'plan' } : this.provider === 'antigravity' ? { nativeMode: settings.permissionMode === 'auto' ? 'yolo' : settings.permissionMode === 'acceptEdits' ? 'auto_edit' : 'default' } : { restoreBuildMode: true, defaultMode: this.normalModes.get(account) }) };
+    return { ...this.baseRuntime(settings, account), model, effort, modelOptions: options?.values ?? {}, ...(compact ? { compactCommand: compact.name } : {}), ...(readOnly ? { nativeMode: this.planModes.get(account) ?? 'plan' } : this.provider === 'antigravity' ? { nativeMode: settings.permissionMode === 'auto' ? 'yolo' : settings.permissionMode === 'acceptEdits' ? 'auto_edit' : 'default' } : { restoreBuildMode: true, defaultMode: this.normalModes.get(account) }) };
   }
   async workspace(cwd: string, reload = false, task?: WorkItem): Promise<ProviderWorkspace> {
     const runtime = await this.runtime(); if (task?.nativeProviderAccount && task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条 ACP 会话使用的工具与账号');

@@ -5,8 +5,6 @@ enum TaskProviderCatalog {
     static func name(_ provider: String) -> String {
         switch provider { case "codex": "Codex"; case "claude": "Claude"; case "cursor": "Cursor"; case "opencode": "OpenCode"; case "antigravity": "Antigravity"; case "acp-registry": "ACP Registry"; case "muse": "Muse Code"; case "pi": "Pi"; case "grok": "Grok"; case "friday": "Friday"; default: provider }
     }
-    static func supportsInteractionModes(_ provider: String) -> Bool { supportsInteractionModes(provider, state: nil) }
-    static func supportsInteractionModes(_ provider: String, state: CodexConnectionState?) -> Bool { ["antigravity", "acp-registry"].contains(provider) ? state?.supportsPlan == true : ["codex", "claude", "cursor", "opencode"].contains(provider) }
     static func hasUsageLimits(_ provider: String) -> Bool { ["codex", "claude", "grok", "cursor", "opencode"].contains(provider) }
 }
 
@@ -211,7 +209,7 @@ struct TaskRun: Codable, Identifiable {
     var contextUsage: TaskContextUsage? = nil
     let id: String; let durableId: Int?; let messageId: String; let requestId: String; let cwd: String; let at: String; let status: String
     let completedAt: String?; let threadId: String?; let turnId: String?; let nativeHead: String?
-    let mode: String; let interactionMode: String; let model: String?; let reasoningEffort: String?
+    let mode: String; let model: String?; let reasoningEffort: String?
     let before: TaskRunCheckpoint?; let after: TaskRunCheckpoint?; let changes: [TaskRunFile]?; let diffError: String?; let revertedAt: String?
     var startedAt: String? = nil
     var executionOrder: Int? = nil
@@ -232,7 +230,7 @@ struct TaskForkOperation: Codable, Identifiable {
 }
 struct TaskRewindEditor: Codable {
     var modelOptions: [ProviderOptionSelection]? = nil
-    let text: String; let images: [IdeaImage]; let interactionMode: String
+    let text: String; let images: [IdeaImage]
     let model: String?; let reasoningEffort: String?
     var contexts: [TaskContextReference]? = nil
 }
@@ -541,7 +539,6 @@ struct CodexConnectionState: Decodable {
     let provider: String; let displayName: String; var enabled: Bool; let model: String; var connected: Bool
     let installed: Bool; let version: String?; let account: CodexAccount?; let models: [CodexProviderModel]
     let checkedAt: String; let error: String?; let loginPending: Bool; let settings: CodexProviderSettings?
-    var supportsPlan: Bool? = nil
     var supportsTextGeneration: Bool? = nil
     var supportsInvestigation: Bool? = nil
 }
@@ -569,7 +566,6 @@ struct QueuedTaskMessage: Codable, Identifiable {
     let status: String
     var model: String? = nil
     var reasoningEffort: String? = nil
-    var interactionMode: String? = nil
     var error: String? = nil
     var creationSource: String? = nil; var notification: TaskMonitorNotification? = nil
     var editable: Bool { status == "queued" }
@@ -768,7 +764,6 @@ struct WorkItem: Codable, Identifiable {
     var readAt: String? = nil
     var queue: TaskMessageQueue? = nil
     var canSteer: Bool? = nil
-    var interactionMode: String? = nil
     var localAgent: Bool { agent != "friday" }
     var gitOperation: TaskGitOperation? = nil
     var runs: [TaskRun]? = nil

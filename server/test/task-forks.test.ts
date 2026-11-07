@@ -85,7 +85,7 @@ test('A selected reply can fork beyond the old 300-record limit without replayin
 test('Fork copies only the selected prefix, resets thread metadata, deduplicates lost requests and continues a separate native session', async t => {
   const { engine, executor, sourceID, root } = await setup(t);
   await engine.mutate(state => { const source = state.tasks[0]; source.pinnedAt = source.updatedAt; source.archivedAt = source.updatedAt; source.snoozedUntil = '2099-01-01T00:00:00Z'; source.settledAt = source.updatedAt;
-    source.model = 'current-model'; source.reasoningEffort = 'high'; source.interactionMode = 'plan'; source.mode = 'research'; });
+    source.model = 'current-model'; source.reasoningEffort = 'high'; source.mode = 'research'; });
   const before = (await engine.snapshot()).tasks[0]; const run = before.runs![0]; await writeFile(join(root, 'keep'), 'current source files\n');
   const [id, duplicate] = await Promise.all([engine.taskForks.start(sourceID, { requestId: 'fork', runId: run.id }), engine.taskForks.start(sourceID, { requestId: 'fork', runId: run.id })]);
   assert.equal(id, duplicate); let state = await settled(engine, id); let child = state.tasks.find(task => task.id === id)!;
@@ -93,8 +93,8 @@ test('Fork copies only the selected prefix, resets thread metadata, deduplicates
   assert.deepEqual(child.messages?.map(message => message.text), ['First', 'Answer turn-1']); assert.equal(child.events.some(event => event.text.includes('turn-2')), false);
   assert.equal(child.runs?.length, 1); assert.equal(child.runs?.[0].durableId, null); assert.deepEqual(child.runs?.[0].inheritedFrom, { taskId: sourceID, runId: run.id });
   assert.notEqual(child.threadId, before.threadId); assert.equal(child.runs?.[0].threadId, child.threadId); assert.equal(child.forkOrigin?.rootTaskId, sourceID);
-  assert.equal(child.mode, 'research'); assert.equal(child.model, 'current-model'); assert.equal(child.reasoningEffort, 'high'); assert.equal(child.interactionMode, 'plan', 'Like T3, forks inherit the current thread configuration while preserving historical run settings');
-  assert.equal(child.runs?.[0].mode, 'code'); assert.equal(child.runs?.[0].interactionMode, 'default');
+  assert.equal(child.mode, 'research'); assert.equal(child.model, 'current-model'); assert.equal(child.reasoningEffort, 'high');
+  assert.equal(child.runs?.[0].mode, 'code');
   assert.equal(child.archivedAt, undefined); assert.equal(child.pinnedAt, undefined); assert.equal(child.snoozedUntil, undefined); assert.equal(child.settledAt, undefined);
   assert.deepEqual(state.tasks[0], before); assert.equal(await readFile(join(root, 'keep'), 'utf8'), 'current source files\n');
   const inherited = structuredClone(child.runs);
@@ -218,7 +218,7 @@ test('Fork API requires authentication, rejects active boundaries and keeps requ
 });
 
 const nativeTask = (cwd: string): WorkItem => ({ id: 'source', title: 'Source', prompt: 'First', projectId: null, cwd, agent: 'codex', mode: 'research', status: 'completed', createdAt: '', updatedAt: '', durableId: null, threadId: 'source-native', turnId: 'selected', result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: 'source' });
-const nativeRun: TaskRun = { id: 'run', durableId: 1, messageId: 'message', requestId: 'request', cwd: '', at: '', status: 'completed', threadId: 'source-native', turnId: 'selected', mode: 'research', interactionMode: 'default' };
+const nativeRun: TaskRun = { id: 'run', durableId: 1, messageId: 'message', requestId: 'request', cwd: '', at: '', status: 'completed', threadId: 'source-native', turnId: 'selected', mode: 'research' };
 
 test('Codex native fork bounds paginated history, defers goals and verifies a saved candidate read-only after a lost receipt', async t => {
   const directory = await realpath(await mkdtemp(join(tmpdir(), 'friday-fork-wire-'))); t.after(() => rm(directory, { recursive: true, force: true }));

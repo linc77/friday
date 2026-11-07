@@ -84,7 +84,7 @@ struct TaskQueuedMessages: View {
                 Button { perform(message.id, path: "/promote") } label: {
                     FridaySymbolImage(systemName: "arrow.turn.up.right").frame(width: 22, height: 24)
                 }.buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: "立即补充到当前执行"))
-                    .disabled(!task.active || task.status == "queued" || task.canSteer == false || task.turnId == nil || (message.interactionMode ?? task.interactionMode ?? "default") != (task.interactionMode ?? "default"))
+                    .disabled(!task.active || task.status == "queued" || task.canSteer == false || task.turnId == nil)
                 Button { perform(message.id, method: "DELETE") } label: { FridaySymbolImage(systemName: "xmark").frame(width: 22, height: 24) }
                     .buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: "删除排队消息"))
             }

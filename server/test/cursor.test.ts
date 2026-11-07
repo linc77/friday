@@ -10,7 +10,7 @@ import { CursorExecutor } from '../src/cursor.js';
 import { nativeProviderDefaults } from '../src/native-provider-config.js';
 import type { WorkItem, ExecutionUpdate } from '../src/types.js';
 const sdkModule = fileURLToPath(new URL('./fixtures/cursor-sdk.cjs', import.meta.url));
-const task = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'cursor-task', agent: 'cursor', cwd, model: 'native-model', reasoningEffort: 'high', threadId: null, currentRunId: 'cursor-run', interactionMode: 'default', events: [], approvals: [], ...changes }) as WorkItem;
+const task = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'cursor-task', agent: 'cursor', cwd, model: 'native-model', reasoningEffort: 'high', threadId: null, currentRunId: 'cursor-run', events: [], approvals: [], ...changes }) as WorkItem;
 async function setup(t: { after: (fn: () => Promise<unknown>) => void }, environment: Record<string, string> = {}, withKey = true) {
   const directory = await mkdtemp(join(tmpdir(), 'friday-cursor-')), wire = join(directory, 'wire.jsonl'), connection = new CursorConnection(directory, { sdkModule }), executor = new CursorExecutor(connection);
   t.after(async () => { await executor.close(); await rm(directory, { recursive: true, force: true }); });
@@ -68,10 +68,10 @@ test('Cursor SDK worker saves the native session before sending, buffers synchro
   await executor.run({ task: task(directory, { threadId: native, nativeProviderAccount: account }), prompt: 'continue', signal: new AbortController().signal, update }); assert.equal(sessionId, native);
   const records = await trace(); assert.ok(records.some(value => value.operation === 'resume' && value.agentId === native)); assert.deepEqual(records.find(value => value.sent).sendOptions.model, { id: 'native-model', params: [{ id: 'effort', value: 'high' }] });
 });
-test('Cursor native Plan and sandbox policy are passed to the SDK, compression sends its native command and failed resume never creates another agent', async t => {
+test('Cursor native execution and sandbox policy are passed to the SDK, compression sends its native command and failed resume never creates another agent', async t => {
   const { executor, connection, directory, trace } = await setup(t, { CURSOR_TEST_FAIL_RESUME: '1' }), owner = await connection.status(true); await connection.save({ ...owner.settings, permissionMode: 'fullAccess' }); let sessionId = '';
-  await executor.run({ task: task(directory, { interactionMode: 'plan' }), prompt: 'reply', signal: new AbortController().signal, update: async value => { if (value.kind === 'session') sessionId = value.threadId; } });
-  const opened = (await trace()).find(value => value.operation === 'create'); assert.equal(opened.options.mode, 'plan'); assert.equal(opened.options.fullAccess, true); assert.equal(opened.options.autoReview, false);
+  await executor.run({ task: task(directory), prompt: 'reply', signal: new AbortController().signal, update: async value => { if (value.kind === 'session') sessionId = value.threadId; } });
+  const opened = (await trace()).find(value => value.operation === 'create'); assert.equal(opened.options.mode, 'agent'); assert.equal(opened.options.fullAccess, true); assert.equal(opened.options.autoReview, false);
   await executor.run({ task: task(directory), prompt: 'Ignored compact context', command: 'compact', signal: new AbortController().signal, update: async () => {} }); assert.ok((await trace()).some(value => value.sent === '/compress'));
   const before = (await trace()).filter(value => value.operation === 'create').length;
   await assert.rejects(executor.run({ task: task(directory, { threadId: sessionId }), prompt: 'continue', signal: new AbortController().signal, update: async () => {} }), /Native Cursor agent not found/);

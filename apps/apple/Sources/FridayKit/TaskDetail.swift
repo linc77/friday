@@ -9,7 +9,6 @@ struct TaskDetail: View {
     @State private var contexts: [TaskContextReference] = []
     @StateObject private var fileMentionBridge = TaskFileMentionBridge()
     @State private var contextInsertion: TaskContextInsertion?
-    @State private var interactionMode = "default"
     @State private var sendError: String?
     @State private var draftLoaded = false
     @State private var lastGuideBlock: String?
@@ -59,13 +58,6 @@ struct TaskDetail: View {
     private var draftImages: Binding<[IdeaImage]> {
         Binding(get: { images }, set: { value in
             images = value
-            if !sending { messageId = UUID().uuidString; sendError = nil }
-            preservePendingRewindDraft()
-        })
-    }
-    private var draftInteractionMode: Binding<String> {
-        Binding(get: { interactionMode }, set: { value in
-            interactionMode = value
             if !sending { messageId = UUID().uuidString; sendError = nil }
             preservePendingRewindDraft()
         })
@@ -164,10 +156,6 @@ struct TaskDetail: View {
         .onChange(of: task.sessionBusy) { _, value in if !value { consumeGuideHandoff() } }
         .onChange(of: contexts) { _, _ in saveDraft() }
         .onChange(of: contextInsertion) { _, _ in saveDraft() }
-        .onChange(of: interactionMode) { _, _ in saveDraft() }
-        .onChange(of: task.interactionMode) { _, mode in
-            if message.isEmpty && images.isEmpty && queueEdit == nil && !sending { interactionMode = mode ?? "default" }
-        }
         .onAppear {
             restoreDraft(); restorePanels(); consumeGuideHandoff()
             if let saved = store.taskViewHistory(id, scope: historyScope) { historyWindow = saved.history; conversationWindow = saved.conversation }
@@ -222,7 +210,7 @@ struct TaskDetail: View {
                     TaskBackgroundCommandsView(store: store, task: task)
                     AgentTaskComposer(store: store, task: task, embeddedInMobileDock: true, submissionError: sendError,
                         editingQueuedMessageId: queueEdit?.id, editQueuedMessage: editQueuedMessage, cancelQueueEdit: cancelQueueEdit, resumeTask: resumeTask, discardDraft: discardDraft,
-                        message: draftMessage, images: draftImages, contexts: draftContexts, contextInsertion: $contextInsertion, interactionMode: draftInteractionMode, sending: sending, send: sendAgentMessage)
+                        message: draftMessage, images: draftImages, contexts: draftContexts, contextInsertion: $contextInsertion, sending: sending, send: sendAgentMessage)
                 } else {
                     FridayMobileComposer(
                         message: $message,
@@ -263,7 +251,7 @@ struct TaskDetail: View {
                         TaskBackgroundCommandsView(store: store, task: task)
                         AgentTaskComposer(store: store, task: task, collapseRequest: composerCollapseRequest, expandRequest: composerExpandRequest, submissionError: sendError,
                             editingQueuedMessageId: queueEdit?.id, editQueuedMessage: editQueuedMessage, cancelQueueEdit: cancelQueueEdit, resumeTask: resumeTask, discardDraft: discardDraft,
-                            message: draftMessage, images: draftImages, contexts: draftContexts, contextInsertion: $contextInsertion, interactionMode: draftInteractionMode, sending: sending, send: sendAgentMessage)
+                            message: draftMessage, images: draftImages, contexts: draftContexts, contextInsertion: $contextInsertion, sending: sending, send: sendAgentMessage)
                     }
                 }
                     .frame(maxWidth: FridayTheme.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
@@ -608,10 +596,10 @@ struct TaskDetail: View {
     private func discardDraft() {
         guard draftLoaded, !sending, task?.localAgent == true else { return }
         let server = store.connection.server, taskID = id, context = "task:" + id
-        let saved = TaskMessageDraft(message: message, images: images, requestId: messageId, queueEdit: queueEdit, interactionMode: interactionMode, rewindEdit: rewindDraft, contexts: contexts, contextInsertion: contextInsertion)
+        let saved = TaskMessageDraft(message: message, images: images, requestId: messageId, queueEdit: queueEdit, rewindEdit: rewindDraft, contexts: contexts, contextInsertion: contextInsertion)
         guard saved.hasUserContent else { return }
         message = ""; images = []; contexts = []; contextInsertion = nil; queueEdit = nil; rewindDraft = nil; messageId = UUID().uuidString
-        interactionMode = task?.interactionMode ?? "default"; lastGuideBlock = nil; lastGuideReferenceID = nil; sendError = nil
+        lastGuideBlock = nil; lastGuideReferenceID = nil; sendError = nil
         TaskDraftCache.save(Optional<TaskMessageDraft>.none, server: server, context: context)
         store.taskUndo.discardedDraft(store: store, key: "task-draft:" + taskID) {
             guard TaskDraftCache.load(TaskMessageDraft.self, server: server, context: context)?.hasUserContent != true else { throw ConnectionError.message("草稿已有新内容，无法恢复被丢弃的草稿。") }
@@ -625,13 +613,11 @@ struct TaskDetail: View {
         guard force || !draftLoaded || draftContext != context else { return }
         lastGuideBlock = nil; lastGuideReferenceID = nil
         draftContext = context; message = ""; images = []; contexts = []; contextInsertion = nil; messageId = UUID().uuidString; queueEdit = nil; rewindDraft = nil
-        interactionMode = task?.interactionMode ?? "default"
         if task?.localAgent == true, let saved = TaskDraftCache.load(TaskMessageDraft.self, server: store.connection.server, context: "task:" + id) {
             message = saved.message; images = saved.images; messageId = saved.requestId; queueEdit = saved.queueEdit
             contexts = saved.contexts ?? []
             contextInsertion = saved.contextInsertion
             rewindDraft = saved.rewindEdit
-            interactionMode = saved.interactionMode ?? interactionMode
         }
         draftLoaded = true
     }
@@ -680,25 +666,25 @@ struct TaskDetail: View {
     }
     private func saveDraft() {
         guard draftLoaded, task?.localAgent == true, draftContext == store.connection.server + "\n" + id else { return }
-        let draft = TaskMessageDraft(message: message, images: images, requestId: messageId, queueEdit: queueEdit, interactionMode: interactionMode, rewindEdit: rewindDraft, contexts: contexts, contextInsertion: contextInsertion)
-        TaskDraftCache.save(message.isEmpty && images.isEmpty && queueEdit == nil && rewindDraft == nil && contextInsertion == nil && interactionMode == (task?.interactionMode ?? "default") ? nil : draft, server: store.connection.server, context: "task:" + id)
+        let draft = TaskMessageDraft(message: message, images: images, requestId: messageId, queueEdit: queueEdit, rewindEdit: rewindDraft, contexts: contexts, contextInsertion: contextInsertion)
+        TaskDraftCache.save(message.isEmpty && images.isEmpty && queueEdit == nil && rewindDraft == nil && contextInsertion == nil ? nil : draft, server: store.connection.server, context: "task:" + id)
     }
 
     private func beginRewind(_ requestID: String) {
         guard !sending else { return }
-        rewindDraft = TaskRewindDraft(requestId: requestID, applied: false, original: TaskComposerDraftBackup(message: message, images: images, requestId: messageId, interactionMode: interactionMode, contexts: contexts, contextInsertion: contextInsertion))
+        rewindDraft = TaskRewindDraft(requestId: requestID, applied: false, original: TaskComposerDraftBackup(message: message, images: images, requestId: messageId, contexts: contexts, contextInsertion: contextInsertion))
         contextInsertion = nil
         sending = true; sendError = nil; saveDraft()
     }
     private func preservePendingRewindDraft() {
         guard !sending, var saved = rewindDraft, !saved.applied else { return }
-        saved.original = TaskComposerDraftBackup(message: message, images: images, requestId: messageId, interactionMode: interactionMode, contexts: contexts, contextInsertion: contextInsertion)
+        saved.original = TaskComposerDraftBackup(message: message, images: images, requestId: messageId, contexts: contexts, contextInsertion: contextInsertion)
         rewindDraft = saved
     }
     private func applyRewindEditor() {
         guard draftLoaded, var saved = rewindDraft, !saved.applied, let operation = task?.rewindOperation, operation.requestId == saved.requestId, operation.projectedAt != nil else { return }
         saved.applied = true; rewindDraft = saved
-        message = operation.editor.text; images = operation.editor.images; interactionMode = operation.editor.interactionMode
+        message = operation.editor.text; images = operation.editor.images
         contexts = operation.editor.contexts ?? []; contextInsertion = nil
         messageId = UUID().uuidString; sendError = nil; queueEdit = nil; diffSelection = nil
         followingEnd = true; scrollRequest += 1
@@ -711,45 +697,19 @@ struct TaskDetail: View {
         guard !sending, let original = rewindDraft?.original else { return }
         rewindDraft = nil; message = original.message; images = original.images; messageId = original.requestId
         contexts = original.contexts ?? []; contextInsertion = original.contextInsertion
-        interactionMode = original.interactionMode ?? task?.interactionMode ?? "default"; sendError = nil; saveDraft()
+        sendError = nil; saveDraft()
     }
 
     private func sendAgentMessage(_ submission: TaskComposerSubmission) {
-        if let eventID = submission.planEventID { followUpPlan(submission, eventID: eventID) }
-        else { sendMessage(model: submission.model, effort: submission.effort, modelOptions: submission.modelOptions, dispatch: submission.dispatch, interactionMode: submission.interactionMode, compactBeforeSend: submission.compactBeforeSend) }
-    }
-
-    private func followUpPlan(_ submission: TaskComposerSubmission, eventID: String) {
-        guard !sending else { return }
-        let taskID = id; let requestID = messageId; let text = message; let attachments = images; let references = contexts; let server = store.connection.server
-        sending = true; sendError = nil
-        Task {
-            defer { sending = false }
-            do {
-                let created = try await store.followUpPlan(taskID, eventID: eventID, text: text, images: attachments, requestID: requestID,
-                                                         newThread: submission.implementInNewThread, model: submission.model, effort: submission.effort, modelOptions: submission.modelOptions, contexts: references)
-                if let saved = TaskDraftCache.load(TaskMessageDraft.self, server: server, context: "task:" + taskID), saved.requestId == requestID {
-                    TaskDraftCache.save(Optional<TaskMessageDraft>.none, server: server, context: "task:" + taskID)
-                }
-                if id == taskID {
-                    if message == text { message = "" }
-                    images.removeAll { image in attachments.contains { $0.id == image.id } }
-                    contexts.removeAll { reference in references.contains { $0.id == reference.id } }
-                    if !submission.implementInNewThread { interactionMode = submission.interactionMode }
-                    messageId = UUID().uuidString; followingEnd = true; scrollRequest += 1
-                    if created != taskID { onOpenTask?(created) }
-                }
-            } catch { if id == taskID { sendError = error.localizedDescription } }
-        }
+        sendMessage(model: submission.model, effort: submission.effort, modelOptions: submission.modelOptions, dispatch: submission.dispatch, compactBeforeSend: submission.compactBeforeSend)
     }
 
     private func editQueuedMessage(_ entry: QueuedTaskMessage) {
         guard !sending, entry.editable else { return }
-        if queueEdit == nil { queueEdit = QueuedMessageEditDraft(id: entry.id, message: message, images: images, requestId: messageId, interactionMode: interactionMode, contexts: contexts, contextInsertion: contextInsertion) }
+        if queueEdit == nil { queueEdit = QueuedMessageEditDraft(id: entry.id, message: message, images: images, requestId: messageId, contexts: contexts, contextInsertion: contextInsertion) }
         else { queueEdit?.id = entry.id }
         message = entry.text; images = entry.images; messageId = UUID().uuidString; sendError = nil
         contexts = entry.contexts ?? []; contextInsertion = nil
-        interactionMode = entry.interactionMode ?? task?.interactionMode ?? "default"
         saveDraft()
     }
 
@@ -757,7 +717,6 @@ struct TaskDetail: View {
         guard !sending, let saved = queueEdit else { return }
         queueEdit = nil; message = saved.message; images = saved.images; messageId = saved.requestId; sendError = nil
         contexts = saved.contexts ?? []; contextInsertion = saved.contextInsertion
-        interactionMode = saved.interactionMode ?? task?.interactionMode ?? "default"
         saveDraft()
     }
 
@@ -790,7 +749,7 @@ struct TaskDetail: View {
 
     private func sendMessage() { sendMessage(model: nil, effort: nil) }
 
-    private func sendMessage(model: String?, effort: String?, modelOptions: [ProviderOptionSelection]? = nil, dispatch: TaskComposerDispatch = .auto, interactionMode: String? = nil, compactBeforeSend: Bool = false) {
+    private func sendMessage(model: String?, effort: String?, modelOptions: [ProviderOptionSelection]? = nil, dispatch: TaskComposerDispatch = .auto, compactBeforeSend: Bool = false) {
         guard !sending, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty else { return }
         let taskId = id; let submittedMessage = message; let submittedImages = images; let references = contexts; let requestId = messageId
         let active = task?.active == true
@@ -802,14 +761,14 @@ struct TaskDetail: View {
         Task {
             do {
                 if let queuedEdit {
-                    try await store.editQueuedMessage(taskId: taskId, messageId: queuedEdit.id, text: submittedMessage, images: submittedImages, model: model, effort: effort, modelOptions: modelOptions, interactionMode: interactionMode, contexts: references)
+                    try await store.editQueuedMessage(taskId: taskId, messageId: queuedEdit.id, text: submittedMessage, images: submittedImages, model: model, effort: effort, modelOptions: modelOptions, contexts: references)
                 } else {
                     try await store.sendTaskMessage(taskId: taskId, text: submittedMessage, requestId: requestId,
-                        images: submittedImages, model: active && dispatch != .queue ? nil : model, effort: active && dispatch != .queue ? nil : effort, modelOptions: active && dispatch != .queue ? nil : modelOptions, dispatch: dispatch, interactionMode: interactionMode, contexts: references, compactThread: compactThread)
+                        images: submittedImages, model: active && dispatch != .queue ? nil : model, effort: active && dispatch != .queue ? nil : effort, modelOptions: active && dispatch != .queue ? nil : modelOptions, dispatch: dispatch, contexts: references, compactThread: compactThread)
                 }
                 if let saved = TaskDraftCache.load(TaskMessageDraft.self, server: server, context: "task:" + taskId), saved.requestId == requestId {
-                    let restored = queuedEdit.map { TaskMessageDraft(message: $0.message, images: $0.images, requestId: $0.requestId, interactionMode: $0.interactionMode, contexts: $0.contexts, contextInsertion: $0.contextInsertion) }
-                        ?? rewindEdit.map { TaskMessageDraft(message: $0.original.message, images: $0.original.images, requestId: $0.original.requestId, interactionMode: $0.original.interactionMode, contexts: $0.original.contexts, contextInsertion: $0.original.contextInsertion) }
+                    let restored = queuedEdit.map { TaskMessageDraft(message: $0.message, images: $0.images, requestId: $0.requestId, contexts: $0.contexts, contextInsertion: $0.contextInsertion) }
+                        ?? rewindEdit.map { TaskMessageDraft(message: $0.original.message, images: $0.original.images, requestId: $0.original.requestId, contexts: $0.original.contexts, contextInsertion: $0.original.contextInsertion) }
                     TaskDraftCache.save(restored, server: server, context: "task:" + taskId)
                 }
                 if draftContext == server + "\n" + taskId {
@@ -817,11 +776,9 @@ struct TaskDetail: View {
                     if let queuedEdit {
                         queueEdit = nil; message = queuedEdit.message; images = queuedEdit.images; messageId = queuedEdit.requestId
                         contexts = queuedEdit.contexts ?? []; contextInsertion = queuedEdit.contextInsertion
-                        self.interactionMode = queuedEdit.interactionMode ?? task?.interactionMode ?? "default"
                     } else if let rewindEdit {
                         rewindDraft = nil; message = rewindEdit.original.message; images = rewindEdit.original.images; messageId = rewindEdit.original.requestId
                         contexts = rewindEdit.original.contexts ?? []; contextInsertion = rewindEdit.original.contextInsertion
-                        self.interactionMode = rewindEdit.original.interactionMode ?? task?.interactionMode ?? "default"
                     } else {
                         if message == submittedMessage { message = "" }
                         images.removeAll { image in submittedImages.contains { $0.id == image.id } }

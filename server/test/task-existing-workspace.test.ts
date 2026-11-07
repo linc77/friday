@@ -66,7 +66,7 @@ test('A new task on the same branch gets a fresh native session, reuses its chec
   while ((await engine.snapshot()).tasks.find(task => task.id === id)?.status !== 'completed') { assert(Date.now() < deadline); await new Promise(resolve => setTimeout(resolve, 5)); }
   const created = (await engine.snapshot()).tasks.find(task => task.id === id)!;
   assert.notEqual(id, original.id); assert.equal(created.cwd, worktree); assert.equal(created.threadId, 'new-native-session');
-  assert.equal(created.parentId, undefined); assert.equal(created.planOrigin, undefined); assert.equal(calls.length, 1);
+  assert.equal(created.parentId, undefined); assert.equal(calls.length, 1);
   assert.equal(calls[0].task.threadId, null); assert.equal(calls[0].task.cwd, worktree); assert(!calls[0].prompt.includes('Source prompt'));
   assert.match(calls[0].prompt, /local changes/); assert.equal(created.messages?.[0].contexts?.[0].id, reference.id);
   assert.equal(created.executionWorkspace?.state, 'ready'); assert.equal((await engine.snapshot()).projectScriptRuns?.length ?? 0, 0);

@@ -498,21 +498,6 @@ final class FridayStore: ObservableObject {
     func taskRewindFileReview(_ id: String, operationID: String) async throws -> TaskRewindFileStatus {
         try await connection.decode(TaskRewindFileStatus.self, "/api/tasks/\(id)/rewind/\(operationID)/files")
     }
-    func saveTaskPlan(_ id: String, eventID: String, path: String) async throws {
-        _ = try await connection.data("/api/tasks/\(id)/plan/save", method: "POST", body: ["eventId": eventID, "path": path])
-    }
-    func followUpPlan(_ id: String, eventID: String, text: String, images: [IdeaImage], requestID: String, newThread: Bool, model: String, effort: String, modelOptions: [ProviderOptionSelection]? = nil, contexts: [TaskContextReference] = []) async throws -> String {
-        let identity = connectionIdentity
-        let references = try await materializeTaskContexts(text: text, contexts: contexts, scope: TaskContextScope(taskID: id))
-        try await uploadTaskImages(images)
-        guard connectionIdentity == identity else { throw ConnectionError.message("主机连接已切换") }
-        let result = try await connection.decode(IDResponse.self, "/api/tasks/\(id)/plan/follow-up", method: "POST", body: [
-            "eventId": eventID, "text": text, "images": images.map { ["id": $0.id, "name": $0.name, "mediaType": $0.mediaType] },
-            "requestId": requestID, "newThread": newThread, "model": model, "reasoningEffort": effort, "modelOptions": (modelOptions ?? []).map(\.body),
-            "contextIds": references.map(\.id),
-        ])
-        await refresh(); return result.id
-    }
     func markTaskRead(_ task: WorkItem) async {
         await acknowledgeTaskRead(task, includingOutput: true)
     }
@@ -528,7 +513,7 @@ final class FridayStore: ObservableObject {
             await refresh()
         } catch { if identity == connectionIdentity, service == taskStreamSession { self.error = error.localizedDescription } }
     }
-    func sendTaskMessage(taskId: String, text: String, requestId: String, images: [IdeaImage], model: String?, effort: String?, modelOptions: [ProviderOptionSelection]? = nil, dispatch: TaskComposerDispatch = .auto, interactionMode: String? = nil, contexts: [TaskContextReference] = [], compactThread: String? = nil) async throws {
+    func sendTaskMessage(taskId: String, text: String, requestId: String, images: [IdeaImage], model: String?, effort: String?, modelOptions: [ProviderOptionSelection]? = nil, dispatch: TaskComposerDispatch = .auto, contexts: [TaskContextReference] = [], compactThread: String? = nil) async throws {
         let identity = connectionIdentity
         let references = try await materializeTaskContexts(text: text, contexts: contexts, scope: TaskContextScope(taskID: taskId))
         try await uploadTaskImages(images)
@@ -539,11 +524,10 @@ final class FridayStore: ObservableObject {
         if !images.isEmpty { body["images"] = images.map { ["id": $0.id, "name": $0.name, "mediaType": $0.mediaType] } }
         if let modelOptions { body["modelOptions"] = modelOptions.map(\.body) }
         if let model { body["model"] = model }; if let effort { body["reasoningEffort"] = effort }
-        if let interactionMode { body["interactionMode"] = interactionMode }
         _ = try await connection.data("/api/tasks/\(taskId)/message", method: "POST", body: body)
         await refresh()
     }
-    func editQueuedMessage(taskId: String, messageId: String, text: String, images: [IdeaImage], model: String?, effort: String?, modelOptions: [ProviderOptionSelection]? = nil, interactionMode: String? = nil, contexts: [TaskContextReference] = []) async throws {
+    func editQueuedMessage(taskId: String, messageId: String, text: String, images: [IdeaImage], model: String?, effort: String?, modelOptions: [ProviderOptionSelection]? = nil, contexts: [TaskContextReference] = []) async throws {
         let identity = connectionIdentity
         let references = try await materializeTaskContexts(text: text, contexts: contexts, scope: TaskContextScope(taskID: taskId))
         try await uploadTaskImages(images)
@@ -552,7 +536,6 @@ final class FridayStore: ObservableObject {
         body["contextIds"] = references.map(\.id)
         if let modelOptions { body["modelOptions"] = modelOptions.map(\.body) }
         if let model { body["model"] = model }; if let effort { body["reasoningEffort"] = effort }
-        if let interactionMode { body["interactionMode"] = interactionMode }
         _ = try await connection.data("/api/tasks/\(taskId)/queue/\(messageId)", method: "PATCH", body: body)
         await refresh()
     }
@@ -603,7 +586,7 @@ final class FridayStore: ObservableObject {
         } catch { if connectionIdentity == identity { providerInstances = ProviderInstanceInfo.defaults } }
     }
 
-    func createTask(prompt: String, ideaId: String? = nil, requestId: String, projectId: String? = nil, agent: String = "friday", providerInstanceId: String? = nil, model: String? = nil, reasoningEffort: String? = nil, modelOptions: [ProviderOptionSelection]? = nil, interactionMode: String? = nil, workspace: TaskWorkspaceSelection? = nil, images: [IdeaImage] = [], contexts: [TaskContextReference] = []) async throws -> String {
+    func createTask(prompt: String, ideaId: String? = nil, requestId: String, projectId: String? = nil, agent: String = "friday", providerInstanceId: String? = nil, model: String? = nil, reasoningEffort: String? = nil, modelOptions: [ProviderOptionSelection]? = nil, workspace: TaskWorkspaceSelection? = nil, images: [IdeaImage] = [], contexts: [TaskContextReference] = []) async throws -> String {
         let identity = connectionIdentity
         let references = try await materializeTaskContexts(text: prompt, contexts: contexts, scope: TaskContextScope(projectID: projectId, preparationID: workspace?.preparationId))
         try await uploadTaskImages(images)
@@ -617,7 +600,6 @@ final class FridayStore: ObservableObject {
         if let projectId { body["projectId"] = projectId }
         if let modelOptions { body["modelOptions"] = modelOptions.map(\.body) }
         if let model { body["model"] = model }; if let reasoningEffort { body["reasoningEffort"] = reasoningEffort }
-        if let interactionMode { body["interactionMode"] = interactionMode }
         if let ideaId { body["ideaId"] = ideaId }
         if let workspace { body["workspace"] = workspace.body }
         let response = try await connection.decode(IDResponse.self, "/api/tasks", method: "POST", body: body)

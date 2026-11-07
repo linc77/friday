@@ -6,14 +6,13 @@ struct TaskMessageDraft: Codable {
     var images: [IdeaImage]
     var requestId: String
     var queueEdit: QueuedMessageEditDraft? = nil
-    var interactionMode: String? = nil
     var rewindEdit: TaskRewindDraft? = nil
     var contexts: [TaskContextReference]? = nil
     var contextInsertion: TaskContextInsertion? = nil
     var hasUserContent: Bool { TaskDraftContent.hasUserContent(message, images: images.count, contexts: contexts?.count ?? 0, pendingContext: contextInsertion != nil) || queueEdit != nil || rewindEdit != nil }
 }
 struct TaskComposerDraftBackup: Codable {
-    var message: String; var images: [IdeaImage]; var requestId: String; var interactionMode: String?
+    var message: String; var images: [IdeaImage]; var requestId: String
     var contexts: [TaskContextReference]? = nil
     var contextInsertion: TaskContextInsertion? = nil
 }
@@ -25,7 +24,6 @@ struct QueuedMessageEditDraft: Codable {
     var message: String
     var images: [IdeaImage]
     var requestId: String
-    var interactionMode: String? = nil
     var contexts: [TaskContextReference]? = nil
     var contextInsertion: TaskContextInsertion? = nil
 }

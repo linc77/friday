@@ -67,7 +67,6 @@ export class PiExecutor implements Executor {
   private async runNative(request: ExecutionRequest, session: PiNativeSession, observed: boolean): Promise<string> {
     const { task, update, signal } = request;
     if (this.runs.has(task.id)) throw new Error('这条 Pi 会话仍在执行');
-    if (task.interactionMode === 'plan') throw new Error('Pi 未提供原生计划模式，请使用默认模式');
     const runtime = session.runtime;
     if (task.piHome && task.piHome !== runtime.home) throw new Error('请恢复这条 Pi 会话使用的配置目录');
     if (signal.aborted) throw new Error('任务已中止');

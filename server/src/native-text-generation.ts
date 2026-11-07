@@ -23,7 +23,7 @@ export async function isolatedTextGeneration(request: ExecutionRequest, run: (re
   }
   const task: WorkItem = { ...request.task, cwd: directory ? join(directory, 'workspace') : request.task.cwd, threadId: null, turnId: null,
     codexHome: undefined, claudeHome: undefined, piHome: undefined, grokHome: undefined, nativeProviderAccount: undefined,
-    currentRunId: undefined, executionSessionId: undefined, mode: 'research', interactionMode: 'default',
+    currentRunId: undefined, executionSessionId: undefined, mode: 'research',
     events: [], approvals: [], messages: [], queue: undefined, goal: undefined, subagentOrigin: undefined };
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(180_000)]);
   try {

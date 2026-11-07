@@ -17,7 +17,7 @@ export class TaskRuns {
       if (task.runs.some(run => run.id === runID)) return;
       const message = task.messages?.findLast(message => message.role === 'user');
       task.runs.push({ id: runID, durableId: durableID, agent: task.agent, providerInstanceId: task.providerInstanceId ?? task.agent, providerEpoch: providerEpoch(task), requestId: task.lastRequestId, messageId: message?.id ?? '', cwd: task.cwd,
-        at: message?.at ?? task.updatedAt, status: task.status, mode: task.mode, interactionMode: task.interactionMode ?? 'default' });
+        at: message?.at ?? task.updatedAt, status: task.status, mode: task.mode });
       if (message) message.runId = runID;
     });
   }

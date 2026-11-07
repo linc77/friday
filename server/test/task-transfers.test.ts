@@ -54,7 +54,7 @@ async function fixture(t: { after: (fn: () => Promise<unknown>) => void }) {
   const reopen = async () => { await engine.close(); engine = await new Engine(data, executor).open(); return engine; };
   return { get engine() { return engine; }, executor, task, turn, reopen, auth, api: () => createAPI(engine, auth, () => []), headers: { Authorization: 'Bearer ' + auth.token, 'Content-Type': 'application/json' } };
 }
-const target = (agent: 'claude' | 'pi' | 'codex') => ({ agent, providerInstanceId: agent, model: 'fixture-model', interactionMode: 'default' as const });
+const target = (agent: 'claude' | 'pi' | 'codex') => ({ agent, providerInstanceId: agent, model: 'fixture-model' });
 
 test('Provider handoff retains the app conversation and historical provenance, defers provider work, and consumes its immutable source point once', async t => {
   const f = await fixture(t), id = await f.turn(undefined, 'original user request', 'original'); const old = await f.task(id);
@@ -139,7 +139,7 @@ test('Fixed T3 budget selects intact historical items, reserves its serialized w
 test('All nine drivers can be selected on the same idle thread without eager native execution or loss of the original history', async t => {
   const f = await fixture(t), id = await f.turn(undefined, 'kept across every provider', 'matrix-source');
   for (const agent of [...providerDrivers.filter(agent => agent !== 'codex'), 'codex' as const]) {
-    await f.engine.sessionActions.start(id, { requestId: 'select-' + agent, kind: 'handoff', target: { agent, providerInstanceId: agent, model: agent + '-model', interactionMode: 'default' } });
+    await f.engine.sessionActions.start(id, { requestId: 'select-' + agent, kind: 'handoff', target: { agent, providerInstanceId: agent, model: agent + '-model' } });
     const work = await f.task(id); assert.equal(work.agent, agent); assert.equal(work.threadId, null); assert.equal(work.sessionOperation?.status, 'completed'); assert.equal(f.executor.requests.length, 1);
   }
   const work = await f.task(id); assert.equal(work.providerHistory?.length, 9); assert.equal(work.contextTransfers?.filter(transfer => transfer.status === 'pending').length, 1); assert.equal(work.messages?.[0].text, 'kept across every provider');

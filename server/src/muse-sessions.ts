@@ -337,7 +337,6 @@ export class MuseSessions {
     if (this.closed || this.running.has(request.task.id)) throw new Error('Muse 会话仍在执行或已关闭');
     this.running.add(request.task.id); let session: MuseSession | undefined;
     try {
-      if (request.task.interactionMode === 'plan') throw new Error('Muse 未提供专用计划模式');
       const runtime = await this.connection.runtime(request.task);
       if (request.task.nativeProviderAccount && request.task.nativeProviderAccount !== runtime.account) throw new Error('请恢复这条 Muse 会话使用的账号配置');
       request.signal.throwIfAborted(); const cwd = await realpath(request.task.cwd), ephemeral = !!request.purpose;

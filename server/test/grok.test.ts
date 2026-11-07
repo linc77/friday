@@ -11,7 +11,7 @@ import { terminalProviderEnvironment } from '../src/terminal-provider-environmen
 import type { ExecutionUpdate, WorkItem } from '../src/types.js';
 
 const binary = fileURLToPath(new URL('./fixtures/grok.mjs', import.meta.url));
-const work = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'grok-task', agent: 'grok', title: 'Grok fixture', cwd, model: 'grok-fast', reasoningEffort: 'high', threadId: null, currentRunId: 'grok-run', events: [], approvals: [], interactionMode: 'default', ...changes }) as WorkItem;
+const work = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'grok-task', agent: 'grok', title: 'Grok fixture', cwd, model: 'grok-fast', reasoningEffort: 'high', threadId: null, currentRunId: 'grok-run', events: [], approvals: [], ...changes }) as WorkItem;
 async function setup(t: { after: (fn: () => Promise<unknown>) => void }, environment: Record<string, string> = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'friday-grok-')), wire = join(directory, 'wire.jsonl'), home = join(directory, 'grok-home'), connection = new GrokConnection(directory), executor = new GrokExecutor(connection);
   t.after(async () => { await executor.close(); await rm(directory, { recursive: true, force: true }); }); await chmod(binary, 0o755);
@@ -99,13 +99,14 @@ test('Grok native approvals preserve the original option IDs, reject permanent g
   assert.equal(await running, 'Grok reply café\u2028line\u2029end'); await answer;
   assert.ok((await trace()).some(value => value.permissionOutcome?.outcome?.optionId === 'allow-edits-session'));
 });
-test('Grok questions encode preview and freeform annotations and native plans use the existing proposal card', async t => {
+test('Grok questions encode preview annotations and the retired plan workflow is unsupported', async t => {
   const { directory, executor, trace } = await setup(t); const updates: ExecutionUpdate[] = []; let answer: Promise<void> | undefined;
   const update = async (value: ExecutionUpdate) => { updates.push(value); if (value.kind === 'approval') answer = new Promise<void>((resolve, reject) => setImmediate(() => { void executor.answer('grok-task', value.approval.id, 'accept', { choice: ['One'] }).then(resolve, reject); })); };
   await executor.run({ task: work(directory), prompt: 'question', signal: new AbortController().signal, update }); await answer;
   assert.ok((await trace()).some(value => value.nativeResult?.annotations?.['Choose a target']?.preview === 'preview-one'));
-  await executor.run({ task: work(directory), prompt: 'proposal', signal: new AbortController().signal, update }); assert.ok(updates.some(value => value.kind === 'item' && value.item.kind === 'proposal' && value.item.text.startsWith('# Native plan')));
-  assert.ok((await trace()).some(value => value.nativeResult?.outcome === 'abandoned'));
+  await assert.rejects(executor.run({ task: work(directory), prompt: 'proposal', signal: new AbortController().signal, update }), /Method not found/);
+  assert.ok(!updates.some(value => value.kind === 'item' && value.item.kind === 'proposal'));
+  assert.ok((await trace()).some(value => value.nativeError?.code === -32601));
 });
 test('Grok native cancel reaches the protocol before its real process group is terminated', async t => {
   const { directory, executor, trace } = await setup(t), controller = new AbortController();

@@ -104,7 +104,7 @@ test('A cross-group sidebar Settle uses the same native detach and its old recei
 test('An automatic queued run with no native start is cancelled by Settle, while a normal queued run is retained and rejected', async t => {
   const f = await fixture(t);
   for (const monitor of [false, true]) {
-    await f.engine.mutate(state => { state.tasks = [{ ...idle(f.cwd), status: 'queued', messages: [{ id: 'queued-user', role: 'user', text: 'Keep notification', ...(monitor ? { creationSource: 'monitor' as const } : {}) }], runs: [{ id: 'old-run', durableId: null, requestId: 'queued', messageId: 'queued-user', status: 'queued', mode: 'research', interactionMode: 'default', cwd: f.cwd, at }] }]; });
+    await f.engine.mutate(state => { state.tasks = [{ ...idle(f.cwd), status: 'queued', messages: [{ id: 'queued-user', role: 'user', text: 'Keep notification', ...(monitor ? { creationSource: 'monitor' as const } : {}) }], runs: [{ id: 'old-run', durableId: null, requestId: 'queued', messageId: 'queued-user', status: 'queued', mode: 'research', cwd: f.cwd, at }] }]; });
     const response = await f.patch({ settled: true }); assert.equal(response.status, monitor ? 200 : 400);
     const task = await f.task(); assert.equal(task.runs![0].status, monitor ? 'cancelled' : 'queued'); assert.equal(task.messages![0].text, 'Keep notification');
   }

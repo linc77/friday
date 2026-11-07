@@ -22,7 +22,7 @@ async function fixture(t:{after(callback:()=>Promise<unknown>):void},resident=fa
  }};
  const engine=await new Engine(data,{async run(){return 'Done';},async answer(){},async steer(){}},undefined,options).open();
  const task=(id:string):WorkItem=>({id,title:id,prompt:'Work',projectId:'p',cwd,agent:'codex',mode:'code',status:'completed',createdAt:at(-10000),updatedAt:at(-4000),result:'Done',error:null,events:[],approvals:[],threadId:'session-'+id,turnId:null,durableId:null,artifact:null,lastRequestId:id,
-  executionWorkspace:{mode:'checkout',sourcePath:cwd,root:cwd,cwd,branch:'feature',commit:null,state:'ready'},messages:[{id:'user',role:'user',text:'Work',at:at(-5000)}],runs:[{id:'run',durableId:null,messageId:'user',requestId:'run',cwd,at:at(-5000),completedAt:at(-4000),status:'completed',mode:'code',interactionMode:'default'}]});
+  executionWorkspace:{mode:'checkout',sourcePath:cwd,root:cwd,cwd,branch:'feature',commit:null,state:'ready'},messages:[{id:'user',role:'user',text:'Work',at:at(-5000)}],runs:[{id:'run',durableId:null,messageId:'user',requestId:'run',cwd,at:at(-5000),completedAt:at(-4000),status:'completed',mode:'code'}]});
  await engine.mutate(s=>{s.projects=[{id:'p',name:'Project',path:cwd,context:''}];s.tasks=[task('a'),task('b')];s.taskSettlementSettings={version:0,defaults:{sidebarAutoSettleAfterDays:null,sidebarAutoSettleOnMerge:true},projects:{}};});
  const discovery=resident?engine.changeRequestDiscovery:new TaskChangeRequestDiscovery(engine,60000);
  t.after(async()=>{await discovery.close();await engine.close();await rm(directory,{recursive:true,force:true});});

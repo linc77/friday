@@ -23,9 +23,6 @@ export class ClaudeEvents {
   }
   private async tool(id: string, name: string, input: Record<string, unknown>) {
     this.toolNames.set(id, name);
-    if (name === 'ExitPlanMode' && typeof input.plan === 'string' && input.plan.trim()) {
-      await this.propose(id, input.plan); return;
-    }
     const kind = ['Bash', 'Monitor'].includes(name) ? 'command' : name === 'TodoWrite' ? 'plan' : ['Write', 'Edit', 'NotebookEdit'].includes(name) ? 'files' : ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'].includes(name) ? 'search' : 'tool';
     const text = kind === 'command' ? String(input.command ?? name) : `${name}${input.file_path || input.path ? ': ' + (input.file_path ?? input.path) : ''}`;
     const plan = kind === 'plan' && Array.isArray(input.todos) ? taskPlanSteps(input.todos.map(value => ({
@@ -41,9 +38,6 @@ export class ClaudeEvents {
     const tail = appendTerminalOutput(chunk.reset ? EMPTY_TERMINAL_OUTPUT : this.commandTails.get(id) ?? EMPTY_TERMINAL_OUTPUT, chunk.text);
     this.commandTails.set(id, chunk.truncated ? { ...tail, truncated: true } : tail);
     await this.update({ kind: 'commandOutput', eventId: item.id, delta: chunk.text, ...(chunk.reset ? { reset: true } : {}), ...(chunk.truncated ? { truncated: true } : {}) });
-  }
-  async propose(id: string, markdown: string) {
-    await this.put(id, 'proposal', markdown.trim(), { text: markdown.trim(), status: 'completed', completedAt: new Date().toISOString() });
   }
   async start() { await this.put('turn', 'turn', 'Claude', { status: 'running' }); }
   async handle(message: SDKMessage) {
@@ -93,7 +87,6 @@ export class ClaudeEvents {
     } else if (message.type === 'user' && !message.parent_tool_use_id && Array.isArray(message.message.content)) {
       for (const block of message.message.content) if (block.type === 'tool_result') {
         const item = this.items.get(block.tool_use_id); if (!item) continue;
-        if (item.kind === 'proposal') continue; // ExitPlanMode is deliberately denied after capturing its plan.
         const structured = message.tool_use_result && typeof message.tool_use_result === 'object' && !Array.isArray(message.tool_use_result) ? message.tool_use_result as Record<string, unknown> : undefined;
         const nativeTask = this.toolNames.get(block.tool_use_id) === 'Monitor' ? structured?.taskId : structured?.backgroundTaskId;
         if (item.kind === 'command' && !block.is_error && typeof nativeTask === 'string' && nativeTask) {

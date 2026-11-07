@@ -6,16 +6,14 @@ import AppKit
 @main struct TaskComposerCommandTests {
     struct Fixture: Decodable {
         let sourceRevision: String; let catalog: TaskComposerCatalog; let cases: [Case]
-        let modeCases: [ModeCase]
-        let feedbackCases: [ModeCase]
-        struct ModeCase: Decodable { let text: String; let expected: String? }
+        let feedbackCases: [FeedbackCase]
+        struct FeedbackCase: Decodable { let text: String; let expected: String? }
         struct Case: Decodable { let kind: String; let query: String; let atStart: Bool; let showSkills: Bool; let compactAvailable: Bool; let expected: [String] }
     }
     static func main() throws {
         let path = CommandLine.arguments[1]
         let fixture = try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
         precondition(fixture.sourceRevision == "8cd9641f76874f2ce17d6c80acd71fab1f0b99d3")
-        for value in fixture.modeCases { precondition(TaskComposerCommands.standaloneMode(value.text) == value.expected, "Standalone mode: \(value.text)") }
         for value in fixture.feedbackCases { precondition(TaskComposerCommands.feedback(value.text) == value.expected, "Feedback boundary: \(value.text)") }
         let goal = TaskProviderGoal(objective: "Finish the task", status: "active", tokensUsed: 1250, timeUsedSeconds: 65)
         precondition(goal.title(working: true) == "正在执行目标" && goal.title(working: false) == "目标已设定" && !goal.canResume && goal.usage == "1k tokens · 1m")
@@ -31,11 +29,9 @@ import AppKit
             precondition(actual == value.expected, "\(value.kind) \(value.query) start=\(value.atStart) skills=\(value.showSkills): \(actual) != \(value.expected)")
         }
         let body = "🙂 开始 /pl", location = (body as NSString).length
-        let piCommands = TaskComposerCommands.options(TaskMentionQuery(text: "", range: NSRange(location: 0, length: 1), source: "/", kind: "slash"), catalog: nil, showSkills: true, compactAvailable: false, provider: "pi")
-        precondition(piCommands.contains { $0.path == "builtin:model" })
-        precondition(!piCommands.contains { ["builtin:plan", "builtin:default"].contains($0.path) }, "Pi does not advertise native interaction modes, including before its catalog loads")
-        let grokCommands = TaskComposerCommands.options(TaskMentionQuery(text: "", range: NSRange(location: 0, length: 1), source: "/", kind: "slash"), catalog: nil, showSkills: true, compactAvailable: false, provider: "grok")
-        precondition(grokCommands.contains { $0.path == "builtin:model" } && !grokCommands.contains { ["builtin:plan", "builtin:default"].contains($0.path) }, "Grok ACP does not expose native interaction modes")
+        let catalog = TaskComposerCatalog(provider: "claude", cwd: "/tmp", checkedAt: "now", skills: [], commands: [.init(name: "plan"), .init(name: "default"), .init(name: "compact")])
+        let commands = TaskComposerCommands.options(TaskMentionQuery(text: "", range: NSRange(location: 0, length: 1), source: "/", kind: "slash"), catalog: catalog, showSkills: true, compactAvailable: true)
+        precondition(commands.map(\.path) == ["builtin:model", "command:compact"], "Retired modes stay hidden even when native catalogs still advertise them")
         let query = TaskComposerCommands.trigger(body, at: location)!
         precondition(query.kind == "slash" && query.text == "pl" && (body as NSString).substring(with: query.range) == "/pl")
         precondition(TaskComposerCommands.trigger("https://example.test", at: 20) == nil)
@@ -65,7 +61,7 @@ import AppKit
         #if os(macOS)
         try textCodec(fixture.catalog)
         #endif
-        print("\(fixture.cases.count) independent pinned T3 search vectors, \(fixture.modeCases.count) standalone mode cases, \(fixture.feedbackCases.count) feedback cases, goals, stable reset scope, prompt position, skill visibility, UTF-16 triggers, money exclusions and context formatting passed")
+        print("\(fixture.cases.count) independent pinned T3 search vectors, \(fixture.feedbackCases.count) feedback cases, goals, stable reset scope, prompt position, skill visibility, UTF-16 triggers, money exclusions and context formatting passed")
     }
     #if os(macOS)
     static func textCodec(_ catalog: TaskComposerCatalog) throws {

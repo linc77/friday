@@ -79,7 +79,7 @@ test('Cold public assistant messages remain searchable across compaction, late u
 
 test('Search applies rewind projections to cold events, excludes reverted answers and retains explicitly kept inputs', async t => {
   const f = await setup(t);
-  const run: TaskRun = { id: 'run', durableId: null, messageId: 'input', requestId: 'input', cwd: f.cwd, at: at(1), status: 'completed', mode: 'research', interactionMode: 'default', turnId: 'turn' };
+  const run: TaskRun = { id: 'run', durableId: null, messageId: 'input', requestId: 'input', cwd: f.cwd, at: at(1), status: 'completed', mode: 'research', turnId: 'turn' };
   await f.add('projection', [{ ...message('input', 'user', 'kept needle request'), runId: 'run' }, { ...message('answer', 'assistant', 'removed needle answer', 8), runId: 'run' }], { runs: [run] });
   await f.engine.patchTask('projection', task => { task.events.push({ id: 'old-output', kind: 'message', text: 'retired public marker', at: at(3), runId: 'run', turnId: 'turn', status: 'completed' },
     ...Array.from({ length: 650 }, (_, index): TaskEvent => ({ id: 'note-' + index, kind: 'note', text: 'internal', at: at(index + 5) }))); });
@@ -88,7 +88,7 @@ test('Search applies rewind projections to cold events, excludes reverted answer
     task.runs![0].executionExcludedAt = at(30);
     task.rewindOperations = [{ id: 'rewind', durableId: 0, requestId: 'rewind', runId: 'run', projectedAt: at(30), messageId: 'input', removedRunIds: [], removedExecutionRunIds: ['run'], removeTurns: ['turn'], keepTurns: [],
       status: 'completed', phase: 'completed', restoreFiles: false, cwd: f.cwd, fingerprint: 'fixture', createdAt: at(30), updatedAt: at(30),
-      sourceThreadId: 'native', sourceTurnId: 'turn', targetTurnId: null, editor: { text: 'kept needle request', images: [], interactionMode: 'default' }, attempt: 1 }];
+      sourceThreadId: 'native', sourceTurnId: 'turn', targetTurnId: null, editor: { text: 'kept needle request', images: [] }, attempt: 1 }];
   });
   assert.equal((await f.search('removed needle')).matches.length, 0); assert.equal((await f.search('public marker')).matches.length, 0);
   assert.equal((await f.search('kept needle')).matches[0].source, 'user');

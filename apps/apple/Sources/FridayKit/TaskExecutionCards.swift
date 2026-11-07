@@ -1,8 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
-#if os(macOS)
-import AppKit
-#endif
 
 struct TaskDiffStat: View {
     let additions: Int?; let deletions: Int?
@@ -155,90 +151,6 @@ struct TaskPlanProgress: View {
                 }.font(.callout).accessibilityElement(children: .combine)
                     .accessibilityValue(Text(fridayString: step.status == "completed" ? "已完成" : step.status == "inProgress" ? "进行中" : "待处理"))
             }
-        }
-    }
-}
-
-private struct TaskPlanDocument: FileDocument {
-    static let readableContentTypes: [UTType] = [UTType(filenameExtension: "md", conformingTo: .plainText) ?? .plainText]
-    var text: String
-    init(text: String) { self.text = text }
-    init(configuration: ReadConfiguration) throws { text = String(data: configuration.file.regularFileContents ?? Data(), encoding: .utf8) ?? "" }
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: Data(text.utf8)) }
-}
-
-struct TaskProposedPlanCard: View {
-    @ObservedObject var store: FridayStore
-    let task: WorkItem; let event: TaskEvent; let canOpenLocalFiles: Bool
-    @State private var expanded = false
-    @State private var exporting = false
-    @State private var saving = false
-    @State private var saveSheet = false
-    @State private var savePath = ""
-    @State private var error: String?
-    @State private var savedPath: String?
-    private var markdown: String { TaskExecutionPresentation.planMarkdown(event.text) }
-    private var collapsible: Bool { markdown.utf16.count > 900 || markdown.components(separatedBy: "\n").count > 20 }
-    private var displayed: String { collapsible && !expanded ? TaskExecutionPresentation.planPreview(markdown) : TaskExecutionPresentation.displayedPlan(markdown) }
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
-                Text(verbatim: "Plan").font(.caption.weight(.medium)).padding(.horizontal, 8).padding(.vertical, 3).background(.primary.opacity(0.07), in: Capsule())
-                Group {
-                    if let title = TaskExecutionPresentation.planTitle(markdown) { Text(verbatim: title) }
-                    else { Text(friday: "待确认方案") }
-                }.font(.callout.weight(.medium)).lineLimit(1)
-                Spacer(minLength: 4)
-                Menu {
-                    Button(friday: "复制方案", systemImage: "doc.on.doc") { copyAgentText(markdown + "\n") }
-                    Button(friday: "导出 Markdown", systemImage: "square.and.arrow.down") { exporting = true }
-                    Button(friday: "保存到工作区", systemImage: "folder") {
-                        if savePath.isEmpty { savePath = TaskExecutionPresentation.planFilename(markdown) }
-                        error = nil; saveSheet = true
-                    }.disabled(event.status != "completed" || !store.connected)
-                } label: { FridaySymbolImage(systemName: "ellipsis") }
-                    .menuStyle(.borderlessButton).fixedSize().fridayInteractiveCursor()
-                    .accessibilityLabel(Text(friday: "方案操作"))
-            }
-            AgentMarkdown(text: displayed, canOpenLocalFiles: canOpenLocalFiles, workspacePath: task.cwd, isStreaming: event.status == "running" || collapsible && !expanded)
-            if collapsible {
-                Button { expanded.toggle() } label: {
-                    FridaySymbolLabel(friday: expanded ? "收起方案" : "展开完整方案", systemImage: expanded ? "chevron.up" : "chevron.down")
-                }.buttonStyle(FridaySymbolButtonStyle()).font(.caption).foregroundStyle(.secondary)
-                    .accessibilityValue(Text(friday: expanded ? "已展开" : "已收起"))
-            }
-            if let savedPath { Text(friday: "已保存到 \(savedPath)").font(.caption).foregroundStyle(.secondary) }
-            if let error, !saveSheet { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
-        }.padding(18).background(.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 20))
-            .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.primary.opacity(0.12), lineWidth: 1))
-            .fileExporter(isPresented: $exporting, document: TaskPlanDocument(text: markdown + "\n"), contentType: TaskPlanDocument.readableContentTypes[0], defaultFilename: TaskExecutionPresentation.planFilename(markdown)) { result in
-                if case .failure(let failure) = result { error = failure.localizedDescription }
-            }
-            .sheet(isPresented: $saveSheet) { saveForm }
-    }
-    private var saveForm: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(friday: "保存到工作区").font(.headline)
-            Text(verbatim: task.cwd).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-            TextField(friday: "相对文件路径", text: $savePath).textFieldStyle(.roundedBorder).disabled(saving)
-                .onSubmit { save() }
-            if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
-            HStack {
-                Spacer()
-                Button(friday: "取消") { saveSheet = false }.buttonStyle(FridayButtonStyle(compact: true)).disabled(saving).keyboardShortcut(.cancelAction)
-                Button(friday: "保存") { save() }.buttonStyle(FridayButtonStyle(prominent: true, compact: true))
-                    .disabled(saving || savePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).keyboardShortcut(.defaultAction)
-            }
-        }.padding(24).frame(minWidth: 320, idealWidth: 440)
-            .interactiveDismissDisabled(saving)
-    }
-    private func save() {
-        guard !saving, !savePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        saving = true; error = nil
-        Task {
-            defer { saving = false }
-            do { try await store.saveTaskPlan(task.id, eventID: event.id, path: savePath); savedPath = savePath; saveSheet = false }
-            catch { self.error = error.localizedDescription }
         }
     }
 }

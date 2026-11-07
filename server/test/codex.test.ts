@@ -61,21 +61,21 @@ for (const purpose of ['git_text', 'task_title', 'review_guide'] as const) test(
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test('Codex plan turns use the native mode and read-only policy; implementation explicitly restores default mode and workspace access', async () => {
+test('Codex always restores default native mode, including resumed legacy sessions', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-plan-wire-')); await chmod(command, 0o755);
   const executor = new CodexExecutor(command);
   try {
     const updates: ExecutionUpdate[] = [];
-    const task = { ...work(directory), mode: 'code' as const, projectId: 'project', interactionMode: 'plan' as const };
+    const task = { ...work(directory), mode: 'code' as const, projectId: 'project', interactionMode: 'plan' };
     const result = await executor.run({ task, prompt: 'plan-protocol', signal: new AbortController().signal, update: async update => { updates.push(update); } });
     assert.match(result, /Proposed change/); assert.ok(updates.some(update => update.kind === 'item' && update.item.kind === 'proposal'));
-    await executor.run({ task: { ...task, interactionMode: 'default', threadId: 'protocol-thread' }, prompt: 'plan-protocol', signal: new AbortController().signal, update: async () => {} });
+    await executor.run({ task: { ...task, threadId: 'protocol-thread' }, prompt: 'plan-protocol', signal: new AbortController().signal, update: async () => {} });
     const wire = (await readFile(join(directory, 'wire.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
     const turns = wire.filter(value => value.method === 'turn/start');
-    assert.deepEqual(turns.map(value => value.params.collaborationMode.mode), ['plan', 'default']);
+    assert.deepEqual(turns.map(value => value.params.collaborationMode.mode), ['default', 'default']);
     assert.equal(turns[0].params.collaborationMode.settings.model, 'fixture-model');
     assert.equal(turns[0].params.collaborationMode.settings.developer_instructions, null);
-    assert.equal(turns[0].params.sandboxPolicy.type, 'readOnly'); assert.equal(turns[1].params.sandboxPolicy.type, 'workspaceWrite');
+    assert.equal(turns[0].params.sandboxPolicy.type, 'workspaceWrite'); assert.equal(turns[1].params.sandboxPolicy.type, 'workspaceWrite');
     assert.equal(wire.find(value => value.method === 'thread/resume').params.sandbox, 'workspace-write');
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

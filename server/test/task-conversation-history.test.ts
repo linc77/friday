@@ -25,7 +25,7 @@ async function setup(t: { after: (fn: () => Promise<unknown>) => void }, turns =
     messages.push({ id: 'user-' + index, role: 'user', text: 'Request ' + index, at: at(index * 2000), runId, turnId },
       { id: 'answer-' + index, role: 'assistant', text: 'Answer ' + index, at: at(index * 2000 + 1900), runId, turnId });
     runs.push({ id: runId, durableId: null, messageId: 'user-' + index, requestId: 'request-' + index, cwd, at: at(index * 2000), status: 'completed',
-      completedAt: at(index * 2000 + 1900), threadId: 'native', turnId, mode: 'research', interactionMode: 'default' });
+      completedAt: at(index * 2000 + 1900), threadId: 'native', turnId, mode: 'research' });
     const tools = index === turns - 1 ? 900 : 10;
     for (let tool = 0; tool < tools; tool++) events.push({ id: `event-${index}-${tool}`, itemId: `item-${index}-${tool}`, runId, turnId,
       kind: 'command', text: `Read ${index}/${tool}`, detail: `Output ${index}/${tool} 🚀`, at: at(index * 2000 + tool + 1), status: 'completed', exitCode: 0 });

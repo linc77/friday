@@ -22,7 +22,7 @@ export type AcpNativePermission = { questions?: Approval['questions']; options?:
 export interface AcpNativeConnection {
   readonly provider: string;
   readonly directory: string;
-  runtime(selection?: ProviderModelSelection & { interactionMode?: string }): Promise<AcpNativeRuntime>;
+  runtime(selection?: ProviderModelSelection, options?: { readOnly?: boolean }): Promise<AcpNativeRuntime>;
   client(runtime: AcpNativeRuntime, cwd: string): Promise<AcpNativeLease>;
   normalize?(update: AcpRecord): AcpRecord;
   permission?(params: AcpRecord): AcpNativePermission;

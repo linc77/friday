@@ -16,7 +16,7 @@ struct CodexTimeline: View {
             if task.status != "queued" {
                 switch row.content {
                 case .work(let events): return events.contains { $0.turnId != nil && $0.turnId == task.turnId }
-                case .proposal(let event), .changes(let event), .subagent(let event): return event.turnId != nil && event.turnId == task.turnId
+                case .changes(let event), .subagent(let event): return event.turnId != nil && event.turnId == task.turnId
                 default: return false
                 }
             }
@@ -45,14 +45,6 @@ struct CodexTimeline: View {
             case .reply(let text):
                 VStack(alignment: .leading, spacing: 8) {
                     CodexReply(store:store,taskID:task.id,messageID:row.id,text: text, canOpenLocalFiles: canOpenLocalFiles, workspacePath: task.cwd, isStreaming: row.isStreaming)
-                    if let runID = row.runID ?? row.nativeTurnID {
-                        TaskForkButton(store: store, task: task, runID: runID, openTask: openTask)
-                            .id(store.connection.server + ":" + task.id + ":" + runID)
-                    }
-                }.id(row.id)
-            case .proposal(let event):
-                VStack(alignment: .leading, spacing: 8) {
-                    TaskProposedPlanCard(store: store, task: task, event: event, canOpenLocalFiles: canOpenLocalFiles)
                     if let runID = row.runID ?? row.nativeTurnID {
                         TaskForkButton(store: store, task: task, runID: runID, openTask: openTask)
                             .id(store.connection.server + ":" + task.id + ":" + runID)

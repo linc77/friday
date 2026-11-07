@@ -104,29 +104,25 @@ for (const purpose of ['git_text', 'task_title', 'review_guide'] as const) test(
   } finally { await connection.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
-test('Claude Plan mode captures ExitPlanMode without starting implementation and restores configured permissions on the next turn', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'friday-claude-plan-')); await chmod(binaryPath, 0o755);
-  const connection = new ClaudeConnection(directory); const executor = new ClaudeExecutor(connection); const updates: ExecutionUpdate[] = [];
+test('Claude ignores retired mode state, excludes native planning tools and restores configured permissions on reuse', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-claude-default-')); await chmod(binaryPath, 0o755);
+  const connection = new ClaudeConnection(directory); const executor = new ClaudeExecutor(connection);
   try {
     await connection.save({ ...defaultClaudeSettings, binaryPath, homePath: directory, permissionMode: 'default' });
-    const planning = { ...work(directory), interactionMode: 'plan' as const };
-    assert.equal(await executor.run({ task: planning, prompt: 'plan-test', signal: new AbortController().signal, update: async update => { updates.push(update); } }), 'Plan captured');
-    const proposals = updates.filter(update => update.kind === 'item' && update.item.kind === 'proposal');
-    assert.ok(proposals.length > 0); assert.ok(proposals.every(update => update.kind === 'item' && update.item.status === 'completed'));
-    assert.ok(!updates.some(update => update.kind === 'approval'), 'ExitPlanMode becomes a proposed plan, not an implementation permission request');
-    const session = updates.find(update => update.kind === 'session'); assert.ok(session?.kind === 'session');
-    assert.equal(await executor.run({ task: { ...planning, threadId: session.threadId }, prompt: 'permission-test', signal: new AbortController().signal, update: async update => {
-      assert.notEqual(update.kind, 'approval', 'A plan turn cannot request permission to modify project files');
-    } }), 'Declined');
-    await assert.rejects(access(join(directory, 'allowed.txt')));
-    await executor.run({ task: { ...planning, interactionMode: 'default', threadId: session.threadId }, prompt: 'permission-test', signal: new AbortController().signal, update: async update => {
-      if (update.kind === 'approval') await executor.answer('claude-test', update.approval.id, 'accept', {});
-    } });
+    const task = { ...work(directory), interactionMode: 'plan' }; let threadId = '';
+    for (let index = 0; index < 2; index++) {
+      await executor.run({ task: { ...task, threadId: threadId || null }, prompt: 'permission-test', signal: new AbortController().signal, update: async update => {
+        if (update.kind === 'session') threadId = update.threadId;
+        if (update.kind === 'approval') await executor.answer('claude-test', update.approval.id, 'accept', {});
+      } });
+    }
     assert.equal(await readFile(join(directory, 'allowed.txt'), 'utf8'), 'authorized');
     const launches = (await wire(directory)).filter(entry => entry.args?.includes('--permission-mode'));
-    assert.deepEqual(launches.map(entry => entry.args[entry.args.indexOf('--permission-mode') + 1]), ['plan']);
-    assert.deepEqual((await wire(directory)).filter(entry => entry.request?.subtype === 'set_permission_mode').map(entry => entry.request.mode), ['plan', 'default']);
-  } finally { await connection.close(); await rm(directory, { recursive: true, force: true }); }
+    assert.deepEqual(launches.map(entry => entry.args[entry.args.indexOf('--permission-mode') + 1]), ['default']);
+    assert.ok(launches[0].args.join(' ').includes('EnterPlanMode'));
+    assert.ok(launches[0].args.join(' ').includes('ExitPlanMode'));
+    assert.deepEqual((await wire(directory)).filter(entry => entry.request?.subtype === 'set_permission_mode').map(entry => entry.request.mode), ['default']);
+  } finally { await executor.close(); await connection.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
 test('Claude SDK persists identity before launch, streams once, resumes with selection, validates account and cancels', { timeout: 15_000 }, async () => {

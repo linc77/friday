@@ -16,14 +16,14 @@ import type { ApprovalDecision } from './provider-approvals.js';
 // MIT Copyright (c) 2026 T3 Tools Inc.; full license: vendor/t3code/LICENSE.
 const cancelled = () => new Error('任务已中止');
 const promptId = (session: string, request: string) => 'msg_friday_' + createHash('sha256').update(JSON.stringify([session, request])).digest('hex');
-export function openCodeRules(generation: 1 | 2, mode: string, plan: boolean, mcp?: string): AcpRecord[] {
+export function openCodeRules(generation: 1 | 2, mode: string, mcp?: string): AcpRecord[] {
   if (generation === 1) {
     if (mode === 'auto') return [{ permission: '*', pattern: '*', action: 'allow' }];
     const restricted = ['bash', 'edit', 'webfetch', 'websearch', 'codesearch', 'external_directory', 'doom_loop'];
     return [{ permission: '*', pattern: '*', action: 'deny' }, ...restricted.map(permission => ({ permission, pattern: '*', action: 'deny' })), { permission: '*', pattern: '*', action: 'ask' }, ...restricted.map(permission => ({ permission, pattern: '*', action: 'ask' })),
-      ...['question', 'read', 'glob', 'grep', 'lsp', 'todowrite', 'task', 'skill'].map(permission => ({ permission, pattern: '*', action: 'allow' })), { permission: 'read', pattern: '*.env', action: 'ask' }, { permission: 'read', pattern: '*.env.*', action: 'ask' }, { permission: 'read', pattern: '*.env.example', action: 'allow' }, ...(plan ? [{ permission: 'edit', pattern: '*', action: 'deny' }] : [])];
+      ...['question', 'read', 'glob', 'grep', 'lsp', 'todowrite', 'task', 'skill'].map(permission => ({ permission, pattern: '*', action: 'allow' })), { permission: 'read', pattern: '*.env', action: 'ask' }, { permission: 'read', pattern: '*.env.*', action: 'ask' }, { permission: 'read', pattern: '*.env.example', action: 'allow' }];
   }
-  return [...(mode === 'auto' ? [{ action: '*', resource: '*', effect: 'allow' }] : ['shell', 'edit', 'external_directory'].map(action => ({ action, resource: '*', effect: 'ask' }))), ...(plan ? [{ action: 'edit', resource: '*', effect: 'deny' }] : []), ...(mcp ? [{ action: 'friday-*', resource: '*', effect: 'deny' }, { action: `${mcp}_*`, resource: '*', effect: 'allow' }] : [])];
+  return [...(mode === 'auto' ? [{ action: '*', resource: '*', effect: 'allow' }] : ['shell', 'edit', 'external_directory'].map(action => ({ action, resource: '*', effect: 'ask' }))), ...(mcp ? [{ action: 'friday-*', resource: '*', effect: 'deny' }, { action: `${mcp}_*`, resource: '*', effect: 'allow' }] : [])];
 }
 type Pending = { value: AcpRecord; kind: 'permission' | 'question' | 'form'; approval: Approval; answering: boolean };
 type Live = { server: OpenCodeServer; sessionId: string; nativeId: string; pending: Map<string, Pending>; rules: AcpRecord[]; childRules: Map<string, AcpRecord[]>; children?: NativeSubagentProjection; cancel: () => void; steers: Map<string, { body: string; promise: Promise<void>; resolve: () => void; reject: (error: Error) => void }> };
@@ -55,7 +55,7 @@ export class OpenCodeExecutor implements Executor {
     const pending = new Map<string, Pending>(), infos = new Map<string, AcpRecord>(), parts = new Map<string, AcpRecord>(), earlyParts = new Map<string, AcpRecord[]>(), tools = new Map<string, AcpRecord>();
     const mcpConnection = await owned.tools.connection(request);
     const mcpName = 'friday-' + createHash('sha256').update(task.id).digest('hex').slice(0, 16), mcp = !!mcpConnection && !!server.child;
-    const rules = request.purpose ? (server.generation === 2 ? [{ action: '*', resource: '*', effect: 'deny' }] : [{ permission: '*', pattern: '*', action: 'deny' }]) : openCodeRules(server.generation, runtime.settings.permissionMode, task.interactionMode === 'plan', mcp ? mcpName : undefined);
+    const rules = request.purpose ? (server.generation === 2 ? [{ action: '*', resource: '*', effect: 'deny' }] : [{ permission: '*', pattern: '*', action: 'deny' }]) : openCodeRules(server.generation, runtime.settings.permissionMode, mcp ? mcpName : undefined);
     const ownInfo = (id: string) => infos.get(id)?.role === 'assistant' && infos.get(id)?.parentID === nativeId;
     const settleV1 = () => { if (delivered && admission && idle && [...infos.values()].some(info => ownInfo(info.id) && info.time?.completed && info.finish !== 'tool-calls')) finish(); };
     const publishPart = async (part: AcpRecord) => {
@@ -191,9 +191,9 @@ export class OpenCodeExecutor implements Executor {
     try {
       signal.throwIfAborted();
       if (!observedTurn) {
-      if (!request.purpose && v2 && (runtime.settings.permissionMode !== 'auto' || task.interactionMode === 'plan')) {
+      if (!request.purpose && v2 && (runtime.settings.permissionMode !== 'auto')) {
         const agents = await v2.agent.list({ location: { directory: task.cwd } }, { signal: AbortSignal.timeout(5000) }).catch(() => ({ data: [] }));
-        const paths = agents.data.filter(agent => [task.interactionMode === 'plan' ? 'plan' : runtime.agent ?? 'build'].includes(agent.id)).flatMap(agent => agent.permissions.filter(rule => rule.effect === 'allow' && rule.resource !== '*' && ['edit', 'external_directory'].includes(rule.action)));
+        const paths = agents.data.filter(agent => [runtime.agent ?? 'build'].includes(agent.id)).flatMap(agent => agent.permissions.filter(rule => rule.effect === 'allow' && rule.resource !== '*' && ['edit', 'external_directory'].includes(rule.action)));
         rules.splice(mcp ? rules.length - 2 : rules.length, 0, ...paths);
       }
       if (task.threadId) {
@@ -217,7 +217,7 @@ export class OpenCodeExecutor implements Executor {
       }
       if (v2) {
         await v2.session.switchModel({ sessionID: sessionId, model: { providerID: runtime.providerID, id: runtime.modelID, ...(runtime.effort ? { variant: runtime.effort } : {}) } });
-        await v2.session.switchAgent({ sessionID: sessionId, agent: task.interactionMode === 'plan' ? 'plan' : runtime.agent ?? 'build' });
+        await v2.session.switchAgent({ sessionID: sessionId, agent: runtime.agent ?? 'build' });
       }
       await request.beforeStart?.(); if (signal.aborted) throw cancelled(); await update({ kind: 'turn', turnId: nativeId }); active = true; await update({ kind: 'ready', canSteer: v2 !== undefined && request.command !== 'compact' });
       if (request.command === 'compact') {
@@ -228,7 +228,7 @@ export class OpenCodeExecutor implements Executor {
         const result = await v2.session.prompt({ sessionID: sessionId, id: nativeId, text: request.prompt, ...(files.length ? { files } : {}) }); if (result.id !== nativeId) throw new Error('OpenCode 未确认提示词标识');
       } else {
         const parts: any[] = [{ type: 'text', text: request.prompt }]; for (const image of request.images ?? []) parts.push({ type: 'file', mime: image.mediaType, filename: image.name, url: `data:${image.mediaType};base64,${(await readFile(image.path)).toString('base64')}` });
-        await openCodeData(v1!.session.promptAsync({ sessionID: sessionId, messageID: nativeId, model: { providerID: runtime.providerID, modelID: runtime.modelID }, variant: runtime.effort || undefined, agent: task.interactionMode === 'plan' ? 'plan' : runtime.agent ?? 'build', parts })); admission = true; settleV1();
+        await openCodeData(v1!.session.promptAsync({ sessionID: sessionId, messageID: nativeId, model: { providerID: runtime.providerID, modelID: runtime.modelID }, variant: runtime.effort || undefined, agent: runtime.agent ?? 'build', parts })); admission = true; settleV1();
       }
       } else await update({ kind: 'ready', canSteer: server.generation === 2 });
       await completion; await chain; if (signal.aborted) throw cancelled();

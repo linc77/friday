@@ -48,7 +48,7 @@ export class TaskPreparations {
           const message = task.messages?.findLast(message => message.role === 'user' && !message.revertedAt);
           if (!message) return;
           run = { id: runId, durableId: record.id, messageId: message.id, requestId: task.lastRequestId, cwd: task.cwd, at: message.at ?? task.createdAt,
-            status: 'failed', mode: task.mode, interactionMode: task.interactionMode ?? 'default', model: task.model, reasoningEffort: task.reasoningEffort };
+            status: 'failed', mode: task.mode, model: task.model, reasoningEffort: task.reasoningEffort };
           task.runs.push(run); message.runId = runId;
           // Reacquire the transaction overlay after insertion; mutating the
           // local object used for push would not update the persisted document.
@@ -107,7 +107,7 @@ export class TaskPreparations {
       run.workspacePreparation = { status: 'preparing', attempt: run.workspacePreparation!.attempt + 1, startedAt: stamp };
       task.currentRunId = runId; task.durableId = durableId; task.status = 'queued'; task.canSteer = false;
       task.lastRequestId = run.requestId; task.error = null; task.result = ''; task.artifact = null; task.workspaceRequest = null; task.turnId = null;
-      task.mode = run.mode; task.interactionMode = run.interactionMode;
+      task.mode = run.mode;
       if (run.model !== undefined) task.model = run.model; else delete task.model;
       if (run.reasoningEffort !== undefined) task.reasoningEffort = run.reasoningEffort; else delete task.reasoningEffort;
       task.executionWorkspace = plan; task.cwd = plan.cwd; task.updatedAt = stamp; task.unread = false;

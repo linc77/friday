@@ -73,60 +73,16 @@ struct TaskFilesPanelState: Codable, Equatable {
 }
 struct TaskComposerSubmission {
     let provider: String; let model: String; let effort: String
-    let dispatch: TaskComposerDispatch; let interactionMode: String
-    var planEventID: String? = nil
-    var implementInNewThread = false
+    let dispatch: TaskComposerDispatch
     var compactBeforeSend = false
     var providerInstanceId: String? = nil
     var modelOptions: [ProviderOptionSelection]? = nil
 }
 
 enum TaskExecutionPresentation {
-    static func currentPlan(_ task: WorkItem?, mode: String, editing: Bool) -> TaskEvent? {
-        guard let task, !editing, mode == "plan", task.status == "completed", !task.active,
-              task.queue?.pending.isEmpty != false else { return nil }
-        let event = task.events.last { $0.revertedAt == nil && CodexTranscript.isProposal($0) && $0.turnId == task.turnId }
-        return event?.status == "completed" && event?.text.isEmpty == false ? event : nil
-    }
     static func relativePath(_ path: String, cwd: String) -> String {
         let root = cwd.hasSuffix("/") ? cwd : cwd + "/"
         return path.hasPrefix(root) ? String(path.dropFirst(root.count)) : path
-    }
-    static func planMarkdown(_ text: String) -> String {
-        text.replacingOccurrences(of: "^\\s*<proposed_plan>\\s*|\\s*</proposed_plan>\\s*$", with: "", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-    static func planTitle(_ text: String) -> String? {
-        planMarkdown(text).components(separatedBy: .newlines).first { $0.range(of: "^ {0,3}#{1,6}\\s+\\S", options: .regularExpression) != nil }
-            .map { $0.replacingOccurrences(of: "^ {0,3}#{1,6}\\s+", with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces) }
-    }
-    static func displayedPlan(_ text: String) -> String {
-        var lines = planMarkdown(text).components(separatedBy: "\n").map { $0.hasSuffix("\r") ? String($0.dropLast()) : $0 }
-        if lines.first?.range(of: "^ {0,3}#{1,6}\\s+", options: .regularExpression) != nil { lines.removeFirst() }
-        while lines.first?.trimmingCharacters(in: .whitespaces).isEmpty == true { lines.removeFirst() }
-        if lines.first?.range(of: "^ {0,3}#{1,6}\\s+summary\\s*$", options: [.regularExpression, .caseInsensitive]) != nil {
-            lines.removeFirst()
-            while lines.first?.trimmingCharacters(in: .whitespaces).isEmpty == true { lines.removeFirst() }
-        }
-        return lines.joined(separator: "\n")
-    }
-    static func planPreview(_ text: String, maxLines: Int = 10) -> String {
-        var result: [String] = []; var visible = 0; var more = false
-        for line in displayedPlan(text).components(separatedBy: "\n") {
-            if !line.trimmingCharacters(in: .whitespaces).isEmpty { if visible >= maxLines { more = true; break }; visible += 1 }
-            result.append(line)
-        }
-        while result.last?.trimmingCharacters(in: .whitespaces).isEmpty == true { result.removeLast() }
-        if result.isEmpty { return planTitle(text) ?? "" }
-        if more { result += ["", "..."] }
-        return result.joined(separator: "\n")
-    }
-    static func planFilename(_ text: String) -> String {
-        let title = planTitle(text) ?? "plan"
-        let clean = title.lowercased().replacingOccurrences(of: "[`'\".,!?()\\[\\]{}]+", with: "", options: .regularExpression)
-            .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
-        return String((clean.isEmpty ? "plan" : clean).prefix(100)) + ".md"
     }
 }
 

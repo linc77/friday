@@ -87,8 +87,6 @@
       "compactAvailable": true,
       "expected": [
         "builtin:model",
-        "builtin:plan",
-        "builtin:default",
         "command:compact",
         "command:ui",
         "command:gh-fix-ci",
@@ -107,8 +105,6 @@
       "compactAvailable": true,
       "expected": [
         "builtin:model",
-        "builtin:plan",
-        "builtin:default",
         "command:compact",
         "command:review",
         "command:ui",
@@ -123,8 +119,6 @@
       "compactAvailable": true,
       "expected": [
         "builtin:model",
-        "builtin:plan",
-        "builtin:default",
         "skill:review",
         "skill:plan-deploy",
         "skill:apply",
@@ -139,9 +133,7 @@
       "showSkills": false,
       "compactAvailable": true,
       "expected": [
-        "builtin:model",
-        "builtin:plan",
-        "builtin:default"
+        "builtin:model"
       ]
     },
     {
@@ -153,9 +145,7 @@
       "expected": [
         "builtin:model",
         "command:compact",
-        "skill:skill:review",
-        "builtin:plan",
-        "builtin:default"
+        "skill:skill:review"
       ]
     },
     {
@@ -167,9 +157,7 @@
       "expected": [
         "builtin:model",
         "command:compact",
-        "command:review",
-        "builtin:plan",
-        "builtin:default"
+        "command:review"
       ]
     },
     {
@@ -180,9 +168,7 @@
       "compactAvailable": true,
       "expected": [
         "builtin:model",
-        "skill:skill:review",
-        "builtin:plan",
-        "builtin:default"
+        "skill:skill:review"
       ]
     },
     {
@@ -192,9 +178,7 @@
       "showSkills": false,
       "compactAvailable": true,
       "expected": [
-        "builtin:model",
-        "builtin:plan",
-        "builtin:default"
+        "builtin:model"
       ]
     },
     {
@@ -284,9 +268,7 @@
       "showSkills": true,
       "compactAvailable": true,
       "expected": [
-        "builtin:model",
-        "builtin:plan",
-        "builtin:default"
+        "builtin:model"
       ]
     },
     {
@@ -296,9 +278,7 @@
       "showSkills": false,
       "compactAvailable": true,
       "expected": [
-        "builtin:model",
-        "builtin:plan",
-        "builtin:default"
+        "builtin:model"
       ]
     },
     {
@@ -308,9 +288,7 @@
       "showSkills": true,
       "compactAvailable": true,
       "expected": [
-        "builtin:model",
-        "builtin:plan",
-        "builtin:default"
+        "builtin:model"
       ]
     },
     {
@@ -320,9 +298,7 @@
       "showSkills": false,
       "compactAvailable": true,
       "expected": [
-        "builtin:model",
-        "builtin:plan",
-        "builtin:default"
+        "builtin:model"
       ]
     },
     {
@@ -332,7 +308,6 @@
       "showSkills": true,
       "compactAvailable": true,
       "expected": [
-        "builtin:plan",
         "skill:plan-deploy"
       ]
     },
@@ -342,9 +317,7 @@
       "atStart": true,
       "showSkills": false,
       "compactAvailable": true,
-      "expected": [
-        "builtin:plan"
-      ]
+      "expected": []
     },
     {
       "kind": "slash",
@@ -353,7 +326,6 @@
       "showSkills": true,
       "compactAvailable": true,
       "expected": [
-        "builtin:plan",
         "skill:plan-deploy"
       ]
     },
@@ -363,9 +335,7 @@
       "atStart": false,
       "showSkills": false,
       "compactAvailable": true,
-      "expected": [
-        "builtin:plan"
-      ]
+      "expected": []
     },
     {
       "kind": "slash",
@@ -374,7 +344,6 @@
       "showSkills": true,
       "compactAvailable": true,
       "expected": [
-        "builtin:plan",
         "skill:plan-deploy",
         "skill:apply",
         "command:ui"
@@ -387,7 +356,6 @@
       "showSkills": false,
       "compactAvailable": true,
       "expected": [
-        "builtin:plan",
         "command:ui"
       ]
     },
@@ -398,7 +366,6 @@
       "showSkills": true,
       "compactAvailable": true,
       "expected": [
-        "builtin:plan",
         "skill:plan-deploy",
         "skill:apply"
       ]
@@ -409,9 +376,7 @@
       "atStart": false,
       "showSkills": false,
       "compactAvailable": true,
-      "expected": [
-        "builtin:plan"
-      ]
+      "expected": []
     },
     {
       "kind": "slash",
@@ -420,7 +385,6 @@
       "showSkills": true,
       "compactAvailable": true,
       "expected": [
-        "builtin:plan",
         "skill:plan-deploy"
       ]
     },
@@ -430,9 +394,7 @@
       "atStart": true,
       "showSkills": false,
       "compactAvailable": true,
-      "expected": [
-        "builtin:plan"
-      ]
+      "expected": []
     },
     {
       "kind": "slash",
@@ -441,7 +403,6 @@
       "showSkills": true,
       "compactAvailable": true,
       "expected": [
-        "builtin:plan",
         "skill:plan-deploy"
       ]
     },
@@ -451,9 +412,7 @@
       "atStart": false,
       "showSkills": false,
       "compactAvailable": true,
-      "expected": [
-        "builtin:plan"
-      ]
+      "expected": []
     },
     {
       "kind": "slash",
@@ -462,9 +421,7 @@
       "showSkills": true,
       "compactAvailable": true,
       "expected": [
-        "builtin:plan",
-        "builtin:model",
-        "builtin:default"
+        "builtin:model"
       ]
     },
     {
@@ -474,9 +431,7 @@
       "showSkills": false,
       "compactAvailable": true,
       "expected": [
-        "builtin:plan",
-        "builtin:model",
-        "builtin:default"
+        "builtin:model"
       ]
     },
     {
@@ -486,9 +441,7 @@
       "showSkills": true,
       "compactAvailable": true,
       "expected": [
-        "builtin:plan",
-        "builtin:model",
-        "builtin:default"
+        "builtin:model"
       ]
     },
     {
@@ -498,9 +451,7 @@
       "showSkills": false,
       "compactAvailable": true,
       "expected": [
-        "builtin:plan",
-        "builtin:model",
-        "builtin:default"
+        "builtin:model"
       ]
     },
     {
@@ -510,8 +461,7 @@
       "showSkills": true,
       "compactAvailable": true,
       "expected": [
-        "command:ui",
-        "builtin:default"
+        "command:ui"
       ]
     },
     {
@@ -521,8 +471,7 @@
       "showSkills": false,
       "compactAvailable": true,
       "expected": [
-        "command:ui",
-        "builtin:default"
+        "command:ui"
       ]
     },
     {
@@ -531,9 +480,7 @@
       "atStart": false,
       "showSkills": true,
       "compactAvailable": true,
-      "expected": [
-        "builtin:default"
-      ]
+      "expected": []
     },
     {
       "kind": "slash",
@@ -541,9 +488,7 @@
       "atStart": false,
       "showSkills": false,
       "compactAvailable": true,
-      "expected": [
-        "builtin:default"
-      ]
+      "expected": []
     },
     {
       "kind": "slash",
@@ -2138,64 +2083,6 @@
       "showSkills": false,
       "compactAvailable": true,
       "expected": []
-    }
-  ],
-  "modeCases": [
-    {
-      "text": "/plan",
-      "expected": "plan"
-    },
-    {
-      "text": " /PLAN \n",
-      "expected": "plan"
-    },
-    {
-      "text": "/default",
-      "expected": "default"
-    },
-    {
-      "text": " /DeFaUlT\t",
-      "expected": "default"
-    },
-    {
-      "text": "/model",
-      "expected": null
-    },
-    {
-      "text": "/plans",
-      "expected": null
-    },
-    {
-      "text": "/plan reason",
-      "expected": null
-    },
-    {
-      "text": "prefix /plan",
-      "expected": null
-    },
-    {
-      "text": "/plan\n/plan",
-      "expected": null
-    },
-    {
-      "text": "﻿/plan﻿",
-      "expected": "plan"
-    },
-    {
-      "text": "/plan",
-      "expected": null
-    },
-    {
-      "text": " /default ",
-      "expected": "default"
-    },
-    {
-      "text": "/default?",
-      "expected": null
-    },
-    {
-      "text": "",
-      "expected": null
     }
   ],
   "feedbackCases": [

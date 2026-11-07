@@ -15,10 +15,9 @@ export type Project = { scripts?: import('./project-script-types.js').ProjectScr
 export type Memory = { id: string; text: string; updatedAt: string };
 export type Question = { id: string; header: string; question: string; options: { label: string; description: string; value?: string }[]; multiSelect?: boolean; isOther?: boolean; isSecret?: boolean };
 export type Approval = { id: string; method: string; title: string; detail: string; questions: Question[]; state: 'pending' | 'answered' | 'expired'; responseStatus?: 'sending' | 'uncertain' | 'sent'; decisions?: import('./provider-approvals.js').ApprovalDecision[]; options?: import('./codex-mcp-elicitation.js').ApprovalOption[]; appName?: string; decision?: import('./provider-approvals.js').ApprovalDecision; answers?: Record<string, string[]>; subagentId?: string; ownerRunId?: string };
-export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; at?: string; turnId?: string; images?: IdeaImage[]; contexts?: TaskContextReference[]; delivery?: 'sending' | 'sent' | 'uncertain'; interactionMode?: TaskInteractionMode; runId?: string; revertedAt?: string; historyOrder?: number; creationSource?: 'monitor' | 'delegated'; notification?: import('./task-change-request-watch-types.js').WatchNotification };
+export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; at?: string; turnId?: string; images?: IdeaImage[]; contexts?: TaskContextReference[]; delivery?: 'sending' | 'sent' | 'uncertain'; runId?: string; revertedAt?: string; historyOrder?: number; creationSource?: 'monitor' | 'delegated'; notification?: import('./task-change-request-watch-types.js').WatchNotification };
 export type ExecutionImage = IdeaImage & { path: string };
 export type TaskMode = 'auto' | 'assistant' | 'research' | 'code';
-export type TaskInteractionMode = 'default' | 'plan';
 export type TaskGitAction = 'commit' | 'push' | 'create_pr' | 'commit_push' | 'commit_push_pr' | 'pull' | 'publish_repository';
 export type TaskPullRequest = { number: number; url: string; title: string; state: 'open' | 'closed' | 'merged'; base: string; head: string; provider?: import('./source-control-provider.js').SourceControlProvider; host?: string; repository?: string;
   snapshot?: import('./task-change-request-summary.js').TaskPullRequestSnapshot; linkedAt?: string; linkSource?: 'stack' | 'manual' | 'created' | 'agent' | 'stack-dismissed'; dismissedAt?: string; observedAt?: number;
@@ -93,7 +92,7 @@ export type TaskRun = {
   startedAt?: string;
   executionOrder?: number; executionMessagePosition?: number; executionExcludedAt?: string;
   status: TaskStatus; completedAt?: string; threadId?: string; turnId?: string; nativeHead?: string;
-  mode: TaskMode; interactionMode: TaskInteractionMode; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[];
+  mode: TaskMode; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[];
   before?: TaskCheckpoint; after?: TaskCheckpoint; changes?: TaskRunFile[]; diffError?: string; revertedAt?: string;
   inheritedFrom?: { taskId: string; runId: string };
   workspacePreparation?: TaskWorkspacePreparation;
@@ -131,7 +130,7 @@ export type NativeRewindRequest = {
   started: (original: NativeRewindStart) => Promise<void>;
   candidate: (threadId: string) => Promise<void>;
 };
-export type TaskRewindEditor = { text: string; images: IdeaImage[]; contexts?: TaskContextReference[]; interactionMode: TaskInteractionMode; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[] };
+export type TaskRewindEditor = { text: string; images: IdeaImage[]; contexts?: TaskContextReference[]; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[] };
 export type TaskRewindOperation = {
   id: string; durableId: number; requestId: string; messageId: string; runId: string; removedRunIds: string[]; removedExecutionRunIds?: string[];
   status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted' | 'needs_review';
@@ -176,7 +175,6 @@ export type QueuedTaskMessage = {
   id: string; dispatchId: string; text: string; images: IdeaImage[]; createdAt: string;
   status: 'queued' | 'dispatching' | 'steering' | 'running' | 'completed' | 'cancelled' | 'uncertain' | 'failed';
   model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; runId?: number; error?: string | null;
-  interactionMode?: TaskInteractionMode;
   contexts?: TaskContextReference[];
   creationSource?: 'monitor' | 'delegated'; notification?: import('./task-change-request-watch-types.js').WatchNotification;
 };
@@ -247,8 +245,6 @@ export type WorkItem = {
   branchChange?: TaskBranchChange;
   queue?: TaskMessageQueue;
   canSteer?: boolean;
-  interactionMode?: TaskInteractionMode;
-  planOrigin?: { taskId: string; eventId: string };
   gitOperation?: TaskGitOperation;
   gitOperations?: TaskGitOperation[];
   changeRequests?: TaskPullRequest[];
