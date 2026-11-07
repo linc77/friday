@@ -95,6 +95,7 @@
 "收下这个想法" = "Save idea";
 "文字、链接，都可以。" = "Text, links, anything you want to keep.";
 "新对话" = "New conversation";
+"展开底部导航" = "Expand bottom navigation";
 "新对话（⌘N）" = "New conversation (⌘N)";
 "无法将设备凭据保存到钥匙串（%lld）" = "Unable to save device credentials to Keychain (%lld)";
 "更新本机工具的安装状态。" = "Refresh the installation status of local tools.";
