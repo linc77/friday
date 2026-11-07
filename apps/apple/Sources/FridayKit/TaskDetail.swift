@@ -274,70 +274,31 @@ struct TaskDetail: View {
         ScrollViewReader { proxy in
             GeometryReader { viewport in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 24) {
-                        #if os(iOS)
-                        header(task)
-                        #endif
-                        if task.localAgent {
-                            if hasEarlierHistory || historyError != nil {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Button {
-                                        let anchor = historyAnchor ?? CodexTranscript.rows(task).first?.id
-                                        followingEnd = false
-                                        Task { @MainActor in
-                                            await loadHistory(automatic: false)
-                                            if let anchor { var transaction = Transaction(); transaction.disablesAnimations = true; withTransaction(transaction) { proxy.scrollTo(anchor, anchor: .top) } }
-                                        }
-                                    } label: { FridaySymbolLabel(friday: historyLoading ? "正在加载历史…" : "加载更早的记录", systemImage: "clock.arrow.circlepath") }
-                                        .buttonStyle(FridaySymbolButtonStyle()).font(.caption).disabled(historyLoading || !store.connected)
-                                    if let historyError { Text(fridayString: historyError).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
-                                }.frame(maxWidth: .infinity, alignment: .leading)
+                    TaskTranscriptContent(
+                        store: store, task: task, header: { header(task) },
+                        hasEarlierHistory: hasEarlierHistory, historyLoading: historyLoading,
+                        historyError: historyError,
+                        loadEarlier: {
+                            let anchor = historyAnchor ?? CodexTranscript.rows(task).first?.id
+                            followingEnd = false
+                            Task { @MainActor in
+                                await loadHistory(automatic: false)
+                                if let anchor {
+                                    var transaction = Transaction()
+                                    transaction.disablesAnimations = true
+                                    withTransaction(transaction) { proxy.scrollTo(anchor, anchor: .top) }
+                                }
                             }
-                            TaskForkStatusView(store: store, task: task, openTask: { onOpenTask?($0) })
-                                .id(store.connection.server + ":fork:" + task.id)
-                            CodexTimeline(store: store, task: task, worktreeSetup: worktreeSetup, canOpenLocalFiles: store.deviceId == "owner", openDiff: { diffSelection = $0; activePanel = "diff" }, canEditMessages: !sending && queueEdit == nil, editFromHere: { rewindTarget = TaskRewindTarget(id: $0) }, openTask: { onOpenTask?($0) })
-                            TaskRewindStatusView(store: store, task: task, hasOriginalDraft: rewindDraft?.applied == true,
-                                restoreOriginalDraft: restoreRewindOriginalDraft, openChanges: { diffSelection = TaskDiffSelection(path: $0); activePanel = "diff" })
-                                .id("rewind-status-" + task.id + ":" + (task.rewindOperation?.id ?? ""))
-                        } else {
-                            ForEach(task.conversation) { message in conversationMessage(message, task: task) }
-                        }
-                        delegatedTasks(task)
-                        if task.status == "needs_project" { WorkspaceChoice(store: store, task: task).id(task.durableId) }
-                        ForEach(task.localAgent ? [] : task.approvals.filter { $0.state == "pending" }) { approval in
-                            ApprovalCard(store: store, taskId: id, approval: approval)
-                                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-                        }
-                        if let error = task.error, task.preparationFailure == nil {
-                            FridaySymbolLabel(friday: error, systemImage: "exclamationmark.circle")
-                                .fridaySymbolFeedback()
-                                .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
-                                .padding(18).frame(maxWidth: .infinity, alignment: .leading).fridayCard()
-                        }
-                        #if os(macOS)
-                        // The end anchor includes the floating composer's space so
-                        // following a reply never places it underneath the input.
-                        Color.clear.frame(height: task.localAgent ? composerHeight + 24 : 1).id("transcript-end")
-                        #else
-                        Color.clear.frame(height: 1).id("transcript-end")
-                        #endif
-                    }
-                    .scrollTargetLayout()
-                    // Animate only approval insertion/removal, never the streamed result.
-                    .animation(reduceMotion ? nil : FridayTheme.motion, value: task.approvals.filter { $0.state == "pending" }.map(\.id))
-                    .padding(.horizontal, 24)
-                    #if os(iOS)
-                    .padding(.bottom, 24)
-                    .padding(.top, task.localAgent ? 24 : viewport.safeAreaInsets.top + 24)
-                    #else
-                    .padding(.bottom, task.localAgent ? 0 : 24)
-                    .padding(.top, 24)
-                    #endif
-                    .frame(maxWidth: FridayTheme.contentWidth + 48).frame(maxWidth: .infinity)
-                    .background(GeometryReader { geometry in
-                        let frame = geometry.frame(in: .named("task-transcript"))
-                        Color.clear.preference(key: TranscriptScrollKey.self, value: TranscriptScrollMetrics(top: frame.minY, bottom: frame.maxY, viewportHeight: viewport.size.height))
-                    })
+                        },
+                        worktreeSetup: worktreeSetup, canEditMessages: !sending && queueEdit == nil,
+                        openDiff: { diffSelection = $0; activePanel = "diff" },
+                        editFromHere: { rewindTarget = TaskRewindTarget(id: $0) },
+                        openTask: { onOpenTask?($0) },
+                        hasOriginalDraft: rewindDraft?.applied == true,
+                        restoreOriginalDraft: restoreRewindOriginalDraft,
+                        topInset: viewport.safeAreaInsets.top, viewportHeight: viewport.size.height,
+                        endSpacing: transcriptEndSpacing(task)
+                    )
                     #if os(macOS)
                     .background {
                         if task.localAgent {
@@ -421,6 +382,14 @@ struct TaskDetail: View {
         }
     }
 
+    private func transcriptEndSpacing(_ task: WorkItem) -> CGFloat {
+        #if os(macOS)
+        task.localAgent ? composerHeight + 24 : 1
+        #else
+        1
+        #endif
+    }
+
     @MainActor private func loadHistory(automatic: Bool, throughEventID: String? = nil) async {
         guard !historyLoading, store.connected, let raw = rawTask, raw.localAgent else { return }
         if raw.conversationHistory != nil { await loadConversationHistory(automatic: automatic, throughEventID: throughEventID); return }
@@ -486,87 +455,13 @@ struct TaskDetail: View {
         }
     }
 
-    private func header(_ task: WorkItem) -> some View {
-        HStack(alignment: task.localAgent ? .center : .top, spacing: 14) {
-            if task.localAgent {
-                Text(store.projects.first { $0.id == task.projectId }?.name ?? task.agentName)
-                    .font(.callout).foregroundStyle(.secondary).lineLimit(1)
-                Text("/").foregroundStyle(.tertiary)
-                #if os(macOS)
-                if task.subagentOrigin != nil || task.delegationOrigin != nil { Text(task.title).font(.callout.weight(.medium)).lineLimit(1).textSelection(.enabled) }
-                else { TaskHeaderTitle(store: store, task: task) }
-                #else
-                if task.subagentOrigin != nil || task.delegationOrigin != nil { Text(task.title).font(.callout.weight(.medium)).lineLimit(1) }
-                else { HStack(spacing: 6) {
-                    Text(task.title).font(.callout.weight(.medium)).lineLimit(1)
-                        .opacity(task.titleRegeneration == nil ? 1 : 0.55)
-                    FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9)).foregroundStyle(.secondary)
-                }.taskActions(store: store, task: task, opensMenu: true) }
-                #endif
-                Spacer(minLength: 8)
-                #if os(iOS)
-                if task.projectId != nil && task.subagentOrigin == nil { TaskProjectScriptsControl(store: store, task: task, updateSetup: { worktreeSetup = $0 }) }
-                #endif
-                TaskRelationshipsControl(store: store, task: task, canNavigate: onOpenTask != nil, openTask: { onOpenTask?($0) })
-                TaskOpenInControl(store: store, task: task, enableShortcut: true)
-                #if os(iOS)
-                Button { if filesPanel.visible && activePanel == "files" { filesPanel.visible = false } else { filesPanel.visible = true; activePanel = "files" } } label: {
-                    FridaySymbolImage(systemName: "folder").font(.system(size: 15)).frame(width: 24, height: 24)
-                }.buttonStyle(FridaySymbolButtonStyle()).foregroundStyle(filesPanel.visible && activePanel == "files" ? FridayTheme.accent : .secondary)
-                    .disabled(!store.connected).accessibilityLabel(Text(friday: "工作区文件"))
-                #endif
-                if task.git?.status == "repository" { TaskGitActionsControl(store: store, task: task) }
-                #if os(iOS)
-                Button { terminalShown.toggle() } label: {
-                    FridaySymbolImage(systemName: "terminal").font(.system(size: 15)).frame(width: 24, height: 24)
-                }.buttonStyle(FridaySymbolButtonStyle())
-                    .foregroundStyle(terminalShown ? FridayTheme.accent : .secondary)
-                    .disabled(task.projectId == nil)
-                    .keyboardShortcut("j", modifiers: .command)
-                    .accessibilityLabel(Text(friday: terminalShown ? "收起终端" : "显示终端"))
-                    .help(Text(friday: "终端 · ⌘J"))
-                Button {if browserPanel.visible && activePanel=="browser" {browserPanel.visible=false} else {browserPanel.visible=true;if browserPanel.tabs.isEmpty {browserPanel.open()};activePanel="browser"}} label: {
-                    FridaySymbolImage(systemName:"globe").font(.system(size:15)).frame(width:24,height:24)
-                }.buttonStyle(FridaySymbolButtonStyle()).foregroundStyle(browserPanel.visible && activePanel=="browser" ? FridayTheme.accent:.secondary).accessibilityLabel(Text(friday:"网页预览"))
-                Button { if activePanel != "diff" { diffSelection = diffSelection ?? TaskDiffSelection(); activePanel = "diff" } else { diffSelection = diffSelection == nil ? TaskDiffSelection() : nil } } label: {
-                    FridaySymbolImage(systemName: "sidebar.right").font(.system(size: 15)).frame(width: 24, height: 24)
-                }.buttonStyle(FridaySymbolButtonStyle())
-                    .foregroundStyle(diffSelection == nil ? .secondary : FridayTheme.accent)
-                    .accessibilityLabel(Text(friday: diffSelection == nil ? "显示改动面板" : "关闭改动面板"))
-                    .help(Text(friday: "文件改动与 Diff"))
-                #else
-                Button(action: toggleWorkspacePanel) {
-                    FridaySymbolImage(systemName: "sidebar.right").font(.system(size: 15)).frame(width: 24, height: 24)
-                }.buttonStyle(FridaySymbolButtonStyle())
-                    .foregroundStyle(workspacePanelVisible ? FridayTheme.accent : .secondary)
-                    .accessibilityLabel(Text(friday: workspacePanelVisible ? "收起侧栏" : "展开侧栏"))
-                    .help(Text(friday: "文件、改动与终端"))
-                #endif
-            } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Friday").font(.caption).foregroundStyle(.secondary)
-                    Text(task.title).font(.title3.weight(.semibold)).lineLimit(3).textSelection(.enabled)
-                }
-                Spacer(minLength: 8)
-            }
-        }
-        #if os(iOS)
-        .padding(.bottom, 8)
-        #else
-        .padding(.horizontal, 26).padding(.top, 24).padding(.bottom, 10)
-        .background {
-            if task.localAgent {
-                Button("") {
-                    if terminalShown && activePanel == "terminal" { toggleWorkspacePanel() }
-                    else { terminalShown = true; activePanel = "terminal" }
-                }.keyboardShortcut("j", modifiers: .command)
-                    .disabled(task.projectId == nil).hidden().accessibilityHidden(true)
-            }
-            if task.localAgent && task.projectId != nil && task.subagentOrigin == nil {
-                TaskProjectScriptsControl(store: store, task: task, showsControls: false, updateSetup: { worktreeSetup = $0 })
-            }
-        }
-        #endif
+    private func header(_ task: WorkItem) -> TaskDetailHeader {
+        TaskDetailHeader(store: store, task: task, onOpenTask: onOpenTask,
+                         worktreeSetup: $worktreeSetup, filesPanel: $filesPanel,
+                         activePanel: $activePanel, terminalShown: $terminalShown,
+                         browserPanel: $browserPanel, diffSelection: $diffSelection,
+                         workspacePanelVisible: workspacePanelVisible,
+                         toggleWorkspacePanel: toggleWorkspacePanel)
     }
 
     private var workspacePanelVisible: Bool {
@@ -599,45 +494,6 @@ struct TaskDetail: View {
     private func savePanels() {
         guard panelContext == store.connection.server + "\n" + id else { return }
         TaskDraftCache.save(TaskPanelPreferences(diff: diffSelection, width: diffWidth, terminalShown: terminalShown, files: filesPanel, activePanel: activePanel,browser:browserPanel.persisted), server: store.connection.server, context: "task-panel:" + id)
-    }
-
-    @ViewBuilder private func conversationMessage(_ message: ChatMessage, task: WorkItem) -> some View {
-        if message.role == "user" {
-            HStack {
-                Spacer(minLength: 36)
-                Text(message.text).font(.body).lineSpacing(5).textSelection(.enabled)
-                    .padding(18)
-                    .background(FridayTheme.accent.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 9) {
-                    if task.localAgent {
-                        FridaySymbolImage(systemName: "terminal").fridaySymbolFeedback().font(.subheadline).foregroundStyle(.secondary)
-                    } else { FridayMark(size: 30) }
-                    Text(task.agentName).font(.subheadline.weight(.semibold))
-                }
-                Text(.init(message.text)).font(.body).lineSpacing(6)
-                    .frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
-            }.padding(task.localAgent ? 4 : 24).background(task.localAgent ? Color.clear : FridayTheme.surface, in: RoundedRectangle(cornerRadius: FridayTheme.cornerRadius))
-        }
-    }
-
-    @ViewBuilder private func delegatedTasks(_ task: WorkItem) -> some View {
-        ForEach(store.tasks.filter { $0.parentId == task.id }) { child in
-            Button { onOpenTask?(child.id) } label: {
-                HStack(spacing: 12) {
-                    FridaySymbolImage(systemName: "terminal").fridaySymbolFeedback()
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(child.title).lineLimit(2)
-                        Text(child.agentName).font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    StatusBadge(task: child)
-                    FridaySymbolImage(systemName: "chevron.right").fridaySymbolFeedback()
-                }.padding(16)
-            }.buttonStyle(FridayButtonStyle()).accessibilityLabel(Text(friday: "打开任务"))
-        }
     }
 
     private func discardDraft() {
@@ -849,8 +705,8 @@ private struct TaskComposerHeightKey: PreferenceKey {
 }
 #endif
 
-private struct TranscriptScrollMetrics: Equatable { var top: CGFloat = 0; var bottom: CGFloat = 0; var viewportHeight: CGFloat = 0 }
-private struct TranscriptScrollKey: PreferenceKey {
+struct TranscriptScrollMetrics: Equatable { var top: CGFloat = 0; var bottom: CGFloat = 0; var viewportHeight: CGFloat = 0 }
+struct TranscriptScrollKey: PreferenceKey {
     static let defaultValue = TranscriptScrollMetrics()
     static func reduce(value: inout TranscriptScrollMetrics, nextValue: () -> TranscriptScrollMetrics) { value = nextValue() }
 }
