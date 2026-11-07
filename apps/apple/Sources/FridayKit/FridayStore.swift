@@ -82,6 +82,7 @@ final class FridayStore: ObservableObject {
     let terminalSessions = TaskTerminalSessions()
     let browserClientID=UUID()
     private var streamTask: Task<Void, Never>?
+    private let snapshotDecoding = TaskStreamDecoding()
     private var taskStreamState = TaskStreamState()
     var taskStreamSession: String? { taskStreamState.session }
     private var taskViewHistories = TaskViewHistoryCache()
@@ -220,10 +221,11 @@ final class FridayStore: ObservableObject {
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     let (bytes, response) = try await URLSession.shared.bytes(for: request)
                     guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw ConnectionError.message("连接授权已失效，请重新配对") }
-                    var decoder = TaskWorkspaceStream()
+                    let decoder = TaskStreamDecoding()
                     for try await line in bytes.lines {
                         if Task.isCancelled || connectionIdentity != identity { return }
-                        if let update = try decoder.read(line) {
+                        if let update = try await decoder.readWorkspace(line) {
+                            if Task.isCancelled || connectionIdentity != identity { return }
                             switch update {
                             case .snapshot(let state): apply(state, sourceSession: snapshot.taskStreamSession)
                             case .summaries(let patch):
@@ -250,9 +252,12 @@ final class FridayStore: ObservableObject {
     }
     private func overviewSnapshot() async throws -> Snapshot {
         let (data, response) = try await URLSession.shared.data(for: connection.request("/api/overview"))
-        if (response as? HTTPURLResponse)?.statusCode == 404 { return try await connection.decode(Snapshot.self, "/api/state?history=turns&compactItems=1&itemHistory=1") }
+        if (response as? HTTPURLResponse)?.statusCode == 404 {
+            let legacy = try await connection.data("/api/state?history=turns&compactItems=1&itemHistory=1")
+            return try await snapshotDecoding.decode(Snapshot.self, from: legacy)
+        }
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw ConnectionError.message((try? JSONDecoder().decode(APIError.self, from: data).error) ?? "服务暂时无法响应") }
-        return try JSONDecoder().decode(Snapshot.self, from: data)
+        return try await snapshotDecoding.decode(Snapshot.self, from: data)
     }
     func taskDetail(_ id: String) -> WorkItem? { taskStreamState.task(id, summaries: tasks, scope: connectionIdentity) }
     func taskViewHistory(_ id: String, scope: String) -> TaskViewHistoryCache.Entry? {
@@ -293,12 +298,19 @@ final class FridayStore: ObservableObject {
         while current() {
             if !connected { do { try await Task.sleep(for: .seconds(1)); continue } catch { return } }
             do {
+                // A reconnect must not retain an unfinished event from the old stream.
+                let decoder = TaskStreamDecoding()
                 let (data, snapshotResponse) = try await URLSession.shared.data(for: connection.request(route + "/snapshot?itemHistory=1"))
                 guard current() else { return }
                 let status = (snapshotResponse as? HTTPURLResponse)?.statusCode
-                if status == 404, let removal = try? JSONDecoder().decode(TaskDetailRemoval.self, from: data), taskStreamState.accept(removal, for: id, scope: identity) { taskStreamErrors.removeValue(forKey: id); taskContentRevision += 1; return }
+                if status == 404 {
+                    let removal = try? await decoder.decode(TaskDetailRemoval.self, from: data)
+                    guard current() else { return }
+                    if let removal, taskStreamState.accept(removal, for: id, scope: identity) { taskStreamErrors.removeValue(forKey: id); taskContentRevision += 1; return }
+                }
                 guard status == 200 else { throw ConnectionError.message((try? JSONDecoder().decode(APIError.self, from: data).error) ?? "任务进展暂时无法加载") }
-                let frame = try JSONDecoder().decode(TaskDetailSnapshot.self, from: data)
+                let frame = try await decoder.decode(TaskDetailSnapshot.self, from: data)
+                guard current() else { return }
                 if taskStreamState.accept(frame, for: id, summaries: tasks, scope: identity) { taskStreamState.limitDetails(keeping: Set(taskLeases.keys)); taskContentRevision += 1; taskStreamErrors.removeValue(forKey: id) }
                 var query = URLComponents(); query.queryItems = [URLQueryItem(name: "session", value: session), URLQueryItem(name: "itemHistory", value: "1")]
                 if let version = taskStreamState.version(id) { query.queryItems?.append(URLQueryItem(name: "version", value: version)) }
@@ -306,10 +318,10 @@ final class FridayStore: ObservableObject {
                 request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 let (bytes, response) = try await URLSession.shared.bytes(for: request)
                 guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw ConnectionError.message("任务进展暂时无法加载") }
-                var decoder = TaskDetailStream()
                 for try await line in bytes.lines {
                     guard current() else { return }
-                    if let update = try decoder.read(line) {
+                    if let update = try await decoder.readDetail(line) {
+                        guard current() else { return }
                         switch update {
                         case .snapshot(let frame): if taskStreamState.accept(frame, for: id, summaries: tasks, scope: identity) { taskStreamState.limitDetails(keeping: Set(taskLeases.keys)); taskContentRevision += 1; taskStreamErrors.removeValue(forKey: id) }
                         case .removed(let removal): if taskStreamState.accept(removal, for: id, scope: identity) { taskStreamErrors.removeValue(forKey: id); taskContentRevision += 1; return }

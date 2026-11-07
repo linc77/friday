@@ -46,7 +46,6 @@ public struct FridayRootView: View {
     @State private var mobileKeyboardVisible = false
     #endif
     #if os(macOS)
-    @FocusState private var focusedSidebarSection: FridaySection?
     @State private var settingsSection: FridaySettingsSection = .appearance
     @State private var taskModelJump: TaskModelJumpContext?
     @State private var taskTitleEditors: Set<UUID> = []
@@ -183,32 +182,8 @@ public struct FridayRootView: View {
 
     #if os(macOS)
     private var sidebar: some View {
-        VStack(spacing: 8) {
-            VStack(spacing: 8) {
-                ForEach(FridaySection.allCases.filter { $0 != .settings }) { item in sidebarRow(item) }
-            }
-            Spacer(minLength: 16)
-            FridayUpdateNoticeButton()
-            sidebarRow(.settings)
-                .help(Text(friday: "设置（⌘,）"))
-        }
-        .padding(.top, FridayTheme.sidebarTopInset)
-        .padding(.bottom, 12)
-        .frame(width: FridayTheme.sidebarWidth)
-        .frame(maxHeight: .infinity)
-    }
-
-    private func sidebarRow(_ item: FridaySection) -> some View {
-        Button { navigation.section = item } label: {
-            FridaySymbolLabel(friday: item.rawValue, systemImage: item.icon, motion: item == .settings ? .rotate : .drawOn)
-        }
-        .buttonStyle(FridaySidebarButtonStyle(selected: navigation.section == item, focused: focusedSidebarSection == item))
-        .focused($focusedSidebarSection, equals: item)
-        .focusEffectDisabled()
-        .help(Text(fridayString: item.rawValue))
-        .accessibilityAddTraits(navigation.section == item ? .isSelected : [])
-        .accessibilityValue(item == .tasks && store.tasks.contains(where: { $0.active })
-            ? Text(friday: "\(store.tasks.filter { $0.active }.count) 个进行中的任务") : Text(""))
+        FridaySidebar(navigation: navigation, activeTaskCount: store.tasks.filter(\.active).count)
+            .equatable()
     }
     #endif
 
@@ -384,6 +359,58 @@ public struct FridayRootView: View {
 }
 
 #if os(macOS)
+/// Task output changes the store frequently; the rail only needs navigation
+/// and the active count. Keep its symbols, hover and focus state independent.
+private struct FridaySidebar: View, Equatable {
+    @ObservedObject var navigation: FridayNavigation
+    let activeTaskCount: Int
+    @FocusState private var focusedSection: FridaySection?
+    @State private var activations: [FridaySection: Int] = [:]
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.navigation === rhs.navigation && lhs.activeTaskCount == rhs.activeTaskCount
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            VStack(spacing: 8) {
+                ForEach(FridaySection.allCases.filter { $0 != .settings }) { item in row(item) }
+            }
+            Spacer(minLength: 16)
+            FridayUpdateNoticeButton()
+            row(.settings)
+                .help(Text(friday: "设置（⌘,）"))
+        }
+        .padding(.top, FridayTheme.sidebarTopInset)
+        .padding(.bottom, 12)
+        .frame(width: FridayTheme.sidebarWidth)
+        .frame(maxHeight: .infinity)
+    }
+
+    private func row(_ item: FridaySection) -> some View {
+        let animatesSymbol = item == .inbox || item == .settings
+        return Button {
+            if animatesSymbol { activations[item, default: 0] += 1 }
+            if navigation.section != item { navigation.section = item }
+        } label: {
+            if animatesSymbol {
+                FridaySymbolLabel(friday: item.rawValue, systemImage: item.icon,
+                                  motion: item == .settings ? .rotate : .drawOn)
+                    .fridaySymbolFeedback(value: activations[item, default: 0])
+            } else {
+                Label(friday: item.rawValue, systemImage: item.icon)
+            }
+        }
+        .buttonStyle(FridaySidebarButtonStyle(selected: navigation.section == item, focused: focusedSection == item))
+        .focused($focusedSection, equals: item)
+        .focusEffectDisabled()
+        .help(Text(fridayString: item.rawValue))
+        .accessibilityAddTraits(navigation.section == item ? .isSelected : [])
+        .accessibilityValue(item == .tasks && activeTaskCount > 0
+            ? Text(friday: "\(activeTaskCount) 个进行中的任务") : Text(""))
+    }
+}
+
 private struct FridaySidebarButtonStyle: ButtonStyle {
     let selected: Bool
     let focused: Bool
@@ -412,7 +439,6 @@ private struct FridaySidebarButtonBody: View {
             }
             .contentShape(RoundedRectangle(cornerRadius: FridayTheme.sidebarCornerRadius))
             .onHover { hovering = $0 }
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
     }
 }

@@ -6,6 +6,7 @@ trap 'rm -rf "$FRIDAY_STREAM_CHECK_DIR"' EXIT
 swiftc -parse-as-library \
   apps/apple/Sources/FridayKit/Models.swift \
   apps/apple/Sources/FridayKit/TaskStreamState.swift \
+  apps/apple/Sources/FridayKit/TaskStreamDecoding.swift \
   apps/apple/Sources/FridayKit/CodexTranscript.swift \
   apps/apple/Sources/FridayKit/TaskHistoryWindow.swift \
   apps/apple/Sources/FridayKit/TaskConversationWindow.swift \

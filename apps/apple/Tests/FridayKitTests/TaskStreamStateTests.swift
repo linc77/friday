@@ -15,6 +15,7 @@ import Foundation
         try decode(TaskDetailSnapshot.self, ["taskId": id, "sessionId": session, "sequence": sequence, "serial": serial, "version": version, "task": body(id, version, omitted: false, sequence: sequence, text: text)])
     }
     static func main() async throws {
+        try await decodingExecutor()
         var state = TaskStreamState(); let scope = "account one"
         let initial = try snapshot(10, 1, "service", [body("a", "v1"), body("b", "b1")])
         precondition(state.accept(initial, scope: scope)); var tasks = initial.tasks
@@ -78,21 +79,31 @@ import Foundation
         precondition(histories.load(task: historyTask, scope: "account:history") == nil)
         histories.retain([]); precondition(histories.load(task: historyTask, scope: "account:history") == nil)
         if CommandLine.arguments.count > 1 { try await network(CommandLine.arguments[1]) }
-        print("Task overview/detail isolation, independent cursors, restart/deletion guards and actual URLSession SSE checks passed")
+        print("Background decoding, task overview/detail isolation, independent cursors, restart/deletion guards and actual URLSession SSE checks passed")
+    }
+    private struct DecodingProbe: Decodable {
+        let decodedOnMainThread: Bool
+        init(from decoder: Decoder) throws { decodedOnMainThread = Thread.isMainThread }
+    }
+    @MainActor private static func decodingExecutor() async throws {
+        let decoder = TaskStreamDecoding()
+        let probe = try await decoder.decode(DecodingProbe.self, from: Data("{}".utf8))
+        precondition(!probe.decodedOnMainThread, "Loading a snapshot from the UI must decode outside the main thread")
     }
     static func network(_ base: String) async throws {
         for route in ["overview", "task", "output", "terminal", "live"] {
             var request = URLRequest(url: URL(string: base + "/" + route)!); request.timeoutInterval = 10
             let (bytes, response) = try await URLSession.shared.bytes(for: request)
             precondition((response as? HTTPURLResponse)?.statusCode == 200)
-            var workspace = TaskWorkspaceStream(); var detail = TaskDetailStream(); var output = TaskOutputStream(); var terminal = TaskTerminalStream(); var count = 0
+            let decoder = TaskStreamDecoding()
+            var output = TaskOutputStream(); var terminal = TaskTerminalStream(); var count = 0
             for try await line in bytes.lines {
                 switch route {
-                case "overview": if try workspace.read(line) != nil { count += 1 }
-                case "task": if try detail.read(line) != nil { count += 1 }
+                case "overview": if try await decoder.readWorkspace(line) != nil { count += 1 }
+                case "task": if try await decoder.readDetail(line) != nil { count += 1 }
                 case "output": if let value = try output.read(line) { count += 1; precondition(value.text.contains("你好 🚀")) }
                 case "live":
-                    if case .snapshot(let frame) = try detail.read(line) {
+                    if case .snapshot(let frame) = try await decoder.readDetail(line) {
                         count += 1
                         let text = CodexTranscript.rows(frame.task).flatMap { row -> [String] in
                             if case .work(let events) = row.content { return events.map(\.text) }; return []

@@ -38,6 +38,19 @@ await cp('apps/apple/Info-mac.plist', join(contents, 'Info.plist'));
 await cp('apps/apple/Assets/Friday.icns', join(contents, 'Resources/Friday.icns'));
 await cp(join(bin, 'Friday_FridayKit.bundle'), join(contents, 'Resources/Friday_FridayKit.bundle'), { recursive: true });
 await cp(join(bin, 'SwiftTerm_SwiftTerm.bundle'), join(contents, 'Resources/SwiftTerm_SwiftTerm.bundle'), { recursive: true });
+// SwiftPM leaves .strings as text. SwiftUI's explicit-locale lookups parse
+// these tables repeatedly during layout; compile the packaged copies so
+// navigation does not spend its animation frames in the text plist parser.
+async function compileStringTables(directory) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) await compileStringTables(path);
+    else if (entry.isFile() && entry.name.endsWith('.strings')) {
+      run('/usr/bin/plutil', ['-convert', 'binary1', path]);
+    }
+  }
+}
+await compileStringTables(join(contents, 'Resources/Friday_FridayKit.bundle'));
 await cp('apps/apple/.build/checkouts/SwiftTerm/LICENSE', join(contents, 'Resources/SwiftTerm-LICENSE'));
 const framework = join(root, 'apps/apple/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework');
 run('/usr/bin/ditto', [framework, join(contents, 'Frameworks/Sparkle.framework')]);
