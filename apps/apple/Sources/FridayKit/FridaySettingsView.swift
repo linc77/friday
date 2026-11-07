@@ -29,7 +29,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
     var searchTerms: String {
         switch self {
         case .appearance: "外观 主题 系统 浅色 深色 语言 中文 英文 任务 侧栏 分组 排序 自动 结束 跟进 天数 Auto Settle Inactivity Working Inbox Beta Appearance Theme System Light Dark Language Chinese English"
-        case .providers: "Providers 模型服务 本地工具 Friday DeepSeek API 密钥 Codex Claude Code Hermes Pi 编码 账号 模型 路径 环境变量 推理 Runtime"
+        case .providers: "Providers 模型服务 供应商 Base URL 本地工具 Friday DeepSeek API 密钥 Codex Claude Code Hermes Pi 编码 账号 模型 路径 环境变量 推理 Runtime"
         case .textGeneration: "文字生成 任务标题 命名 提交 PR 说明 模型 推理 Workspace Text generation Titles Commit Source Control"
         case .sourceControl: "Source Control Git GitHub GitLab Bitbucket Token 仓库 发布 认证 登录 主机 密钥 合并 Agent 署名 credits merge squash"
         case .projectScripts: "项目脚本 初始化 收起 终端 Worktree setup settle scripts commands t3.json"

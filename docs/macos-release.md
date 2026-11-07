@@ -12,6 +12,8 @@
 
 个人测试版通过用户级 LaunchAgent 注册 `dev.friday.app.server`，plist 位于 `~/Library/LaunchAgents`，程序位于 App 内。测试签名下的 SMAppService 遇到了系统启动约束，因此该路径留待 Developer ID 版本验证后接入。退出客户端不会停止后台服务。通过上述窗口停止服务会保留全部数据，并记住停止状态。
 
+服务使用 `Interactive` 调度：客户端的 HTTP 请求依赖它即时响应，HTTP 连接不能为 `Adaptive` 服务传递 XPC 优先级；`Background` 类别可能让冷启动受到严重限流。服务仍由 LaunchAgent 独立管理，关闭窗口不停止执行。
+
 数据沿用 `~/Library/Application Support/Friday`。首次安装会检测旧 `dev.friday.server` 服务，在没有活动任务时停止旧服务、保存原 LaunchAgent 配置并备份数据库，再启用内置服务。旧 `runtime` 目录保留，不随 App 更新覆盖。
 
 开发时继续使用 `pnpm dev` 和 `pnpm mac:build`。要与安装版并行，设置独立的 `FRIDAY_DATA_DIR`、`FRIDAY_PORT` 和客户端 `FRIDAY_SERVER_URL`。指定开发连接的客户端不会接管后台服务。

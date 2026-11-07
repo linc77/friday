@@ -71,7 +71,7 @@ struct ProvidersView: View {
     }
 
     @ViewBuilder private var details: some View {
-        if selection == "friday" { ModelSettingsView(store: store) }
+        if selection == "friday" { ModelSettingsView(store: store).id(store.connectionIdentity) }
         else if selection == "usage-sources" { UsageSourceSettingsView(store: store) }
         else if let instance = store.providerInstances.first(where: { $0.id == selection }) {
             VStack(alignment: .leading, spacing: 14) {

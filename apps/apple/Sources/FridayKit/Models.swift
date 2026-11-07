@@ -530,7 +530,13 @@ struct CodexProviderModel: Decodable, Identifiable {
     var selectionName: String { resolvedModel != nil && resolvedModel != id ? "\(name) (\(id))" : name }
 }
 struct CodexAccount: Decodable { let type: String; let email: String?; let plan: String? }
-struct ModelConnectionState: Decodable { let provider: String; let model: String; let connected: Bool }
+struct APIModel: Decodable, Identifiable { let id: String; let name: String }
+struct ModelDiscoveryState: Decodable { let baseUrl: String; let models: [APIModel] }
+struct ModelConnectionState: Decodable {
+    let provider: String; let model: String; let connected: Bool
+    var baseUrl: String? = nil
+    var models: [APIModel]? = nil
+}
 struct CodexConnectionState: Decodable {
     let provider: String; let displayName: String; var enabled: Bool; let model: String; var connected: Bool
     let installed: Bool; let version: String?; let account: CodexAccount?; let models: [CodexProviderModel]

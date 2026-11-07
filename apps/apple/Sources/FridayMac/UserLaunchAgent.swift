@@ -16,7 +16,9 @@ final class UserLaunchAgent {
         let config: [String: Any] = [
             "Label": label, "ProgramArguments": [executable], "RunAtLoad": true,
             "KeepAlive": true, "ThrottleInterval": 10, "ExitTimeOut": 30,
-            "ProcessType": "Background", "AssociatedBundleIdentifiers": [Bundle.main.bundleIdentifier ?? "dev.friday.mac"]
+            // The UI depends on this HTTP service; HTTP cannot donate XPC
+            // importance to an Adaptive job. Background throttles cold startup.
+            "ProcessType": "Interactive", "AssociatedBundleIdentifiers": [Bundle.main.bundleIdentifier ?? "dev.friday.mac"]
         ]
         try FileManager.default.createDirectory(at: plist.deletingLastPathComponent(), withIntermediateDirectories: true)
         let data = try PropertyListSerialization.data(fromPropertyList: config, format: .xml, options: 0)

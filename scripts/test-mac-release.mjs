@@ -55,7 +55,7 @@ try {
   await stop();
   const xml = value => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
   const plist = join(directory, 'test-agent.plist');
-  await writeFile(plist, `<?xml version="1.0"?><plist version="1.0"><dict><key>Label</key><string>${label}</string><key>ProgramArguments</key><array><string>${xml(join(app, 'Contents/MacOS/FridayService'))}</string></array><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>EnvironmentVariables</key><dict><key>FRIDAY_DATA_DIR</key><string>${xml(directory)}</string><key>FRIDAY_PORT</key><string>${port}</string></dict></dict></plist>`);
+  await writeFile(plist, `<?xml version="1.0"?><plist version="1.0"><dict><key>Label</key><string>${label}</string><key>ProgramArguments</key><array><string>${xml(join(app, 'Contents/MacOS/FridayService'))}</string></array><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ProcessType</key><string>Interactive</string><key>EnvironmentVariables</key><dict><key>FRIDAY_DATA_DIR</key><string>${xml(directory)}</string><key>FRIDAY_PORT</key><string>${port}</string></dict></dict></plist>`);
   launchctl(['bootstrap', domain, plist]); registered = true;
   let healthy = false;
   for (let i = 0; i < 100; i++) {

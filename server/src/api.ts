@@ -172,6 +172,8 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     return c.json(await engine.modelConnection.saveKey(text(body.apiKey, 'API Key', 512)));
   });
   app.delete('/api/model/key', async c => { await engine.modelConnection.clearKey(); return c.json({ ok: true }); });
+  app.post('/api/model/models', async c => c.json(await engine.modelConnection.discover(await c.req.json())));
+  app.put('/api/model/settings', async c => c.json(await engine.modelConnection.save(await c.req.json())));
   app.get('/api/provider-instances', async c => c.json({ instances: await engine.providerInstances.list() }));
   app.put('/api/provider-instances', async c => {
     if (c.get('device') !== 'owner') return c.json({ error: '请在主机配置 Provider 实例' }, 403);

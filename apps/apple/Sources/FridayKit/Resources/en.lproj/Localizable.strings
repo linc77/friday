@@ -2699,3 +2699,25 @@
 "新一轮任务请从父任务重新委派" = "Start a new round by delegating again from the parent task";
 
 "子任务结果" = "Child task result";
+
+"当前连接" = "Current connection";
+"模型供应商" = "Model provider";
+"供应商名称" = "Provider name";
+"保存连接" = "Save connection";
+"测试所选模型后启用，会产生少量 API 用量。" = "Test the selected model before enabling it. This uses a small amount of API credit.";
+"保留供应商和模型设置，停止使用此连接。" = "Keep the provider and model settings, and stop using this connection.";
+"请在主机上配置模型供应商，所有已连接设备会共用 Friday。" = "Configure the model provider on the host. All connected devices share Friday.";
+"正在连接供应商…" = "Connecting to provider…";
+"支持 OpenAI 兼容接口，填写 API 根地址（包含 /v1 等路径）。" = "Supports OpenAI-compatible APIs. Enter the API base URL, including paths such as /v1.";
+"密钥仅保存在主机上。同一 URL 留空可沿用已保存密钥。" = "The key is stored only on the host. Leave blank to reuse the saved key for the same URL.";
+"留空沿用，输入新密钥以替换" = "Leave blank to reuse, or enter a replacement key";
+"输入 API Key" = "Enter API Key";
+"获取模型" = "Discover models";
+"获取模型列表" = "Fetch models";
+"读取供应商返回的模型列表，选择后再保存。" = "Fetch the provider’s model list, then select a model and save.";
+"选择模型" = "Select model";
+"填写 URL 和 Key，然后获取模型列表。" = "Enter a URL and key, then fetch the model list.";
+"搜索模型名称或 ID" = "Search model names or IDs";
+"请选择支持工具调用的对话模型。" = "Select a chat model that supports tool calling.";
+"已获取模型列表，选择模型后验证并保存。" = "Models fetched. Select a model, then verify and save.";
+"模型连接已保存。" = "Model connection saved.";
