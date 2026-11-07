@@ -11,10 +11,9 @@ struct CodexTranscriptRow: Identifiable {
 
 enum TaskNativeForkBoundary {
     static func ids(_ task: WorkItem) -> Set<String> {
-        guard ["codex", "opencode"].contains(task.agent), let thread = task.threadId, !thread.isEmpty else { return [] }
+        guard task.agent == "codex", let thread = task.threadId, !thread.isEmpty else { return [] }
         if let origin = task.subagentOrigin {
             if task.agent == "codex" && origin.nativeId != thread { return [] }
-            if task.agent == "opencode" && task.nativeHistory?.canFork != true { return [] }
         }
         return Set(task.events.compactMap { event in
             guard event.kind == "turn", event.runId == nil, event.revertedAt == nil,

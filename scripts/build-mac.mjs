@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { macAppIdentity } from './mac-app-identity.mjs';
 import { preparePtyRuntime } from './mac-pty-runtime.mjs';
 import { loadReleaseNotes } from './release-notes.mjs';
+import { macSwiftBuildArguments } from './mac-swift-build.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 process.chdir(root);
@@ -22,8 +23,9 @@ if (process.platform !== 'darwin' || process.arch !== config.architecture) throw
 if (standalone && !config.publicKey) throw new Error('Configure the Sparkle public key in release/macos.json first.');
 run('node', ['scripts/build-markdown-assets.mjs', '--check']);
 run('node', ['scripts/build-browser-annotation-assets.mjs', '--check']);
-run('swift', ['build', '--package-path', 'apps/apple', '-c', configuration]);
-const bin = output('swift', ['build', '--package-path', 'apps/apple', '-c', configuration, '--show-bin-path']);
+const swiftBuildArguments = macSwiftBuildArguments('apps/apple', configuration);
+run('swift', swiftBuildArguments);
+const bin = output('swift', [...swiftBuildArguments, '--show-bin-path']);
 const app = identity.appPath;
 await rm(app, { recursive: true, force: true });
 const contents = join(app, 'Contents');

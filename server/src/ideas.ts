@@ -10,6 +10,7 @@ export const maxIdeaLength = 100_000;
 export const maxImageBytes = 10 * 1024 * 1024;
 const maxTotalImageBytes = 80 * 1024 * 1024;
 const imageID = /^[a-f0-9]{64}$/;
+export class MissingImageError extends Error {}
 
 export function imageType(data: Buffer): string {
   if (data.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))) return 'image/png';
@@ -101,18 +102,26 @@ export class IdeaImages {
   async validate(value: unknown): Promise<IdeaImage[]> {
     if (value === undefined) return [];
     if (!Array.isArray(value) || value.length > 100) throw new Error('最多添加 100 张图片');
-    const images: IdeaImage[] = [];
-    let totalBytes = 0;
-    for (const image of value) {
-      if (!image || typeof image.id !== 'string' || typeof image.name !== 'string' || image.name.length > 255 || !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(image.mediaType)) throw new Error('图片信息无效');
-      this.path(image.id);
-      const stored = await this.db.get<{ byte_length: number; media_type: string }>('SELECT byte_length,media_type FROM friday_assets WHERE id=?', image.id);
-      if (!stored) throw new Error('图片尚未上传，请重试保存');
-      totalBytes += stored.byte_length;
-      if (totalBytes > maxTotalImageBytes) throw new Error('每条消息的图片总大小不能超过 80 MB');
-      if (!images.some(i => i.id === image.id)) images.push({ id: image.id, name: image.name, mediaType: stored.media_type });
-    }
-    return images;
+    if (!value.length) return [];
+    // User validation happens before Durable: 1.5 treats every storage refusal
+    // as fatal. Renew the lease atomically with the check so GC cannot remove a
+    // validated upload while its request waits to commit the references.
+    return this.db.transaction(async tx => {
+      const images: IdeaImage[] = [];
+      let totalBytes = 0;
+      for (const image of value) {
+        if (!image || typeof image.id !== 'string' || typeof image.name !== 'string' || image.name.length > 255 || !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(image.mediaType)) throw new Error('图片信息无效');
+        this.path(image.id);
+        const stored = await tx.get<{ byte_length: number; media_type: string }>('SELECT byte_length,media_type FROM friday_assets WHERE id=?', image.id);
+        if (!stored) throw new MissingImageError('图片尚未上传，请重试保存');
+        totalBytes += stored.byte_length;
+        if (totalBytes > maxTotalImageBytes) throw new Error('每条消息的图片总大小不能超过 80 MB');
+        if (!images.some(i => i.id === image.id)) images.push({ id: image.id, name: image.name, mediaType: stored.media_type });
+      }
+      const expires = Date.now() + imageRetentionMs;
+      for (const image of images) await tx.run('INSERT INTO friday_asset_uploads(asset_id,expires_at) VALUES(?,?) ON CONFLICT(asset_id) DO UPDATE SET expires_at=MAX(expires_at,excluded.expires_at)', image.id, expires);
+      return images;
+    });
   }
   async resolve(images: IdeaImage[] = []): Promise<ExecutionImage[]> {
     const result: ExecutionImage[] = [];
@@ -144,7 +153,7 @@ export class IdeaImages {
     const previous = await tx.all<{ asset_id: string }>('SELECT asset_id FROM friday_asset_refs WHERE owner=?', owner);
     await tx.run('DELETE FROM friday_asset_refs WHERE owner=?', owner);
     for (const id of ids) {
-      if (!await tx.get('SELECT id FROM friday_assets WHERE id=?', id)) throw new Error(`图片 ${id} 尚未上传，请重试保存`);
+      if (!await tx.get('SELECT id FROM friday_assets WHERE id=?', id)) throw new MissingImageError(`图片 ${id} 尚未上传，请重试保存`);
       await tx.run('INSERT INTO friday_asset_refs(owner,asset_id) VALUES(?,?)', owner, id);
       await tx.run('UPDATE friday_assets SET unreferenced_at=NULL WHERE id=?', id);
     }

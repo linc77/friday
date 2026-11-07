@@ -21,19 +21,13 @@ struct CodexSettingsView: View {
     @State private var customModelID = ""
     @State private var customModelName = ""
     private var providerName: String { TaskProviderCatalog.name(provider) }
-    private var variablePlaceholder: String { switch provider { case "grok": "XAI_API_KEY"; case "cursor": "CURSOR_API_KEY"; case "opencode": "OPENCODE_PASSWORD"; case "antigravity": "HTTPS_PROXY"; case "codex": "OPENAI_BASE_URL"; case "acp-registry", "muse": "API_KEY"; default: "ANTHROPIC_API_KEY" } }
-    private var nativeSDK: Bool { ["cursor", "muse", "opencode", "antigravity", "acp-registry"].contains(provider) }
+    private var variablePlaceholder: String { provider == "codex" ? "OPENAI_BASE_URL" : "ANTHROPIC_API_KEY" }
     private var permissionHelp: String {
-        if provider == "cursor" { return "原生审核使用 Cursor 沙盒和工具审核；完全访问关闭这两项限制。" }
-        if provider == "muse" || provider == "opencode" { return "手动确认会在需要授权时询问；完全访问允许工具执行。" }
-        if provider == "antigravity" { return "手动确认请求原生授权；自动接受编辑使用原生编辑模式，完全访问使用原生 Yolo 模式。" }
-        if provider == "acp-registry" { return "手动确认保留工具的原生授权选项；自动审批允许本次工具调用。" }
-        if provider == "grok" { return "Auto 使用 Grok 的自动判断；手动确认请求授权，完全访问允许工具执行。" }
         if provider == "pi" { return "Auto 允许 Pi 执行工具；手动确认会在写入或运行命令前请求授权。" }
         return "Auto 使用工具自带的自动审批；需要补充信息时仍会询问。"
     }
-    private var homeVariable: String { provider == "grok" ? "GROK_HOME" : provider == "pi" ? "PI_CODING_AGENT_DIR" : provider == "codex" ? "CODEX_HOME" : "CLAUDE_CONFIG_DIR" }
-    private var homePlaceholder: String { provider == "grok" ? "~/.grok" : provider == "pi" ? "~/.pi/agent" : provider == "codex" ? "~/.codex" : "~/.claude" }
+    private var homeVariable: String { provider == "pi" ? "PI_CODING_AGENT_DIR" : provider == "codex" ? "CODEX_HOME" : "CLAUDE_CONFIG_DIR" }
+    private var homePlaceholder: String { provider == "pi" ? "~/.pi/agent" : provider == "codex" ? "~/.codex" : "~/.claude" }
     private func endpoint(_ path: String = "") -> String { TaskProviderCatalog.endpoint(provider, instance: instanceId, path: path) }
     private var preferences: ModelPickerPreferences { modelPreferences.get(server: store.connection.server, provider: instanceId ?? provider) }
     private var models: [CodexProviderModel] {
@@ -112,19 +106,11 @@ struct CodexSettingsView: View {
                     TextField(providerName, text: $draft.displayName).textFieldStyle(.roundedBorder).frame(maxWidth: 210)
                         .disabled(!owner || busy)
                 }
-                if owner && state?.connected != true && ["codex", "cursor"].contains(provider) {
+                if owner && state?.connected != true && provider == "codex" {
                     SettingsDivider()
-                    SettingsRow("连接账号", detail: provider == "cursor" ? "连接 Cursor 账号，或配置 CURSOR_API_KEY。" : "使用 Codex 登录，或读取配置目录中已有的账号。") {
-                        Button(friday: state?.loginPending == true ? "等待浏览器登录…" : provider == "cursor" ? "登录 Cursor" : "登录 ChatGPT") { Task { await login() } }
+                    SettingsRow("连接账号", detail: "使用 Codex 登录，或读取配置目录中已有的账号。") {
+                        Button(friday: state?.loginPending == true ? "等待浏览器登录…" : "登录 ChatGPT") { Task { await login() } }
                             .disabled(busy || dirty || !store.connected || state?.loginPending == true)
-                    }
-                }
-            }
-            if provider == "cursor", owner {
-                SettingsGroup("账号配额") {
-                    SettingsRow("读取 Cursor CLI 账号额度", detail: "启用后读取主机钥匙串中的 Cursor CLI 登录；不使用 API Key 推测其他账号的配额。") {
-                        Toggle(isOn: Binding(get: { draft.cursorUsageKeychainEnabled == true }, set: { draft.cursorUsageKeychainEnabled = $0 })) { Text(friday: "读取 Cursor CLI 账号额度") }
-                            .labelsHidden().toggleStyle(.switch).controlSize(.mini).fridayInteractiveCursor().disabled(busy || !store.connected)
                     }
                 }
             }
@@ -140,51 +126,27 @@ struct CodexSettingsView: View {
                 Text(friday: "在主机运行 pi /login，或配置 Pi 模型凭据后重新检测。")
                     .font(.system(size: 12)).foregroundStyle(.secondary).textSelection(.enabled)
             }
-            if provider == "grok", owner, state?.connected != true {
-                Text(friday: "在主机运行 grok login，或配置 XAI_API_KEY 后重新检测。")
-                    .font(.system(size: 12)).foregroundStyle(.secondary).textSelection(.enabled)
-            }
-            if provider == "muse", owner {
-                Text(friday: "Muse 模型目录可用不代表已登录；账号由主机上的 Muse 原生工具在执行时确认。")
-                    .font(.system(size: 12)).foregroundStyle(.secondary).textSelection(.enabled)
-            }
-            if owner && ["antigravity", "acp-registry"].contains(provider) {
-                AcpSettingsFields(store: store, provider: provider, instanceId: instanceId, draft: $draft, dirty: dirty, busy: busy) { await refresh(force: true) }
-            }
             if owner {
-                if provider != "cursor" && provider != "acp-registry" { SettingsGroup("运行配置") {
+                SettingsGroup("运行配置") {
                     runtimeField("可执行文件", detail: "当前服务使用的本地程序。", placeholder: provider, value: $draft.binaryPath)
-                    if !nativeSDK {
-                        SettingsDivider()
-                        runtimeField(homeVariable, detail: "读取已有的账号、模型和网关配置。", placeholder: homePlaceholder, value: $draft.homePath)
-                    }
+                    SettingsDivider()
+                    runtimeField(homeVariable, detail: "读取已有的账号、模型和网关配置。", placeholder: homePlaceholder, value: $draft.homePath)
                     if provider == "codex" {
                         SettingsDivider()
                         runtimeField("独立账号目录", detail: "单独保存账号凭据，共享 CODEX_HOME 中的配置和会话。", placeholder: "可选", value: $draft.shadowHomePath)
                     }
-                    if provider != "grok" && !nativeSDK {
-                        SettingsDivider()
-                        runtimeField("启动参数", detail: provider == "pi" ? "传给 Pi RPC 的额外参数；会话和执行模式由 Friday 管理。" : provider == "codex" ? "传给 Codex app-server 的额外参数。" : "支持 --model、--effort 和 --setting-sources。", placeholder: "可选", value: $draft.launchArgs)
-                    }
-                    if provider == "opencode" {
-                        SettingsDivider()
-                        runtimeField("服务地址", detail: "留空时启动主机上的 OpenCode；也可连接已有服务。", placeholder: "http://127.0.0.1:4096", value: Binding(get: { draft.serverUrl ?? "" }, set: { draft.serverUrl = $0 }))
-                        SettingsDivider()
-                        SettingsRow("连接密码", detail: "已保存的密码不会回传；留空保留原值。") {
-                            SecureField(draft.serverPasswordConfigured == true ? "••••••••" : "可选", text: Binding(get: { draft.serverPassword ?? "" }, set: { draft.serverPassword = $0.isEmpty ? nil : $0 })).textFieldStyle(.roundedBorder).frame(maxWidth: 210).disabled(busy)
-                        }
-                    }
-                } }
+                    SettingsDivider()
+                    runtimeField("启动参数", detail: provider == "pi" ? "传给 Pi RPC 的额外参数；会话和执行模式由 Friday 管理。" : provider == "codex" ? "传给 Codex app-server 的额外参数。" : "支持 --model、--effort 和 --setting-sources。", placeholder: "可选", value: $draft.launchArgs)
+                }
                 environment
             }
             if owner {
                 SettingsGroup("权限") {
                     SettingsRow("权限模式", detail: "新任务和续聊使用此设置；正在执行的任务不受影响。") {
                         Picker(selection: $draft.permissionMode) {
-                            if provider != "cursor" { Text(friday: provider == "acp-registry" ? "自动审批" : provider == "pi" || nativeSDK ? "完全访问" : "Auto").tag("auto") }
-                            Text(friday: provider == "cursor" ? "原生审核" : "手动确认").tag("default")
-                            if provider == "grok" || provider == "cursor" { Text(friday: "完全访问").tag("fullAccess") }
-                            if provider == "claude" || provider == "pi" || provider == "antigravity" {
+                            Text(friday: provider == "pi" ? "完全访问" : "Auto").tag("auto")
+                            Text(friday: "手动确认").tag("default")
+                            if provider == "claude" || provider == "pi" {
                                 Text(friday: "自动接受编辑").tag("acceptEdits")
                             }
                         } label: { Text(friday: "权限模式") }

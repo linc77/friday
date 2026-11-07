@@ -61,7 +61,6 @@
 "工具检测" = "Tool detection";
 "已保存在主机，可随时导出" = "Saved on the host and ready to export";
 "已加入队列" = "Queued";
-"已发现时显示安装状态；执行接入尚未完成" = "Shows installation status when detected. Execution is not integrated yet.";
 "已发现时显示安装状态；独立 CLI 接入尚未完成" = "Shows installation status when detected. Standalone CLI execution is not integrated yet.";
 "已取消" = "Cancelled";
 "已完成" = "Completed";
@@ -96,6 +95,7 @@
 "收下这个想法" = "Save idea";
 "文字、链接，都可以。" = "Text, links, anything you want to keep.";
 "新对话" = "New conversation";
+"展开底部导航" = "Expand bottom navigation";
 "新对话（⌘N）" = "New conversation (⌘N)";
 "无法将设备凭据保存到钥匙串（%lld）" = "Unable to save device credentials to Keychain (%lld)";
 "更新本机工具的安装状态。" = "Refresh the installation status of local tools.";
@@ -188,6 +188,7 @@
 "配对码" = "Pairing code";
 "重新检测" = "Refresh";
 "重新连接" = "Reconnect";
+"更换主机" = "Change host";
 "长期记忆" = "Long-term memory";
 "需要你的确认" = "Needs your approval";
 "项目" = "Projects";
@@ -2522,106 +2523,57 @@
 "传给 Pi RPC 的额外参数；会话和执行模式由 Friday 管理。" = "Additional arguments for Pi RPC. Friday manages the session and execution mode.";
 "Auto 允许 Pi 执行工具；手动确认会在写入或运行命令前请求授权。" = "Full access allows Pi to run tools. Manual approval asks before writing files or running commands.";
 "完全访问" = "Full access";
-"在主机运行 grok login，或配置 XAI_API_KEY 后重新检测。" = "Run grok login on the host, or configure XAI_API_KEY, then check again.";
-"Auto 使用 Grok 的自动判断；手动确认请求授权，完全访问允许工具执行。" = "Auto uses Grok's own approval decisions. Manual approval requests permission; full access allows tools to run.";
 
-"原生审核使用 Cursor 沙盒和工具审核；完全访问关闭这两项限制。" = "Native review uses the Cursor sandbox and tool review; Full Access disables both.";
 
-"手动确认会在需要授权时询问；完全访问允许工具执行。" = "Manual approval asks when authorization is needed; Full Access allows tool execution.";
 
-"连接 Cursor 账号，或配置 CURSOR_API_KEY。" = "Connect a Cursor account or configure CURSOR_API_KEY.";
 
-"登录 Cursor" = "Sign in to Cursor";
 
-"Muse 模型目录可用不代表已登录；账号由主机上的 Muse 原生工具在执行时确认。" = "A Muse model catalog does not confirm sign-in. The native Muse tool checks your account when it runs.";
 
 "服务地址" = "Server URL";
 
-"留空时启动主机上的 OpenCode；也可连接已有服务。" = "Leave blank to start OpenCode on the host, or connect an existing server.";
 
-"连接密码" = "Connection password";
 
-"已保存的密码不会回传；留空保留原值。" = "Saved passwords are never returned. Leave blank to keep the saved value.";
 
-"原生审核" = "Native review";
 
-"正在解包…" = "Extracting…";
 
-"正在核对工具…" = "Verifying tool…";
 
-"工具已准备" = "Tool prepared";
 
 "准备失败" = "Preparation failed";
 
-"准备工具" = "Prepare tool";
 
 "主机工具" = "Host tool";
 
-"托管工具" = "Managed tool";
 
-"保存配置后准备工具；已有可执行文件也可以直接使用。" = "Save the configuration before preparing the tool. Existing executables can also be used.";
 
-"使用工具声明的认证方式；也可在主机的原生工具中登录。" = "Use an authentication method advertised by the agent, or sign in with its native host tool.";
 
-"Google 账号与凭据保存在此主机的独立配置中。" = "The Google account and credentials use an isolated profile on this host.";
 
 "认证方式 ID" = "Authentication method ID";
 
 "留空使用工具提供的 Agent 管理认证。" = "Leave blank to use an agent-managed authentication method.";
 
-"ACP 工具" = "ACP tool";
 
-"从官方 Registry 选择，或使用主机上的本地 ACP 命令。" = "Choose from the official registry, or use a local ACP command on the host.";
 
-"本地命令" = "Local command";
 
-"添加参数" = "Add argument";
 
-"Registry 工具 ID" = "Registry agent ID";
 
-"搜索 ACP 工具" = "Search ACP agents";
 
-"可执行文件覆盖" = "Executable override";
 
-"可选；保留 Registry 声明的启动参数和环境。" = "Optional. Keep the registry arguments and environment.";
 
-"认证方式" = "Authentication method";
 
-"选择此主机使用的 Google 账号或密钥类型。" = "Choose the Google account or key type for this host.";
 
-"已保存的密钥不会回传；留空保留原值。" = "Saved keys are never returned. Leave blank to keep the saved value.";
 
-"清除已保存的密钥" = "Clear saved key";
 
-"Google Cloud 项目标识。" = "Google Cloud project ID.";
 
-"Google Cloud 区域。" = "Google Cloud location.";
 
-"Harness 路径" = "Harness path";
 
-"留空使用 ACP 程序旁的原生 Harness。" = "Leave blank to use the native harness next to the ACP executable.";
 
-"手动确认请求原生授权；自动接受编辑使用原生编辑模式，完全访问使用原生 Yolo 模式。" = "Manual approval asks for native permissions. Auto-accept edits uses native edit mode; Full Access uses native Yolo mode.";
 
-"手动确认保留工具的原生授权选项；自动审批允许本次工具调用。" = "Manual approval preserves the agent’s native choices. Automatic approval allows the current tool call.";
 
 "自动审批" = "Automatic approval";
 
-"正在认证…" = "Authenticating…";
-"读取工具声明的浏览器、终端或环境变量认证方式。" = "Read the browser, terminal, or environment sign-in methods advertised by the agent.";
-"读取认证方式" = "Read sign-in methods";
 "请先在此工具的环境变量设置中保存：%@" = "Save these variables in this provider’s environment settings first: %@";
-"工具请求在浏览器中完成认证" = "The agent requests browser sign-in";
-"打开浏览器并继续" = "Open browser and continue";
-"认证交互已改变，请刷新后重试" = "The sign-in interaction changed. Refresh and try again.";
-"认证终端输入结果尚未确认，不会自动重发；请检查主机状态或取消后重新登录。" = "Terminal input delivery is unconfirmed and will not be retried automatically. Check the host or cancel and sign in again.";
-"认证终端输入过长，请取消后重新登录。" = "Sign-in terminal input is too long. Cancel and sign in again.";
-"认证连接暂时不可用" = "The sign-in connection is temporarily unavailable.";
-"认证流程已改变，请重新打开设置读取当前状态。" = "The sign-in flow changed. Reopen settings to read its current state.";
 
-"打开凭据页面" = "Open credentials page";
 
-"退出登录" = "Sign out";
 
 "添加实例" = "Add instance";
 
@@ -2640,23 +2592,15 @@
 
 "尚未有用量记录" = "No usage has been reported yet";
 
-"读取 Cursor CLI 账号额度" = "Read Cursor CLI account usage";
 
-"启用后读取主机钥匙串中的 Cursor CLI 登录；不使用 API Key 推测其他账号的配额。" = "Read the host Keychain login for Cursor CLI. An API key never falls back to another stored account.";
 
-"Overall" = "Overall";
 
-"Cursor Models" = "Cursor Models";
 
-"Other Models" = "Other Models";
 
 "Subscription" = "Subscription";
 
-"Go · Session" = "Go · Session";
 
-"Go · Weekly" = "Go · Weekly";
 
-"Go · Monthly" = "Go · Monthly";
 
 "添加附件" = "Add attachment";
 "正在添加附件" = "Adding attachments";
@@ -2709,4 +2653,9 @@
 
 "计划模式已移除，请重新发送普通任务要求" = "Plan mode has been removed. Send a new task request.";
 
-"此 ACP 工具未提供只读执行能力" = "This ACP provider does not offer read-only execution.";
+
+"此 Agent 接入已移除，历史任务仍可查看；请使用 Codex、Claude 或 Pi 新建任务。" = "This Agent integration has been removed. History remains available; start a new task with Codex, Claude, or Pi.";
+
+"升级" = "Update";
+
+"查看更新公告" = "View release notes";

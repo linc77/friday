@@ -186,11 +186,10 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
       if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置此工具' }, 403);
       const id = providerInstanceID(c.req.query('instanceId') ?? provider);
       await get(id);
-      const metadata = c.req.path.endsWith('/check') || c.req.path.endsWith('/registry/search') || c.req.method === 'GET';
+      const metadata = c.req.path.endsWith('/check') || c.req.method === 'GET';
       if (!metadata) {
         const state = await engine.snapshot();
-        const peers = c.req.path.endsWith('/login') || c.req.path.endsWith('/logout') ? await engine.providerInstances.credentialPeers(provider, id) : [id];
-        if (state.tasks.some(task => peers.includes(taskProviderInstance(task)) && (activeStatuses.includes(task.status) || backgroundWorkPending(task) || task.backgroundStop?.status === 'pending' || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation)) || activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id)
+        if (state.tasks.some(task => taskProviderInstance(task) === id && (activeStatuses.includes(task.status) || backgroundWorkPending(task) || task.backgroundStop?.status === 'pending' || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation)) || activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id)
           || Object.values(state.titleRequests ?? {}).some(request => request.status === 'pending' && (request.modelSelection?.providerInstanceId ?? request.modelSelection?.agent) === id)
           || state.tasks.some(task => task.changeRequestGuideRuns?.some(run => ['queued', 'running'].includes(run.status) && (run.modelSelection.providerInstanceId ?? run.modelSelection.agent) === id))) return c.json({ error: '请先停止此实例的任务并处理会话操作再修改配置' }, 409);
       }
@@ -198,43 +197,8 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     });
     app.put(endpoint + '/settings', async c => c.json(await (await get(c.req.query('instanceId'))).save(await c.req.json())));
     app.post(endpoint + '/check', async c => c.json(await engine.providerInstances.status(provider, c.req.query('instanceId') ?? provider, true, true)));
-    if (provider === 'codex' || provider === 'cursor') app.post(endpoint + '/login', async c => c.json(await (await engine.providerInstances.get(provider, c.req.query('instanceId') ?? provider)).login()));
-    if (provider !== 'acp-registry' && provider !== 'antigravity') continue;
-    const getAcp = (id?: string) => engine.providerInstances.get(provider, id ?? provider);
-    app.get(endpoint + '/login', async c => c.json((await getAcp(c.req.query('instanceId'))).loginState()));
-    app.get(endpoint + '/login/events', async c => { const connection = await getAcp(c.req.query('instanceId'));
-      const flowId = c.req.query('flowId');
-      if (!flowId || flowId.length > 128 || !('flowId' in connection.loginState()) || (connection.loginState() as { flowId?: string }).flowId !== flowId) return c.json({ error: '认证流程已改变，请刷新后重试' }, 409);
-      return streamSSE(c, async stream => {
-        let dirty = true, wake: (() => void) | undefined;
-        const unsubscribe = connection.subscribeLogin(flowId, () => { dirty = true; wake?.(); });
-        stream.onAbort(() => wake?.());
-        try {
-          while (!stream.aborted) {
-            if (dirty) {
-              dirty = false; const state = connection.loginState();
-              if (!('flowId' in state) || state.flowId !== flowId) return;
-              await stream.writeSSE({ event: 'auth', data: JSON.stringify(state) });
-              if (!state.pending) return;
-            }
-            let timer: NodeJS.Timeout | undefined;
-            await new Promise<void>(resolve => { wake = resolve; timer = setTimeout(resolve, 15000); if (dirty || stream.aborted) resolve(); });
-            clearTimeout(timer); wake = undefined;
-            if (!dirty && !stream.aborted) await stream.writeSSE({ event: 'ping', data: '{}' });
-          }
-        } finally { unsubscribe(); }
-      });
-    });
-    app.get(endpoint + '/login/methods', async c => { const connection = await getAcp(c.req.query('instanceId')); return c.json(await connection.authenticationMethods()); });
-    app.post(endpoint + '/login', async c => { const connection = await getAcp(c.req.query('instanceId')); const raw = await c.req.text(), body = raw ? JSON.parse(raw) : {}; if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('认证请求格式无效'); if (body.methodId !== undefined && (typeof body.methodId !== 'string' || body.methodId.length > 128)) throw new Error('认证方式标识无效'); return c.json(await connection.login(body.methodId)); });
-    app.post(endpoint + '/login/respond', async c => { const connection = await getAcp(c.req.query('instanceId')); return c.json(connection.respondLogin(await c.req.json())); });
-    app.post(endpoint + '/logout', async c => { const connection = await getAcp(c.req.query('instanceId')); return c.json(await connection.logout()); });
-    app.post(endpoint + '/login/cancel', async c => { const connection = await getAcp(c.req.query('instanceId')); const raw = await c.req.text(), body = raw ? JSON.parse(raw) : {}; if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('认证请求格式无效'); if (body.flowId !== undefined && (typeof body.flowId !== 'string' || body.flowId.length > 128)) throw new Error('认证流程标识无效'); return c.json(await connection.cancelLogin(body.flowId)); });
-    app.get(endpoint + '/install', async c => { const connection = await getAcp(c.req.query('instanceId')); return c.json(await connection.installState()); });
-    app.post(endpoint + '/install', async c => { const connection = await getAcp(c.req.query('instanceId')); return c.json(await connection.startInstall()); });
-    app.post(endpoint + '/install/cancel', async c => { const connection = await getAcp(c.req.query('instanceId')); const body = await c.req.json(); if (typeof body.operationId !== 'string' || body.operationId.length > 128) throw new Error('工具安装操作标识无效'); return c.json(await connection.cancelInstall(body.operationId)); });
+    if (provider === 'codex') app.post(endpoint + '/login', async c => c.json(await (await engine.providerInstances.get(provider, c.req.query('instanceId') ?? provider)).login()));
   }
-  app.post('/api/agents/acp-registry/registry/search', async c => { const body = await c.req.json(); if (typeof body.query !== 'string') throw new Error('ACP Registry 搜索内容无效'); return c.json(await (await engine.providerInstances.get('acp-registry', c.req.query('instanceId') ?? 'acp-registry')).registry.search(body.query, body.reload === true)); });
   app.get('/api/text-generation/settings', async c => c.json(await engine.textGeneration.snapshot(c.req.query('projectId') ?? null)));
   installSourceControlPreferencesAPI(app, engine);
   app.get('/api/task-settlement/settings', async c => c.json(await engine.taskSettlement.snapshot(c.req.query('projectId') ?? null)));
@@ -365,7 +329,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
   app.delete('/api/memories/:id', async c => { await engine.mutate(s => { s.memories = s.memories.filter(m => m.id !== c.req.param('id')); }); return c.json({ ok: true }); });
   app.post('/api/tasks', async c => {
     const body = await c.req.json(); assertCurrentTaskMode(body);
-    if (body.agent && !['friday', 'codex', 'claude', 'pi', 'grok', 'cursor', 'muse', 'opencode', 'acp-registry', 'antigravity'].includes(body.agent)) throw new Error('此 Agent 尚未接入任务执行');
+    if (body.agent && !['friday', 'codex', 'claude', 'pi'].includes(body.agent)) throw new Error('此 Agent 尚未接入任务执行');
     const mode = body.mode ?? 'auto';
     if (!['auto', 'assistant', 'research', 'code'].includes(mode)) throw new Error('任务类型无效');
     const attached = await images.validate(body.images);
@@ -440,11 +404,6 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     const body = await c.req.json();
     if (body.lazy !== undefined && typeof body.lazy !== 'boolean') throw new Error('分叉解析方式无效');
     const id = await engine.taskForks.start(c.req.param('id'), { requestId: text(body.requestId, '请求 ID', 100), runId: text(body.runId, '轮次 ID', 100), ...(body.lazy === true ? { lazy: true } : {}), ...(body.title !== undefined ? { title: text(body.title, '分叉名称', 200) } : {}) });
-    return c.json({ id }, 202);
-  });
-  app.post('/api/tasks/:id/fork-head', async c => {
-    const body = await c.req.json();
-    const id = await engine.taskForks.head(c.req.param('id'), { requestId: text(body.requestId, '请求 ID', 100), ...(body.title !== undefined ? { title: text(body.title, '分叉名称', 200) } : {}) });
     return c.json({ id }, 202);
   });
   app.post('/api/tasks/:id/compact', async c => {

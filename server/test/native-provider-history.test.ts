@@ -6,21 +6,17 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Engine } from '../src/engine.js';
 import { defaultPiSettings } from '../src/pi-provider.js';
-import { nativeProviderDefaults } from '../src/native-provider-config.js';
 import type { WorkItem } from '../src/types.js';
-// @ts-expect-error Independent native HTTP fixture.
-import { openCodeFixture } from './fixtures/opencode.mjs';
 
-for (const kind of ['pi', 'opencode-1', 'opencode-2'] as const) test(`${kind} Durable history survives fork, rewind, restart and a second rewind with the correct native ownership`, async t => {
+for (const kind of ['pi'] as const) test(`${kind} Durable history survives fork, rewind, restart and a second rewind with the correct native ownership`, async t => {
   const root = await mkdtemp(join(tmpdir(), 'friday-native-history-')), data = join(root, 'data'), cwd = join(root, 'workspace'); await mkdir(cwd);
-  const agent: 'pi' | 'opencode' = kind === 'pi' ? 'pi' : 'opencode', model = agent === 'pi' ? 'fixture/small' : 'native/model';
+  const agent = 'pi' as const, model = 'fixture/small';
   let engine = await new Engine(data, undefined, undefined, { changeRequestSyncIntervalMs: 0 }).open();
-  const http = agent === 'opencode' ? await openCodeFixture({ generation: kind.endsWith('1') ? 1 : 2, directory: cwd }) : undefined;
-  t.after(async () => { await engine.close(); await http?.close(); await rm(root, { recursive: true, force: true }); });
+  t.after(async () => { await engine.close(); await rm(root, { recursive: true, force: true }); });
   if (agent === 'pi') {
     const binary = fileURLToPath(new URL('./fixtures/pi.mjs', import.meta.url)); await chmod(binary, 0o755);
     await engine.piConnection.save({ ...defaultPiSettings, enabled: true, binaryPath: binary, homePath: join(root, 'pi-account') });
-  } else await engine.opencodeConnection.save({ ...nativeProviderDefaults('opencode'), enabled: true, serverUrl: http.url, serverPassword: '私有密码' });
+  }
   await engine.mutate(state => { state.projects = [{ id: 'p', path: cwd, name: 'History fixture', context: '' }]; });
   const input = { agent, model, mode: 'code' as const, projectId: 'p', title: 'History fixture' };
   const wait = async (id: string, ready: (work: WorkItem) => boolean) => {

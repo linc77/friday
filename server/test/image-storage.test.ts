@@ -8,13 +8,13 @@ import { DatabaseSync } from 'node:sqlite';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
-import { Harness, defineDoc, createRegistry, type ConversationId } from '@earendil-works/pi-durable';
+import { Harness, defineDoc, createRegistry, type ConversationId, type DocumentId, type StorageWrite, type Seq } from '@earendil-works/pi-durable';
 import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node';
 import { Engine } from '../src/engine.js';
 import { ModelConnection } from '../src/model.js';
 import { WorkspaceDoc } from '../src/state.js';
 import { openFridayStorage } from '../src/durable-image-storage.js';
-import { imageRetentionMs } from '../src/ideas.js';
+import { imageRetentionMs, MissingImageError } from '../src/ideas.js';
 import { backupNoteDatabase } from '../src/image-backup.js';
 
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j2ioAAAAASUVORK5CYII=', 'base64');
@@ -45,25 +45,35 @@ test('BLOB uploads deduplicate, stay out of snapshots and rebuild stable Agent e
   assert.deepEqual(await readFile(exported!.path), png);
 });
 
-test('Missing image rejects the entire Durable commit and does not poison subsequent edits', async t => {
+test('Storage-level missing images roll back the entire Durable commit and preserve data across reopen', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-image-rollback-'));
-  const engine = await new Engine(directory).open();
+  let engine = await new Engine(directory).open();
   t.after(async () => { await engine.close(); await rm(directory, { recursive: true, force: true }); });
-  const before = await engine.snapshot();
-  await assert.rejects(engine.mutate(state => {
+  const rejectAndReopen = async (change: Parameters<Engine['mutate']>[0]) => {
+    await assert.rejects(engine.mutate(change), /图片.*尚未上传/);
+    // Bypassing API validation violates a storage invariant. Pi Durable 1.5
+    // intentionally closes that Session; reopening must recover committed data.
+    await assert.rejects(engine.snapshot(), /Session failed/);
+    await engine.close();
+    engine = await new Engine(directory).open();
+  };
+  const { revision: beforeRevision, ...before } = await engine.snapshot();
+  await rejectAndReopen(state => {
     state.ideas.push(note('must-rollback'));
     state.memories.push({ id: 'receipt', text: 'must also roll back', updatedAt: '' });
-  }), /图片.*尚未上传/);
-  assert.deepEqual(await engine.snapshot(), before);
+  });
+  const { revision: afterRevision, ...after } = await engine.snapshot();
+  assert.deepEqual(after, before);
   await engine.images.save(upload);
   await engine.mutate(state => { state.ideas.push(note('retry')); });
   assert.equal((await engine.snapshot()).ideas[0]!.id, 'retry');
   await engine.mutate(state => { state.ideas[0]!.text = '只修改文字'; });
-  await assert.rejects(engine.mutate(state => { state.ideas[0]!.images![0]!.id = 'a'.repeat(64); }), /尚未上传/);
+  await rejectAndReopen(state => { state.ideas[0]!.images![0]!.id = 'a'.repeat(64); });
   assert.equal((await engine.snapshot()).ideas[0]!.images![0]!.id, id, 'A leaf ID edit still validates inside the transaction');
   await engine.mutate(state => { state.ideas.unshift({ ...note('before'), images: [] }); });
   await engine.mutate(state => { state.ideas.reverse(); });
-  await assert.rejects(engine.mutate(state => { state.ideas[0]!.images![0]!.id = 'a'.repeat(64); }), /尚未上传/, 'Array insertions/reorders must invalidate cached image paths');
+  await rejectAndReopen(state => { state.ideas[0]!.images![0]!.id = 'a'.repeat(64); });
+  assert.equal((await engine.snapshot()).ideas[0]!.images![0]!.id, id, 'Array insertions/reorders must invalidate cached image paths');
 });
 
 test('Unrelated uploads cannot enter a suspended Durable SQL transaction', async t => {
@@ -91,7 +101,48 @@ test('Unrelated uploads cannot enter a suspended Durable SQL transaction', async
   assert.equal((await engine.snapshot()).ideas[0]!.id, 'one');
 });
 
-test('GC respects shared notes, upload leases, last-detachment grace and commit-time revalidation', async t => {
+test('Batched commits acknowledge the durable prefix and roll back the refused batch with its image references', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-image-batches-'));
+  const { storage, images } = await openFridayStorage(directory);
+  const reader = new DatabaseSync(join(directory, 'friday.sqlite'), { readOnly: true });
+  t.after(async () => { reader.close(); await storage.close(context); await rm(directory, { recursive: true, force: true }); });
+  await images.save(upload);
+  const ids = await Promise.all(Array.from({ length: 4 }, () => storage.mintId<DocumentId>()));
+  const other = Buffer.concat([png, Buffer.from([0])]);
+  const otherID = createHash('sha256').update(other).digest('hex');
+  const create = (index: number, image = metadata): StorageWrite => ({ type: 'document.create', record: { id: ids[index]!, kind: `image.batch.${index}`, scope: { kind: 'session' } }, content: { kind: 'base', version: 1, value: { images: [image] } } });
+  const refusedBatch: StorageWrite[] = [
+    { type: 'document.change', id: ids[0]!, content: { kind: 'base', version: 1, value: { images: [] } } },
+    create(2, { ...metadata, id: otherID }),
+  ];
+  const receipts: Seq[] = [];
+  const result = await storage.commit([[create(0)], [create(1)], refusedBatch, [create(3)]], (index, seq) => {
+    assert.equal(index, receipts.length);
+    // Even the first receipt must see the whole accepted prefix on a separate
+    // connection, and no data/reference mutations from the refused batch.
+    assert.deepEqual(reader.prepare('SELECT id FROM documents ORDER BY id').all().map(row => row.id), ids.slice(0, 2));
+    assert.deepEqual(reader.prepare('SELECT asset_id FROM friday_asset_refs ORDER BY owner').all().map(row => row.asset_id), [id, id]);
+    receipts.push(seq);
+  }, context);
+  assert.equal(result.stored, 2);
+  assert(result.refused instanceof MissingImageError);
+  assert.equal(receipts.length, 2);
+  assert(receipts[1]! > receipts[0]!);
+  assert.deepEqual((await storage.document(ids[0]!, 'current', context))!.value.images, [metadata]);
+  await images.save({ data: other.toString('base64') });
+  const retried: Seq[] = [];
+  assert.deepEqual(await storage.commit([refusedBatch, [create(3)]], (index, seq) => {
+    assert.equal(index, retried.length);
+    assert.equal(reader.prepare('SELECT COUNT(*) AS n FROM documents').get()!.n, 4);
+    retried.push(seq);
+  }, context), { stored: 2 });
+  assert.equal(retried.length, 2);
+  assert(retried[0]! > receipts[1]!);
+  assert.deepEqual((await storage.document(ids[0]!, 'current', context))!.value.images, []);
+  assert.equal(reader.prepare('SELECT COUNT(*) AS n FROM friday_asset_refs').get()!.n, 3);
+});
+
+test('GC respects shared notes, renewed upload leases and last-detachment grace', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-image-gc-'));
   const engine = await new Engine(directory).open();
   t.after(async () => { await engine.close(); await rm(directory, { recursive: true, force: true }); });
@@ -102,9 +153,17 @@ test('GC respects shared notes, upload leases, last-detachment grace and commit-
   assert.equal(await engine.images.collect(Date.now() + imageRetentionMs * 2), 0, 'Another note still owns this hash');
   await engine.mutate(state => { state.ideas = []; });
   assert.equal(await engine.images.collect(), 0, 'Removing the last owner starts a fresh grace period');
+  const aging = new DatabaseSync(join(directory, 'friday.sqlite'));
+  try {
+    aging.prepare('UPDATE friday_assets SET unreferenced_at=?').run(Date.now() - imageRetentionMs * 2);
+    aging.prepare('UPDATE friday_asset_uploads SET expires_at=0').run();
+  } finally { aging.close(); }
   await engine.images.validate([metadata]);
+  assert.equal(await engine.images.collect(), 0, 'Validation must renew an expired upload lease before GC can intervene');
+  await engine.mutate(state => { state.ideas.push(note('validated')); });
+  await engine.mutate(state => { state.ideas = []; });
   assert.equal(await engine.images.collect(Date.now() + imageRetentionMs * 2), 1);
-  await assert.rejects(engine.mutate(state => { state.ideas.push(note('raced-with-gc')); }), /尚未上传/);
+  await assert.rejects(engine.images.validate([metadata]), /尚未上传/);
   assert.equal((await engine.snapshot()).ideas.length, 0);
   await engine.images.save(upload);
   await engine.mutate(state => { state.ideas.push(note('retry')); });
@@ -160,7 +219,7 @@ test('Rewindable Durable history retains images after the current document remov
   const opened = await openFridayStorage(directory);
   const harness = await Harness.open(opened.storage, { models: new ModelConnection(directory).models, registry: createRegistry() }, context);
   t.after(async () => { await harness.close(context); await rm(directory, { recursive: true, force: true }); });
-  const doc = defineDoc<{ images: typeof metadata[] }>({ kind: 'image.history.test', version: 1, scope: 'conversation', history: 'rewindable', fork: 'asOf', initial: () => ({ images: [] }) });
+  const doc = defineDoc<{ images: typeof metadata[] }>({ kind: 'image.history.test', version: 1, scope: 'conversation', history: 'rewindable', fork: 'asOf', checkpointWhen: () => false, initial: () => ({ images: [] }) });
   const root = await harness.root(context);
   await opened.images.save(upload);
   await root.commit(async tx => { (await tx.doc(doc, root.id as ConversationId)).images = [metadata]; }, context);

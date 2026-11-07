@@ -5,19 +5,9 @@ struct SnapshotStreamTests {
     static func main() throws {
         let legacyProvider = CodexProviderSettings()
         let legacySettings = try JSONDecoder().decode(CodexProviderSettings.self, from: JSONEncoder().encode(legacyProvider))
-        precondition(legacySettings.serverUrl == nil && legacySettings.body["serverPassword"] == nil, "Existing providers retain their original settings payload")
-        var remoteSettings = legacyProvider
-        remoteSettings.serverUrl = "http://127.0.0.1:4096"; remoteSettings.serverPasswordConfigured = true
-        let masked = try JSONDecoder().decode(CodexProviderSettings.self, from: JSONEncoder().encode(remoteSettings))
-        precondition(masked.serverPasswordConfigured == true && masked.body["serverPassword"] is NSNull, "Masked server passwords must be sent as null to preserve the host secret")
-        remoteSettings.serverPassword = "synthetic-secret"
-        precondition(remoteSettings.body["serverPassword"] as? String == "synthetic-secret", "An explicitly edited server password must reach the host")
-        var nativeSettings = legacyProvider; nativeSettings.nativeConfig = AcpNativeProviderConfig(); nativeSettings.nativeConfig?.apiKeyConfigured = true
-        let nativeBody = nativeSettings.body["nativeConfig"] as? [String: Any]
-        precondition(nativeBody?["apiKey"] is NSNull, "A redacted native API key must preserve the host secret")
-        nativeSettings.nativeConfig?.apiKey = ""
-        precondition((nativeSettings.body["nativeConfig"] as? [String: Any])?["apiKey"] as? String == "", "An explicit native key clear must remain distinct from a masked key")
-        precondition(TaskProviderCatalog.order == ["codex", "claude", "cursor", "grok", "opencode", "antigravity", "pi", "muse", "acp-registry"], "Implemented drivers follow the fixed T3 builtin order")
+        precondition(legacySettings == legacyProvider, "Existing providers retain their original settings payload")
+        precondition(legacySettings.body["serverPassword"] == nil && legacySettings.body["nativeConfig"] == nil, "Retired integration settings are no longer sent")
+        precondition(TaskProviderCatalog.order == ["codex", "claude", "pi"], "Only retained drivers are offered")
         let lines = [
             "event: snapshot", "data: {\"revision\":1,\"ideas\":[],\"projects\":[],\"memories\":[],\"tasks\":[]}", "id: 1",
             "event: heartbeat", "data: {}",

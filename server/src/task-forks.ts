@@ -1,3 +1,4 @@
+import { assertProviderAvailable } from './provider-instances.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -86,6 +87,7 @@ export class TaskForks {
         }
         if (operation.status === 'completed') { await finish('completed'); return; }
         try {
+          assertProviderAvailable(work.agent);
           if (operation.lazy && operation.dispatchPending) { await finish('completed'); return; }
           await this.patch(task.input, { status: 'running' });
           if (operation.strategy === 'visible_history') { await this.apply(task.input); await finish('completed'); return; }
@@ -126,14 +128,6 @@ export class TaskForks {
     const source = (await this.engine.snapshot()).tasks.find(task => task.id === operation.sourceTaskId), last = source && executionRuns(source).at(-1);
     if (!source || source.threadId !== operation.sourceThreadId || source.currentRunId !== operation.sourceRunId || last?.id !== operation.sourceRunId || activeStatuses.includes(source.status) || backgroundWorkPending(source)) throw new Error('原生会话头已经变化，未启动分叉');
   }
-  async head(sourceID: string, input: { requestId: string; title?: string }) {
-    validID(input.requestId); const state = await this.engine.snapshot(), receipt = state.forkRequests?.[input.requestId];
-    if (receipt) {
-      const task = state.tasks.find(task => task.id === receipt.taskId); if (receipt.action || receipt.sourceTaskId !== sourceID || !task?.forkOperation?.headOnly || (input.title?.trim() ?? null) !== (task.forkOperation.requestedTitle ?? null)) throw new Error('请求 ID 已被其他分叉操作使用'); return receipt.taskId;
-    }
-    const source = state.tasks.find(task => task.id === sourceID), last = source && executionRuns(source).at(-1); if (!last) throw new Error('原生会话没有可分叉的已结束轮次');
-    return this.start(sourceID, { ...input, runId: last.id, headOnly: true });
-  }
   async start(sourceID: string, input: { requestId: string; runId: string; title?: string; headOnly?: boolean; lazy?: boolean }) {
     validID(input.requestId);
     if (input.title !== undefined && (!input.title.trim() || input.title.trim().length > 200 || /[\x00-\x1f]/.test(input.title))) throw new Error('分叉名称无效');
@@ -148,13 +142,14 @@ export class TaskForks {
       if (Object.hasOwn(state.requests, input.requestId)) throw new Error('请求 ID 已被其他操作使用');
       let source = state.tasks.find(task => task.id === sourceID);
       if (!source || source.agent === 'friday') throw new Error('原任务不存在');
+      assertProviderAvailable(source.agent);
       if (nativeSessionActionBusy(source)) throw new Error('请先完成或核对 Agent 会话操作');
       if (headForkSourceBusy(state.tasks, sourceID)) throw new Error('正在分叉当前原生会话头，请先处理结果');
-      if (input.headOnly && (!['grok', 'acp-registry', 'antigravity'].includes(source.agent) || source.nativeHeadForkSupported !== true || source.subagentOrigin || source.currentRunId !== input.runId || executionRuns(source).at(-1)?.id !== input.runId || activeStatuses.includes(source.status) || backgroundWorkPending(source) || source.queue?.messages.some(message => ['queued', 'dispatching', 'steering', 'running'].includes(message.status)))) throw new Error('请在已协商原生分叉且前后台空闲的当前会话头操作');
+      if (input.headOnly) throw new Error('此 Agent 不支持原生会话头分叉');
       if (source.subagentOrigin) {
         const origin = source.subagentOrigin, root = state.tasks.find(task => task.id === origin.rootTaskId);
         const agent = root?.subagents?.find(agent => agent.id === origin.subagentId && agent.nativeId === origin.nativeId && agent.childTaskId === sourceID);
-        const supported = source.agent === 'codex' && agent?.provider === 'codex' && source.threadId === origin.nativeId || source.agent === 'opencode' && agent?.provider === 'opencode' && source.nativeHistory?.canFork === true && source.threadId === agent.nativeThreadId;
+        const supported = source.agent === 'codex' && agent?.provider === 'codex' && source.threadId === origin.nativeId;
         if (!supported || !agent || agent.threadId !== origin.threadId || !visibleSubagentIds(state.tasks).has(sourceID)) throw new Error('此原生子 Agent 尚不支持分叉或已不在可见历史中');
         source = { ...source, codexHome: source.codexHome ?? root?.codexHome, executionWorkspace: source.executionWorkspace ?? root?.executionWorkspace };
       }
@@ -164,7 +159,7 @@ export class TaskForks {
       const history = !source.runs?.some(run => run.id === input.runId) ? nativeForkPrefix(complete, input.runId) : prefix(complete, input.runId, targetID);
       const at = stamp(); const selected = history.selected;
       const sameProviderEpoch = !('providerEpoch' in selected) || !selected.providerEpoch || selected.providerEpoch === providerEpoch(source);
-      const nativeHistory = sameProviderEpoch && (!!input.headOnly || ['codex', 'claude', 'opencode'].includes(source.agent) || source.agent === 'pi' && 'nativeHead' in selected && !!selected.nativeHead && history.expectedTurns.every(id => !id.startsWith('pi:')));
+      const nativeHistory = sameProviderEpoch && (!!input.headOnly || ['codex', 'claude'].includes(source.agent) || source.agent === 'pi' && 'nativeHead' in selected && !!selected.nativeHead && history.expectedTurns.every(id => !id.startsWith('pi:')));
       const result = history.result;
       const durableId = await tx.createTask(this.definition, { id: targetID, operationId: operationID, attempt: 0 }, { ownership: { kind: 'conversation' } });
       const task: WorkItem = {

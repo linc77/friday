@@ -91,8 +91,3 @@ export class NativeSubagentProjection {
     for (const agent of this.entries.values()) if (!subagentEnded(agent.status)) await this.observe({ nativeId: agent.nativeId, status: status === 'completed' ? unfinished : 'interrupted', ...(agent.parentSubagentId ? { parentNativeId: [...this.entries.values()].find(value => value.id === agent.parentSubagentId)?.nativeId } : {}) });
   }
 }
-
-export function cursorChildMessages(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap(step => { const message = step?.type === 'assistantMessage' ? step.message?.text : step?.assistantMessage?.text; return typeof message === 'string' && message ? [message] : []; });
-}

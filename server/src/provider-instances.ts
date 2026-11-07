@@ -7,17 +7,19 @@ import type { Executor, WorkItem } from './types.js';
 import type { CodexConnection } from './codex-provider.js';
 import type { ClaudeConnection } from './claude-provider.js';
 import type { PiConnection } from './pi-provider.js';
-import type { GrokConnection } from './grok-provider.js';
-import type { CursorConnection } from './cursor-provider.js';
-import type { MuseConnection } from './muse-provider.js';
-import type { OpenCodeConnection } from './opencode-provider.js';
-import type { AcpProviderConnection } from './acp-provider.js';
 
-export const providerDrivers = ['codex', 'claude', 'pi', 'grok', 'cursor', 'muse', 'opencode', 'acp-registry', 'antigravity'] as const;
+export const providerDrivers = ['codex', 'claude', 'pi'] as const;
 export type ProviderDriver = typeof providerDrivers[number];
-export type ProviderConnections = { codex: CodexConnection; claude: ClaudeConnection; pi: PiConnection; grok: GrokConnection; cursor: CursorConnection; muse: MuseConnection; opencode: OpenCodeConnection; 'acp-registry': AcpProviderConnection; antigravity: AcpProviderConnection };
+// Persisted identities are retained for old tasks; they are never executable.
+const retiredDrivers = ['grok', 'muse', 'cursor', 'opencode', 'antigravity', 'acp-registry'] as const;
+type StoredDriver = ProviderDriver | typeof retiredDrivers[number];
+export const isProviderDriver = (driver: string): driver is ProviderDriver => (providerDrivers as readonly string[]).includes(driver);
+export function assertProviderAvailable(driver: string): asserts driver is ProviderDriver {
+  if (!isProviderDriver(driver)) throw new Error('此 Agent 接入已移除，历史任务仍可查看；请使用 Codex、Claude 或 Pi 新建任务。');
+}
+export type ProviderConnections = { codex: CodexConnection; claude: ClaudeConnection; pi: PiConnection };
 export type ProviderBundle = { connection: ProviderConnections[ProviderDriver]; executor: Executor };
-type Instance = { instanceId: string; driver: ProviderDriver; displayName: string; accentColor?: string; enabled: boolean; storageKey?: string; removed?: boolean };
+type Instance = { instanceId: string; driver: StoredDriver; displayName: string; accentColor?: string; enabled: boolean; storageKey?: string; removed?: boolean };
 export const providerInstanceID = (value: unknown): string => {
   if (typeof value !== 'string' || !/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(value.trim()) || ['__proto__', 'constructor', 'prototype'].includes(value.trim())) throw new Error('Provider 实例 ID 无效');
   return value.trim();
@@ -54,7 +56,7 @@ export class ProviderInstances {
         const ids = new Set<string>();
         saved = data.map((raw: Instance) => {
           const id = providerInstanceID(raw.instanceId);
-          if (ids.has(id) || !providerDrivers.includes(raw.driver) || typeof raw.enabled !== 'boolean' || typeof raw.displayName !== 'string' || raw.displayName.length > 80 || (raw.storageKey !== undefined && !/^[0-9a-f-]{36}$/.test(raw.storageKey)) || (providerDrivers.includes(id as ProviderDriver) && raw.driver !== id)) throw new Error('Provider 实例目录损坏');
+          if (ids.has(id) || !([...providerDrivers, ...retiredDrivers] as readonly string[]).includes(raw.driver) || typeof raw.enabled !== 'boolean' || typeof raw.displayName !== 'string' || raw.displayName.length > 80 || (raw.storageKey !== undefined && !/^[0-9a-f-]{36}$/.test(raw.storageKey)) || (([...providerDrivers, ...retiredDrivers] as readonly string[]).includes(id) && raw.driver !== id)) throw new Error('Provider 实例目录损坏');
           ids.add(id); return { ...raw, instanceId: id };
         });
       } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
@@ -63,9 +65,10 @@ export class ProviderInstances {
     })().finally(() => { this.loading = undefined; });
     return this.loading;
   }
-  async list() { return (await this.read()).filter(value => !value.removed).map(({ storageKey: _storage, removed: _removed, ...value }) => value); }
+  async list() { return (await this.read()).filter((value): value is Instance & { driver: ProviderDriver } => !value.removed && isProviderDriver(value.driver)).map(({ storageKey: _storage, removed: _removed, ...value }) => value); }
   async get<K extends ProviderDriver>(driver: K, instanceId: unknown = driver, requireEnabled = false): Promise<ProviderConnections[K]> {
     if (this.closed) throw new Error('Provider 服务已关闭');
+    assertProviderAvailable(driver);
     const id = providerInstanceID(instanceId), record = (await this.read()).find(value => value.instanceId === id && !value.removed);
     if (!record || record.driver !== driver) throw new Error('任务所属 Provider 实例不可用，请恢复原实例');
     if (requireEnabled && !record.enabled) throw new Error('任务所属 Provider 实例已停用');
@@ -90,13 +93,7 @@ export class ProviderInstances {
     const connection = await this.get(driver, instanceId), state = await connection.status(owner, reload);
     const record = (await this.read()).find(value => value.instanceId === instanceId && !value.removed);
     if (!record) throw new Error('Provider 实例已移除');
-    return { ...state, supportsTextGeneration: supportsTextGeneration(driver) && (driver !== 'antigravity' || state.supportsTextGeneration === true), supportsInvestigation: supportsInvestigation(driver), enabled: record.enabled && state.enabled, connected: record.enabled && state.connected, models: state.models.map(model => ({ ...model, optionDescriptors: providerOptionDescriptors(model) })) };
-  }
-  async credentialPeers(driver: ProviderDriver, instanceId: string) {
-    if (driver !== 'acp-registry') return [instanceId];
-    const connection = await this.get(driver, instanceId), key = await connection.credentialKey(), peers: string[] = [];
-    for (const instance of await this.list()) if (instance.driver === driver && await (await this.get(driver, instance.instanceId)).credentialKey() === key) peers.push(instance.instanceId);
-    return peers;
+    return { ...state, supportsTextGeneration: supportsTextGeneration(driver), supportsInvestigation: supportsInvestigation(driver), enabled: record.enabled && state.enabled, connected: record.enabled && state.connected, models: state.models.map(model => ({ ...model, optionDescriptors: providerOptionDescriptors(model) })) };
   }
   async forTask(task: Pick<WorkItem, 'agent' | 'providerInstanceId'>) { return this.get(task.agent as ProviderDriver, taskProviderInstance(task), true); }
   async executor(task: WorkItem) { await this.forTask(task); return this.bundles.get(taskProviderInstance(task))!.executor; }
@@ -105,6 +102,8 @@ export class ProviderInstances {
       if (this.closed) throw new Error('Provider 服务已关闭');
       if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Provider 实例配置无效');
       const value = input as Record<string, unknown>, id = providerInstanceID(value.instanceId), records = await this.read(), previous = records.find(record => record.instanceId === id);
+      if (previous) assertProviderAvailable(previous.driver);
+      if ((retiredDrivers as readonly string[]).includes(id)) throw new Error('旧 Provider 标识已保留，不能重新用于其他 Agent');
       let next = records.map(record => ({ ...record }));
       if (value.operation === 'remove') {
         if (!previous || previous.removed) throw new Error('Provider 实例不存在');
@@ -125,7 +124,7 @@ export class ProviderInstances {
       try { await writeFile(temporary, JSON.stringify(next), { mode: 0o600, flag: 'wx' }); await rename(temporary, path); this.records = next; }
       finally { await rm(temporary, { force: true }); }
       if (value.operation === 'remove') { const bundle = this.bundles.get(id); this.bundles.delete(id); await bundle?.executor.close?.(); await bundle?.connection.close(); }
-      await this.changed(id, (next.find(entry => entry.instanceId === id)!).driver);
+      await this.changed(id, (next.find(entry => entry.instanceId === id)!).driver as ProviderDriver);
       return this.list();
     });
     this.gate = operation.catch(() => {}); return operation;

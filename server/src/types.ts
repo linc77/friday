@@ -223,7 +223,7 @@ export type WorkItem = {
   codexHome?: string;
   claudeHome?: string;
   piHome?: string;
-  grokHome?: string;
+  grokHome?: string; // Legacy persisted identity; retained only for historical tasks.
   parentId?: string; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[];
   artifact: string | null; lastRequestId: string;
   workspaceRequest?: string | null;
@@ -337,7 +337,7 @@ export type AgentInfo = { id: string; name: string; installed: boolean; executab
 export type ExecutionUpdate = NativeRuntimeUpdate | import('./task-subagent-types.js').SubagentRuntimeUpdate | import('./task-subagent-types.js').SubagentBackgroundUpdate
   | { kind: 'goal'; goal: import('./codex-goals.js').TaskGoal | null }
   | { kind: 'contextUsage'; usage: import('./task-context-usage.js').TaskContextUsage | null }
-  | { kind: 'session'; threadId: string; codexHome?: string; claudeHome?: string; piHome?: string; grokHome?: string; nativeProviderAccount?: string; nativeHeadForkSupported?: boolean; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; executionSessionId?: string }
+  | { kind: 'session'; threadId: string; codexHome?: string; claudeHome?: string; piHome?: string; nativeProviderAccount?: string; nativeHeadForkSupported?: boolean; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; executionSessionId?: string }
   | { kind: 'turn'; turnId: string }
   | { kind: 'nativeHead'; head: string; turnIds?: string[] }
   | { kind: 'resumeApplied' }

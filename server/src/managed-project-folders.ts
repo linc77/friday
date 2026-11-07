@@ -17,8 +17,8 @@ export type ManagedProjectFolder = { root: string; device: string; inode: string
 export type NamedProjectCreation = { status: 'created'; requestId: string; project: Project; commitError?: string }
   | { status: 'missing' | 'unconfirmed' | 'cancelled' | 'failed'; requestId: string; error?: string };
 type Intent = { digest: string; projectId: string; name: string; folder?: string; identity?: ManagedProjectFolder; stage: 'claiming' | 'scaffolding' | 'registering'; commitError?: string; result?: NamedProjectCreation };
-const Receipt = defineDocFamily<{ intent?: Intent; cancelled?: boolean }, { id: string }>({ kind: 'friday.named_project_creation', version: 1, scope: 'session', family: true, initial: () => ({}) });
-const Folder = defineDocFamily<{folder?:ManagedProjectFolder},{id:string}>({kind:'friday.managed_project_folder',version:1,scope:'session',family:true,initial:()=>({})});
+const Receipt = defineDocFamily<{ intent?: Intent; cancelled?: boolean }, { id: string }>({ kind: 'friday.named_project_creation', version: 1, scope: 'session', checkpointWhen: () => false, family: true, initial: () => ({}) });
+const Folder = defineDocFamily<{folder?:ManagedProjectFolder},{id:string}>({kind:'friday.managed_project_folder',version:1,scope:'session',checkpointWhen:()=>false,family:true,initial:()=>({})});
 const key = (value: string) => createHash('sha256').update(value).digest('hex');
 const validRequest = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(value);
 export const newProjectFolderName = (name: string) => {

@@ -1,12 +1,12 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { chmod } from 'node:fs/promises';
 import { join } from 'node:path';
-import { StorageRejected, type DocumentRecord, type Storage, type StorageWrite, type Seq } from '@earendil-works/pi-durable';
+import type { DocumentRecord, Storage, StorageWrite, Seq } from '@earendil-works/pi-durable';
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
 import type { Op } from '@earendil-works/chord/delta';
 import { SqliteStorage, type SqliteDatabase, type SqliteExecutor, type SqliteValue } from '@earendil-works/pi-durable/storage/sqlite';
 import { openNodeSqliteDatabase } from '@earendil-works/pi-durable/storage/sqlite/node';
-import { IdeaImages, referencedImages, type ImageReferencePath } from './ideas.js';
+import { IdeaImages, MissingImageError, referencedImages, type ImageReferencePath } from './ideas.js';
 
 /** A transaction-scoped facade over Durable's public database interface. Only
  * the admitted callback sees its executor; unrelated uploads/GC wait in the
@@ -17,6 +17,7 @@ class SharedDatabase implements SqliteDatabase {
   private executor() { return this.scope.getStore() ?? this.db; }
   exec(sql: string) { return this.executor().exec(sql); }
   run(sql: string, ...params: SqliteValue[]) { return this.executor().run(sql, ...params); }
+  runCounted(sql: string, ...params: SqliteValue[]) { return this.executor().runCounted(sql, ...params); }
   get<T extends object>(sql: string, ...params: SqliteValue[]) { return this.executor().get<T>(sql, ...params); }
   all<T extends object>(sql: string, ...params: SqliteValue[]) { return this.executor().all<T>(sql, ...params); }
   transaction<T>(callback: (tx: SqliteExecutor) => Promise<T>): Promise<T> {
@@ -63,11 +64,11 @@ async function captureWrites(storage: Storage, images: IdeaImages, tx: SqliteExe
   return updated;
 }
 
-/** One-time reference-index backfill for the pinned Durable SQLite v1 schema.
+/** One-time reference-index backfill for the pinned Durable SQLite v2 schema.
  * SQL only enumerates records; document materialization stays with Durable. */
 async function seedReferences(storage: Storage, images: IdeaImages, db: SharedDatabase) {
   if (await db.get("SELECT value FROM friday_asset_state WHERE key='references-v1'")) return;
-  if ((await db.get<{ version: number }>('SELECT version FROM durable_schema WHERE singleton=1'))?.version !== 1) throw new Error('图片迁移不支持这个 Pi Durable 数据库版本');
+  if ((await db.get<{ version: number }>('SELECT version FROM durable_schema WHERE singleton=1'))?.version !== 2) throw new Error('图片迁移不支持这个 Pi Durable 数据库版本');
   for (const table of ['documents', 'tasks', 'entries', 'submissions', 'conversations'] as const) {
     let after = 0;
     for (;;) {
@@ -108,21 +109,43 @@ export async function openFridayStorage(directory: string) {
     await seedReferences(durable, images, db);
     await db.run("INSERT OR REPLACE INTO friday_asset_state(key,value) VALUES('legacy-import-v1','complete')");
     const paths = new Map<number, ImageReferencePath[]>();
-    const commit: Storage['commit'] = async (writes, context) => {
+    const commit: Storage['commit'] = async (batches, receive, context) => {
       const committed = await db.transaction(async tx => {
-        const seq = await durable.commit(writes, context);
-        try { return { seq, updated: await captureWrites(durable, images, tx, writes, seq, paths) }; }
-        catch (cause) {
-          // This error exits the outer transaction, which must roll back before
-          // Session sees StorageRejected. A rollback failure remains fatal.
-          throw new StorageRejected(cause instanceof Error ? cause.message : '图片引用保存失败', { cause });
+        const updated = new Map(paths), seqs: Seq[] = [];
+        for (const writes of batches) {
+          // This adapter is Node SQLite. A savepoint lets an attachment refusal
+          // discard just this batch while preserving earlier accepted batches.
+          await tx.exec('SAVEPOINT friday_image_batch');
+          let seq: Seq | undefined;
+          const result = await durable.commit([writes], (_index, value) => { seq = value; }, context);
+          if (result.stored === 0) {
+            await tx.exec('RELEASE friday_image_batch');
+            return { seqs, updated, refused: result.refused };
+          }
+          if (result.stored !== 1 || seq === undefined) throw new Error('Invalid Durable commit receipt');
+          try {
+            const changed = await captureWrites(durable, images, tx, writes, seq, updated);
+            await tx.exec('RELEASE friday_image_batch');
+            for (const [id, next] of changed) { updated.delete(id); updated.set(id, next); }
+            seqs.push(seq);
+          } catch (error) {
+            if (!(error instanceof MissingImageError)) throw error;
+            // A failed rollback is fatal; never report a known refusal then.
+            await tx.exec('ROLLBACK TO friday_image_batch; RELEASE friday_image_batch');
+            return { seqs, updated, refused: error };
+          }
         }
+        return { seqs, updated };
       });
       // Never adopt path hints for a rolled-back document. This bounded cache
       // contains paths only, not whole Workspace documents or image bytes.
-      for (const [id, next] of committed.updated) { paths.delete(id); paths.set(id, next); }
+      paths.clear();
+      for (const [id, next] of committed.updated) paths.set(id, next);
       while (paths.size > 256) paths.delete(paths.keys().next().value!);
-      return committed.seq;
+      // Inner receipts were only provisional: publish them to Session after the
+      // OUTER SQL COMMIT, when both Durable data and image references are durable.
+      for (const [index, seq] of committed.seqs.entries()) receive(index, seq);
+      return { stored: committed.seqs.length, ...('refused' in committed ? { refused: committed.refused } : {}) };
     };
     const storage: Storage = new Proxy(durable, {
       get(target, property, receiver) {

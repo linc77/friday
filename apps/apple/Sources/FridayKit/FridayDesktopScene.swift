@@ -16,6 +16,7 @@ public struct FridayDesktopScene: Scene {
             FridayRootView(store: store, navigation: navigation)
         }
         .defaultSize(width: 1180, height: 780)
+        .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unifiedCompact)
         .commands {
             FridayConversationCommands()

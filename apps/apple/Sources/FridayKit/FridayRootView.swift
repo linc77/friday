@@ -42,6 +42,9 @@ public struct FridayRootView: View {
     @AppStorage(FridayPreferenceKeys.appearance) private var appearance: FridayAppearance = .system
     @AppStorage(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
     @Environment(\.scenePhase) private var scenePhase
+    #if os(iOS)
+    @State private var mobileKeyboardVisible = false
+    #endif
     #if os(macOS)
     @FocusState private var focusedSidebarSection: FridaySection?
     @State private var settingsSection: FridaySettingsSection = .appearance
@@ -73,7 +76,6 @@ public struct FridayRootView: View {
             // The traffic lights sit over the rail; content reaches the top window edge.
             .ignoresSafeArea(.container, edges: .top)
             .background { FridayWindowBackground().ignoresSafeArea() }
-            .navigationTitle(FridayAppName.displayName)
             .focusedSceneValue(\.newFridayConversation, { newTask() })
             .toolbarBackground(.hidden, for: .windowToolbar)
             .frame(minWidth: 980, minHeight: 640)
@@ -81,6 +83,7 @@ public struct FridayRootView: View {
             ZStack {
                 NavigationStack {
                     conversation
+                        .fridayMobileHomeNavigation()
                         .toolbar(.hidden, for: .navigationBar)
                         .overlay(alignment: .top) { FridayMobileTopFade() }
                 }.fridayMobilePage(isSelected: mobileTab == 0)
@@ -88,6 +91,7 @@ public struct FridayRootView: View {
                     .fridayMobilePage(isSelected: mobileTab == 1)
                 NavigationStack(path: $mobileTaskPath) {
                     tasksList.navigationTitle(Text(friday: "任务"))
+                        .fridayMobileHomeNavigation()
                         .navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id, onOpenTask: openLocalTask) }
                         .toolbar {
                             if mobileTab == 2 {
@@ -110,17 +114,22 @@ public struct FridayRootView: View {
                         NavigationLink(friday: "外观") { AppearanceSettingsView(store: store) }
                         NavigationLink(friday: "已归档任务") { TaskArchivedTasks(store: store) }
                         NavigationLink(friday: "连接与设备") { ConnectionView(store: store) }
-                    }.navigationTitle(Text(friday: "我的 Friday"))
+                    }
+                    .fridayMobileHomeScroll()
+                    .fridayMobileHomeNavigation()
+                    .navigationTitle(Text(friday: "我的 Friday"))
                 }.fridayMobilePage(isSelected: mobileTab == 3)
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                // Conversation screens keep their composer and navigation on one surface.
-                if mobileTab == 1 || mobileTab == 3 || (mobileTab == 2 && mobileTaskPath.isEmpty) {
-                    FridayMobileDock { EmptyView() }
-                }
             }
             .environment(\.fridayMobileTabSelection, $mobileTab)
             .environment(\.fridayMobileNewConversation, newTask)
+            .environment(\.fridayMobileKeyboardVisible, mobileKeyboardVisible)
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                mobileKeyboardVisible = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
+                // Restore only after dismissal, so navigation never rides above the keyboard.
+                mobileKeyboardVisible = false
+            }
             .onChange(of: mobileTab) { _, _ in
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
@@ -179,6 +188,7 @@ public struct FridayRootView: View {
                 ForEach(FridaySection.allCases.filter { $0 != .settings }) { item in sidebarRow(item) }
             }
             Spacer(minLength: 16)
+            FridayUpdateNoticeButton()
             sidebarRow(.settings)
                 .help(Text(friday: "设置（⌘,）"))
         }

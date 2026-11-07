@@ -87,12 +87,12 @@ export function claudeUsageLimits(response: unknown): ProviderUsageLimits {
   return { checkedAt: new Date().toISOString(), windows: sorted(windows) };
 }
 export async function composerUsageLimits(engine: Engine, input: { provider: string; providerInstanceId?: string; taskId?: string; reload?: boolean }) {
-  if (!['codex', 'claude', 'grok', 'cursor', 'opencode'].includes(input.provider)) throw new Error('此 Provider 未提供原生额度接口');
+  if (!['codex', 'claude'].includes(input.provider)) throw new Error('此 Provider 未提供原生额度接口');
   const task = input.taskId ? (await engine.snapshot()).tasks.find(task => task.id === input.taskId) : undefined;
   if (input.taskId && (!task || task.agent !== input.provider)) throw new Error('任务执行范围已经改变');
   const id = task ? taskProviderInstance(task) : input.providerInstanceId ?? input.provider;
   if (task && input.providerInstanceId !== undefined && input.providerInstanceId !== id) throw new Error('任务所属 Provider 实例已改变');
-  const connection = await engine.providerInstances.get(input.provider as 'codex' | 'claude' | 'grok' | 'cursor' | 'opencode', id, true);
+  const connection = await engine.providerInstances.get(input.provider as 'codex' | 'claude', id, true);
   const value = await connection.usageLimits(input.reload === true, task);
   if (task && !(await engine.snapshot()).tasks.some(value => value.id === task.id && taskProviderInstance(value) === id && value.agent === task.agent && value.codexHome === task.codexHome && value.claudeHome === task.claudeHome)) throw new Error('任务执行范围已经改变');
   await engine.publishProviderUsage(id, value, ('usageIdentity' in connection ? connection.usageIdentity(value.credentialFingerprint) : undefined));

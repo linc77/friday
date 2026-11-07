@@ -1,11 +1,12 @@
 import Foundation
 
 enum TaskProviderCatalog {
-    static let order = ["codex", "claude", "cursor", "grok", "opencode", "antigravity", "pi", "muse", "acp-registry"]
+    static let order = ["codex", "claude", "pi"]
+    // Historical tasks still display their original provider name.
     static func name(_ provider: String) -> String {
         switch provider { case "codex": "Codex"; case "claude": "Claude"; case "cursor": "Cursor"; case "opencode": "OpenCode"; case "antigravity": "Antigravity"; case "acp-registry": "ACP Registry"; case "muse": "Muse Code"; case "pi": "Pi"; case "grok": "Grok"; case "friday": "Friday"; default: provider }
     }
-    static func hasUsageLimits(_ provider: String) -> Bool { ["codex", "claude", "grok", "cursor", "opencode"].contains(provider) }
+    static func hasUsageLimits(_ provider: String) -> Bool { ["codex", "claude"].contains(provider) }
 }
 
 struct ProviderInstanceInfo: Codable, Equatable, Identifiable {
@@ -424,54 +425,15 @@ struct CodexEnvironmentVariable: Codable, Identifiable, Equatable {
 struct CustomProviderModel: Codable, Identifiable, Equatable {
     var id: String; var name: String
 }
-struct AcpNativeProviderConfig: Codable, Equatable {
-    var source = "registry"; var registryAgentId = ""; var commandArgs: [String] = []
-    var authMethodId = ""; var distribution = "auto"; var commandOverride = ""; var harnessPath = ""
-    var authMethod = "oauth-personal"; var apiKey: String? = nil; var apiKeyConfigured = false
-    var gcpProject = ""; var gcpLocation = ""
-}
-struct AcpNativeLoginState: Decodable {
-    struct Interaction: Decodable { let id: String; let type: String; let url: String?; let output: String?; let outputOffset: Int? }
-    let pending: Bool
-    var url: String? = nil
-    var flowId: String? = nil
-    var revision: Int? = nil
-    var phase: String? = nil
-    var methodId: String? = nil
-    var interaction: Interaction? = nil
-    var error: String? = nil
-    func accepts(after previous: Self?) -> Bool {
-        guard let previous, previous.flowId == flowId, let old = previous.revision, let next = revision else { return true }
-        return next >= old
-    }
-}
-struct AcpNativeAuthMethods: Decodable {
-    struct Method: Decodable, Identifiable { let id: String; let name: String; let type: String; let description: String?; let envVarNames: [String]?; let link: String? }
-    let methods: [Method]
-    let defaultMethodId: String?
-}
-struct AcpRegistrySearchResult: Decodable {
-    struct Agent: Decodable, Identifiable { let id: String; let name: String; let version: String; let description: String; let distribution: String; let integrity: String }
-    let agents: [Agent]
-}
-struct NativeToolInstallState: Decodable {
-    let operationId: String?; let tool: String; let phase: String; let downloadedBytes: Double; let totalBytes: Double?; let error: String?
-    var active: Bool { ["downloading", "extracting", "verifying"].contains(phase) }
-}
 struct CodexProviderSettings: Codable, Equatable {
     var enabled = true; var displayName = "Codex"; var binaryPath = "codex"
     var homePath = ""; var shadowHomePath = ""; var launchArgs = ""
     var model = ""; var reasoningEffort = ""; var environment: [CodexEnvironmentVariable] = []
     var customModels: [CustomProviderModel] = []
     var permissionMode = "auto"
-    var serverUrl: String? = nil
-    var serverPassword: String? = nil
-    var serverPasswordConfigured: Bool? = nil
-    var cursorUsageKeychainEnabled: Bool? = nil
-    var nativeConfig: AcpNativeProviderConfig? = nil
     init() {}
     enum CodingKeys: String, CodingKey {
-        case enabled, displayName, binaryPath, homePath, shadowHomePath, launchArgs, model, reasoningEffort, environment, customModels, permissionMode, serverUrl, serverPassword, serverPasswordConfigured, cursorUsageKeychainEnabled, nativeConfig
+        case enabled, displayName, binaryPath, homePath, shadowHomePath, launchArgs, model, reasoningEffort, environment, customModels, permissionMode
     }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -486,20 +448,10 @@ struct CodexProviderSettings: Codable, Equatable {
         environment = try values.decode([CodexEnvironmentVariable].self, forKey: .environment)
         customModels = try values.decodeIfPresent([CustomProviderModel].self, forKey: .customModels) ?? []
         permissionMode = try values.decodeIfPresent(String.self, forKey: .permissionMode) ?? "auto"
-        serverUrl = try values.decodeIfPresent(String.self, forKey: .serverUrl)
-        serverPassword = try values.decodeIfPresent(String.self, forKey: .serverPassword)
-        serverPasswordConfigured = try values.decodeIfPresent(Bool.self, forKey: .serverPasswordConfigured)
-        cursorUsageKeychainEnabled = try values.decodeIfPresent(Bool.self, forKey: .cursorUsageKeychainEnabled)
-        nativeConfig = try values.decodeIfPresent(AcpNativeProviderConfig.self, forKey: .nativeConfig)
     }
     var body: [String: Any] {
         var body = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(self))) as? [String: Any] ?? [:]
         body["environment"] = environment.map { ["name": $0.name, "value": $0.value as Any? ?? NSNull()] }
-        if serverUrl != nil { body["serverPassword"] = serverPassword as Any? ?? NSNull() }
-        if let nativeConfig {
-            var native = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(nativeConfig))) as? [String: Any] ?? [:]
-            native["apiKey"] = nativeConfig.apiKey as Any? ?? NSNull(); body["nativeConfig"] = native
-        }
         return body
     }
 }

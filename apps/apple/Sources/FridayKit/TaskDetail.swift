@@ -139,9 +139,6 @@ struct TaskDetail: View {
             }
         } else {
             EmptyPanel(icon: "checklist", title: store.taskWasRemoved(id) ? "任务不存在" : "正在加载任务", subtitle: store.taskStreamErrors[id] ?? "连接主机后会显示最新进展。")
-                #if os(iOS)
-                .safeAreaInset(edge: .bottom, spacing: 0) { FridayMobileDock { EmptyView() } }
-                #endif
         }
     }
 
@@ -202,8 +199,10 @@ struct TaskDetail: View {
         #endif
         .safeAreaInset(edge: .bottom, spacing: 0) {
             #if os(iOS)
-            FridayMobileDock {
-                if task.subagentOrigin != nil {
+            FridayMobileComposerDock {
+                if task.localAgent && !TaskProviderCatalog.order.contains(task.agent) {
+                    Text(friday: "此 Agent 接入已移除，历史任务仍可查看；请使用 Codex、Claude 或 Pi 新建任务。").font(.callout).foregroundStyle(.secondary).padding()
+                } else if task.subagentOrigin != nil {
                     TaskBackgroundCommandsView(store: store, task: task)
                     TaskNativeSubagentBar(store: store, task: task, openTask: { onOpenTask?($0) })
                 } else if task.delegationOrigin != nil {
@@ -244,7 +243,9 @@ struct TaskDetail: View {
         .overlay(alignment: .bottom) {
             if task.localAgent {
                 VStack(spacing: 0) {
-                    if task.subagentOrigin != nil {
+                    if !TaskProviderCatalog.order.contains(task.agent) {
+                        Text(friday: "此 Agent 接入已移除，历史任务仍可查看；请使用 Codex、Claude 或 Pi 新建任务。").font(.callout).foregroundStyle(.secondary).padding()
+                    } else if task.subagentOrigin != nil {
                         TaskBackgroundCommandsView(store: store, task: task)
                         TaskNativeSubagentBar(store: store, task: task, openTask: { onOpenTask?($0) })
                     } else if task.delegationOrigin != nil {
@@ -316,6 +317,7 @@ struct TaskDetail: View {
                 .coordinateSpace(name: "task-transcript")
                 .scrollPosition(id: $historyAnchor, anchor: .top)
                 #if os(iOS)
+                .fridayMobileHomeScroll()
                 .scrollDismissesKeyboard(.interactively)
                 .ignoresSafeArea(.container, edges: task.localAgent ? [] : .top)
                 #endif
