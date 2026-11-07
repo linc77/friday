@@ -30,6 +30,10 @@ DMG 的 Finder 窗口使用普通白色背景，只提供安装器入口。双�
 
 版本、递增整数 build、固定运行时校验值和更新公钥由 `release/macos.json` 管理。每次发布增加 version 和 build；保持 Bundle Identifier、更新公钥和数据目录不变。
 
+macOS 打包显式使用支持 `--build-system swiftbuild` 的 Swift 工具链，构建与查询产物路径必须使用同一 backend。不要改回 native backend：其生成的 `Bundle.module` 只查找 App 根目录与构建机绝对路径，而包内资源位于 `Contents/Resources`，离开构建环境后会在启动时崩溃（beta.7 曾受此影响）。不要在 App 根目录添加资源链接，这会破坏严格代码签名验证。
+
+修改 Swift 构建方式或资源打包路径后运行 `node scripts/test-mac-resource-bundles.mjs`。该最小检查编译独立的 Debug/Release 资源探针，将签名 App 压缩、移除构建目录后再解压，验证实际 `Bundle.module` 加载；不启动 Friday 窗口或后台服务。完整发布仍需检查真实客户端启动，服务健康检查无法覆盖客户端资源崩溃。
+
 ### 更新公告
 
 每次发布必须同时编写 `release/<version>.md`，文件中的 `friday-build` 必须与 `release/macos.json` 的 build 一致。例如：
