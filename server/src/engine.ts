@@ -21,6 +21,8 @@ import { LocalAgentExecutor } from './local-agents.js';
 import { FridayAssistant } from './assistant.js';
 import { planWorkspace, prepareWorkspace } from './task-workspace.js';
 import { defineBranchSwitch, assertCheckoutIdle, branchBlocksTask } from './branch-switch.js';
+import { Proactive } from './proactive.js';
+import type { PushSender } from './notifications.js';
 
 const now = () => new Date().toISOString();
 const event = (kind: string, text: string) => ({ id: randomUUID(), kind, text, at: now() });
@@ -42,20 +44,24 @@ export class Engine extends EventEmitter {
   readonly execution;
   readonly response;
   readonly branchSwitch;
+  readonly proactive: Proactive;
   readonly executor: Executor;
   readonly modelConnection: ModelConnection;
   readonly assistant: FridayAssistant;
   readonly codexConnection: CodexConnection;
   readonly claudeConnection: ClaudeConnection;
   private readonly customExecutor: boolean;
-  constructor(readonly directory: string, executor?: Executor, readonly agentOptions?: { models: Models; model: ModelRef }) {
+  private readonly personalClock?: () => number;
+  constructor(readonly directory: string, executor?: Executor, readonly agentOptions?: { models: Models; model: ModelRef }, personalOptions?: { push?: PushSender; now?: () => number; pollMs?: number }) {
     super();
     this.customExecutor = executor !== undefined;
+    this.personalClock = personalOptions?.now;
     this.modelConnection = new ModelConnection(directory);
     this.codexConnection = new CodexConnection(directory);
     this.claudeConnection = new ClaudeConnection(directory);
     this.executor = executor ?? new LocalAgentExecutor({ codex: new CodexExecutor(undefined, this.codexConnection, () => this.snapshot()), claude: new ClaudeExecutor(this.claudeConnection) });
     this.assistant = new FridayAssistant(this);
+    this.proactive = new Proactive(this, personalOptions);
     this.response = this.createResponse();
     this.branchSwitch = defineBranchSwitch(this);
     this.execution = defineTask<Input, Checkpoint, { status: string }, {}>({
@@ -188,12 +194,14 @@ export class Engine extends EventEmitter {
     catch { this.lease.close(); throw new Error('已有 Friday 服务正在使用这个数据目录。'); }
     try {
       const registry = createRegistry();
-      registry.install(defineExtension({ name: 'friday', tasks: [this.execution, this.response, this.branchSwitch] }));
+      registry.install(defineExtension({ name: 'friday', tasks: [this.execution, this.response, this.branchSwitch, this.proactive.scheduler, this.proactive.share, this.proactive.notify] }));
       registry.install(this.assistant.extension);
+      registry.install(this.proactive.assistantExtension);
       this.harness = await Harness.open(await openNodeSqliteStorage(join(this.directory, 'friday.sqlite')), {
         models: this.agentOptions?.models ?? this.modelConnection.models, registry,
         settings: { toolExecution: 'sequential', retry: { maxRetries: 2 } },
         onReport: () => console.error('[Friday runtime] runtime failure'),
+        ...(this.personalClock ? { now: this.personalClock } : {}),
       }, context);
       this.root = await this.harness.root(context);
       await this.root.commit(async tx => { await tx.doc(WorkspaceDoc); }, context);
@@ -212,6 +220,7 @@ export class Engine extends EventEmitter {
       });
       this.watch = await this.harness.watchDoc(WorkspaceDoc, context);
       this.watch?.start(async () => { this.emit('change'); });
+      await this.proactive.start();
       this.harness.resume();
       return this;
     } catch (error) { this.lease.close(); throw error; }
@@ -269,6 +278,7 @@ export class Engine extends EventEmitter {
     const snapshot = await this.snapshot();
     if (Object.hasOwn(snapshot.requests, input.requestId)) return snapshot.requests[input.requestId];
     const previous = snapshot.tasks.find(t => t.id === input.continueId);
+    if ((previous?.personalTopic === 'health' || previous?.healthContext) && !(await this.proactive.state()).settings.modelConsent) throw new Error('此对话包含健康数据；要继续发送给模型，请先在「健康与主动分享」中允许模型分析，或新开普通对话');
     const agent = previous?.agent ?? input.agent ?? 'friday';
     const native = agent === 'friday';
     const images = await new IdeaImages(this.directory).validate(input.images);
@@ -353,7 +363,7 @@ export class Engine extends EventEmitter {
           task.conversationId = conversation.id;
         }
         // Keep history, but use Friday's current provider on every new user turn.
-        await configure(tx, task.conversationId as ConversationId, { model: this.agentOptions?.model ?? this.modelConnection.model, thinkingLevel: this.agentOptions ? 'medium' : 'high', extensions: [this.assistant.extension] });
+        await configure(tx, task.conversationId as ConversationId, { model: this.agentOptions?.model ?? this.modelConnection.model, thinkingLevel: this.agentOptions ? 'medium' : 'high', extensions: [task.personalTopic === 'health' ? this.proactive.assistantExtension : this.assistant.extension] });
       }
       const durableId = native
         ? await tx.createTask(this.response, { id: task.id, predecessor, prompt: input.prompt, requestId: input.requestId }, { ownership: { kind: 'conversation' } })

@@ -14,6 +14,7 @@ import { projectChanges } from './projects.js';
 import { TaskGitContexts, gitRefreshInterval } from './git-context.js';
 import { ServiceMaintenance } from './maintenance.js';
 import { workspaceOptions, workspaceSelection } from './task-workspace.js';
+import { ApnsSender } from './notifications.js';
 
 function text(value: unknown, name: string, max = 12_000): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error(`${name}不能为空，且长度不能超过 ${max}`);
@@ -126,9 +127,27 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents) {
     if (c.get('device') !== 'owner') return c.json({ error: '请在主机上生成配对码' }, 403);
     return c.json(auth.createPairing());
   });
-  app.delete('/api/devices/:id', c => {
+  app.delete('/api/devices/:id', async c => {
     if (c.get('device') !== 'owner') return c.json({ error: '请在主机上管理设备' }, 403);
-    auth.revoke(c.req.param('id')); return c.json({ ok: true });
+    auth.revoke(c.req.param('id')); await engine.proactive.revokeDevice(c.req.param('id')); return c.json({ ok: true });
+  });
+  app.get('/api/health', async c => c.json(await engine.proactive.status(c.get('device'))));
+  app.put('/api/health/connection', async c => { await engine.proactive.connection(c.get('device'), (await c.req.json()).enabled); return c.json({ ok: true }); });
+  app.post('/api/health/snapshot', async c => c.json(await engine.proactive.ingest(c.get('device'), await c.req.json())));
+  app.put('/api/health/settings', async c => { await engine.proactive.saveSettings(c.get('device'), await c.req.json()); return c.json(await engine.proactive.status(c.get('device'))); });
+  app.post('/api/health/share', async c => c.json(await engine.proactive.shareNow(c.get('device'), text((await c.req.json()).requestId, '请求 ID', 80))));
+  app.put('/api/notifications/device', async c => { await engine.proactive.registerPush(c.get('device'), await c.req.json()); return c.json({ ok: true }); });
+  app.get('/api/notifications/provider', c => c.json(engine.proactive.push instanceof ApnsSender
+    ? engine.proactive.push.status(c.get('device') === 'owner') : { configured: engine.proactive.push.configured }));
+  app.put('/api/notifications/provider', async c => {
+    if (c.get('device') !== 'owner') return c.json({ error: '请在主机上配置 APNs' }, 403);
+    if (!(engine.proactive.push instanceof ApnsSender)) throw new Error('当前推送服务不支持配置');
+    return c.json(await engine.proactive.push.save(await c.req.json()));
+  });
+  app.delete('/api/notifications/provider', async c => {
+    if (c.get('device') !== 'owner') return c.json({ error: '请在主机上移除 APNs 配置' }, 403);
+    if (!(engine.proactive.push instanceof ApnsSender)) throw new Error('当前推送服务不支持配置');
+    return c.json(await engine.proactive.push.clear());
   });
   app.post('/api/ideas', async c => {
     const body = await c.req.json(); const id = text(body.id ?? randomUUID(), 'ID', 80);

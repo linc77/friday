@@ -67,6 +67,9 @@ final class FridayStore: ObservableObject {
                     let snapshot = try await connection.decode(Snapshot.self, "/api/state")
                     if Task.isCancelled { return }
                     apply(snapshot); connected = true; error = nil
+                    #if os(iOS)
+                    Task { await HealthSync.shared.sync() }
+                    #endif
                     await flushOutbox()
                     var request = try connection.request("/api/events"); request.timeoutInterval = 86_400
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")

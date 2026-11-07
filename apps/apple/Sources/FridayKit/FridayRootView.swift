@@ -119,6 +119,7 @@ public struct FridayRootView: View {
                         NavigationLink("Providers") { ProvidersView(store: store) }
                         NavigationLink(friday: "外观") { AppearanceSettingsView() }
                         NavigationLink(friday: "连接与设备") { ConnectionView(store: store) }
+                        NavigationLink(friday: "健康与主动分享") { HealthSettingsView(store: store) }
                     }.navigationTitle(Text(friday: "我的 Friday"))
                 }.fridayMobilePage(isSelected: mobileTab == 3)
             }
@@ -151,7 +152,18 @@ public struct FridayRootView: View {
             TaskDraftCache.save(drafts.isEmpty ? nil : drafts, server: store.connection.server, context: "new-tasks")
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await store.importSharedIdeas(); await store.connect() } }
+            if phase == .active {
+                #if os(iOS)
+                Task { await HealthSync.shared.sync() }
+                #endif
+                Task { await store.importSharedIdeas(); await store.connect() }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .fridayOpenConversation)) { note in
+            if let id = note.object as? String { UserDefaults.standard.removeObject(forKey: "friday.openConversation"); openConversation(id) }
+        }
+        .onAppear {
+            if let id = UserDefaults.standard.string(forKey: "friday.openConversation") { UserDefaults.standard.removeObject(forKey: "friday.openConversation"); openConversation(id) }
         }
         .onOpenURL { url in
             guard url.scheme == "friday", url.host == "capture", let components = URLComponents(url: url, resolvingAgainstBaseURL: false), let text = components.queryItems?.first(where: { $0.name == "text" })?.value else { return }

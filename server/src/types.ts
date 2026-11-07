@@ -34,6 +34,8 @@ export type WorkItem = {
   durableId: number | null; threadId: string | null; turnId: string | null;
   result: string; error: string | null; events: TaskEvent[]; approvals: Approval[];
   conversationId?: number; messages?: ChatMessage[];
+  personalTopic?: 'health';
+  healthContext?: boolean;
   codexHome?: string;
   claudeHome?: string;
   parentId?: string; model?: string; reasoningEffort?: string;
