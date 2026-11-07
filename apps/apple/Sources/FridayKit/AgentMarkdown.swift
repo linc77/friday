@@ -15,6 +15,8 @@ struct AgentMarkdown: View {
     var workspacePath: String? = nil
     var isStreaming = false
     var galleryImages: [MarkdownImage]? = nil
+    var bodyFont: Font? = nil
+    var bodyLineSpacing: CGFloat? = nil
     @State private var parsed: [MarkdownBlock]? = nil
     @State private var parsedSource: String? = nil
     @State private var scope = UUID()
@@ -35,7 +37,8 @@ struct AgentMarkdown: View {
             if let parsed { MarkdownBlockGroup(blocks: parsed, compact: compact, canOpenLocalFiles: canOpenLocalFiles, workspacePath: workspacePath, isStreaming: isStreaming || parsedSource != text) }
             else { Text(verbatim: text) }
         }
-        .font(compact ? .callout : .body).lineSpacing(compact ? 4 : 6)
+        .font(bodyFont ?? (compact ? .callout : .body))
+        .lineSpacing(bodyLineSpacing ?? (compact ? 4 : 6))
         .frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
         .overlay { if let citationModel { TaskCitationSelectionOverlay(model:citationModel) } }
         .environment(\.markdownNavigation, navigation)

@@ -36,6 +36,7 @@ struct TaskWorkspaceSidebar: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.locale) private var locale
     #if os(macOS)
+    @StateObject private var pageIndicator = WorkspacePageIndicator()
     @Environment(\.fridayModelJump) private var modelJump
     @Environment(\.fridayTitleEditors) private var titleEditors
     private var navigationActions: TaskNavigationActions {
@@ -220,7 +221,7 @@ struct TaskWorkspaceSidebar: View {
     @ViewBuilder private var workspacePages: some View {
         #if os(macOS)
         TaskWorkspacePages(pages: [nil] + projectGroups.map { Optional($0.id) }, selection: scope,
-            context: store.connectionIdentity + "\n" + (store.taskStreamSession ?? "legacy"), select: select) { id in
+            context: store.connectionIdentity + "\n" + (store.taskStreamSession ?? "legacy"), select: select, indicator: pageIndicator) { id in
             workspacePage(id)
         }
         #else
@@ -474,21 +475,29 @@ struct TaskWorkspaceSidebar: View {
         #if os(macOS)
         HStack(spacing: 0) {
             Button { showingArchives = true } label: {
-                FridaySymbolLabel(friday: "归档", systemImage: "archivebox").font(.caption).frame(width: 60, height: 32)
-            }.buttonStyle(FridaySymbolButtonStyle()).help(Text(friday: "已归档任务"))
+                FridaySymbolImage(systemName: "archivebox").font(.caption).frame(width: 32, height: 32)
+            }.buttonStyle(FridaySymbolButtonStyle())
+                .accessibilityLabel(Text(friday: "已归档任务")).help(Text(friday: "已归档任务"))
             HStack(spacing: 2) {
                 ForEach(visiblePageIndices, id: \.self) { index in
                     let selected = index == selectedPageIndex
                     Button { select(index == 0 ? nil : projectGroups[index - 1].id) } label: {
-                        Circle().fill(selected ? Color.primary : Color.secondary.opacity(0.35))
-                            .frame(width: selected ? 7 : 5, height: selected ? 7 : 5)
+                        Circle().fill(Color.secondary.opacity(0.35))
+                            .frame(width: 5, height: 5)
                             .frame(width: 14, height: 28).contentShape(Rectangle())
                     }.buttonStyle(FridaySymbolButtonStyle())
                         .accessibilityLabel(pageTitle(index)).help(pageTitle(index))
                         .accessibilityAddTraits(selected ? .isSelected : [])
                 }
-            }.frame(maxWidth: .infinity)
-            Color.clear.frame(width: 60, height: 32).accessibilityHidden(true)
+            }
+            .overlay {
+                if let first = visiblePageIndices.first {
+                    WorkspacePageIndicatorSurface(indicator: pageIndicator, firstIndex: first)
+                        .allowsHitTesting(false).accessibilityHidden(true)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            Color.clear.frame(width: 32, height: 32).accessibilityHidden(true)
         }.padding(.horizontal, 10).padding(.bottom, 8)
         #else
         HStack {

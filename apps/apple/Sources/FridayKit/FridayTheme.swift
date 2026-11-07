@@ -65,9 +65,63 @@ enum FridayTheme {
         #if os(iOS)
         Color(uiColor: .systemBackground)
         #else
-        canvas
+        Color(nsColor: .textBackgroundColor)
         #endif
     }
+
+    static var conversationAssistantBackground: Color {
+        #if os(macOS)
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                ? NSColor(white: 0.15, alpha: 1)
+                : NSColor(red: 243.0 / 255.0, green: 243.0 / 255.0, blue: 245.0 / 255.0, alpha: 1)
+        })
+        #else
+        surface
+        #endif
+    }
+
+    static var conversationUserBackground: Color {
+        #if os(macOS)
+        Color(red: 53.0 / 255.0, green: 99.0 / 255.0, blue: 244.0 / 255.0)
+        #else
+        conversationInput
+        #endif
+    }
+
+    static var conversationUserForeground: Color {
+        #if os(macOS)
+        .white
+        #else
+        .primary
+        #endif
+    }
+
+    static var conversationFont: Font {
+        #if os(macOS)
+        .system(size: 16, weight: .regular, design: .default)
+        #else
+        .body
+        #endif
+    }
+
+    #if os(macOS)
+    static let conversationLineSpacing: CGFloat = 4
+    static let conversationBubbleRadius: CGFloat = 24
+    static let conversationUserLineSpacing: CGFloat = 4
+    static let conversationUserBubbleRadius: CGFloat = 24
+    static let conversationUserVerticalPadding: CGFloat = 10
+    static let conversationAssistantHorizontalPadding: CGFloat = 18
+    static let conversationAssistantVerticalPadding: CGFloat = 14
+    #else
+    static let conversationLineSpacing: CGFloat = 6
+    static let conversationBubbleRadius: CGFloat = cornerRadius
+    static let conversationUserLineSpacing: CGFloat = 5
+    static let conversationUserBubbleRadius: CGFloat = 16
+    static let conversationUserVerticalPadding: CGFloat = 18
+    static let conversationAssistantHorizontalPadding: CGFloat = 24
+    static let conversationAssistantVerticalPadding: CGFloat = 24
+    #endif
 
     static var conversationInput: Color {
         #if os(iOS)
@@ -79,19 +133,6 @@ enum FridayTheme {
         #else
         accent.opacity(0.06)
         #endif
-    }
-}
-
-struct FridayMark: View {
-    var size: CGFloat = 40
-    var body: some View {
-        FridaySymbolImage(systemName: "sparkle")
-            .font(.system(size: size * 0.52, weight: .medium))
-            .foregroundStyle(FridayTheme.accent)
-            .frame(width: size, height: size)
-            .background(FridayTheme.accent.opacity(0.09), in: RoundedRectangle(cornerRadius: size * 0.32))
-            .fridaySymbolFeedback()
-            .accessibilityHidden(true)
     }
 }
 

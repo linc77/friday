@@ -8,6 +8,7 @@ struct TaskWorkspacePages<Page: View>: View {
     let selection: String?
     let context: String
     let select: (String?) -> Void
+    var indicator: WorkspacePageIndicator? = nil
     @ViewBuilder let page: (String?) -> Page
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -16,7 +17,7 @@ struct TaskWorkspacePages<Page: View>: View {
         let configuration = WorkspacePageConfiguration(pages: pages, selection: selection, context: context,
             animated: !reduceMotion && scenePhase == .active)
         GeometryReader { geometry in
-            WorkspacePageSurface(configuration: configuration, size: geometry.size, select: select,
+            WorkspacePageSurface(configuration: configuration, size: geometry.size, select: select, indicator: indicator,
                 content: HStack(spacing: 0) {
                     ForEach(configuration.visibleIndices, id: \.self) { index in
                         page(pages[index])
@@ -46,6 +47,7 @@ private struct WorkspacePageSurface<Content: View>: NSViewRepresentable {
     let configuration: WorkspacePageConfiguration
     let size: CGSize
     let select: (String?) -> Void
+    let indicator: WorkspacePageIndicator?
     let content: Content
 
     func makeNSView(context: Context) -> WorkspacePageViewport { WorkspacePageViewport() }
@@ -53,7 +55,7 @@ private struct WorkspacePageSurface<Content: View>: NSViewRepresentable {
         // A separate hosting root must inherit locale, appearance and Friday's
         // bindings from the surrounding sidebar, rather than use new defaults.
         let root = AnyView(content.environment(\.self, context.environment))
-        view.update(configuration, size: size, content: root, select: select)
+        view.update(configuration, size: size, content: root, select: select, indicator: indicator)
     }
     static func dismantleNSView(_ view: WorkspacePageViewport, coordinator: ()) { view.stop() }
 }
@@ -66,6 +68,7 @@ final class WorkspacePageViewport: NSView {
     private var configuration: WorkspacePageConfiguration?
     private var pageSize = CGSize.zero
     private var select: ((String?) -> Void)?
+    private var indicator: WorkspacePageIndicator?
     private var transition = 0
     private var settling = false
     private var dragging = false
@@ -90,9 +93,14 @@ final class WorkspacePageViewport: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override var isFlipped: Bool { true }
 
-    func update(_ next: WorkspacePageConfiguration, size: CGSize, content: AnyView, select: @escaping (String?) -> Void) {
+    func update(_ next: WorkspacePageConfiguration, size: CGSize, content: AnyView, select: @escaping (String?) -> Void,
+        indicator: WorkspacePageIndicator? = nil) {
         let changed = configuration != next || pageSize != size
         configuration = next; pageSize = size; self.select = select
+        if self.indicator !== indicator {
+            self.indicator = indicator
+            indicator?.move(to: pagePosition(translation))
+        }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         if changed { reset(); gesture.updateIdentity(next.identity + "\n\(size.width)x\(size.height)") }
@@ -169,9 +177,14 @@ final class WorkspacePageViewport: NSView {
         spring.fromValue = translation
         spring.toValue = target
         spring.duration = FridayTheme.motionResponse
+        // Both layers use the same spring and start time; the indicator must
+        // not wait for the deferred SwiftUI selection/filter update.
+        spring.beginTime = CACurrentMediaTime()
+        let indicatorStart = pagePosition(translation)
         settling = true
         setTranslation(target)
         layer?.add(spring, forKey: Self.animationKey)
+        indicator?.settle(from: indicatorStart, spring: spring)
         // The compositor runs the spring independently of SwiftUI. Defer the
         // expensive scope/filter update until that visual transition is over.
         DispatchQueue.main.asyncAfter(deadline: .now() + spring.duration) { [weak self] in
@@ -183,6 +196,7 @@ final class WorkspacePageViewport: NSView {
         guard token == transition, let configuration else { return }
         settling = false
         layer?.removeAnimation(forKey: Self.animationKey)
+        indicator?.move(to: pagePosition(translation))
         guard configuration.pages.indices.contains(destination), destination != configuration.index else { return }
         awaitingSelection = true
         select?(configuration.pages[destination])
@@ -193,7 +207,12 @@ final class WorkspacePageViewport: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         layer?.sublayerTransform = CATransform3DMakeTranslation(value, 0, 0)
+        indicator?.move(to: pagePosition(value))
         CATransaction.commit()
+    }
+
+    private func pagePosition(_ offset: CGFloat) -> CGFloat {
+        CGFloat(configuration?.index ?? 0) - (pageSize.width > 0 ? offset / pageSize.width : 0)
     }
 
     private func reset() {
@@ -202,5 +221,79 @@ final class WorkspacePageViewport: NSView {
         setTranslation(0)
     }
     func stop() { reset(); gesture.stop() }
+}
+
+/// Shared by the page viewport and footer without publishing per-frame
+/// SwiftUI state or rebuilding the task lists.
+@MainActor final class WorkspacePageIndicator: ObservableObject {
+    fileprivate weak var view: WorkspacePageIndicatorView?
+    fileprivate var position: CGFloat = 0
+
+    func move(to position: CGFloat) {
+        self.position = position
+        view?.move(to: position)
+    }
+
+    func settle(from position: CGFloat, spring: CASpringAnimation) {
+        view?.settle(from: position, spring: spring)
+    }
+}
+
+struct WorkspacePageIndicatorSurface: NSViewRepresentable {
+    let indicator: WorkspacePageIndicator
+    let firstIndex: Int
+
+    func makeNSView(context: Context) -> WorkspacePageIndicatorView { WorkspacePageIndicatorView() }
+    func updateNSView(_ view: WorkspacePageIndicatorView, context: Context) {
+        let changed = indicator.view !== view || view.firstIndex != firstIndex
+        indicator.view = view
+        view.firstIndex = firstIndex
+        if changed { view.move(to: indicator.position) }
+    }
+}
+
+final class WorkspacePageIndicatorView: NSView {
+    fileprivate var firstIndex = 0
+    private let dot = CALayer()
+    private static let animationKey = "workspace-indicator-settle"
+    private static let spacing: CGFloat = 16
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        dot.bounds = CGRect(x: 0, y: 0, width: 7, height: 7)
+        dot.cornerRadius = 3.5
+        layer?.addSublayer(dot)
+        updateColor()
+    }
+    convenience init() { self.init(frame: .zero) }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateColor() }
+    private func updateColor() {
+        effectiveAppearance.performAsCurrentDrawingAppearance { dot.backgroundColor = NSColor.labelColor.cgColor }
+    }
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        dot.position = CGPoint(x: 7, y: bounds.midY)
+        CATransaction.commit()
+    }
+    private func offset(_ position: CGFloat) -> CGFloat { (position - CGFloat(firstIndex)) * Self.spacing }
+    fileprivate func move(to position: CGFloat) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        dot.removeAnimation(forKey: Self.animationKey)
+        dot.transform = CATransform3DMakeTranslation(offset(position), 0, 0)
+        CATransaction.commit()
+    }
+    fileprivate func settle(from position: CGFloat, spring: CASpringAnimation) {
+        guard let animation = spring.copy() as? CASpringAnimation else { return }
+        animation.keyPath = "transform.translation.x"
+        animation.fromValue = offset(position)
+        animation.toValue = dot.transform.m41
+        dot.add(animation, forKey: Self.animationKey)
+    }
 }
 #endif

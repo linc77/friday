@@ -15,7 +15,9 @@ export type Project = { scripts?: import('./project-script-types.js').ProjectScr
 export type Memory = { id: string; text: string; updatedAt: string };
 export type Question = { id: string; header: string; question: string; options: { label: string; description: string; value?: string }[]; multiSelect?: boolean; isOther?: boolean; isSecret?: boolean };
 export type Approval = { id: string; method: string; title: string; detail: string; questions: Question[]; state: 'pending' | 'answered' | 'expired'; responseStatus?: 'sending' | 'uncertain' | 'sent'; decisions?: import('./provider-approvals.js').ApprovalDecision[]; options?: import('./codex-mcp-elicitation.js').ApprovalOption[]; appName?: string; decision?: import('./provider-approvals.js').ApprovalDecision; answers?: Record<string, string[]>; subagentId?: string; ownerRunId?: string };
-export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; at?: string; turnId?: string; images?: IdeaImage[]; contexts?: TaskContextReference[]; delivery?: 'sending' | 'sent' | 'uncertain'; runId?: string; revertedAt?: string; historyOrder?: number; creationSource?: 'monitor' | 'delegated'; notification?: import('./task-change-request-watch-types.js').WatchNotification };
+export type AssistantTool = { id: string; name: string; status: 'preparing' | 'pending' | 'running' | 'completed' | 'failed' | 'interrupted'; output?: string };
+export type AssistantActivity = { phase: 'preparing' | 'thinking' | 'responding' | 'preparingTool' | 'tools' | 'retrying' | 'compacting'; round: number; tool?: string };
+export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; thinking?: string; tools?: AssistantTool[]; streaming?: boolean; at?: string; turnId?: string; images?: IdeaImage[]; contexts?: TaskContextReference[]; delivery?: 'sending' | 'sent' | 'uncertain'; runId?: string; revertedAt?: string; historyOrder?: number; creationSource?: 'monitor' | 'delegated'; notification?: import('./task-change-request-watch-types.js').WatchNotification };
 export type ExecutionImage = IdeaImage & { path: string };
 export type TaskMode = 'auto' | 'assistant' | 'research' | 'code';
 export type TaskGitAction = 'commit' | 'push' | 'create_pr' | 'commit_push' | 'commit_push_pr' | 'pull' | 'publish_repository';
@@ -220,6 +222,7 @@ export type WorkItem = {
   backgroundWaiting?: boolean;
   backgroundActivity?: { commands: number; unknownCommands: number; monitors?: number; subagents?: number; backgroundTasks?: number; unknownTasks?: number; waiting?: boolean; canStop?: boolean };
   conversationId?: number; messages?: ChatMessage[];
+  assistantActivity?: AssistantActivity;
   codexHome?: string;
   claudeHome?: string;
   piHome?: string;

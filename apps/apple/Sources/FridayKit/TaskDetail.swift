@@ -18,7 +18,6 @@ struct TaskDetail: View {
     @State private var queueEdit: QueuedMessageEditDraft?
     @State private var resumeRequestId = UUID().uuidString
     @State private var followingEnd = true
-    @State private var atEnd = true
     @State private var previousScrollTop: CGFloat?
     @State private var scrollRequest = 0
     @State private var diffSelection: TaskDiffSelection?
@@ -113,7 +112,7 @@ struct TaskDetail: View {
                 conversationWindow = TaskConversationWindow(); historyRetryGeneration = 0
                 restorePanels()
                 applyRewindEditor()
-                followingEnd = true; atEnd = true; previousScrollTop = nil
+                followingEnd = true; previousScrollTop = nil
                 #if os(macOS)
                 composerNeedsRestore = false
                 composerAtBottom = true
@@ -199,7 +198,7 @@ struct TaskDetail: View {
     private func taskLayout(_ task: WorkItem) -> some View {
         VStack(spacing: 0) {
             #if os(macOS)
-            header(task)
+            if task.localAgent { header(task) }
             #endif
             transcriptScroll(task)
                 .modifier(TaskBrowserFloatingPreview(store:store,task:task,browser:$browserPanel,activePanel:$activePanel))
@@ -313,13 +312,16 @@ struct TaskDetail: View {
                     )
                     #if os(macOS)
                     .background {
-                        if task.localAgent {
-                            TranscriptHistoryScrollGesture(composerHeight: composerHeight) {
-                                followingEnd = false
+                        TranscriptHistoryScrollGesture(composerHeight: task.localAgent ? composerHeight : 0) {
+                            followingEnd = false
+                            if task.localAgent {
                                 composerNeedsRestore = true
                                 composerCollapseRequest += 1
-                            } scrolledDown: {
-                                if composerAtBottom { restoreComposer() }
+                            }
+                        } scrolledDown: {
+                            if composerAtBottom {
+                                followingEnd = true
+                                if task.localAgent { restoreComposer() }
                             }
                         }
                     }
@@ -332,8 +334,10 @@ struct TaskDetail: View {
                 .scrollDismissesKeyboard(.interactively)
                 .ignoresSafeArea(.container, edges: task.localAgent ? [] : .top)
                 #endif
-                .modifier(TranscriptScrollObserver { metrics in
+                .modifier(TranscriptScrollObserver(interactionBegan: { followingEnd = false }) { metrics in
                     guard metrics.bottom > 0 else { return }
+                    // Also cover scrollbar/keyboard movement and older systems
+                    // where the native gesture bridge may not receive input.
                     if let previousScrollTop, metrics.top > previousScrollTop + 3 { followingEnd = false }
                     #if os(macOS)
                     // Wait for downward movement to the actual bottom. Shrinking
@@ -346,37 +350,26 @@ struct TaskDetail: View {
                         restoreComposer()
                     }
                     #endif
-                    previousScrollTop = metrics.top
-                    atEnd = metrics.bottom <= metrics.viewportHeight + 48
+                    let atEnd = metrics.bottom <= metrics.viewportHeight + 48
+                    #if os(macOS)
+                    if atEnd, let previousScrollTop, metrics.top < previousScrollTop { followingEnd = true }
+                    #else
                     if atEnd { followingEnd = true }
+                    #endif
+                    previousScrollTop = metrics.top
                 })
-                .overlay(alignment: .bottom) {
-                    if !atEnd {
-                        Button {
-                            followingEnd = true
-                            #if os(macOS)
-                            if task.localAgent { restoreComposer() }
-                            #endif
-                            withAnimation(reduceMotion ? nil : FridayTheme.motion) { proxy.scrollTo("transcript-end", anchor: .bottom) }
-                        } label: { FridaySymbolLabel(friday: "回到最新", systemImage: "arrow.down") }
-                            .buttonStyle(FridayButtonStyle(compact: true)).font(.caption)
-                            #if os(macOS)
-                            .padding(.bottom, task.localAgent ? composerHeight + 10 : 10)
-                            #else
-                            .padding(.bottom, 10)
-                            #endif
-                    }
-                }
                 .task(id: id) {
                     await Task.yield()
                     if let request=store.assistantCitationNavigation,request.connection==store.connectionIdentity,request.citation.threadId==id,request.citation.environmentId==store.serviceId { return }
-                    proxy.scrollTo("transcript-end", anchor: .bottom)
+                    if followingEnd { proxy.scrollTo("transcript-end", anchor: .bottom) }
                 }
                 .task(id: task.updatedAt) {
                     await Task.yield()
                     if followingEnd { proxy.scrollTo("transcript-end", anchor: .bottom) }
                 }
-                .onChange(of: scrollRequest) { _, _ in proxy.scrollTo("transcript-end", anchor: .bottom) }
+                .onChange(of: scrollRequest) { _, _ in
+                    if followingEnd { proxy.scrollTo("transcript-end", anchor: .bottom) }
+                }
                 .task(id:store.assistantCitationNavigation?.id) {
                     guard let request=store.assistantCitationNavigation,request.connection==store.connectionIdentity,request.citation.environmentId==store.serviceId,request.citation.threadId==id else { return }
                     followingEnd=false
@@ -725,12 +718,18 @@ struct TranscriptScrollKey: PreferenceKey {
 }
 
 private struct TranscriptScrollObserver: ViewModifier {
+    let interactionBegan: () -> Void
     let changed: (TranscriptScrollMetrics) -> Void
     @ViewBuilder func body(content: Content) -> some View {
         if #available(macOS 15.0, iOS 18.0, *) {
             content.onScrollGeometryChange(for: TranscriptScrollMetrics.self) { geometry in
                 TranscriptScrollMetrics(top: -geometry.contentOffset.y, bottom: geometry.contentSize.height - geometry.contentOffset.y, viewportHeight: geometry.containerSize.height)
             } action: { _, metrics in changed(metrics) }
+            .onScrollPhaseChange { _, phase in
+                // Stop following before the first movement, including scrollbar
+                // drags. Programmatic scrolling must not count as user input.
+                if phase == .tracking || phase == .interacting { interactionBegan() }
+            }
         } else {
             content.onPreferenceChange(TranscriptScrollKey.self, perform: changed)
         }
@@ -749,7 +748,7 @@ private struct FloatingComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             TextField(friday: active ? "补充要求，或告诉 Friday 更多背景…" : "基于这个结果，接着做什么？", text: $message, axis: .vertical)
-                .font(.body).lineLimit(2...5).textFieldStyle(.plain)
+                .font(FridayTheme.conversationFont).lineLimit(2...5).textFieldStyle(.plain)
                 .focused($focused).accessibilityLabel(Text(friday: "补充要求"))
                 .onChatSubmit { if !disabled { send() } }
             HStack(spacing: 12) {

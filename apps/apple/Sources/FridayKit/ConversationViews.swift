@@ -40,8 +40,8 @@ struct NewConversationView: View {
                 PageHeading(title: "想到什么，直接说。", subtitle: "一个想法，一件想推进的事。")
                 VStack(alignment: .leading, spacing: 12) {
                     ZStack(alignment: .topLeading) {
-                        if draft.isEmpty { Text(friday: "告诉 Friday 你想做什么…").foregroundStyle(.tertiary).padding(.leading, 5).padding(.top, 8).allowsHitTesting(false) }
-                        TextEditor(text: $draft).font(.body).frame(height: 90).scrollContentBackground(.hidden).focused($focused).accessibilityLabel(Text(friday: "告诉 Friday 你想做什么"))
+                        if draft.isEmpty { Text(friday: "告诉 Friday 你想做什么…").font(FridayTheme.conversationFont).foregroundStyle(.tertiary).padding(.leading, 5).padding(.top, 8).allowsHitTesting(false) }
+                        TextEditor(text: $draft).font(FridayTheme.conversationFont).frame(height: 90).scrollContentBackground(.hidden).focused($focused).accessibilityLabel(Text(friday: "告诉 Friday 你想做什么"))
                             .onChatSubmit(send)
                     }
                     HStack {
@@ -55,7 +55,7 @@ struct NewConversationView: View {
             }.frame(maxWidth: 660).padding(28)
             Spacer(minLength: 80)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(FridayTheme.canvas)
+        .background(FridayTheme.conversationCanvas)
         .onAppear { focused = true }
         .onChange(of: draft) { _, _ in if !sending { requestId = UUID().uuidString } }
         #endif

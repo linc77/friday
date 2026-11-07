@@ -51,6 +51,7 @@ import { PiExecutor } from './pi.js';
 import { ClaudeExecutor } from './claude.js';
 import { LocalAgentExecutor } from './local-agents.js';
 import { FridayAssistant } from './assistant.js';
+import { finishAssistantTranscript } from './assistant-transcript.js';
 import { planExistingTaskWorkspace, planWorkspace, prepareWorkspace } from './task-workspace.js';
 import { resolveSourceControlPreferences } from './source-control-preferences.js';
 import { defineBranchSwitch, assertCheckoutIdle, branchBlocksTask } from './branch-switch.js';
@@ -611,6 +612,7 @@ export class Engine extends EventEmitter {
       const item = workspace.tasks.find(t => t.id === id);
       if (!item) throw new Error('任务不存在');
       change(item); item.updatedAt = now();
+      if (item.agent === 'friday' && !activeStatuses.includes(item.status)) finishAssistantTranscript(item);
       if (!activeStatuses.includes(item.status)) item.backgroundWaiting = false;
       const woke = reconcileTaskSnooze(item, Date.parse(item.updatedAt));
       terminal = !activeStatuses.includes(item.status) || woke;

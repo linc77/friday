@@ -46,6 +46,7 @@ public struct FridayRootView: View {
     @State private var mobileKeyboardVisible = false
     #endif
     #if os(macOS)
+    @Environment(\.colorSchemeContrast) private var contrast
     @State private var settingsSection: FridaySettingsSection = .appearance
     @State private var taskModelJump: TaskModelJumpContext?
     @State private var taskTitleEditors: Set<UUID> = []
@@ -231,6 +232,7 @@ public struct FridayRootView: View {
                 .frame(width: 250)
                 .frame(maxHeight: .infinity)
                 Divider()
+                    .opacity(contrast == .increased ? 1 : 0.35)
                 if let selectedTask { TaskDetail(store: store, id: selectedTask, onOpenTask: openLocalTask).id(selectedTask).frame(minWidth: 420) }
                 else {
                     NewAgentTaskView(store: store, project: store.projects.first { $0.id == draftProjectId }, onSelectProject: { project in

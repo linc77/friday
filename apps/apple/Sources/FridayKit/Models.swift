@@ -405,8 +405,17 @@ struct Approval: Codable, Identifiable {
         }
     }
 }
+struct AssistantTool: Codable, Identifiable {
+    let id: String; let name: String; let status: String; let output: String?
+}
+struct AssistantActivity: Codable {
+    let phase: String; let round: Int; let tool: String?
+}
 struct ChatMessage: Codable, Identifiable {
     let id: String; let role: String; let text: String; let at: String?; let turnId: String?
+    var thinking: String? = nil
+    var tools: [AssistantTool]? = nil
+    var streaming: Bool? = nil
     var images: [IdeaImage]? = nil
     var contexts: [TaskContextReference]? = nil
     var delivery: String? = nil
@@ -691,6 +700,7 @@ struct WorkItem: Codable, Identifiable {
     var backgroundWaiting: Bool? = nil
     var backgroundActivity: TaskBackgroundActivity? = nil
     let workspaceRequest: String?; var messages: [ChatMessage]?
+    var assistantActivity: AssistantActivity? = nil
     let parentId: String?; let model: String?; let reasoningEffort: String?
     var git: TaskGitContext? = nil
     var branchChange: TaskBranchChange? = nil

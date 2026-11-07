@@ -90,32 +90,130 @@ private struct TaskTranscriptMessages: View {
                 restoreOriginalDraft: restoreOriginalDraft, openChanges: { openDiff(TaskDiffSelection(path: $0)) })
                 .id("rewind-status-" + task.id + ":" + (task.rewindOperation?.id ?? ""))
         } else {
-            ForEach(task.conversation) { message in conversationMessage(message, task: task) }
+            let messages = task.conversation
+            let latestAssistantID = messages.last(where: { $0.role == "assistant" })?.id
+            ForEach(messages) { message in
+                conversationMessage(message, task: task, latest: message.id == latestAssistantID)
+            }
+            if task.active {
+                Text(fridayString: assistantStatus)
+                    .font(.callout).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .id("friday-activity")
+            }
         }
     }
 
-    @ViewBuilder private func conversationMessage(_ message: ChatMessage, task: WorkItem) -> some View {
+    private var assistantStatus: String {
+        if task.status == "queued" { return "排队中…" }
+        if task.status == "waiting" { return "等待你的确认或补充…" }
+        switch task.assistantActivity?.phase {
+        case "thinking": return "正在思考…"
+        case "responding": return "正在回复…"
+        case "preparingTool": return "正在准备工具调用…"
+        case "tools": return "正在执行：\(assistantToolName(task.assistantActivity?.tool ?? ""))"
+        case "retrying": return "模型连接重试中…"
+        case "compacting": return "正在整理上下文…"
+        default: return "正在等待模型响应…"
+        }
+    }
+
+    @ViewBuilder private func conversationMessage(_ message: ChatMessage, task: WorkItem, latest: Bool) -> some View {
         if message.role == "user" {
             HStack {
                 Spacer(minLength: 36)
-                Text(message.text).font(.body).lineSpacing(5).textSelection(.enabled)
-                    .padding(18)
-                    .background(FridayTheme.conversationInput, in: RoundedRectangle(cornerRadius: 16))
+                Text(verbatim: message.text)
+                    .font(FridayTheme.conversationFont).lineSpacing(FridayTheme.conversationUserLineSpacing)
+                    .foregroundStyle(FridayTheme.conversationUserForeground).textSelection(.enabled)
+                    .padding(.horizontal, 18).padding(.vertical, FridayTheme.conversationUserVerticalPadding)
+                    .background(FridayTheme.conversationUserBackground, in: RoundedRectangle(cornerRadius: FridayTheme.conversationUserBubbleRadius))
             }
         } else {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 9) {
-                    if task.localAgent {
-                        FridaySymbolImage(systemName: "terminal").fridaySymbolFeedback().font(.subheadline).foregroundStyle(.secondary)
-                    } else { FridayMark(size: 30) }
-                    Text(task.agentName).font(.subheadline.weight(.semibold))
-                }
-                Text(.init(message.text)).font(.body).lineSpacing(6)
-                    .frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
-            }.padding(task.localAgent ? 4 : 24).background(task.localAgent ? Color.clear : FridayTheme.surface, in: RoundedRectangle(cornerRadius: FridayTheme.cornerRadius))
+            FridayAssistantMessage(message: message, name: task.agentName, active: task.active, latest: latest)
         }
     }
 
+}
+
+private func assistantToolName(_ name: String) -> String {
+    switch name {
+    case "workspace": "查看个人工作区"
+    case "friday_request_workspace": "选择工作目录"
+    case "save_idea": "保存想法"
+    case "remember": "保存记忆"
+    case "list_files": "列出文件"
+    case "read_file": "读取文件"
+    case "save_note": "保存笔记"
+    case "write_file": "写入文件"
+    case "ask_user": "询问用户"
+    case "delegate_codex": "委派 Codex"
+    default: name
+    }
+}
+
+private struct FridayAssistantMessage: View {
+    let message: ChatMessage
+    let name: String
+    let active: Bool
+    let latest: Bool
+    @State private var thinkingExpanded: Bool
+
+    init(message: ChatMessage, name: String, active: Bool, latest: Bool) {
+        self.message = message; self.name = name; self.active = active; self.latest = latest
+        _thinkingExpanded = State(initialValue: message.streaming == true && active)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 9) {
+                FridayMark(size: 32, interactive: latest)
+                Text(name).font(.subheadline.weight(.semibold))
+            }
+            if let thinking = message.thinking, !thinking.isEmpty {
+                DisclosureGroup(isExpanded: $thinkingExpanded) {
+                    Text(verbatim: thinking).font(.callout).foregroundStyle(.secondary)
+                        .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                } label: {
+                    Text(friday: "思考记录").font(.callout).foregroundStyle(.secondary).fridayInteractiveCursor()
+                }
+            }
+            ForEach(message.tools ?? []) { tool in
+                DisclosureGroup {
+                    if let output = tool.output, !output.isEmpty {
+                        Text(verbatim: output).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
+                    }
+                } label: {
+                    HStack {
+                        Text(fridayString: assistantToolName(tool.name))
+                        Spacer()
+                        Text(fridayString: toolStatus(tool))
+                    }.font(.callout).foregroundStyle(.secondary).fridayInteractiveCursor()
+                }
+            }
+            if !message.text.isEmpty {
+                AgentMarkdown(text: message.text, isStreaming: message.streaming == true && active,
+                    bodyFont: FridayTheme.conversationFont, bodyLineSpacing: FridayTheme.conversationLineSpacing)
+                    #if os(macOS)
+                    .tint(FridayTheme.conversationUserBackground)
+                    .accentColor(FridayTheme.conversationUserBackground)
+                    #endif
+            }
+        }
+        .padding(.horizontal, FridayTheme.conversationAssistantHorizontalPadding)
+        .padding(.vertical, FridayTheme.conversationAssistantVerticalPadding)
+        .background(FridayTheme.conversationAssistantBackground, in: RoundedRectangle(cornerRadius: FridayTheme.conversationBubbleRadius))
+    }
+
+    private func toolStatus(_ tool: AssistantTool) -> String {
+        switch tool.status {
+        case "completed": return "已完成"
+        case "failed": return "失败"
+        case "interrupted": return "已中断"
+        case "preparing": return active ? "准备中" : "已中断"
+        case "pending": return active ? "等待执行" : "已中断"
+        default: return active ? "执行中" : "已中断"
+        }
+    }
 }
 
 private struct TaskTranscriptFooter: View {

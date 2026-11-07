@@ -65,13 +65,13 @@ test('A follow-up awaiting input does not reuse the previous answer as its curre
     const id = await engine.createTask({ ...input('first-answer'), prompt: '第一轮问题' });
     await until(engine, s => s.tasks[0]?.status === 'completed');
     await engine.createTask({ ...input('follow-up-answer'), continueId: id, prompt: '第二轮问题' });
-    const waiting = await until(engine, s => s.tasks[0]?.status === 'waiting' && s.tasks[0].messages?.at(-1)?.text === '第二轮问题');
+    const waiting = await until(engine, s => s.tasks[0]?.status === 'waiting' && !!s.tasks[0].messages?.some(m => m.tools?.some(t => t.name === 'ask_user')));
     assert.equal(waiting.tasks[0].result, '', 'An unanswered user turn must not inherit an earlier assistant result');
-    assert.deepEqual(waiting.tasks[0].messages?.map(m => m.text), ['第一轮问题', '上一轮回复', '第二轮问题']);
+    assert.deepEqual(waiting.tasks[0].messages?.filter(m => m.text).map(m => m.text), ['第一轮问题', '上一轮回复', '第二轮问题']);
     await engine.answer(id, waiting.tasks[0].approvals.find(a => a.state === 'pending')!.id, 'accept', { answer: ['周六'] });
     const done = await until(engine, s => s.tasks[0]?.status === 'completed');
     assert.equal(done.tasks[0].result, '上一轮回复');
-    assert.equal(done.tasks[0].messages?.filter(m => m.role === 'assistant').length, 2, 'Genuine identical answers in different turns are preserved');
+    assert.equal(done.tasks[0].messages?.filter(m => m.role === 'assistant' && m.text).length, 2, 'Genuine identical answers in different turns are preserved');
   } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
