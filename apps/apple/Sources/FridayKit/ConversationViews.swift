@@ -18,7 +18,6 @@ struct NewConversationView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     PageHeading(title: "想到什么，直接说。", subtitle: "一个想法，一件想推进的事。")
-                    if let error = error ?? store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
                 }
                 .padding(.horizontal, 24).padding(.top, geometry.safeAreaInsets.top + 24)
                 .frame(maxWidth: 660).frame(maxWidth: .infinity, alignment: .leading)
@@ -29,7 +28,7 @@ struct NewConversationView: View {
         }
         .background(FridayTheme.canvas)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            FridayMobileComposerDock {
+            FridayMobileComposerDock(notice: error ?? store.error) {
                 FridayMobileComposer(message: $draft, placeholder: "告诉 Friday 你想做什么…", sending: sending, disabled: !canSend, send: send)
             }
         }

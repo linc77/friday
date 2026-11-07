@@ -82,7 +82,7 @@ public struct FridayRootView: View {
             ZStack {
                 NavigationStack {
                     conversation
-                        .fridayMobileHomeNavigation()
+                        .fridayMobileHomeNavigation(inComposer: true)
                         .toolbar(.hidden, for: .navigationBar)
                         .overlay(alignment: .top) { FridayMobileTopFade() }
                 }.fridayMobilePage(isSelected: mobileTab == 0)

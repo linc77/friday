@@ -13,6 +13,10 @@ private struct FridayMobileNavigationCollapsedKey: EnvironmentKey {
     static let defaultValue: Binding<Bool>? = nil
 }
 
+private struct FridayMobileNavigationInComposerKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
     var fridayMobileKeyboardVisible: Bool {
         get { self[FridayMobileKeyboardVisibleKey.self] }
@@ -28,12 +32,17 @@ extension EnvironmentValues {
         get { self[FridayMobileNavigationCollapsedKey.self] }
         set { self[FridayMobileNavigationCollapsedKey.self] = newValue }
     }
+
+    var fridayMobileNavigationInComposer: Bool {
+        get { self[FridayMobileNavigationInComposerKey.self] }
+        set { self[FridayMobileNavigationInComposerKey.self] = newValue }
+    }
 }
 
 extension View {
     /// Attach to the actual root content, never to a NavigationStack or a detail page.
-    func fridayMobileHomeNavigation() -> some View {
-        modifier(FridayMobileHomeNavigation())
+    func fridayMobileHomeNavigation(inComposer: Bool = false) -> some View {
+        modifier(FridayMobileHomeNavigation(inComposer: inComposer))
     }
 
     /// Attach directly to a home's List/ScrollView; nested details have no navigation binding.
@@ -43,6 +52,7 @@ extension View {
 }
 
 private struct FridayMobileHomeNavigation: ViewModifier {
+    let inComposer: Bool
     @Environment(\.fridayMobileKeyboardVisible) private var keyboardVisible
     @Environment(\.fridayMobilePageIsSelected) private var isSelected
     @Environment(\.fridayMobileTabSelection) private var selection
@@ -51,13 +61,15 @@ private struct FridayMobileHomeNavigation: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.fridayMobileNavigationCollapsed, $collapsed)
+            .environment(\.fridayMobileNavigationInComposer, inComposer)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                if selection != nil, isSelected, !keyboardVisible {
+                // Keep each retained page's dock and bottom inset alive across tab switches.
+                // Removing the outgoing dock also relayouts its entire scroll viewport.
+                if selection != nil, !inComposer, !keyboardVisible {
                     FridayMobileNavigationBar(collapsed: $collapsed)
-                        .onAppear { collapsed = false }
                 }
             }
-            // The bar has its own 10 pt bottom spacing. Keyboard avoidance remains enabled
+            // The bar owns its spacing from the physical bottom edge. Keyboard avoidance remains enabled
             // for the page and its composer, but navigation is removed before it can lift.
             .ignoresSafeArea(.container, edges: .bottom)
             .onChange(of: isSelected) { _, _ in collapsed = false }

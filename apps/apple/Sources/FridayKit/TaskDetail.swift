@@ -39,6 +39,10 @@ struct TaskDetail: View {
     @State private var historyError: String?
     @State private var historyRequest = UUID()
     @State private var historyAnchor: String?
+    #if os(iOS)
+    @Environment(\.fridayMobileNavigationInComposer) private var mobileHomeNavigation
+    @Environment(\.fridayMobileKeyboardVisible) private var mobileKeyboardVisible
+    #endif
     #if os(macOS)
     @State private var composerHeight: CGFloat = 136
     @State private var composerCollapseRequest = 0
@@ -139,6 +143,14 @@ struct TaskDetail: View {
             }
         } else {
             EmptyPanel(icon: "checklist", title: store.taskWasRemoved(id) ? "任务不存在" : "正在加载任务", subtitle: store.taskStreamErrors[id] ?? "连接主机后会显示最新进展。")
+                #if os(iOS)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    // The home must remain navigable before its composer is available.
+                    if mobileHomeNavigation, !mobileKeyboardVisible {
+                        FridayMobileNavigationBar(collapsed: .constant(false))
+                    }
+                }
+                #endif
         }
     }
 
@@ -199,7 +211,7 @@ struct TaskDetail: View {
         #endif
         .safeAreaInset(edge: .bottom, spacing: 0) {
             #if os(iOS)
-            FridayMobileComposerDock {
+            FridayMobileComposerDock(notice: task.localAgent ? nil : store.error) {
                 if task.localAgent && !TaskProviderCatalog.order.contains(task.agent) {
                     Text(friday: "此 Agent 接入已移除，历史任务仍可查看；请使用 Codex、Claude 或 Pi 新建任务。").font(.callout).foregroundStyle(.secondary).padding()
                 } else if task.subagentOrigin != nil {
@@ -220,7 +232,6 @@ struct TaskDetail: View {
                         disabled: sending || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task.status == "queued",
                         send: sendMessage
                     )
-                    if let error = store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).lineLimit(2) }
                 }
             }
             #else
