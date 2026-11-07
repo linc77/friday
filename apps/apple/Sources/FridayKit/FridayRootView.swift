@@ -76,7 +76,6 @@ public struct FridayRootView: View {
             // The traffic lights sit over the rail; content reaches the top window edge.
             .ignoresSafeArea(.container, edges: .top)
             .background { FridayWindowBackground().ignoresSafeArea() }
-            .navigationTitle(FridayAppName.displayName)
             .focusedSceneValue(\.newFridayConversation, { newTask() })
             .toolbarBackground(.hidden, for: .windowToolbar)
             .frame(minWidth: 980, minHeight: 640)
