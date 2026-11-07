@@ -122,14 +122,16 @@ struct MobileIdeasView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
-        .fridayMobileHomeNavigation()
+        .fridayMobileHomeNavigation(inComposer: true)
     }
 
     private var bottomBar: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 10) {
+        FridayMobileComposerDock(homeSection: .inbox) {
+            HStack(spacing: 8) {
                 FridaySymbolImage(systemName: "magnifyingglass").accessibilityHidden(true)
+                    .padding(.leading, 16)
                 TextField(friday: "搜索笔记", text: $search)
+                    .font(.body)
                     .textFieldStyle(.plain)
                     .focused($searching)
                     .submitLabel(.search)
@@ -143,23 +145,18 @@ struct MobileIdeasView: View {
                     .buttonStyle(FridaySymbolButtonStyle())
                     .accessibilityLabel(Text(friday: "清除搜索"))
                 }
+                Button { searching = false; create() } label: {
+                    FridaySymbolImage(systemName: "square.and.pencil")
+                        .font(.system(size: 22, weight: .regular))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(FridaySymbolButtonStyle())
+                .accessibilityLabel(Text(fridayString: hasDraft ? "继续草稿" : "新建笔记"))
+                .modifier(MobileIdeaZoomSource(id: "new-note", namespace: transitionNamespace, cornerRadius: 24))
             }
-            .padding(.leading, 16)
-            .padding(.trailing, search.isEmpty ? 16 : 0)
-            .frame(minHeight: 48)
-            .modifier(FridayMobileDockSurface(cornerRadius: 26))
-            Button(action: create) {
-                FridaySymbolImage(systemName: "square.and.pencil")
-                    .font(.system(size: 22, weight: .regular))
-                    .frame(width: 48, height: 48)
-                    .modifier(FridayMobileDockSurface(cornerRadius: 24))
-            }
-            .buttonStyle(FridaySymbolButtonStyle())
-            .accessibilityLabel(Text(fridayString: hasDraft ? "继续草稿" : "新建笔记"))
-            .modifier(MobileIdeaZoomSource(id: "new-note", namespace: transitionNamespace, cornerRadius: 24))
+            .modifier(FridayMobileInputSurface(focused: searching))
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
     }
 
     private func noteButton<Content: View>(_ idea: Idea, @ViewBuilder content: () -> Content) -> some View {

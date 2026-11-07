@@ -60,6 +60,26 @@ enum FridayTheme {
         Color(uiColor: .secondarySystemGroupedBackground)
         #endif
     }
+
+    static var conversationCanvas: Color {
+        #if os(iOS)
+        Color(uiColor: .systemBackground)
+        #else
+        canvas
+        #endif
+    }
+
+    static var conversationInput: Color {
+        #if os(iOS)
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor.secondarySystemBackground.resolvedColor(with: traits)
+                : UIColor(white: 243.0 / 255.0, alpha: 1)
+        })
+        #else
+        accent.opacity(0.06)
+        #endif
+    }
 }
 
 struct FridayMark: View {

@@ -90,11 +90,11 @@ public struct FridayRootView: View {
                     .fridayMobilePage(isSelected: mobileTab == 1)
                 NavigationStack(path: $mobileTaskPath) {
                     tasksList.navigationTitle(Text(friday: "任务"))
-                        .fridayMobileHomeNavigation()
+                        .safeAreaInset(edge: .bottom, spacing: 0) { mobileTaskDock }
+                        .fridayMobileHomeNavigation(inComposer: true)
                         .navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id, onOpenTask: openLocalTask) }
                         .toolbar {
                             if mobileTab == 2 {
-                                Button { draftProjectId = nil; choosingMobileWorkspace = true } label: { FridaySymbolLabel(friday: "新任务", systemImage: "square.and.pencil") }
                                 TaskSearchControl(store: store, openTask: openLocalTask)
                             }
                         }
@@ -302,6 +302,19 @@ public struct FridayRootView: View {
         #endif
     }
     #if os(iOS)
+    private var mobileTaskDock: some View {
+        FridayMobileComposerDock(homeSection: .tasks) {
+            Button { draftProjectId = nil; choosingMobileWorkspace = true } label: {
+                FridaySymbolLabel(friday: "新任务", systemImage: "square.and.pencil")
+                    .font(.body)
+                    .frame(maxWidth: .infinity)
+                    .modifier(FridayMobileInputSurface())
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(FridaySymbolButtonStyle())
+        }
+    }
+
     private var mobileNewTaskSheet: some View {
         NavigationStack {
             Group {

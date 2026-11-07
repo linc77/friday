@@ -47,10 +47,11 @@ private struct FridayMobilePage: ViewModifier {
     }
 }
 
-/// The chat home shares one surface for composing and navigation. Detail composers
-/// remain standalone, and only the editor follows the keyboard.
+/// Home actions and navigation share one surface and collapse together. Detail
+/// composers remain standalone, and only the input row follows the keyboard.
 struct FridayMobileComposerDock<Composer: View>: View {
     var notice: String? = nil
+    var homeSection: FridaySection = .chat
     @ViewBuilder let composer: () -> Composer
     @Environment(\.fridayMobileNavigationInComposer) private var includesNavigation
     @Environment(\.fridayMobileKeyboardVisible) private var keyboardVisible
@@ -88,7 +89,7 @@ struct FridayMobileComposerDock<Composer: View>: View {
                 .overlay {
                     if includesNavigation {
                         GeometryReader { geometry in
-                            FridayMobileCompactNavigationButton(section: .chat,
+                            FridayMobileCompactNavigationButton(section: homeSection,
                                 width: FridayMobileDockMetrics.compactWidth(availableWidth: geometry.size.width),
                                 expand: { collapsed?.wrappedValue = false })
                                 .animation(motion) { button in button.opacity(isCollapsed ? 1 : 0) }
@@ -105,6 +106,7 @@ struct FridayMobileComposerDock<Composer: View>: View {
         .padding(.top, 8)
         .padding(.bottom, includesNavigation && !keyboardVisible ? FridayMobileDockMetrics.bottomInset : 6)
         .frame(maxWidth: .infinity)
+        .modifier(FridayMobileDockBackdrop(collapsed: isCollapsed, enabled: includesNavigation && !keyboardVisible))
     }
 
     @ViewBuilder private var noticeView: some View {
@@ -122,9 +124,13 @@ struct FridayMobileComposerDock<Composer: View>: View {
     private var expandedContent: some View {
         VStack(spacing: 0) {
             VStack(spacing: 8) { composer() }
-                .padding(8)
+                .padding(.horizontal, includesNavigation ? FridayMobileDockMetrics.composerInset : 8)
+                .padding(.top, includesNavigation ? FridayMobileDockMetrics.composerInset : 8)
+                .padding(.bottom, includesNavigation && !keyboardVisible ? 0 : 8)
             if includesNavigation, !keyboardVisible {
                 FridayMobileNavigationBar(collapsed: .constant(false), embedded: true)
+                    .padding(.horizontal, FridayMobileDockMetrics.composerInset)
+                    .padding(.bottom, FridayMobileDockMetrics.composerBottomInset)
             }
         }
     }
@@ -168,13 +174,27 @@ struct FridayMobileComposer: View {
             .keyboardShortcut(.return, modifiers: .command)
             .disabled(disabled)
         }
-        .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 22))
-        .overlay {
-            RoundedRectangle(cornerRadius: 22)
-                .strokeBorder(.primary.opacity(focused ? 0.22 : 0.09), lineWidth: 0.5)
-                .allowsHitTesting(false)
-        }
+        .modifier(FridayMobileInputSurface(focused: focused))
         .onDisappear { focused = false }
+    }
+}
+
+/// Shared upper-row sizing and fill for chat input, note search and task creation.
+struct FridayMobileInputSurface: ViewModifier {
+    var focused = false
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: FridayMobileDockMetrics.inputHeight / 2, style: .continuous)
+        content
+            .frame(minHeight: FridayMobileDockMetrics.inputHeight)
+            .background(FridayTheme.conversationInput, in: shape)
+            .overlay {
+                if focused || contrast == .increased {
+                    shape.strokeBorder(.primary.opacity(contrast == .increased ? 0.35 : 0.22), lineWidth: contrast == .increased ? 1 : 0.5)
+                        .allowsHitTesting(false)
+                }
+            }
     }
 }
 
@@ -184,7 +204,7 @@ struct FridayMobileTopFade: View {
     var body: some View {
         Group {
             if reduceTransparency {
-                FridayTheme.canvas.ignoresSafeArea(.container, edges: .top).allowsHitTesting(false)
+                FridayTheme.conversationCanvas.ignoresSafeArea(.container, edges: .top).allowsHitTesting(false)
             } else {
                 Rectangle().fill(.regularMaterial)
                     .mask {

@@ -100,7 +100,7 @@ private struct TaskTranscriptMessages: View {
                 Spacer(minLength: 36)
                 Text(message.text).font(.body).lineSpacing(5).textSelection(.enabled)
                     .padding(18)
-                    .background(FridayTheme.accent.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+                    .background(FridayTheme.conversationInput, in: RoundedRectangle(cornerRadius: 16))
             }
         } else {
             VStack(alignment: .leading, spacing: 16) {

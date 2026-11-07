@@ -204,7 +204,7 @@ struct TaskDetail: View {
             transcriptScroll(task)
                 .modifier(TaskBrowserFloatingPreview(store:store,task:task,browser:$browserPanel,activePanel:$activePanel))
         }
-        .background(FridayTheme.canvas)
+        .background(task.localAgent ? FridayTheme.canvas : FridayTheme.conversationCanvas)
         #if os(iOS)
         .navigationTitle("Friday")
         .navigationBarTitleDisplayMode(.inline)

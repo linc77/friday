@@ -26,7 +26,7 @@ struct NewConversationView: View {
             .scrollDismissesKeyboard(.interactively)
             .ignoresSafeArea(.container, edges: .top)
         }
-        .background(FridayTheme.canvas)
+        .background(FridayTheme.conversationCanvas)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             FridayMobileComposerDock(notice: error ?? store.error) {
                 FridayMobileComposer(message: $draft, placeholder: "告诉 Friday 你想做什么…", sending: sending, disabled: !canSend, send: send)
