@@ -1,9 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel>
 <title>Friday Personal Preview</title><link>https://github.com/linc77/friday</link><description>Friday macOS updates</description><language>zh-CN</language>
-<item><title>Friday 0.1.0-beta.5</title><pubDate>Sun, 25 Oct 2026 04:46:48 GMT</pubDate>
-<description><![CDATA[<p>个人测试版，尚未经过 Developer ID 签名和 Apple 公证。</p><p>包含原生客户端、内置 Node 和后台服务。更新前请完成或停止正在执行的任务。</p>]]></description>
-<sparkle:version>5</sparkle:version><sparkle:shortVersionString>0.1.0-beta.5</sparkle:shortVersionString>
+<item><title>Friday 0.1.0-beta.6</title><pubDate>Sat, 07 Nov 2026 06:37:42 GMT</pubDate>
+<description><![CDATA[<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark">
+<style>
+body { font: 14px/1.7 -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px 24px; color: #303038; }
+h2 { font-size: 17px; margin: 0 0 18px; } h3 { font-size: 14px; margin: 22px 0 8px; }
+span { font-weight: normal; opacity: .55; margin-left: 6px; } ul { padding-left: 22px; margin: 0; } li { margin: 8px 0; }
+.release + .release { border-top: 1px solid #e7e7eb; margin-top: 28px; padding-top: 24px; }
+.notice { font-size: 12px; opacity: .65; margin-top: 28px; }
+.sparkle-installed-version, .sparkle-installed-version ~ .release { display: none; }
+@media (prefers-color-scheme: dark) { body { color: #e7e7eb; } .release + .release { border-color: #3b3b42; } }
+</style></head><body><section class="release" data-sparkle-version="6">
+<h2>v0.1.0-beta.6</h2>
+<h3>新功能 <span>2</span></h3>
+<ul><li>Friday 主会话支持自定义 OpenAI 兼容模型供应商，可填写名称、Base URL 和 API Key，获取模型列表后选择使用的模型。</li><li>新增应用内更新公告，按新功能、改进和修复分类展示，并可离线回看历史版本。</li></ul>
+<h3>改进 <span>2</span></h3>
+<ul><li>模型列表支持分页获取、去重和搜索，保存前测试所选模型；验证失败保留原有连接。</li><li>供应商、模型与密钥保存在主机，重启后恢复；现有 DeepSeek 配置继续兼容，设备配对与原有数据保持不变。</li></ul>
+<h3>修复 <span>2</span></h3>
+<ul><li>修复后台服务使用 Background 调度时可能出现的冷启动严重延迟，保持客户端请求可及时响应。</li><li>更换供应商 URL 后必须重新填写密钥，避免把原供应商的密钥发送到新地址。</li></ul>
+</section>
+<section class="release" data-sparkle-version="5">
+<h2>v0.1.0-beta.5</h2>
+<h3>新功能 <span>3</span></h3>
+<ul><li>支持普通文件选择、粘贴、拖入及认证下载；附件保存不可变内容，排队、分叉和回退沿用同一引用。</li><li>同一任务空闲时可切换 Agent 或 Provider 实例，保留来源历史；补上合并回原任务、断开会话和首次发送时创建普通原生分叉。</li><li>新增应用托管的跨 Agent 子任务，支持共享目录或本地提交 Worktree、等待或异步回传、停止、问题回答及增量读取；新增原生关系入口和返回父任务操作。</li></ul>
+<h3>改进 <span>2</span></h3>
+<ul><li>双指工作区分页改用 AppKit 图层驱动跟手位移与吸附，减少逐帧 SwiftUI 重排；继续保留项目筛选和相邻页预览。</li><li>完善 Provider 实例与账号隔离、模型选项、独立文字生成、原生额度，以及已声明支持的历史与后台会话能力。</li></ul>
+<h3>修复 <span>1</span></h3>
+<ul><li>修复连续原生后台回复的登记和持久化收尾顺序，避免旧回复覆盖新回复的当前结果。</li></ul>
+</section>
+<section class="release" data-sparkle-version="4">
+<h2>v0.1.0-beta.4</h2>
+<h3>更新 <span>6</span></h3>
+<ul><li>修复 macOS 回复正文的原生文字组件初始化错误：模型已有回复时，界面不再只剩复制和分叉按钮。补充实际原生文字存储、排版、流式更新和引用选择的回归检查。</li><li>恢复侧栏双指左右切换工作区、跟手移动、相邻页预览和边界回弹，与项目筛选、仓库分组和旧版项目树共存。</li><li>完善任务队列、运行中补充、审批与问题选择、归档恢复、稍后提醒、历史分页、搜索，以及原生会话分叉和回退的已支持路径。</li><li>增强消息、代码、图表与媒体呈现，提供文件浏览编辑、自动保存、Diff 批注、集成终端和任务网页面板。</li><li>完善 Worktree 准备、项目创建与克隆、项目脚本，以及 Git 和 PR／MR 工作流。主机网页模式需要已安装的 Chrome／Chromium，或由主机配置浏览器路径。</li><li>新增 Pi、Grok、Cursor、Muse、OpenCode、Antigravity 与 ACP Registry 的基础任务接入，按各工具真实能力提供模型发现、会话续接、输出与停止等功能。新接入默认关闭，工具准备与登录由用户显式启动；外部工具仍需对应账号或安装环境。</li></ul>
+</section>
+<section class="release" data-sparkle-version="3">
+<h2>v0.1.0-beta.3</h2>
+<h3>更新 <span>6</span></h3>
+<ul><li>Codex 和 Claude 本地任务支持图片附件，可在新建任务或补充要求时选择、粘贴或拖入图片，并在对话记录中查看。</li><li>任务输入框改用原生文本编辑器，改善中文输入、文本选择、撤销和快捷键体验；支持保存新任务及会话草稿，发送失败时保留内容和附件。</li><li>补充要求会先持久化再发送；连接中断或发送结果不确定时显示提示，避免自动重复发送。</li><li>简化 Friday 主对话界面，移除重复的执行详情、状态和成果卡片，让对话内容更集中。</li><li>Workspace 支持删除，保留目录文件、已有任务和 Agent 会话；移除的 Workspace 关联任务可从「历史任务」入口查看并继续。</li><li>改善任务侧栏的 Workspace 分组、历史任务入口和分页导航，并为不可用分支、未首次提交等执行位置问题提供明确提示。</li></ul>
+</section>
+<section class="release" data-sparkle-version="2">
+<h2>v0.1.0-beta.2</h2>
+<h3>更新 <span>7</span></h3>
+<ul><li>新建本地任务时可以选择当前工作区或创建独立 Worktree，并选择起始分支；已有任务显示实际执行目录和分支，支持在工作区空闲时切换分支。</li><li>工作区与分支操作由持久任务处理；遇到未提交改动、活动任务或结果不确定的中断时会阻止重复操作。软件更新也会等待工作区操作结束。</li><li>优化任务侧栏与新任务入口：按工作区分组，压缩任务行，明确展示任务执行位置，改善任务切换。</li><li>本地任务展示执行活动摘要和操作详情，改善对话记录与审批信息的阅读体验。</li><li>任务输入框采用自适应 Liquid Glass 样式（支持的系统上），向上浏览记录时收起，回到底部时恢复；模型和推理强度控件更紧凑。</li><li>统一 Worktree 图标；macOS 开发构建在应用名、窗口标题和 Bundle Identifier 中区分工作区，方便多个工作区并行使用。发布安装包仍为 Friday。</li><li>源码同步包含 FridayPersonal 的本机签名配置支持，便于重新编译并覆盖安装已有 iPhone 客户端。</li></ul>
+</section>
+<section class="release" data-sparkle-version="1">
+<h2>v0.1.0-beta.1</h2>
+<h3>更新 <span>5</span></h3>
+<ul><li>原生 SwiftUI 客户端、Node 24.21.0、Pi Durable 常驻服务和生产依赖一起打包，无需准备开发环境。</li><li>通过 macOS 登录项管理后台服务，关闭窗口后任务仍由服务处理。</li><li>菜单「Friday → 检查更新」使用 Sparkle 验证并安装后续版本。</li><li>更新前检查活动任务、阻止新写入、停止服务并备份数据库；任务尚未完成时暂缓安装。</li><li>保留现有数据目录、主机凭据、记忆和设备配对信息。</li></ul>
+</section><p class="notice">个人测试版，尚未经过 Developer ID 签名和 Apple 公证。更新前请完成或停止正在执行的任务。</p></body></html>]]></description>
+<sparkle:version>6</sparkle:version><sparkle:shortVersionString>0.1.0-beta.6</sparkle:shortVersionString>
 <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-<enclosure url="https://github.com/linc77/friday/releases/download/v0.1.0-beta.5/Friday-0.1.0-beta.5-macOS-arm64.zip" sparkle:edSignature="/QvJqJW5R7y0DeVUo1XNCW1OsLYJs3T12oLRUNZJZc9uWdO1I4f05Y9VA2z0B9PuZjmyKOCsbe9vmf9iZKjzBw==" length="241850687" type="application/octet-stream"/>
+<enclosure url="https://github.com/linc77/friday/releases/download/v0.1.0-beta.6/Friday-0.1.0-beta.6-macOS-arm64.zip" sparkle:edSignature="QzD9zjacVige32N4c/IdqpoR+Ta5/RjaeS/Lj6+JpwQ4ue/urBOH6E2HsPkwa8q/RPNq0GX96WgMCZg7YACLAA==" length="241820877" type="application/octet-stream"/>
 </item></channel></rss>
