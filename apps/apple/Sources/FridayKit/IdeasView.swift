@@ -19,6 +19,10 @@ struct InboxView: View {
     @AppStorage("friday.noteDraft.new") private var newDraft = Data()
     #if os(macOS)
     @StateObject private var composer = NoteComposerWindow()
+    #else
+    @Namespace private var noteTransition
+    @State private var mobileNotePresented = false
+    @State private var mobileNoteSourceID = "new-note"
     #endif
     private var hasDraft: Bool { !newDraft.isEmpty || !legacyDraft.isEmpty }
     private var pullReady: Bool { pullDistance >= NotePullGesture.threshold }
@@ -31,12 +35,34 @@ struct InboxView: View {
 
     var body: some View {
         Group {
+            #if os(iOS)
+            MobileIdeasView(store: store, ideas: filtered, search: $search, hasDraft: hasDraft,
+                            transitionNamespace: noteTransition, open: { idea in
+                                selected = idea
+                                mobileNoteSourceID = idea.id
+                                mobileNotePresented = true
+                            }, create: newNote, delete: { deleting = $0 })
+                .navigationDestination(isPresented: $mobileNotePresented) {
+                    IdeaDetailView(store: store, initial: selected, delegate: { idea in
+                        mobileNotePresented = false
+                        delegate(idea)
+                    }, close: { mobileNotePresented = false })
+                    .id(selected?.id ?? "new")
+                    .background(FridayTheme.canvas)
+                    .navigationTitle("")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .modifier(MobileIdeaZoomDestination(id: mobileNoteSourceID, namespace: noteTransition))
+                }
+            #else
             if creating || selected != nil {
                 IdeaDetailView(store: store, initial: selected, delegate: { idea in
                     selected = nil; creating = false; delegate(idea)
                 }, close: { selected = nil; creating = false })
                 .id(selected?.id ?? "new")
-            } else { gallery }
+            } else {
+                gallery
+            }
+            #endif
         }
         .background(FridayTheme.canvas)
         #if os(macOS)
@@ -117,7 +143,9 @@ struct InboxView: View {
         #if os(macOS)
         composer.show(store: store, delegate: delegate)
         #else
-        creating = true
+        selected = nil
+        mobileNoteSourceID = "new-note"
+        mobileNotePresented = true
         #endif
     }
 
@@ -263,12 +291,14 @@ struct IdeaDetailView: View {
 
     private var toolbar: some View {
         HStack(spacing: 12) {
+            #if os(macOS)
             if toggleFullScreen != nil {
                 Text(friday: "新建笔记").font(.headline)
             } else {
                 Button { _ = autosave(immediately: true); close() } label: { FridaySymbolLabel(friday: "所有笔记", systemImage: "chevron.left") }
                     .buttonStyle(FridayButtonStyle(compact: true))
             }
+            #endif
             Spacer()
             if let current {
                 Button {

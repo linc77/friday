@@ -2659,3 +2659,16 @@
 "升级" = "Update";
 
 "查看更新公告" = "View release notes";
+
+"备忘录列表" = "Notes list";
+"手记卡片" = "Journal cards";
+"布局方式" = "Layout";
+"布局与更多操作" = "Layout and more actions";
+"笔记操作" = "Note actions";
+"今天" = "Today";
+"昨天" = "Yesterday";
+"过去 7 天" = "Previous 7 Days";
+"过去 30 天" = "Previous 30 Days";
+"更早" = "Earlier";
+"日期未知" = "Unknown date";
+"无更多文本" = "No additional text";

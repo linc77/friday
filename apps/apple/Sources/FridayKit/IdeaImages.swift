@@ -74,19 +74,21 @@ struct IdeaImageView: View {
     @ObservedObject var store: FridayStore
     let image: IdeaImage
     var thumbnail = false
+    var thumbnailHeight: CGFloat = 120
     var maximumHeight: CGFloat = 700
+    var onImageSize: ((CGSize) -> Void)? = nil
     @State private var rendered: Image?
     @State private var failed = false
     @State private var retry = 0
     var body: some View {
         Group {
             if let rendered {
-                if thumbnail { rendered.resizable().scaledToFill().frame(height: 120).clipped() }
+                if thumbnail { rendered.resizable().scaledToFill().frame(height: thumbnailHeight).clipped() }
                 else { rendered.resizable().scaledToFit().frame(maxHeight: maximumHeight) }
             } else if failed {
                 Button { retry += 1 } label: { FridaySymbolLabel(friday: "重新加载图片", systemImage: "arrow.clockwise") }
-                    .buttonStyle(FridayButtonStyle(compact: true)).frame(maxWidth: .infinity, minHeight: 100)
-            } else { ProgressView().frame(maxWidth: .infinity, minHeight: 100) }
+                    .buttonStyle(FridayButtonStyle(compact: true)).frame(maxWidth: .infinity, minHeight: thumbnail ? thumbnailHeight : 100)
+            } else { ProgressView().frame(maxWidth: .infinity, minHeight: thumbnail ? thumbnailHeight : 100) }
         }
         .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
         .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -98,9 +100,11 @@ struct IdeaImageView: View {
                 #if os(macOS)
                 guard let native = NSImage(data: data) else { throw ConnectionError.message("图片无法显示") }
                 rendered = Image(nsImage: native)
+                onImageSize?(native.size)
                 #else
                 guard let native = UIImage(data: data) else { throw ConnectionError.message("图片无法显示") }
                 rendered = Image(uiImage: native)
+                onImageSize?(native.size)
                 #endif
             } catch { failed = true }
         }
