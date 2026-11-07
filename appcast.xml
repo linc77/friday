@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel>
 <title>Friday Personal Preview</title><link>https://github.com/linc77/friday</link><description>Friday macOS updates</description><language>zh-CN</language>
-<item><title>Friday 0.1.0-beta.6</title><pubDate>Sat, 07 Nov 2026 06:37:42 GMT</pubDate>
+<item><title>Friday 0.1.0-beta.7</title><pubDate>Sat, 07 Nov 2026 09:56:37 GMT</pubDate>
 <description><![CDATA[<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark">
 <style>
 body { font: 14px/1.7 -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px 24px; color: #303038; }
@@ -11,7 +11,12 @@ span { font-weight: normal; opacity: .55; margin-left: 6px; } ul { padding-left:
 .notice { font-size: 12px; opacity: .65; margin-top: 28px; }
 .sparkle-installed-version, .sparkle-installed-version ~ .release { display: none; }
 @media (prefers-color-scheme: dark) { body { color: #e7e7eb; } .release + .release { border-color: #3b3b42; } }
-</style></head><body><section class="release" data-sparkle-version="6">
+</style></head><body><section class="release" data-sparkle-version="7">
+<h2>v0.1.0-beta.7</h2>
+<h3>改进 <span>6</span></h3>
+<ul><li>精简 Mac 任务工具栏，将文件与终端收进右侧可折叠面板，移除重复箭头、网页和脚本快捷入口。</li><li>消息操作改为悬浮显示，回复下方的复制与分叉图标并排排列；附件上传移至输入工具栏最左侧。</li><li>侧栏统一为置顶与最近，恢复可点击的 Workspace 分页圆点，并提供直接归档入口；移除 Workspace 后仍保留相关对话。</li><li>默认关闭闲置自动结束跟进，保留用户已有设置；会话清理不再决定 Mac 对话列表的可见性。</li><li>移除计划模式、模型选项菜单及 Mac 新任务页的“从 PR／MR 开始”入口，简化任务创建流程。</li><li>DMG 增加原生安装器，显示安装进度并支持安装完成后打开应用。</li></ul>
+</section>
+<section class="release" data-sparkle-version="6">
 <h2>v0.1.0-beta.6</h2>
 <h3>新功能 <span>2</span></h3>
 <ul><li>Friday 主会话支持自定义 OpenAI 兼容模型供应商，可填写名称、Base URL 和 API Key，获取模型列表后选择使用的模型。</li><li>新增应用内更新公告，按新功能、改进和修复分类展示，并可离线回看历史版本。</li></ul>
@@ -49,7 +54,7 @@ span { font-weight: normal; opacity: .55; margin-left: 6px; } ul { padding-left:
 <h3>更新 <span>5</span></h3>
 <ul><li>原生 SwiftUI 客户端、Node 24.21.0、Pi Durable 常驻服务和生产依赖一起打包，无需准备开发环境。</li><li>通过 macOS 登录项管理后台服务，关闭窗口后任务仍由服务处理。</li><li>菜单「Friday → 检查更新」使用 Sparkle 验证并安装后续版本。</li><li>更新前检查活动任务、阻止新写入、停止服务并备份数据库；任务尚未完成时暂缓安装。</li><li>保留现有数据目录、主机凭据、记忆和设备配对信息。</li></ul>
 </section><p class="notice">个人测试版，尚未经过 Developer ID 签名和 Apple 公证。更新前请完成或停止正在执行的任务。</p></body></html>]]></description>
-<sparkle:version>6</sparkle:version><sparkle:shortVersionString>0.1.0-beta.6</sparkle:shortVersionString>
+<sparkle:version>7</sparkle:version><sparkle:shortVersionString>0.1.0-beta.7</sparkle:shortVersionString>
 <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-<enclosure url="https://github.com/linc77/friday/releases/download/v0.1.0-beta.6/Friday-0.1.0-beta.6-macOS-arm64.zip" sparkle:edSignature="QzD9zjacVige32N4c/IdqpoR+Ta5/RjaeS/Lj6+JpwQ4ue/urBOH6E2HsPkwa8q/RPNq0GX96WgMCZg7YACLAA==" length="241820877" type="application/octet-stream"/>
+<enclosure url="https://github.com/linc77/friday/releases/download/v0.1.0-beta.7/Friday-0.1.0-beta.7-macOS-arm64.zip" sparkle:edSignature="EH8Q+/lnoLyHmFhVt8x7mhITdVMVlmJlxBwmRk2crDGJRmiVAc/yWWu1C+xsOQqd9lhg5gJQvRnM+4IJHoQoBw==" length="241651895" type="application/octet-stream"/>
 </item></channel></rss>
