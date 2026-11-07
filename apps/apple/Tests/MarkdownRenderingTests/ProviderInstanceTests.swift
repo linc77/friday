@@ -11,8 +11,20 @@ final class ProviderInstanceTests: XCTestCase {
         let decoded = try JSONDecoder().decode(WorkItem.self, from: JSONEncoder().encode(bound))
         XCTAssertEqual(decoded.resolvedProviderInstance, "codex_work")
     }
+    func testRetiredTaskIdentityRemainsReadableWithoutOfferingItForNewTasks() throws {
+        XCTAssertEqual(TaskProviderCatalog.order, ["codex", "claude", "pi"])
+        for agent in ["opencode", "grok", "muse", "cursor", "antigravity", "acp-registry"] {
+            let source: [String: Any] = ["id": "old", "title": "Old task", "prompt": "Original", "cwd": "/tmp", "agent": agent, "providerInstanceId": agent + "_old", "mode": "code", "status": "completed", "createdAt": "2026-10-23T00:00:00Z", "updatedAt": "2026-10-23T00:00:00Z", "result": "Saved answer", "events": [], "approvals": []]
+            let task = try JSONDecoder().decode(WorkItem.self, from: JSONSerialization.data(withJSONObject: source))
+            let restored = try JSONDecoder().decode(WorkItem.self, from: JSONEncoder().encode(task))
+            XCTAssertEqual(restored.agent, agent)
+            XCTAssertEqual(restored.resolvedProviderInstance, agent + "_old")
+            XCTAssertEqual(restored.result, "Saved answer")
+            XCTAssertFalse(TaskProviderCatalog.order.contains(agent))
+        }
+    }
     func testNativeEndpointsAppendInstanceAfterActionAndModelChoicesHaveIndependentIdentities() {
-        XCTAssertEqual(TaskProviderCatalog.endpoint("acp-registry", instance: "registry_work", path: "/login/events"), "/api/agents/acp-registry/login/events?instanceId=registry_work")
+        XCTAssertEqual(TaskProviderCatalog.endpoint("codex", instance: "codex_work", path: "/check"), "/api/agents/codex/check?instanceId=codex_work")
         let model = CodexProviderModel(id: "same-model", name: "Same", description: "", isDefault: true, reasoningEfforts: [], defaultReasoningEffort: "")
         let first = TaskModelChoice(provider: "codex", model: model, instanceId: "codex_work"), second = TaskModelChoice(provider: "codex", model: model, instanceId: "codex_personal")
         XCTAssertNotEqual(first.id, second.id)

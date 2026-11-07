@@ -12,7 +12,7 @@ type Probe = { connected: boolean; installed: boolean; version: string | null; a
 export type ModelStatus = Omit<Probe, 'connected'> & {
   provider: string; displayName: string; enabled: boolean; model: string; connected: boolean; loginPending: boolean;
   supportsTextGeneration?: boolean; supportsInvestigation?: boolean;
-  settings: (Omit<CodexSettings, 'environment'> & { environment: { name: string; value: null; hasValue: boolean }[]; serverUrl?: string; serverPassword?: null; serverPasswordConfigured?: boolean; cursorUsageKeychainEnabled?: boolean; nativeConfig?: import('./acp-provider-settings.js').AcpProviderPublicConfig }) | null;
+  settings: (Omit<CodexSettings, 'environment'> & { environment: { name: string; value: null; hasValue: boolean }[] }) | null;
 };
 
 export function codexServiceTierOptions(model: any): ProviderOptionDescriptor[] {

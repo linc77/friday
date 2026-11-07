@@ -1,6 +1,6 @@
 import { assertCurrentTaskMode } from './legacy-task-mode.js';
 import { providerOptionSelections } from './provider-models.js';
-import { ProviderInstances, providerDrivers, taskProviderInstance } from './provider-instances.js';
+import { ProviderInstances, providerDrivers, taskProviderInstance, assertProviderAvailable, isProviderDriver } from './provider-instances.js';
 import { availableScratchRoot, ensureScratchRoot, isScratchProjectPath, planScratchWorkspace, verifyScratchWorkspace } from './managed-scratch-workspace.js';
 import { ManagedProjectFolders, verifyManagedProjectFolder } from './managed-project-folders.js';
 import {ProjectRepositoryOperations} from './project-repository-operations.js';
@@ -48,16 +48,6 @@ import { CodexConnection } from './codex-provider.js';
 import { ClaudeConnection } from './claude-provider.js';
 import { PiConnection } from './pi-provider.js';
 import { PiExecutor } from './pi.js';
-import { GrokConnection } from './grok-provider.js';
-import { GrokExecutor } from './grok.js';
-import { CursorConnection } from './cursor-provider.js';
-import { CursorExecutor } from './cursor.js';
-import { MuseConnection } from './muse-provider.js';
-import { MuseExecutor } from './muse.js';
-import { OpenCodeConnection } from './opencode-provider.js';
-import { OpenCodeExecutor } from './opencode.js';
-import { AcpProviderConnection } from './acp-provider.js';
-import { AcpNativeExecutor } from './acp-native.js';
 import { ClaudeExecutor } from './claude.js';
 import { LocalAgentExecutor } from './local-agents.js';
 import { FridayAssistant } from './assistant.js';
@@ -199,14 +189,8 @@ export class Engine extends EventEmitter {
   readonly codexConnection: CodexConnection;
   readonly claudeConnection: ClaudeConnection;
   readonly piConnection: PiConnection;
-  readonly grokConnection: GrokConnection;
-  readonly cursorConnection: CursorConnection;
-  readonly museConnection: MuseConnection;
-  readonly opencodeConnection: OpenCodeConnection;
-  readonly acpRegistryConnection: AcpProviderConnection;
-  readonly antigravityConnection: AcpProviderConnection;
   private readonly customExecutor: boolean;
-  constructor(readonly directory: string, executor?: Executor, readonly agentOptions?: { models: Models; model: ModelRef }, sourceControlOptions?: SourceControlConnectionOptions, providerOptions?: { cursor?: { sdkModule?: string }; acpRegistry?: ConstructorParameters<typeof AcpProviderConnection>[2]; antigravity?: ConstructorParameters<typeof AcpProviderConnection>[2] }) {
+  constructor(readonly directory: string, executor?: Executor, readonly agentOptions?: { models: Models; model: ModelRef }, sourceControlOptions?: SourceControlConnectionOptions) {
     super();
     this.sourceControl = new SourceControlConnections(new SourceControlCredentials(directory), sourceControlOptions);
     this.changeRequestSync = new TaskChangeRequestSync(this, sourceControlOptions?.changeRequestSyncIntervalMs);
@@ -226,23 +210,12 @@ export class Engine extends EventEmitter {
         case 'codex': { const connection = new CodexConnection(path); return { connection, executor: new CodexExecutor(undefined, connection, () => this.snapshot()) }; }
         case 'claude': { const connection = new ClaudeConnection(path); return { connection, executor: new ClaudeExecutor(connection) }; }
         case 'pi': { const connection = new PiConnection(path); return { connection, executor: new PiExecutor(connection) }; }
-        case 'grok': { const connection = new GrokConnection(path); return { connection, executor: new GrokExecutor(connection) }; }
-        case 'cursor': { const connection = new CursorConnection(path, providerOptions?.cursor); return { connection, executor: new CursorExecutor(connection) }; }
-        case 'muse': { const connection = new MuseConnection(path); return { connection, executor: new MuseExecutor(connection) }; }
-        case 'opencode': { const connection = new OpenCodeConnection(path); return { connection, executor: new OpenCodeExecutor(connection) }; }
-        case 'acp-registry': case 'antigravity': { const connection = new AcpProviderConnection(path, driver, { ...(driver === 'acp-registry' ? providerOptions?.acpRegistry : providerOptions?.antigravity), credentialDirectory: directory }); return { connection, executor: new AcpNativeExecutor(connection) }; }
       }
     }, async (id, driver) => { await this.providerConfigurationChanged(id); if (id !== driver) await this.providerConfigurationChanged(driver); },
     async (id, activeOnly = false) => { const state = await this.snapshot(); return state.tasks.some(task => taskProviderInstance(task) === id && (!activeOnly || activeStatuses.includes(task.status) || backgroundWorkPending(task) || task.backgroundStop?.status === 'pending' || nativeSessionActionBusy(task) || activeGitOperation(task.gitOperation) || activeRewind(task.rewindOperation) || runningFork(task.forkOperation))) || state.tasks.some(task => !activeOnly && task.providerHistory?.some(binding => binding.providerInstanceId === id) || nativeSessionActionBusy(task) && task.sessionOperation?.target?.providerInstanceId === id) || Object.values(state.titleRequests ?? {}).some(request => request.status === 'pending' && (request.modelSelection?.providerInstanceId ?? request.modelSelection?.agent) === id) || state.tasks.some(task => activeGitOperation(task.gitOperation) && (task.gitOperation?.generationModelSelection?.providerInstanceId ?? task.gitOperation?.generationModelSelection?.agent) === id || task.changeRequestGuideRuns?.some(run => ['queued', 'running'].includes(run.status) && (run.modelSelection.providerInstanceId ?? run.modelSelection.agent) === id)) || Object.values(state.providerCreditResets ?? {}).some(receipt => ['queued', 'running', 'uncertain'].includes(receipt.status) && (receipt.scope.providerInstanceId ?? receipt.scope.provider) === id); });
     this.codexConnection = this.providerInstances.default('codex');
     this.claudeConnection = this.providerInstances.default('claude');
     this.piConnection = this.providerInstances.default('pi');
-    this.grokConnection = this.providerInstances.default('grok');
-    this.cursorConnection = this.providerInstances.default('cursor');
-    this.museConnection = this.providerInstances.default('muse');
-    this.opencodeConnection = this.providerInstances.default('opencode');
-    this.acpRegistryConnection = this.providerInstances.default('acp-registry');
-    this.antigravityConnection = this.providerInstances.default('antigravity');
     this.executor = executor ?? new LocalAgentExecutor(this.providerInstances.defaultExecutors(), { resolve: task => this.providerInstances.executor(task), close: () => this.providerInstances.close() });
     this.assistant = new FridayAssistant(this);
     this.response = this.createResponse();
@@ -297,13 +270,13 @@ export class Engine extends EventEmitter {
             await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'interrupted' } } }), ctx);
             return;
           }
-          if (!receipt) await this.patchTask(task.input.id, item => { item.status = 'running'; item.error = null; item.events.push(event('status', item.agent === 'acp-registry' ? '正在连接原生 ACP 工具' : item.agent === 'antigravity' ? '正在连接 Antigravity' : item.agent === 'cursor' ? '正在连接 Cursor SDK' : item.agent === 'muse' ? '正在连接本地 Muse' : item.agent === 'opencode' ? '正在连接 OpenCode' : item.agent === 'grok' ? '正在连接本地 Grok' : item.agent === 'pi' ? '正在连接本地 Pi' : item.agent === 'claude' ? '正在连接本地 Claude' : '正在连接本地 Codex')); });
+          if (!receipt && isProviderDriver(current.agent)) await this.patchTask(task.input.id, item => { item.status = 'running'; item.error = null; item.events.push(event('status', item.agent === 'pi' ? '正在连接本地 Pi' : item.agent === 'claude' ? '正在连接本地 Claude' : '正在连接本地 Codex')); });
           let preparingWorkspace = false;
           let finalize!: () => void;
           const finalized = new Promise<void>(resolve => { finalize = resolve; });
           try {
             let work = (await this.snapshot()).tasks.find(t => t.id === task.input.id)!;
-            if (!receipt) assertCurrentTaskMode(work);
+            if (!receipt) { assertProviderAvailable(work.agent); assertCurrentTaskMode(work); }
             if (work.forkOperation?.dispatchRunId === runID && activeFork(work.forkOperation)) throw new Error(work.forkOperation.error ?? '原生分叉尚未确认，未发送新的用户要求');
             if (!receipt && work.executionWorkspace && work.executionWorkspace.state !== 'ready') {
               preparingWorkspace = true;
@@ -711,7 +684,7 @@ export class Engine extends EventEmitter {
     if (task.settleCleanup?.status === 'pending') await this.harness.waitForTask(task.settleCleanup.durableId as TaskId, context);
     await this.backgroundStops.wait(id);
     await this.taskQueue.stop(id);
-    if (['muse', 'pi', 'grok', 'opencode', 'acp-registry', 'antigravity'].includes(task.agent)) await this.backgroundStops.cancelSettled(task);
+    if (task.agent === 'pi') await this.backgroundStops.cancelSettled(task);
     await this.subagents.stopBeforeDelete(id);
     if (hasRunningBackgroundCommands(task)) { await this.backgroundCommands.stopBeforeDelete(id); await this.nativeBackground.stopBeforeDelete(id); }
     await this.taskTitles.stop(id);
@@ -784,7 +757,7 @@ export class Engine extends EventEmitter {
     return id;
   }
 
-  async createTask(input: { command?: 'compact'; commandThreadId?: string; commandMessage?: QueueMessageInput & { requestId: string }; prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; providerInstanceId?: string; agent?: 'friday' | 'codex' | 'claude' | 'pi' | 'grok' | 'cursor' | 'muse' | 'opencode' | 'acp-registry' | 'antigravity'; parentId?: string; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; workspace?: TaskWorkspaceSelection; images?: IdeaImage[]; contextIds?: string[]; queueMessageId?: string; queueDispatcherId?: number; title?: string }, delegation?: DelegationCreation) {
+  async createTask(input: { command?: 'compact'; commandThreadId?: string; commandMessage?: QueueMessageInput & { requestId: string }; prompt: string; projectId: string | null; mode: TaskMode; requestId: string; ideaId?: string; continueId?: string; providerInstanceId?: string; agent?: 'friday' | 'codex' | 'claude' | 'pi'; parentId?: string; model?: string; reasoningEffort?: string; modelOptions?: import('./provider-models.js').ProviderOptionSelection[]; workspace?: TaskWorkspaceSelection; images?: IdeaImage[]; contextIds?: string[]; queueMessageId?: string; queueDispatcherId?: number; title?: string }, delegation?: DelegationCreation) {
     assertCurrentTaskMode(input);
     if (['__proto__', 'constructor', 'prototype'].includes(input.requestId)) throw new Error('请求 ID 无效');
     const snapshot = await this.snapshot();
@@ -1032,7 +1005,7 @@ export class Engine extends EventEmitter {
       if (update.kind === 'turn' && run) { run.turnId = update.turnId; if (item.agent === 'codex') { run.nativeTurnIds ??= []; if (!run.nativeTurnIds.includes(update.turnId)) run.nativeTurnIds.push(update.turnId); } }
       if (update.kind === 'nativeHead') { item.nativeHead = update.head; if (run) { run.nativeHead = update.head; if (update.turnIds) run.nativeTurnIds = update.turnIds; } delete item.claudeResumeSessionAt; delete item.claudeResumePendingRun; }
       if (update.kind === 'resumeApplied') { delete item.claudeResumeSessionAt; delete item.claudeResumePendingRun; }
-      if (update.kind === 'session') { item.threadId = update.threadId; if (update.codexHome) item.codexHome = update.codexHome; if (update.claudeHome) item.claudeHome = update.claudeHome; if (update.piHome) item.piHome = update.piHome; if (update.grokHome) item.grokHome = update.grokHome; if (update.nativeProviderAccount) item.nativeProviderAccount = update.nativeProviderAccount; if (update.model) item.model = update.model; if (update.reasoningEffort !== undefined) item.reasoningEffort = update.reasoningEffort; if (update.modelOptions !== undefined) item.modelOptions = update.modelOptions; if (update.executionSessionId) item.executionSessionId = update.executionSessionId; }
+      if (update.kind === 'session') { item.threadId = update.threadId; if (update.codexHome) item.codexHome = update.codexHome; if (update.claudeHome) item.claudeHome = update.claudeHome; if (update.piHome) item.piHome = update.piHome; if (update.nativeProviderAccount) item.nativeProviderAccount = update.nativeProviderAccount; if (update.model) item.model = update.model; if (update.reasoningEffort !== undefined) item.reasoningEffort = update.reasoningEffort; if (update.modelOptions !== undefined) item.modelOptions = update.modelOptions; if (update.executionSessionId) item.executionSessionId = update.executionSessionId; }
       if (update.kind === 'turn') {
         item.turnId = update.turnId;
         if (item.agent === 'codex') item.canSteer = run?.command !== 'compact';

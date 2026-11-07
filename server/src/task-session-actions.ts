@@ -1,3 +1,4 @@
+import { assertProviderAvailable } from './provider-instances.js';
 import { assertCurrentTaskMode } from './legacy-task-mode.js';
 import { randomUUID } from 'node:crypto';
 import { defineTask, type TaskId } from '@earendil-works/pi-durable';
@@ -53,6 +54,7 @@ export class TaskSessionActions {
           ownedSource = refreshed;
         };
         try {
+          assertProviderAvailable(work.agent);
           await alignSource(work);
           if (!await runtime.memo<boolean>('closed', ctx)) {
             if (await runtime.memo<boolean>('started', ctx)) { await done('uncertain', '原生会话断开结果尚未确认，请核对后重试'); return; }
@@ -103,6 +105,7 @@ export class TaskSessionActions {
     const prior = state.taskSessionRequests?.[input.requestId];
     if (prior) { if (prior.taskId !== taskId || prior.intent !== intent) throw new Error('会话操作请求 ID 已被使用'); await this.engine.harness.waitForTask(prior.durableId as TaskId, BACKGROUND_CONTEXT); return; }
     if (!work || work.agent === 'friday' || work.subagentOrigin || work.delegationOrigin || work.archivedAt) throw new Error('请选择可操作的本地 Agent 任务');
+    assertProviderAvailable(work.agent);
     if (target && target.agent === work.agent && target.providerInstanceId === taskProviderInstance(work)) throw new Error('请选择其他 Agent 或 Provider 实例');
     if (target && (activeStatuses.includes(work.status) || backgroundWorkPending(work) || work.queue?.dispatcherId != null || work.queue?.messages.some(message => ['queued','dispatching','steering','running'].includes(message.status)) || work.approvals.some(approval => approval.state === 'pending'))) throw new Error('请在前台、后台和队列均空闲时切换 Agent');
     if (target) await this.engine.validateTaskProviderSelection(target);

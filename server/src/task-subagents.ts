@@ -140,7 +140,6 @@ export class TaskSubagents {
       child.status = childStatus(metadata.status); child.turnId = metadata.childTurnId; child.updatedAt = metadata.updatedAt;
       child.subagentOrigin.status = metadata.status;
       if (metadata.provider === 'codex') { child.threadId = metadata.nativeId; child.executionSessionId = metadata.sessionId; }
-      if (metadata.provider === 'opencode' && metadata.nativeThreadId) { child.threadId = metadata.nativeThreadId; child.nativeProviderAccount = root.nativeProviderAccount; child.executionSessionId = metadata.sessionId; }
       if (metadata.provider === 'codex' && root.codexHome) child.codexHome = root.codexHome;
       if (metadata.provider === 'codex' && root.executionWorkspace) child.executionWorkspace = copy(root.executionWorkspace);
       if (metadata.model) child.model = metadata.model;

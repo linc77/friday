@@ -1,3 +1,4 @@
+import { assertProviderAvailable, isProviderDriver } from './provider-instances.js';
 import { assertCurrentTaskMode } from './legacy-task-mode.js';
 import { providerOptionSelections } from './provider-models.js';
 import { randomUUID } from 'node:crypto';
@@ -22,6 +23,7 @@ const validRequest = (id: string) => {
 };
 const localTask = (task: WorkItem | undefined): WorkItem => {
   if (!task || task.agent === 'friday') throw new Error('本地任务不存在');
+  assertProviderAvailable(task.agent);
   if (task.subagentOrigin) throw new Error('原生子 Agent 不接收排队输入，请返回父任务');
   return task;
 };
@@ -315,7 +317,7 @@ export class TaskQueue {
       const state = await tx.doc(WorkspaceDoc);
       for (const task of state.tasks) {
         const queue = task.queue, entries = queue?.messages.filter(pending);
-        if (!queue?.heldOnRestart || !entries?.length || task.archivedAt || task.settledAt || task.subagentOrigin
+        if (!isProviderDriver(task.agent) || !queue?.heldOnRestart || !entries?.length || task.archivedAt || task.settledAt || task.subagentOrigin
           || !entries.every(item => item.creationSource === 'monitor' && (item.status === 'queued' || item.status === 'dispatching' && item.runId === undefined))) continue;
         // The watermark's wake was saved before any external run began. Resume
         // only these monitor entries; human holds and uncertain turns stay held.

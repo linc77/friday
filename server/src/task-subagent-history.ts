@@ -13,10 +13,10 @@ const native = (event: TaskEvent) => event.nativeTurnId ?? (event.id.startsWith(
 const answer = (events: TaskEvent[]) => events.findLast(event => event.kind === 'message' && event.phase === 'final_answer')?.text
   || events.findLast(event => event.kind === 'message' && !event.phase)?.text || events.findLast(event => event.kind === 'proposal')?.text;
 function scope(state: Workspace, id: string) {
-  const child = state.tasks.find(task => task.id === id && ['codex', 'opencode'].includes(task.agent) && task.subagentOrigin);
+  const child = state.tasks.find(task => task.id === id && task.agent === 'codex' && task.subagentOrigin);
   const root = child && state.tasks.find(task => task.id === child.subagentOrigin!.rootTaskId);
   const agent = root?.subagents?.find(agent => agent.id === child?.subagentOrigin!.subagentId && agent.provider === child.agent);
-  if (!root || !child || !agent || root.threadId !== agent.threadId || activeRewind(root.rewindOperation) || child.threadId !== (agent.provider === 'codex' ? agent.nativeId : agent.nativeThreadId) || !child.threadId || child.subagentOrigin!.sessionId !== agent.sessionId
+  if (!root || !child || !agent || root.threadId !== agent.threadId || activeRewind(root.rewindOperation) || child.threadId !== agent.nativeId || !child.threadId || child.subagentOrigin!.sessionId !== agent.sessionId
     || !visibleSubagentIds(state.tasks).has(id)) return;
   const parentAgent = agent.parentSubagentId ? root.subagents?.find(value => value.id === agent.parentSubagentId) : undefined;
   const parent = parentAgent ? parentAgent.provider === 'codex' ? parentAgent.nativeId : parentAgent.nativeThreadId : agent.threadId;

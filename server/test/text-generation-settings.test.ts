@@ -21,7 +21,7 @@ const profile = (provider: string, connected = true): ModelStatus => ({ provider
   models: [], checkedAt: new Date().toISOString(), error: null, loginPending: false, settings: null, model: '' });
 const empty = (): Workspace => ({ revision: 0, tasks: [], ideas: [], memories: [], requests: {}, projects: [{ id: 'project', name: 'Project', path: '/tmp', context: '' }] });
 test('text selection accepts every supported native generator, rejects Registry and falls back to an enabled additional driver', () => {
-  for (const agent of ['pi', 'grok', 'cursor', 'muse', 'opencode', 'antigravity']) {
+  for (const agent of ['pi']) {
     const result = textGenerationSettingsChange({ projectId: null, expectedVersion: 0, changes: { textGenerationModelSelection: { agent, model: 'native-model', reasoningEffort: '' } } });
     assert.equal(result.changes.textGenerationModelSelection?.agent, agent);
   }

@@ -11,8 +11,8 @@ export async function compactTask(engine: Engine, id: string, input: { requestId
     return id;
   }
   const task = state.tasks.find(task => task.id === id);
-  if (!task || !['codex', 'claude', 'pi', 'grok', 'cursor', 'muse', 'opencode', 'acp-registry', 'antigravity'].includes(task.agent) || task.subagentOrigin || task.threadId !== input.threadId) throw new Error('原生会话已经改变，请刷新后重试');
+  if (!task || !['codex', 'claude', 'pi'].includes(task.agent) || task.subagentOrigin || task.threadId !== input.threadId) throw new Error('原生会话已经改变，请刷新后重试');
   return engine.createTask({ command: 'compact', commandThreadId: input.threadId, prompt: '/compact', continueId: id, projectId: task.projectId,
     ...(input.nextMessage ? { commandMessage: { ...input.nextMessage, requestId: input.requestId } } : {}),
-    agent: task.agent as 'codex' | 'claude' | 'pi' | 'grok' | 'cursor' | 'muse' | 'opencode' | 'acp-registry' | 'antigravity', mode: task.mode, requestId });
+    agent: task.agent as 'codex' | 'claude' | 'pi', mode: task.mode, requestId });
 }

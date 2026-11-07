@@ -1,3 +1,4 @@
+import { assertProviderAvailable } from './provider-instances.js';
 import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -103,6 +104,7 @@ export class TaskRewinds {
   }
 
   private assertIdle(state: Workspace, work: WorkItem, own = false) {
+    assertProviderAvailable(work.agent);
     if (work.delegationOrigin) throw new Error('委派子任务不接收历史编辑；下一轮请重新委派');
     if (nativeSessionActionBusy(work)) throw new Error('请先完成或核对 Agent 会话操作');
     if (work.settleCleanup?.status === 'pending') throw new Error('正在清理结束跟进的会话，请等待完成后回退');
@@ -130,7 +132,7 @@ export class TaskRewinds {
     const crossesProvider = [...executionRemoved, ...(previous ? [previous] : [])].some(run => run.providerEpoch && run.providerEpoch !== providerEpoch(work));
     const nativeReason = crossesProvider ? '所选历史跨越 Agent 交接；可以从保留历史建立新会话'
       : work.agent === 'claude' && previous && (!previous.nativeHead || !previous.threadId) ? '保留的 Claude 轮次没有 SDK 消息游标，无法安全续接；可从保留历史建立新会话'
-      : !['codex', 'claude', 'pi', 'opencode'].includes(work.agent) ? '此 Provider 没有可用的原生回退；可以从保留历史建立新会话'
+      : !['codex', 'claude', 'pi'].includes(work.agent) ? '此 Provider 没有可用的原生回退；可以从保留历史建立新会话'
       : work.agent === 'pi' && executionRemoved.some(run => run.turnId && !run.nativeTurnIds?.length) ? '所选 Pi 轮次没有捕获会话树游标；可以从保留历史建立新会话'
       : work.agent !== 'claude' && executionRemoved.some(run => run.threadId && run.threadId !== work.threadId) ? '所选历史跨越多个原生会话；可从保留历史建立新会话' : undefined;
     const logical = new Set(removed.map(run => run.id));
@@ -265,7 +267,7 @@ export class TaskRewinds {
       if (!task.threadId) { delete task.nativeHead; task.providerEpoch = randomUUID(); }
       if (!task.threadId || task.threadId !== operation.sourceThreadId) task.goal = null;
       task.contextUsage = task.threadId ? previous?.contextUsage ?? null : null;
-      if (native.threadId && native.threadId !== operation.sourceThreadId && ['codex', 'pi', 'opencode'].includes(task.agent)) for (const run of task.runs ?? []) if (!run.revertedAt && run.threadId === operation.sourceThreadId) run.threadId = native.threadId;
+      if (native.threadId && native.threadId !== operation.sourceThreadId && ['codex', 'pi'].includes(task.agent)) for (const run of task.runs ?? []) if (!run.revertedAt && run.threadId === operation.sourceThreadId) run.threadId = native.threadId;
       task.status = 'completed'; task.error = null; task.result = result; task.artifact = result ? task.id + '.md' : null;
       task.canSteer = false; task.workspaceRequest = null; task.unread = false; task.readAt = stamp(); task.updatedAt = stamp();
       task.approvals.forEach(approval => { if (approval.state === 'pending') approval.state = 'expired'; });

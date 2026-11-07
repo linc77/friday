@@ -1,8 +1,5 @@
 import { textGenerationProviders, supportsTextGeneration, supportsInvestigation, type TextGenerationProvider } from './native-text-generation.js';
 import { loadPiSettings } from './pi-provider.js';
-import { loadGrokSettings } from './grok-provider.js';
-import { loadNativeProviderSettings } from './native-provider-config.js';
-import { loadAcpProviderSettings } from './acp-provider-settings.js';
 import { providerOptionSelections } from './provider-models.js';
 import { providerInstanceID } from './provider-instances.js';
 import type { Engine } from './engine.js';
@@ -105,8 +102,7 @@ export class TextGenerationPreferences {
       if (!instance.enabled || !supportsTextGeneration(instance.driver)) continue;
       const path = await this.engine.providerInstances.configDirectory(instance.driver, instance.instanceId);
       const settings = instance.driver === 'codex' ? await loadCodexSettings(path) : instance.driver === 'claude' ? await loadClaudeSettings(path)
-        : instance.driver === 'pi' ? await loadPiSettings(path) : instance.driver === 'grok' ? await loadGrokSettings(path)
-        : instance.driver === 'antigravity' ? await loadAcpProviderSettings(path, instance.driver) : await loadNativeProviderSettings(path, instance.driver);
+        : await loadPiSettings(path);
       if (settings.enabled) enabled[instance.driver] = true;
     }
     return enabled;

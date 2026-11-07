@@ -42,7 +42,7 @@ export const providerCommands = (value: unknown): ProviderCommand[] => {
 };
 
 export async function composerWorkspace(engine: Engine, input: { provider: string; providerInstanceId?: string; taskId?: string; projectId?: string; preparationId?: string; reuseTaskId?: string; reload?: boolean }) {
-  if (!['codex', 'claude', 'pi', 'grok', 'cursor', 'muse', 'opencode', 'acp-registry', 'antigravity'].includes(input.provider)) throw new Error('请选择已接入的任务执行器');
+  if (!['codex', 'claude', 'pi'].includes(input.provider)) throw new Error('请选择已接入的任务执行器');
   const state = await engine.snapshot(), task = input.taskId ? state.tasks.find(task => task.id === input.taskId) : undefined;
   const project = state.projects.find(project => project.id === (task?.projectId ?? input.projectId));
   if (input.taskId && (!task || task.agent !== input.provider || input.projectId && task.projectId !== input.projectId)) throw new Error('任务执行范围已经改变');
