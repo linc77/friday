@@ -241,7 +241,7 @@ struct ConnectionView: View {
                     }
                 }
             }
-            Text(friday: "远程访问需要可用的 HTTPS 地址，例如通过 Tailscale Serve 连接你的主机。")
+            Text(friday: "远程访问需要主机的固定 HTTPS 地址。")
                 .font(.system(size: 12)).foregroundStyle(.secondary)
             SettingsGroup("已连接的设备") {
                 if store.devices.isEmpty {

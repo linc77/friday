@@ -65,9 +65,9 @@ Friday 现在自己运行模型决策循环。每个会话在提交前原子保�
 
 HTTP 负责命令，SSE 发送带 revision 的完整状态快照。重连先拉最新状态，无需假设客户端收到每个 token。客户端离线只缓存想法，稳定的 idea ID 防止重复；任务命令通过 request ID 去重。手机后台不维持永久在线承诺。
 
-本机 owner token 存在私有文件，远端设备各自拥有可撤销 token，服务只保存其哈希。配对不携带旧主机凭据。外部访问要求 TLS；Tailscale 可提供设备间私网入口，但不替代 Friday 的授权。
+本机 owner token 存在私有文件，远端设备各自拥有可撤销 token，服务只保存其哈希。配对不携带旧主机凭据。外部访问要求 TLS；固定 HTTPS 入口负责网络可达性，不替代 Friday 的授权。
 
-Connections 的个人接入方案使用 Tailscale Serve 提供私网 HTTPS，手机需要常驻代理时由 Shadowrocket 内置 Tailscale 模块处理同一 tailnet 的连接。MagicDNS 负责设备名称解析，DERP 在无法直接连接时提供加密中继，Friday 继续独立检查设备凭据。配置步骤、接口和验收范围见 [Connections 模块指南](connections.md)。
+远程接入采用 Cloudflare 固定隧道：Mac 上的 cloudflared 主动连接远程入口，手机通过普通 HTTPS 访问。Mac 常驻服务仍监听 loopback，设备配对和 HTTP/SSE 协议保持统一。macOS launchd 管理连接器进程，cloudflared 管理网络重连；Friday 不另建云端业务数据库或隧道分配服务。设置和验证见 [Connections 模块指南](connections.md)。
 
 ## 第一版规模
 

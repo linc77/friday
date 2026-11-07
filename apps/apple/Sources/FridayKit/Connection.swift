@@ -59,7 +59,7 @@ final class Connection {
     }
     func request(_ path: String, method: String = "GET", body: [String: Any]? = nil) throws -> URLRequest {
         guard let base = URL(string: server), let host = base.host, ["http", "https"].contains(base.scheme ?? "") else { throw ConnectionError.message("请输入有效的服务地址") }
-        if base.scheme == "http" && !["127.0.0.1", "localhost", "::1"].contains(host) { throw ConnectionError.message("远程连接请使用 HTTPS 地址，例如 Tailscale Serve 提供的地址") }
+        if base.scheme == "http" && !["127.0.0.1", "localhost", "::1"].contains(host) { throw ConnectionError.message("远程连接请使用主机的 HTTPS 地址") }
         guard let url = URL(string: server.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + path) else { throw ConnectionError.message("服务地址无效") }
         var request = URLRequest(url: url); request.httpMethod = method; request.timeoutInterval = 30
         if path.hasPrefix("/api/") { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }

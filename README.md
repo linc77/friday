@@ -73,7 +73,7 @@ pnpm service:stop
 
 ## iPhone 与多端连接
 
-主机连接、设备授权、私网接入步骤、小火箭配置、MagicDNS / DERP、排障与验收边界见 [Connections 模块指南](docs/connections.md)。
+固定 HTTPS 入口、设备配对、连接器管理、排障与验收边界见 [Connections 模块指南](docs/connections.md)。
 
 用完整 Xcode 打开 `apps/ios/Friday.xcodeproj`，选择 Friday scheme。为 Friday 和 FridayShare 配置同一个开发团队，并设置可用的 `FRIDAY_BUNDLE_PREFIX` 与 `FRIDAY_APP_GROUP`，在两个 target 上启用相同 App Group。App Group 的真机签名依赖你的 Apple 开发者配置。
 
@@ -81,9 +81,9 @@ pnpm service:stop
 
 也可以在 `apps/ios/FridayPersonal.local.xcconfig` 保存本机的签名配置，FridayPersonal 的 Debug / Release 会自动读取；这个文件已被 Git 忽略。设置 `DEVELOPMENT_TEAM = 你的团队ID` 和 `FRIDAY_BUNDLE_PREFIX = 你的应用标识前缀`，实际 Bundle Identifier 为此前缀加 `.standalone`。更新已安装的版本时，沿用原来的团队与 Bundle Identifier，在 Xcode 中选择 FridayPersonal 和自己的 iPhone，按 ⌘R 编译并覆盖安装，无需先删除 App。服务端代码更新后手机重新连接即可使用；客户端代码更新需要重新安装。
 
-FridayPersonal 已使用 Xcode 27.0 和 iOS 27.0 SDK 完成签名编译、iPhone 真机安装、主机配对和双向想法同步验收；其中主机到手机的前台 SSE 更新已通过真实设备验证。首次启动需要在手机上信任开发者。包含分享扩展的 Friday scheme 尚未完成 iOS 编译或真机验收。
+FridayPersonal 曾使用 Xcode 27.0 和 iOS 27.0 SDK 完成签名编译、iPhone 真机安装、主机配对和双向想法同步验收。这是历史版本记录，新入口的蜂窝网络收发和切网恢复需单独验收。首次启动需要在手机上信任开发者。包含分享扩展的 Friday scheme 尚未完成 iOS 编译或真机验收。
 
-1. 为服务准备设备可访问的 HTTPS 地址。个人使用可用 Tailscale Serve，将私有 HTTPS 入口转发到 `127.0.0.1:4317`；客户端和主机加入同一 tailnet。iOS 上两个独立 VPN 客户端不能同时连接；支持内置 Tailscale 的 Shadowrocket 可以在同一个 VPN 隧道中处理代理和私网流量，此方案已完成 Friday 真机同步验收。手机使用 Shadowrocket 的 Tailscale 模块和入网认证密钥，控制服务器使用默认值，出口节点留空，官方 Tailscale App 保持断开。没有内置模块时，也可在确认公网访问范围后改用 Tailscale Funnel，手机通过普通 HTTPS 连接，主机仍运行 Tailscale。Funnel 会让服务公网可达，Friday 的数据访问仍要求配对后的设备凭证。
+1. 使用 Cloudflare 固定隧道，将 HTTPS 主机地址转发到 `http://127.0.0.1:4317`。按 [Connections 模块指南](docs/connections.md) 配置后，用 `pnpm remote:install <https://主机地址> <本机token文件>` 注册后台连接器。手机通过普通 HTTPS 连接，不需要 VPN 或代理分流规则。
 2. 在主机的“设置 → 设备管理”里生成配对码，在 iPhone 的“设置 → 连接与设备”填入 HTTPS 地址、设备名称与配对码。配对码 5 分钟内单次有效。
 3. iOS 支持保存想法、任务控制和成果查看。分享扩展保存文字/链接到 App Group；**打开 Friday 后**导入并同步。离线想法保留在设备，任务必须在线提交。
 

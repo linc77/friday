@@ -161,8 +161,8 @@
 "输入新密钥以替换" = "Enter a new key to replace it";
 "还没有配对设备" = "No paired devices yet";
 "进行中" = "In progress";
-"远程访问需要可用的 HTTPS 地址，例如通过 Tailscale Serve 连接你的主机。" = "Remote access requires an HTTPS address, for example through Tailscale Serve.";
-"远程连接请使用 HTTPS 地址，例如 Tailscale Serve 提供的地址" = "Use an HTTPS address for remote connections, such as one provided by Tailscale Serve";
+"远程访问需要主机的固定 HTTPS 地址。" = "Remote access requires the host’s fixed HTTPS address.";
+"远程连接请使用主机的 HTTPS 地址" = "Use the host’s HTTPS address for remote connections";
 "远程连接请使用 HTTPS。" = "Use HTTPS for remote connections.";
 "连接" = "Connect";
 "连接与同步" = "Connection & sync";

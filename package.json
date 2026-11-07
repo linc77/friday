@@ -27,7 +27,11 @@
     "service:install": "node scripts/service.mjs install",
     "service:stop": "node scripts/service.mjs uninstall",
     "service:status": "node scripts/service.mjs status",
-    "apple:undo:check": "bash scripts/test-task-undo.sh"
+    "apple:undo:check": "bash scripts/test-task-undo.sh",
+    "remote:install": "node scripts/remote.mjs install",
+    "remote:status": "node scripts/remote.mjs status",
+    "remote:stop": "node scripts/remote.mjs stop",
+    "remote:test": "node --test scripts/remote.test.mjs"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "2.0.0",
