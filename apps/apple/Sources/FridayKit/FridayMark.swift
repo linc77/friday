@@ -18,42 +18,36 @@ struct FridayMark: View {
 
     var body: some View {
         ZStack {
-            Ellipse()
-                .fill(.black.opacity(0.10))
-                .frame(width: size * 0.55, height: size * 0.08)
-                .blur(radius: size * 0.045)
-                .offset(y: size * 0.44)
-
-            Circle()
-                .fill(RadialGradient(stops: [
-                    .init(color: Color(red: 0.24, green: 0.40, blue: 1), location: 0),
-                    .init(color: Color(red: 0.12, green: 0.28, blue: 0.94), location: 0.58),
-                    .init(color: Color(red: 0.04, green: 0.16, blue: 0.72), location: 1),
-                ], center: UnitPoint(x: 0.3, y: 0.22), startRadius: 0, endRadius: size * 0.87))
-                .overlay {
-                    Circle().fill(RadialGradient(colors: [.white.opacity(0.13), .clear],
-                        center: UnitPoint(x: 0.29, y: 0.17), startRadius: 0, endRadius: size * 0.48))
-                }
-                .frame(width: size * 0.90, height: size * 0.90)
-                .offset(y: -size * 0.025)
+            // Keep the fine velvet texture at every display scale. The source
+            // has transparent margins; normalize its visible sphere here.
+            Image("FridayAvatarBody", bundle: .module)
+                .renderingMode(.original)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: size * 1.30, height: size * 1.30)
+                .offset(x: size * 0.002, y: -size * 0.014)
+                .frame(width: size * 0.96, height: size * 0.96)
+                .clipped()
+                .offset(y: -size * 0.02)
 
             HStack(spacing: size * 0.105) {
                 eye
                 eye
             }
             .rotationEffect(.degrees(Double(gaze.x) * 3))
-            .offset(x: gaze.x * size * 0.065, y: -size * 0.09 + gaze.y * size * 0.045)
+            .offset(x: gaze.x * size * 0.065, y: -size * 0.105 + gaze.y * size * 0.045)
 
             FridayBowTie()
-                .fill(LinearGradient(colors: [Color(white: 0.16), Color(white: 0.055)], startPoint: .top, endPoint: .bottom))
-                .frame(width: size * 0.46, height: size * 0.18)
+                .fill(LinearGradient(colors: [Color(white: 0.17), Color(white: 0.055)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .frame(width: size * 0.475, height: size * 0.195)
                 .overlay {
-                    RoundedRectangle(cornerRadius: size * 0.025)
+                    Ellipse()
                         .fill(Color(white: 0.10))
-                        .frame(width: size * 0.085, height: size * 0.115)
+                        .frame(width: size * 0.035, height: size * 0.045)
                 }
+                .shadow(color: .black.opacity(0.20), radius: size * 0.012, y: -size * 0.012)
                 .rotationEffect(.degrees(Double(gaze.x) * 1.5))
-                .offset(y: size * 0.365)
+                .offset(y: size * 0.40)
         }
         .frame(width: size, height: size)
         .background {
@@ -88,9 +82,11 @@ struct FridayMark: View {
     }
 
     private var eye: some View {
-        Capsule()
-            .fill(Color(red: 0.035, green: 0.055, blue: 0.105))
-            .frame(width: size * 0.075, height: size * 0.135)
+        Ellipse()
+            .fill(LinearGradient(colors: [Color(white: 0.16), Color(white: 0.08)],
+                startPoint: .topLeading, endPoint: .bottomTrailing))
+            .frame(width: size * 0.088, height: size * 0.136)
+            .shadow(color: .black.opacity(0.28), radius: size * 0.009, x: size * 0.003, y: size * 0.008)
             .scaleEffect(x: 1, y: eyesClosed ? 0.15 : 1)
     }
 }

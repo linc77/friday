@@ -1,0 +1,5 @@
+Use case: background-extraction / precise-object-edit.
+Asset type: transparent body texture for an existing native animated avatar.
+Edit target: the attached screenshot. Extract ONLY the blue fuzzy sphere from the character in the lower half. Preserve its exact spherical silhouette, vivid cobalt/royal blue color, extremely fine short flocked velvet fur, soft studio shading and illumination from upper left. This must match the source character closely, not a redesign.
+Remove the two black eyes and the black bowtie, restoring continuous blue fuzzy sphere in those areas. We will add separate animated eyes and bowtie in native code.
+Remove all UI, Chinese text, gray panel, background and floor shadow. Output one perfectly round blue furry sphere, front view, centered, tightly framed in a square with about 4 percent transparent margin on all four sides. Truly transparent RGBA background, no white matte, no gray halo. No eyes, no mouth, no bowtie, no limbs, no text, no extra objects. Keep the short velvety surface from the reference, not long wool, not individual large hairs, not glossy plastic.

@@ -1,0 +1,9 @@
+# Friday 对话头像
+
+根据用户在 2026-11-08 提供的小蓝截图重建，保持蓝色短绒球体、深灰椭圆眼睛与黑色圆角领结的比例。此角色只用于对话头像，应用图标仍使用 V 母版。
+
+- 球体素材：[FridayAvatarBody.png](../../apps/apple/Sources/FridayKit/Resources/FridayAvatarBody.png)。使用内置 imagegen 从用户参考图制作，RGBA 透明背景，1254 × 1254；随 FridayKit 资源打包，无需运行时联网。
+- 完整生成提示：[conversation-avatar.prompt.txt](conversation-avatar.prompt.txt)。仅提取球体并移除 UI、眼睛与领结，以便表情独立动画。
+- 眼睛与领结：[FridayMark.swift](../../apps/apple/Sources/FridayKit/FridayMark.swift)。眼睛宽／高为头像尺寸的 0.088／0.136；领结宽／高为 0.475／0.195。材质采用深灰渐变与轻微投影，不用原有的胶囊眼睛和方形领结中心。
+- 素材保留原始透明留白；视图将球体可见直径归一到头像尺寸约 94%，不因原图留白而缩小角色。球体是静态共享图片，仅最新可见头像的眼睛和领结参与已有表情动效。
+- 图像按参考重建；原生表情不是 Codex 的 3D 运行时，也不将生成结果描述为与原图逐像素一致。

@@ -164,11 +164,17 @@ private struct FridayAssistantMessage: View {
     }
 
     var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            FridayMark(size: 32, interactive: latest)
+                .padding(.top, FridayTheme.conversationAssistantVerticalPadding)
+            bubble
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var bubble: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 9) {
-                FridayMark(size: 32, interactive: latest)
-                Text(name).font(.subheadline.weight(.semibold))
-            }
+            Text(name).font(.subheadline.weight(.semibold))
             if let thinking = message.thinking, !thinking.isEmpty {
                 DisclosureGroup(isExpanded: $thinkingExpanded) {
                     Text(verbatim: thinking).font(.callout).foregroundStyle(.secondary)
@@ -192,7 +198,9 @@ private struct FridayAssistantMessage: View {
             }
             if !message.text.isEmpty {
                 AgentMarkdown(text: message.text, isStreaming: message.streaming == true && active,
-                    bodyFont: FridayTheme.conversationFont, bodyLineSpacing: FridayTheme.conversationLineSpacing)
+                    bodyFont: FridayTheme.conversationFont, bodyLineSpacing: FridayTheme.conversationLineSpacing,
+                    bodyParagraphSpacing: FridayTheme.conversationParagraphSpacing,
+                    bodyListItemSpacing: FridayTheme.conversationListItemSpacing)
                     #if os(macOS)
                     .tint(FridayTheme.conversationUserBackground)
                     .accentColor(FridayTheme.conversationUserBackground)

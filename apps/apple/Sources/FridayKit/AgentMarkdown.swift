@@ -8,6 +8,19 @@ import UIKit
 private struct MarkdownTaskToggleKey: EnvironmentKey { static let defaultValue: ((Int, Bool) -> Void)? = nil }
 extension EnvironmentValues { var markdownTaskToggle: ((Int, Bool) -> Void)? { get { self[MarkdownTaskToggleKey.self] } set { self[MarkdownTaskToggleKey.self] = newValue } } }
 
+private struct MarkdownParagraphSpacingKey: EnvironmentKey { static let defaultValue: CGFloat? = nil }
+private struct MarkdownListItemSpacingKey: EnvironmentKey { static let defaultValue: CGFloat? = nil }
+private extension EnvironmentValues {
+    var markdownParagraphSpacing: CGFloat? {
+        get { self[MarkdownParagraphSpacingKey.self] }
+        set { self[MarkdownParagraphSpacingKey.self] = newValue }
+    }
+    var markdownListItemSpacing: CGFloat? {
+        get { self[MarkdownListItemSpacingKey.self] }
+        set { self[MarkdownListItemSpacingKey.self] = newValue }
+    }
+}
+
 struct AgentMarkdown: View {
     let text: String
     var compact = false
@@ -17,6 +30,8 @@ struct AgentMarkdown: View {
     var galleryImages: [MarkdownImage]? = nil
     var bodyFont: Font? = nil
     var bodyLineSpacing: CGFloat? = nil
+    var bodyParagraphSpacing: CGFloat? = nil
+    var bodyListItemSpacing: CGFloat? = nil
     @State private var parsed: [MarkdownBlock]? = nil
     @State private var parsedSource: String? = nil
     @State private var scope = UUID()
@@ -42,6 +57,8 @@ struct AgentMarkdown: View {
         .frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
         .overlay { if let citationModel { TaskCitationSelectionOverlay(model:citationModel) } }
         .environment(\.markdownNavigation, navigation)
+        .environment(\.markdownParagraphSpacing, bodyParagraphSpacing)
+        .environment(\.markdownListItemSpacing, bodyListItemSpacing)
         .environment(\.markdownTaskToggle, parsedSource == text ? taskToggle : nil)
         .environment(\.markdownFragmentRequest, fragmentRequest)
         .environment(\.markdownExpandImage, { image in
@@ -102,8 +119,9 @@ struct AgentMarkdown: View {
 private struct MarkdownBlockGroup: View {
     let blocks: [MarkdownBlock]; let compact: Bool; let canOpenLocalFiles: Bool; let workspacePath: String?; let isStreaming: Bool
     @Environment(\.taskCitationPath) private var citationPath
+    @Environment(\.markdownParagraphSpacing) private var paragraphSpacing
     var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 10 : 16) {
+        VStack(alignment: .leading, spacing: paragraphSpacing ?? (compact ? 10 : 16)) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { index, block in
                 MarkdownBlockView(block: block, compact: compact, canOpenLocalFiles: canOpenLocalFiles, workspacePath: workspacePath, isStreaming: isStreaming)
                     .environment(\.taskCitationPath,citationPath+[index])
@@ -116,6 +134,7 @@ private struct MarkdownBlockView: View {
     let block: MarkdownBlock; let compact: Bool; let canOpenLocalFiles: Bool; let workspacePath: String?; let isStreaming: Bool
     @Environment(\.markdownTaskToggle) private var taskToggle
     @Environment(\.taskCitationPath) private var citationPath
+    @Environment(\.markdownListItemSpacing) private var listItemSpacing
     private func inline(_ value: MarkdownInline,role:TaskCitationTextRole? = nil) -> MarkdownInlineView {
         MarkdownInlineView(value: value, compact: compact, canOpenLocalFiles: canOpenLocalFiles, workspacePath: workspacePath,role:role)
     }
@@ -133,7 +152,7 @@ private struct MarkdownBlockView: View {
             else { AgentCodeBlock(language: fence.language, text: fence.text, title: fence.title) }
         case .list(let list):
             let width = list.start.map { CGFloat(String($0 + UInt(max(0, list.items.count - 1))).count + 1) * 8 + 3 } ?? 17
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: listItemSpacing ?? 8) {
                 ForEach(Array(list.items.enumerated()), id: \.offset) { index, item in
                     HStack(alignment: .top, spacing: 10) {
                         Group {

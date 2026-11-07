@@ -99,7 +99,8 @@ enum FridayTheme {
 
     static var conversationFont: Font {
         #if os(macOS)
-        .system(size: 16, weight: .regular, design: .default)
+        // Match the desktop reference's system font, 14 px / 21 px, weight 400.
+        .system(size: 14, weight: .regular, design: .default)
         #else
         .body
         #endif
@@ -107,6 +108,8 @@ enum FridayTheme {
 
     #if os(macOS)
     static let conversationLineSpacing: CGFloat = 4
+    static let conversationParagraphSpacing: CGFloat? = 8
+    static let conversationListItemSpacing: CGFloat? = 4
     static let conversationBubbleRadius: CGFloat = 24
     static let conversationUserLineSpacing: CGFloat = 4
     static let conversationUserBubbleRadius: CGFloat = 24
@@ -115,6 +118,8 @@ enum FridayTheme {
     static let conversationAssistantVerticalPadding: CGFloat = 14
     #else
     static let conversationLineSpacing: CGFloat = 6
+    static let conversationParagraphSpacing: CGFloat? = nil
+    static let conversationListItemSpacing: CGFloat? = nil
     static let conversationBubbleRadius: CGFloat = cornerRadius
     static let conversationUserLineSpacing: CGFloat = 5
     static let conversationUserBubbleRadius: CGFloat = 16
