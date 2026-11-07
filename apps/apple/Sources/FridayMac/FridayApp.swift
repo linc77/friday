@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.activate(ignoringOtherApps: true)
         AppUpdater.shared.start()
         Task { await ServiceController.shared.start() }
+        DispatchQueue.main.async { ReleaseAnnouncement.shared.show(onlyUnread: true) }
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !preparingTermination else {return .terminateLater}
@@ -47,6 +48,8 @@ struct FridayApp: App {
             .commands {
                 CommandGroup(after: .appInfo) {
                     UpdateMenu()
+                    Button("更新公告…") { ReleaseAnnouncement.shared.show() }
+                        .disabled(!ReleaseAnnouncement.shared.available)
                     Button("软件更新与后台服务…") { openWindow(id: "service-settings") }
                 }
             }

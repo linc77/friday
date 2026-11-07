@@ -43,6 +43,9 @@ struct ServiceSettings: View {
                 Text("\(FridayAppName.displayName) \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版")")
                 Toggle("自动检查新版本", isOn: $updater.automaticChecks)
                 Button("检查更新…") { updater.check() }.disabled(!updater.canCheck)
+                Button("查看更新公告…") { ReleaseAnnouncement.shared.show() }
+                    .fridayInteractiveCursor()
+                    .disabled(!ReleaseAnnouncement.shared.available)
             }
             Section("后台服务") {
                 Text(service.status).font(.callout).textSelection(.enabled)

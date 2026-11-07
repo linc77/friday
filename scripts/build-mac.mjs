@@ -5,10 +5,12 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { macAppIdentity } from './mac-app-identity.mjs';
 import { preparePtyRuntime } from './mac-pty-runtime.mjs';
+import { loadReleaseNotes } from './release-notes.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 process.chdir(root);
 const config = JSON.parse(await readFile('release/macos.json', 'utf8'));
+const releaseNotes = await loadReleaseNotes(root, config);
 const standalone = process.argv.includes('--standalone');
 // Reuse the incremental Debug build used by directed native tests. Only the
 // self-contained release needs whole-module Release optimization.
@@ -27,6 +29,7 @@ await rm(app, { recursive: true, force: true });
 const contents = join(app, 'Contents');
 await mkdir(join(contents, 'MacOS'), { recursive: true });
 await mkdir(join(contents, 'Resources'), { recursive: true });
+await writeFile(join(contents, 'Resources/ReleaseNotes.json'), JSON.stringify(releaseNotes, null, 2) + '\n');
 await mkdir(join(contents, 'Frameworks'), { recursive: true });
 await cp(join(bin, 'Friday'), join(contents, 'MacOS', identity.executable));
 await cp('apps/apple/Info-mac.plist', join(contents, 'Info.plist'));
