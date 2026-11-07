@@ -10,11 +10,11 @@ export const liveEventLimit = 600;
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const sha = (value: string) => createHash('sha256').update(value).digest('hex');
 const PageDoc = defineDocFamily<{ taskId: string; page: number; events: TaskEvent[] }, { taskId: string; page: number }>({
-  kind: 'friday.task_history_page', version: 1, scope: 'session', family: true,
+  kind: 'friday.task_history_page', version: 1, scope: 'session', checkpointWhen: () => false, family: true,
   initial: seed => ({ ...seed, events: [] }),
 });
 const EventIndex = defineDocFamily<{ taskId: string; eventId: string; position: number | null }, { taskId: string; eventId: string }>({
-  kind: 'friday.task_history_index', version: 1, scope: 'session', family: true,
+  kind: 'friday.task_history_index', version: 1, scope: 'session', checkpointWhen: () => false, family: true,
   initial: seed => ({ ...seed, position: null }),
 });
 const key = (taskID: string, page: number) => `${sha(taskID)}:${page}`;

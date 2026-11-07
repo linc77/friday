@@ -2653,3 +2653,7 @@
 
 
 "此 Agent 接入已移除，历史任务仍可查看；请使用 Codex、Claude 或 Pi 新建任务。" = "This Agent integration has been removed. History remains available; start a new task with Codex, Claude, or Pi.";
+
+"升级" = "Update";
+
+"查看更新公告" = "View release notes";

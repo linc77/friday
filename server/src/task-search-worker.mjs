@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto';
 import { parentPort, workerData } from 'node:worker_threads';
 import { apply } from '@earendil-works/chord/delta';
 
-// Read-only projection of the pinned Pi Durable 1.0.2 SQLite schema (v1).
+// Read-only projection of the pinned Pi Durable 1.5.0 SQLite schemas v1/v2.
+// The v2 migration only rebuilds tasks; document tables and deltas are unchanged.
 // Materialization follows SqliteStorage.materializeDocument: latest base plus
 // ordered Chord deltas in ONE read transaction. Fail closed on schema changes;
 // never initialize/migrate storage or open a second execution Harness here.
@@ -75,7 +76,7 @@ function eventVisible(task, event, runs) {
 }
 
 function search(input) {
-  if (db.prepare('SELECT version FROM durable_schema WHERE singleton = 1').get()?.version !== 1) throw new Error('Unsupported Durable schema');
+  if (![1, 2].includes(db.prepare('SELECT version FROM durable_schema WHERE singleton = 1').get()?.version)) throw new Error('Unsupported Durable schema');
   const workspace = document('friday.workspace') ?? { revision: 0, projects: [], tasks: [] };
   const projects = new Set(workspace.projects.map(project => project.id));
   const query = fold(input.query); const matches = [];

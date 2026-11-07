@@ -15,7 +15,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.activate(ignoringOtherApps: true)
         AppUpdater.shared.start()
         Task { await ServiceController.shared.start() }
-        DispatchQueue.main.async { ReleaseAnnouncement.shared.show(onlyUnread: true) }
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !preparingTermination else {return .terminateLater}

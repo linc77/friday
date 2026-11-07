@@ -179,6 +179,7 @@ public struct FridayRootView: View {
                 ForEach(FridaySection.allCases.filter { $0 != .settings }) { item in sidebarRow(item) }
             }
             Spacer(minLength: 16)
+            FridayUpdateNoticeButton()
             sidebarRow(.settings)
                 .help(Text(friday: "设置（⌘,）"))
         }

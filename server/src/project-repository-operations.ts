@@ -30,8 +30,8 @@ export type ProjectRepositoryOperation={
   retryOf?:string;
 };
 export type ProjectCloneSnapshot={operationId:string;phase:'running'|'done'|'failed'|'cancelled';stage:string;percent:number|null;detail:string|null;error:string|null;remoteUrl:string;destinationPath:string;repository?:CloneRepositoryInfo};
-const Request=defineDocFamily<{digest?:string;operationId?:string},{id:string}>({kind:'friday.project_repository_request',version:1,scope:'session',family:true,initial:()=>({})});
-const CloneInput=defineDocFamily<{remoteURL?:string},{id:string}>({kind:'friday.project_clone_private_input',version:1,scope:'session',family:true,initial:()=>({})});
+const Request=defineDocFamily<{digest?:string;operationId?:string},{id:string}>({kind:'friday.project_repository_request',version:1,scope:'session',checkpointWhen:()=>false,family:true,initial:()=>({})});
+const CloneInput=defineDocFamily<{remoteURL?:string},{id:string}>({kind:'friday.project_clone_private_input',version:1,scope:'session',checkpointWhen:()=>false,family:true,initial:()=>({})});
 const stamp=()=>new Date().toISOString(),hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 const requestID=(value:unknown):string=>{if(typeof value!=='string'||!/^[a-zA-Z0-9_-]{1,128}$/.test(value))throw new Error('项目操作请求无效');return value;};
 const active=(operation:ProjectRepositoryOperation)=>operation.status==='queued'||operation.status==='running';
