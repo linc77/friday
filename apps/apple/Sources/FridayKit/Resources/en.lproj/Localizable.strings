@@ -2710,3 +2710,7 @@
 "计划模式已移除，请重新发送普通任务要求" = "Plan mode has been removed. Send a new task request.";
 
 "此 ACP 工具未提供只读执行能力" = "This ACP provider does not offer read-only execution.";
+
+"升级" = "Update";
+
+"查看更新公告" = "View release notes";
