@@ -224,7 +224,7 @@
 ### 任务对话与图片附件
 
 - 我的任务的核心 Agent 对话交互参考 [T3 Code ChatComposer](https://github.com/pingdotgg/t3code/blob/4b6d9a09/apps/web/src/components/chat/ChatComposer.tsx) 与 [MessagesTimeline](https://github.com/pingdotgg/t3code/blob/4b6d9a09/apps/web/src/components/chat/MessagesTimeline.tsx)，保持 SwiftUI 与原生文字编辑器实现。
-- 输入框上方显示可移除的图片缩略图；Mac 的附件 `paperclip` 位于底部工具栏最左侧，在计划模式、分支、模型和推理强度之前，上传进度紧随附件按钮，发送／停止位于右侧。Mac 工具栏不显示账号配额 `chart.bar`、上下文选择 `at` 和丢弃草稿 `trash` 按钮；输入文字中的引用与命令入口继续保留。iOS 保留原有工具栏排列。附件移除及关闭使用 `xmark`，预览切换使用 `chevron.left`／`chevron.right`，沿用通用单次 Draw On 与小手光标。
+- 输入框上方显示可移除的图片缩略图；Mac 的附件 `paperclip` 位于底部工具栏最左侧，在分支、模型和推理强度之前，上传进度紧随附件按钮，发送／停止位于右侧。Mac 工具栏不显示账号配额 `chart.bar`、上下文选择 `at` 和丢弃草稿 `trash` 按钮；输入文字中的引用与命令入口继续保留。iOS 保留原有工具栏排列。附件移除及关闭使用 `xmark`，预览切换使用 `chevron.left`／`chevron.right`，沿用通用单次 Draw On 与小手光标。
 - Mac 支持图片文件选择、直接粘贴图片及拖入；Return 发送，Shift-Return 换行，输入法组词时 Return 只确认文字。iOS 支持照片图库、图片文件及图片粘贴，页面打开不弹出键盘。
 - 支持纯图片任务、多图预览和历史图片。用户消息中的图片采用两列紧凑缩略图，点击打开大图预览；消息正文、时间与复制操作保持轻量。新任务和已有任务的文字、附件草稿按 Workspace／任务及服务地址分别保留。
 - 发送失败保留文字和图片。运行中的补充要求在外部发送前持久保存，结果不确定时显示“发送结果待确认”，不自动重复交给 Agent。
