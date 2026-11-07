@@ -43,13 +43,9 @@ struct CodexTimeline: View {
                         .id(store.connectionIdentity + ":preparation:" + task.id + ":" + run.id)
                 }
             case .reply(let text):
-                VStack(alignment: .leading, spacing: 8) {
-                    CodexReply(store:store,taskID:task.id,messageID:row.id,text: text, canOpenLocalFiles: canOpenLocalFiles, workspacePath: task.cwd, isStreaming: row.isStreaming)
-                    if let runID = row.runID ?? row.nativeTurnID {
-                        TaskForkButton(store: store, task: task, runID: runID, openTask: openTask)
-                            .id(store.connection.server + ":" + task.id + ":" + runID)
-                    }
-                }.id(row.id)
+                CodexReply(store: store, task: task, messageID: row.id, text: text, canOpenLocalFiles: canOpenLocalFiles,
+                    workspacePath: task.cwd, isStreaming: row.isStreaming, runID: row.runID ?? row.nativeTurnID, openTask: openTask)
+                    .id(row.id)
             case .changes(let event):
                 TaskChangedFilesCard(task: task, event: event, canOpenLocalFiles: canOpenLocalFiles) { path in openDiff(TaskDiffSelection(eventID: event.id, path: path)) }.id(row.id)
             case .subagent(let event):
@@ -85,6 +81,7 @@ private struct CodexUserMessage: View {
     let canEdit: Bool
     let edit: () -> Void
     @State private var copied = false
+    @State private var hovering = false
     var body: some View {
         HStack {
             Spacer(minLength: 48)
@@ -103,37 +100,53 @@ private struct CodexUserMessage: View {
                 }.padding(.horizontal, 18).padding(.vertical, 14)
                     .background(.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 16))
                 HStack(spacing: 10) {
+                    #if os(iOS)
                     if showsEdit {
                         Button(action: edit) { FridaySymbolImage(systemName: "arrow.uturn.backward") }
                             .buttonStyle(FridaySymbolButtonStyle()).disabled(!canEdit).accessibilityLabel(Text(friday: "从这里编辑"))
                             .help(Text(friday: "从这里编辑"))
                     }
+                    #endif
                     if message?.delivery == "uncertain" || message?.delivery == "sending" {
                         Text(friday: message?.delivery == "uncertain" ? "发送结果待确认" : "发送中").foregroundStyle(.orange)
                     }
-                    if let date = CodexTranscript.date(message?.at) { Text(date, style: .time).foregroundStyle(.secondary) }
-                    if !text.isEmpty {
-                        Button { TaskContextText.copy(text); copied = true } label: {
-                            FridaySymbolImage(systemName: copied ? "checkmark" : "doc.on.doc")
-                        }.buttonStyle(FridaySymbolButtonStyle()).foregroundStyle(.secondary)
-                            .accessibilityLabel(Text(friday: copied ? "已复制" : "复制消息"))
-                    }
+                    HStack(spacing: 10) {
+                        if let date = CodexTranscript.date(message?.at) { Text(date, style: .time).foregroundStyle(.secondary) }
+                        if !text.isEmpty {
+                            Button { TaskContextText.copy(text); copied = true } label: {
+                                FridaySymbolImage(systemName: copied ? "checkmark" : "doc.on.doc")
+                            }.buttonStyle(FridaySymbolButtonStyle()).foregroundStyle(.secondary)
+                                .accessibilityLabel(Text(friday: copied ? "已复制" : "复制消息"))
+                                .help(Text(friday: copied ? "已复制" : "复制消息"))
+                        }
+                    }.modifier(CodexMessageActionsVisibility(hovering: hovering))
                 }.font(.system(size: 11))
-            }
+            }.contentShape(Rectangle()).onHover { hovering = $0 }
         }.onChange(of: text) { _, _ in copied = false }
     }
 }
 
 private struct CodexReply: View {
     @ObservedObject var store:FridayStore
-    let taskID:String
+    let task: WorkItem
     let messageID:String
     @Environment(\.taskFileMentionBridge) private var mentionBridge
     let text: String
     let canOpenLocalFiles: Bool
     let workspacePath: String
     let isStreaming: Bool
+    let runID: String?
+    let openTask: (String) -> Void
     @State private var copied = false
+    @State private var hovering = false
+    private var taskID: String { task.id }
+    private var compactActions: Bool {
+        #if os(macOS)
+        true
+        #else
+        false
+        #endif
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let mentionBridge,let service=store.serviceId {
@@ -141,10 +154,39 @@ private struct CodexReply: View {
                     AgentMarkdown(text:text,canOpenLocalFiles:canOpenLocalFiles,workspacePath:workspacePath,isStreaming:isStreaming)
                 }.id(store.connectionIdentity+"\n"+taskID+"\n"+messageID)
             } else { AgentMarkdown(text: text, canOpenLocalFiles: canOpenLocalFiles, workspacePath: workspacePath, isStreaming: isStreaming) }
-            Button { copyAgentText(text); copied = true } label: {
-                FridaySymbolLabel(friday: copied ? "已复制" : "复制回答", systemImage: copied ? "checkmark" : "doc.on.doc")
-            }.font(.caption).foregroundStyle(.secondary).buttonStyle(FridaySymbolButtonStyle())
-        }.onChange(of: text) { _, _ in copied = false }
+            HStack(alignment: .top, spacing: 8) {
+                Button { copyAgentText(text); copied = true } label: {
+                    if compactActions {
+                        FridaySymbolImage(systemName: copied ? "checkmark" : "doc.on.doc").frame(width: 24, height: 24)
+                    } else {
+                        FridaySymbolLabel(friday: copied ? "已复制" : "复制回答", systemImage: copied ? "checkmark" : "doc.on.doc")
+                    }
+                }.font(.caption).foregroundStyle(.secondary).buttonStyle(FridaySymbolButtonStyle())
+                    .accessibilityLabel(Text(friday: copied ? "已复制" : "复制回答"))
+                    .help(Text(friday: copied ? "已复制" : "复制回答"))
+                if let runID {
+                    TaskForkButton(store: store, task: task, runID: runID, openTask: openTask, iconOnly: compactActions)
+                        .id(store.connection.server + ":" + task.id + ":" + runID)
+                }
+            }.modifier(CodexMessageActionsVisibility(hovering: hovering))
+        }.frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle()).onHover { hovering = $0 }
+            .onChange(of: text) { _, _ in copied = false }
+    }
+}
+
+private struct CodexMessageActionsVisibility: ViewModifier {
+    let hovering: Bool
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    func body(content: Content) -> some View {
+        #if os(macOS)
+        // Reserve the footer so moving into its buttons never shifts the message.
+        content.opacity(hovering || voiceOverEnabled ? 1 : 0)
+            .allowsHitTesting(hovering || voiceOverEnabled)
+            .accessibilityHidden(!hovering && !voiceOverEnabled)
+        #else
+        content
+        #endif
     }
 }
 

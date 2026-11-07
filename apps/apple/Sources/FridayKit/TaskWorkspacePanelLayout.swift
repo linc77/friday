@@ -8,12 +8,22 @@ struct TaskWorkspacePanelLayout: ViewModifier {
     @Binding var diff: TaskDiffSelection?
     @Binding var files: TaskFilesPanelState
     @Binding var browser:TaskBrowserPanelState
+    @Binding var terminal: Bool
     @Binding var active: String
     @Binding var width: Double
+    var canAddContext = false
+    var addContext: (TaskTerminalSelection) async -> Bool = { _ in false }
     @State private var dragWidth: Double?
-    private var visible: Bool { diff != nil || files.visible || browser.visible }
-    private var showingBrowser:Bool {browser.visible && (active == "browser" || diff == nil && !files.visible)}
-    private var showingFiles: Bool { !showingBrowser && files.visible && (active == "files" || diff == nil) }
+    private var visible: Bool { diff != nil || files.visible || browser.visible || showingTerminal }
+    private var showingTerminal: Bool {
+        #if os(macOS)
+        terminal && task.localAgent && (active == "terminal" || diff == nil && !files.visible && !browser.visible)
+        #else
+        false
+        #endif
+    }
+    private var showingBrowser:Bool {!showingTerminal && browser.visible && (active == "browser" || diff == nil && !files.visible)}
+    private var showingFiles: Bool { !showingTerminal && !showingBrowser && files.visible && (active == "files" || diff == nil) }
     private var browserScope:String {TaskBrowserSessionScope.value(owner:store.browserClientID,connection:store.connectionIdentity,task:task.id)}
     private var browserDragScope:String {SHA256.hash(data:Data(browserScope.utf8)).map {String(format:"%02x",$0)}.joined()}
     func body(content: Content) -> some View {
@@ -39,7 +49,19 @@ struct TaskWorkspacePanelLayout: ViewModifier {
             HStack(spacing: 8) {
                 ScrollView(.horizontal) {
                     HStack(spacing: 6) {
+                        #if os(macOS)
+                        sectionButton("改动", symbol: "plus.forwardslash.minus", selected: !showingFiles && !showingBrowser && !showingTerminal) {
+                            diff = diff ?? TaskDiffSelection(); active = "diff"
+                        }
+                        sectionButton("文件", symbol: "folder", selected: showingFiles) {
+                            files.visible = true; active = "files"
+                        }.disabled(!store.connected)
+                        sectionButton("终端", symbol: "terminal", selected: showingTerminal) {
+                            terminal = true; active = "terminal"
+                        }.disabled(task.projectId == nil).help(Text(friday: "终端 · ⌘J"))
+                        #else
                         if diff != nil { Button { active = "diff" } label: { FridaySymbolLabel(friday: "改动", systemImage: "plus.forwardslash.minus").padding(6).background(!showingFiles && !showingBrowser ? FridayTheme.accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 5)) } }
+                        #endif
                         ForEach(files.tabs) { tab in
                             HStack(spacing: 4) {
                                 Button { files.selected = tab.path; files.visible = true; active = "files" } label: {
@@ -76,12 +98,28 @@ struct TaskWorkspacePanelLayout: ViewModifier {
                 Button { close() } label: { FridaySymbolImage(systemName: "xmark") }.accessibilityLabel(Text(friday: "关闭侧栏"))
             }.buttonStyle(FridaySymbolButtonStyle()).font(.caption).padding(8)
             Divider()
-            if showingBrowser {TaskBrowserPanel(store:store,task:task,state:$browser).id(browserScope)}
+            if showingTerminal {
+                TaskTerminalPanel(store: store, task: task, close: close, showsCloseButton: false, canAddContext: canAddContext, addContext: addContext)
+                    .id(store.connection.server + "|" + task.id)
+            }
+            else if showingBrowser {TaskBrowserPanel(store:store,task:task,state:$browser).id(browserScope)}
             else if showingFiles { TaskFilesPanel(store: store, task: task, state: $files).id(store.connectionIdentity + ":" + task.id + ":" + task.cwd) }
             else if let value = diff { TaskChangesPanel(store: store, task: task, selection: Binding(get: { diff ?? value }, set: { diff = $0 }), close: close) }
         }.background(FridayTheme.canvas)
     }
+    private func sectionButton(_ title: String, symbol: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            FridaySymbolLabel(friday: title, systemImage: symbol).padding(6)
+                .background(selected ? FridayTheme.accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 5))
+        }.accessibilityAddTraits(selected ? .isSelected : [])
+    }
     private func editorKey(_ path: String) -> String { FileEditorStore.key(server: store.connection.server, token: store.connection.token, cwd: task.cwd, path: path) }
     private func closeBrowser(_ id:String) {TaskBrowserSessions.shared.close(scope:browserScope,id:id);browser.close(id)}
-    private func close() { for tab in files.tabs { editors.flush(editorKey(tab.path)) }; diff = nil; files.visible = false;browser.visible=false }
+    private func close() {
+        for tab in files.tabs { editors.flush(editorKey(tab.path)) }
+        diff = nil; files.visible = false; browser.visible = false
+        #if os(macOS)
+        terminal = false
+        #endif
+    }
 }

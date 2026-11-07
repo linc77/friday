@@ -130,6 +130,21 @@ enum TaskProjectSidebar {
             return project.map { group.projectIDs.contains($0.id) } == true || (group.scratch && task.projectId == nil && project == nil)
         }
     }
+    // Conversation visibility is independent of idle-session cleanup and snooze.
+    static func conversationRows(_ tasks: [WorkItem], pinned: Bool) -> [WorkItem] {
+        tasks.filter {
+            $0.localAgent && $0.subagentOrigin == nil && $0.delegationOrigin == nil && $0.archivedAt == nil && ($0.pinnedAt != nil) == pinned
+        }.sorted { left, right in
+            if pinned {
+                if let a = left.pinOrderKey, let b = right.pinOrderKey, a != b { return a < b }
+                if (left.pinOrderKey != nil) != (right.pinOrderKey != nil) { return left.pinOrderKey != nil }
+            }
+            let a = threadTimestamp(left, order: pinned ? .created : .updated)
+            let b = threadTimestamp(right, order: pinned ? .created : .updated)
+            return a == b ? left.id < right.id : a > b
+        }
+    }
+
     static func threads(_ tasks: [WorkItem], order: TaskThreadSort) -> [WorkItem] {
         tasks.sorted { let a = threadTimestamp($0, order: order), b = threadTimestamp($1, order: order); return a == b ? $0.id > $1.id : a > b }
     }

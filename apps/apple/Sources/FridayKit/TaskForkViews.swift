@@ -7,6 +7,7 @@ struct TaskForkButton: View {
     let task: WorkItem
     let runID: String
     let openTask: (String) -> Void
+    var iconOnly = false
     @State private var busy = false
     @State private var error: String?
 
@@ -19,12 +20,20 @@ struct TaskForkButton: View {
         if supported {
             VStack(alignment: .leading, spacing: 6) {
                 Button(action: fork) {
-                    FridaySymbolLabel(friday: "从此回复分叉", systemImage: "arrow.triangle.branch")
+                    if iconOnly {
+                        FridaySymbolImage(systemName: "arrow.triangle.branch").frame(width: 24, height: 24)
+                    } else {
+                        FridaySymbolLabel(friday: "从此回复分叉", systemImage: "arrow.triangle.branch")
+                    }
                 }.buttonStyle(FridaySymbolButtonStyle())
                     .disabled(busy || !store.connected || task.sessionBusy || task.agent == "claude" && task.active)
+                    .accessibilityLabel(Text(friday: "从此回复分叉"))
                     .help(Text(friday: "保留到此轮为止的历史，在新任务中继续"))
-                if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
+                if let error, !iconOnly { Text(fridayString: error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
             }.font(.caption).foregroundStyle(.secondary)
+                .alert(Text(friday: "任务操作失败"), isPresented: Binding(get: { iconOnly && error != nil }, set: { if !$0 { error = nil } })) {
+                    Button(friday: "好", role: .cancel) {}
+                } message: { Text(fridayString: error ?? "") }
         }
     }
     private func fork() {

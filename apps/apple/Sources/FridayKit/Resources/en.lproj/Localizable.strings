@@ -392,6 +392,10 @@
 // Task Workspaces
 "Workspace" = "Workspace";
 "全部 Workspace" = "All Workspaces";
+"最近" = "Recent";
+"归档" = "Archive";
+"已移除" = "Removed";
+"Workspace 已移除，任务与文件仍保留" = "Workspace removed; tasks and files are retained";
 "未关联 Workspace" = "No Workspace";
 "添加 Workspace" = "Add Workspace";
 "切换 Workspace" = "Switch Workspace";
@@ -959,6 +963,9 @@
 "改动" = "Changes";
 "关闭文件" = "Close file";
 "关闭侧栏" = "Close side panel";
+"收起侧栏" = "Collapse side panel";
+"展开侧栏" = "Expand side panel";
+"文件、改动与终端" = "Files, changes and terminal";
 "调整侧栏宽度" = "Resize side panel";
 "复制绝对路径" = "Copy absolute path";
 "显示源代码" = "Show source";

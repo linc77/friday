@@ -136,8 +136,10 @@ struct NewAgentTaskView: View {
                                 Button(friday: "清除检出选择") { workspace.wrappedValue = TaskWorkspaceSelection(); drafts[draftKey]?.requestId = UUID().uuidString }
                                     .buttonStyle(FridaySymbolButtonStyle())
                             } else { TaskExecutionLocationPicker(selection: workspace, options: options) }
+                            #if os(iOS)
                             Button { showChangeRequestCheckout = true } label: { FridaySymbolLabel(friday: "从 PR／MR 开始", systemImage: "arrow.triangle.pull") }
                                 .buttonStyle(FridaySymbolButtonStyle())
+                            #endif
                         }.padding(.top, 6).disabled(sending || !store.connected).transition(.opacity)
                     }
                 } else {
@@ -733,6 +735,10 @@ struct AgentTaskComposer: View {
                 suggestions: suggestions, selectedSuggestion: selectedSuggestion, loadingSuggestions: loadingSuggestions,
                 moveSuggestion: { moveSuggestion($0) }, chooseSuggestion: chooseSuggestion, dismissSuggestions: { suppressedMention = mention; mention = nil }, chooseEntry: captureEntry, fileMentions: fileMentionContext,selectionChanged:{ citationCaret=$0 })
             HStack(spacing: 12) {
+                #if os(macOS)
+                attachmentButton
+                if importing { ProgressView().controlSize(.small).accessibilityLabel(Text(friday: "正在添加附件")) }
+                #endif
                 modelControls
                 Divider().frame(height: 16)
                 TaskReasoningEffortControl(selection: $effort, efforts: selectedModel?.reasoningEfforts ?? [],
@@ -748,6 +754,7 @@ struct AgentTaskComposer: View {
                         },
                         compact: { compactContext() }, reload: { Task { await commandCatalog.refresh(store: store, scope: commandScope, provider: provider, identity: commandIdentity, reload: true, instanceID: selectedInstance) } })
                 }
+                #if os(iOS)
                 if providerUsage.limits?.offered == true {
                     Button { showingUsageLimits.toggle(); if showingUsageLimits { reloadUsageLimits() } } label: {
                         FridaySymbolImage(systemName: "chart.bar").frame(width: 24, height: 24)
@@ -766,6 +773,7 @@ struct AgentTaskComposer: View {
                         .help(Text(friday: "丢弃草稿，五秒内可撤销"))
                         .disabled(sending || importing || capturingContext)
                 }
+                #endif
                 if let tokens = resumeCompactionTokens, !draftEmpty {
                     Button {
                         if fullHistoryScopes.contains(commandIdentity) { fullHistoryScopes.remove(commandIdentity) }

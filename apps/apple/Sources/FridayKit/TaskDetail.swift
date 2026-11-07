@@ -115,8 +115,10 @@ struct TaskDetail: View {
                 composerAtBottom = true
                 #endif
             }
+            #if os(iOS)
             .modifier(TaskTerminalPanelLayout(store: store, task: task, shown: $terminalShown, canAddContext: !sending && !task.sessionBusy, addContext: addTerminalContext))
-            .modifier(TaskWorkspacePanelLayout(store: store, task: task, diff: $diffSelection, files: $filesPanel,browser:$browserPanel, active: $activePanel, width: $diffWidth))
+            #endif
+            .modifier(TaskWorkspacePanelLayout(store: store, task: task, diff: $diffSelection, files: $filesPanel, browser: $browserPanel, terminal: $terminalShown, active: $activePanel, width: $diffWidth, canAddContext: !sending && !task.sessionBusy, addContext: addTerminalContext))
             .environment(\.taskFileMentionBridge, fileMentionBridge)
             .environment(\.taskBrowserOpen,{url in
                 guard panelContext==store.connection.server+"\n"+id,TaskBrowserPolicy.url(url.absoluteString) != nil else{return false};browserPanel.open(url.absoluteString,defaults:TaskBrowserPreferences.shared(server:store.connection.server).defaults);activePanel="browser";return true
@@ -502,14 +504,19 @@ struct TaskDetail: View {
                 }.taskActions(store: store, task: task, opensMenu: true) }
                 #endif
                 Spacer(minLength: 8)
+                #if os(iOS)
                 if task.projectId != nil && task.subagentOrigin == nil { TaskProjectScriptsControl(store: store, task: task, updateSetup: { worktreeSetup = $0 }) }
+                #endif
                 TaskRelationshipsControl(store: store, task: task, canNavigate: onOpenTask != nil, openTask: { onOpenTask?($0) })
                 TaskOpenInControl(store: store, task: task, enableShortcut: true)
+                #if os(iOS)
                 Button { if filesPanel.visible && activePanel == "files" { filesPanel.visible = false } else { filesPanel.visible = true; activePanel = "files" } } label: {
                     FridaySymbolImage(systemName: "folder").font(.system(size: 15)).frame(width: 24, height: 24)
                 }.buttonStyle(FridaySymbolButtonStyle()).foregroundStyle(filesPanel.visible && activePanel == "files" ? FridayTheme.accent : .secondary)
                     .disabled(!store.connected).accessibilityLabel(Text(friday: "工作区文件"))
+                #endif
                 if task.git?.status == "repository" { TaskGitActionsControl(store: store, task: task) }
+                #if os(iOS)
                 Button { terminalShown.toggle() } label: {
                     FridaySymbolImage(systemName: "terminal").font(.system(size: 15)).frame(width: 24, height: 24)
                 }.buttonStyle(FridaySymbolButtonStyle())
@@ -527,6 +534,14 @@ struct TaskDetail: View {
                     .foregroundStyle(diffSelection == nil ? .secondary : FridayTheme.accent)
                     .accessibilityLabel(Text(friday: diffSelection == nil ? "显示改动面板" : "关闭改动面板"))
                     .help(Text(friday: "文件改动与 Diff"))
+                #else
+                Button(action: toggleWorkspacePanel) {
+                    FridaySymbolImage(systemName: "sidebar.right").font(.system(size: 15)).frame(width: 24, height: 24)
+                }.buttonStyle(FridaySymbolButtonStyle())
+                    .foregroundStyle(workspacePanelVisible ? FridayTheme.accent : .secondary)
+                    .accessibilityLabel(Text(friday: workspacePanelVisible ? "收起侧栏" : "展开侧栏"))
+                    .help(Text(friday: "文件、改动与终端"))
+                #endif
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Friday").font(.caption).foregroundStyle(.secondary)
@@ -539,7 +554,39 @@ struct TaskDetail: View {
         .padding(.bottom, 8)
         #else
         .padding(.horizontal, 26).padding(.top, 24).padding(.bottom, 10)
+        .background {
+            if task.localAgent {
+                Button("") {
+                    if terminalShown && activePanel == "terminal" { toggleWorkspacePanel() }
+                    else { terminalShown = true; activePanel = "terminal" }
+                }.keyboardShortcut("j", modifiers: .command)
+                    .disabled(task.projectId == nil).hidden().accessibilityHidden(true)
+            }
+            if task.localAgent && task.projectId != nil && task.subagentOrigin == nil {
+                TaskProjectScriptsControl(store: store, task: task, showsControls: false, updateSetup: { worktreeSetup = $0 })
+            }
+        }
         #endif
+    }
+
+    private var workspacePanelVisible: Bool {
+        diffSelection != nil || filesPanel.visible || browserPanel.visible || terminalShown
+    }
+
+    private func toggleWorkspacePanel() {
+        if workspacePanelVisible {
+            for tab in filesPanel.tabs {
+                FileEditorStore.shared.flush(FileEditorStore.key(server: store.connection.server, token: store.connection.token, cwd: task?.cwd ?? "", path: tab.path))
+            }
+            diffSelection = nil; filesPanel.visible = false; browserPanel.visible = false; terminalShown = false
+        } else {
+            switch activePanel {
+            case "files": filesPanel.visible = true
+            case "browser" where !browserPanel.tabs.isEmpty: browserPanel.visible = true
+            case "terminal" where task?.projectId != nil: terminalShown = true
+            default: diffSelection = TaskDiffSelection(); activePanel = "diff"
+            }
+        }
     }
 
     private func restorePanels() {

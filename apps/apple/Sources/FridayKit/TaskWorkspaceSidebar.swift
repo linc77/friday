@@ -60,7 +60,11 @@ struct TaskWorkspaceSidebar: View {
         if legacySidebar { return scopedGroups.flatMap { group in
             TaskProjectSidebar.preview(legacyTasks(group), expanded: !collapsedProjects.contains(group.id), overflow: expandedProjectThreads.contains(group.id), count: threadPreviewCount, selected: selectedTask)
         } }
+        #if os(macOS)
+        return TaskProjectSidebar.conversationRows(sidebarTasks, pinned: true) + TaskProjectSidebar.conversationRows(sidebarTasks, pinned: false)
+        #else
         return TaskSidebarNavigation.visible(sidebarTasks, now: clock, expanded: expandedShelves, selected: selectedTask, workingShelfEnabled: store.sidebarWorkingShelfEnabled, returnedAt: store.sidebarInboxReturns.returnedAt)
+        #endif
     }
     private var historyTasks: [WorkItem] {
         store.tasks.filter {
@@ -84,7 +88,11 @@ struct TaskWorkspaceSidebar: View {
     }
     private func sidebarTasks(in group: TaskProjectSidebar.Group?) -> [WorkItem] {
         guard store.snapshotIdentity == store.connectionIdentity else { return [] }
+        #if os(macOS)
+        return TaskProjectSidebar.filtered(TaskWorkspaces.tasks(store.tasks, scope: nil, projects: store.projects), group: group, projects: store.projects)
+        #else
         return TaskProjectSidebar.filtered(TaskWorkspaces.tasks(store.tasks, scope: nil, projects: store.projects).filter { $0.projectId == nil || TaskWorkspaces.project(for: $0, in: store.projects) != nil }, group: group, projects: store.projects)
+        #endif
     }
     private var canMove: Bool { !legacySidebar && store.connected && store.snapshotIdentity == store.connectionIdentity && store.taskSidebarOrderingSupported && (selectedGroup == nil || selectedGroup?.projectIDs.count == 1 || store.taskSidebarProjectScopesSupported) && (!store.sidebarWorkingShelfEnabled || store.taskSidebarWorkingSupported) && sidebarMove == nil && !bulk.selection.hasSelection && !bulk.busy }
 
@@ -293,6 +301,20 @@ struct TaskWorkspaceSidebar: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }.multilineTextAlignment(.center).padding(.horizontal, 20).padding(.top, 44)
                 }
+                #if os(macOS)
+                ForEach([true, false], id: \.self) { pinned in
+                    let rows = TaskProjectSidebar.conversationRows(tasks, pinned: pinned)
+                    if !rows.isEmpty {
+                        Text(friday: pinned ? "置顶" : "最近")
+                            .font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, TaskSidebarLayout.rowInset).padding(.top, 8).padding(.bottom, 2)
+                            .accessibilityAddTraits(.isHeader)
+                            .modifier(TaskSidebarDropTarget(enabled: canMove && pinned) { payload, _ in moveInSidebar(payload, section: .pinned, over: nil, after: false) })
+                        ForEach(rows) { task in sidebarRow(task, shelf: pinned ? .pinned : .active) }
+                    }
+                }
+                #else
                 ForEach(TaskWorkspaces.Shelf.allCases) { shelf in
                     let rows = TaskWorkspaces.shelfTasks(tasks, shelf: shelf, now: clock, workingShelfEnabled: store.sidebarWorkingShelfEnabled, returnedAt: store.sidebarInboxReturns.returnedAt)
                     if shelf != .snoozed && shelf != .working {
@@ -310,13 +332,18 @@ struct TaskWorkspaceSidebar: View {
                         }
                     }
                 }
+                #endif
             }.padding(.horizontal, TaskSidebarLayout.listInset).padding(.bottom, 12)
         }
     }
 
     private func sidebarRow(_ task: WorkItem, shelf: TaskWorkspaces.Shelf) -> some View {
         taskButton(task)
+            #if os(macOS)
+            .modifier(TaskSidebarDropTarget(enabled: canMove && shelf == .pinned) { payload, after in moveInSidebar(payload, section: shelf, over: task.id, after: after) })
+            #else
             .modifier(TaskSidebarDropTarget(enabled: canMove && shelf != .snoozed && shelf != .working) { payload, after in moveInSidebar(payload, section: shelf, over: task.id, after: after) })
+            #endif
     }
 
     private func shelfHeader(_ shelf: TaskWorkspaces.Shelf, count: Int) -> some View {
@@ -382,6 +409,9 @@ struct TaskWorkspaceSidebar: View {
 
     private func sidebarMovement(_ task: WorkItem) -> TaskSidebarMovement? {
         let shelf = TaskWorkspaces.shelf(task, now: clock, workingShelfEnabled: store.sidebarWorkingShelfEnabled)
+        #if os(macOS)
+        guard shelf == .pinned else { return nil }
+        #endif
         guard canMove, shelf == .pinned || shelf == .active && !store.sidebarWorkingShelfEnabled else { return nil }
         let rows = TaskWorkspaces.shelfTasks(sidebarTasks, shelf: shelf, now: clock, workingShelfEnabled: store.sidebarWorkingShelfEnabled, returnedAt: store.sidebarInboxReturns.returnedAt)
         guard let index = rows.firstIndex(where: { $0.id == task.id }) else { return nil }
@@ -425,6 +455,9 @@ struct TaskWorkspaceSidebar: View {
     }
 
     private func parkForBulk(_ plan: TaskBulkPlan) {
+        #if os(macOS)
+        guard plan.action == .delete else { return }
+        #endif
         guard [.settle, .snooze, .delete].contains(plan.action), let current = selectedTask, plan.taskIDs.contains(current) else { return }
         let rows = visibleRows
         guard let index = rows.firstIndex(where: { $0.id == current }) else { selectedTask = nil; return }
@@ -438,6 +471,26 @@ struct TaskWorkspaceSidebar: View {
     }
 
     private var footer: some View {
+        #if os(macOS)
+        HStack(spacing: 0) {
+            Button { showingArchives = true } label: {
+                FridaySymbolLabel(friday: "归档", systemImage: "archivebox").font(.caption).frame(width: 60, height: 32)
+            }.buttonStyle(FridaySymbolButtonStyle()).help(Text(friday: "已归档任务"))
+            HStack(spacing: 2) {
+                ForEach(visiblePageIndices, id: \.self) { index in
+                    let selected = index == selectedPageIndex
+                    Button { select(index == 0 ? nil : projectGroups[index - 1].id) } label: {
+                        Circle().fill(selected ? Color.primary : Color.secondary.opacity(0.35))
+                            .frame(width: selected ? 7 : 5, height: selected ? 7 : 5)
+                            .frame(width: 14, height: 28).contentShape(Rectangle())
+                    }.buttonStyle(FridaySymbolButtonStyle())
+                        .accessibilityLabel(pageTitle(index)).help(pageTitle(index))
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }.frame(maxWidth: .infinity)
+            Color.clear.frame(width: 60, height: 32).accessibilityHidden(true)
+        }.padding(.horizontal, 10).padding(.bottom, 8)
+        #else
         HStack {
             Button { showingHistory.toggle() } label: { FridaySymbolImage(systemName: "archivebox").frame(width: 32, height: 32) }
                 .buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: "历史任务")).help(Text(friday: "历史任务"))
@@ -445,6 +498,20 @@ struct TaskWorkspaceSidebar: View {
             Spacer(minLength: 0)
             if let group = selectedGroup { Group { if group.scratch { Text(friday: "无项目") } else { Text(verbatim: group.name) } }.font(.caption).foregroundStyle(.secondary).lineLimit(1) }
         }.padding(.horizontal, 10).padding(.bottom, 8)
+        #endif
+    }
+
+    private var selectedPageIndex: Int { scope.flatMap { id in projectGroups.firstIndex { $0.id == id }.map { $0 + 1 } } ?? 0 }
+    private var visiblePageIndices: [Int] {
+        let count = projectGroups.count + 1
+        guard count > 1 else { return [] }
+        let start = min(max(0, selectedPageIndex - 3), max(0, count - 7))
+        return Array(start..<min(count, start + 7))
+    }
+    private func pageTitle(_ index: Int) -> Text {
+        guard index > 0 else { return Text(friday: "全部 Workspace") }
+        let group = projectGroups[index - 1]
+        return group.scratch ? Text(friday: "无项目") : Text(verbatim: group.name)
     }
 
     private var historyPanel: some View {

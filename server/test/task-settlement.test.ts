@@ -17,9 +17,13 @@ const run = (values: Partial<TaskRun> = {}): TaskRun => ({ id: 'run', durableId:
   completedAt: iso(-4 * DAY), status: 'completed', mode: 'research', ...values });
 const workspace = (): Workspace => ({ revision: 0, tasks: [], requests: {}, ideas: [], memories: [], projects: [] });
 
-test('Auto-settle settings preserve T3 defaults, fractional API bounds, null inheritance and strict patch scope', () => {
-  assert.equal(taskSettlementDefaults().defaults.sidebarAutoSettleAfterDays, 3);
-  assert.equal(resolveTaskSettlement(workspace(), null).effective.sidebarAutoSettleAfterDays, 3);
+test('Auto-settle defaults keep idle conversations, preserve explicit settings and validate patch scope', () => {
+  assert.equal(taskSettlementDefaults().defaults.sidebarAutoSettleAfterDays, null);
+  assert.equal(resolveTaskSettlement(workspace(), null).effective.sidebarAutoSettleAfterDays, null);
+  assert.equal(taskSettlementAt(item('old-conversation'), NOW, resolveTaskSettlement(workspace(), null).effective.sidebarAutoSettleAfterDays), null);
+  const configured = workspace();
+  configured.taskSettlementSettings = { version: 1, defaults: { sidebarAutoSettleAfterDays: 5 }, projects: {} };
+  assert.equal(resolveTaskSettlement(configured, null).effective.sidebarAutoSettleAfterDays, 5);
   for (const days of [1, 1.5, 90, null]) assert.equal(taskSettlementChange({ projectId: null, expectedVersion: 0, changes: { sidebarAutoSettleAfterDays: days } }).changes.sidebarAutoSettleAfterDays, days);
   for (const bad of [undefined, NaN, Infinity, -1, 0, 90.1, '3', false]) assert.throws(() => taskSettlementChange({ projectId: null, expectedVersion: 0, changes: { sidebarAutoSettleAfterDays: bad } }));
   for (const bad of [null, {}, { projectId: '__proto__', expectedVersion: 0, reset: ['sidebarAutoSettleAfterDays'] }, { projectId: null, expectedVersion: -1, reset: ['sidebarAutoSettleAfterDays'] },

@@ -32,7 +32,7 @@ import { taskCanSettle } from './task-metadata.js';
 export type TaskSettlementScope = { sidebarAutoSettleAfterDays?: number | null; sidebarAutoSettleOnMerge?: boolean; sidebarAutoSettleKeepPullRequests?: boolean };
 export type TaskSettlementSettings = { version: number; defaults: TaskSettlementScope & { sidebarAutoSettleAfterDays: number | null }; projects: Record<string, TaskSettlementScope> };
 export type TaskSettlementSnapshot = { version: number; projectId: string | null; defaults: Required<TaskSettlementScope>; overrides: TaskSettlementScope; effective: Required<TaskSettlementScope>; source: 'default' | 'host' | 'workspace'; sources: Record<keyof TaskSettlementScope, 'default' | 'host' | 'workspace'> };
-const defaults: Required<TaskSettlementScope> = { sidebarAutoSettleAfterDays: 3, sidebarAutoSettleOnMerge: true, sidebarAutoSettleKeepPullRequests: false };
+const defaults: Required<TaskSettlementScope> = { sidebarAutoSettleAfterDays: null, sidebarAutoSettleOnMerge: true, sidebarAutoSettleKeepPullRequests: false };
 export const taskSettlementDefaults = (): TaskSettlementSettings => ({ version: 0, defaults: { ...defaults }, projects: {} });
 export class TaskSettlementSettingsConflict extends Error { constructor(readonly version: number) { super('自动结束设置已在其他设备修改，请重新加载后重试。'); } }
 const keys = Object.keys(defaults) as (keyof TaskSettlementScope)[];

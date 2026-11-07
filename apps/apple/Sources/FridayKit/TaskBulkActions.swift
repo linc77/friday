@@ -100,10 +100,12 @@ struct TaskBulkMenu: View {
                     Text("(\(selection.pinned.count))")
                 }
             }
+            #if os(iOS)
             Button { context.submit(.settle, nil) } label: {
                 FridaySymbolLabel(friday: "结束跟进", systemImage: "checkmark.circle")
                 Text("(\(selection.count))")
             }.disabled(selection.settling.isEmpty)
+            #endif
             if selection.canSnooze {
                 Menu {
                     ForEach(TaskSnooze.presets(now: .now)) { preset in

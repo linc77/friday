@@ -25,6 +25,10 @@ struct TaskRow: View {
                 HStack(spacing: TaskSidebarLayout.iconSpacing) {
                     WorkspaceIcon(name: workspaceName, icon: workspace?.icon, color: workspace?.color, size: TaskSidebarLayout.iconSize)
                     Text(fridayString: workspaceName).foregroundStyle(.primary).lineLimit(1)
+                    if workspace == nil && task.projectId != nil {
+                        Text(friday: "已移除").font(.caption2).foregroundStyle(.secondary)
+                            .help(Text(friday: "Workspace 已移除，任务与文件仍保留"))
+                    }
                     Spacer(minLength: 6)
                 }
                 .font(.system(size: 12)).foregroundStyle(.secondary)

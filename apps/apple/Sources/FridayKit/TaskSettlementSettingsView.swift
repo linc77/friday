@@ -57,7 +57,7 @@ struct TaskSettlementSettingsView: View {
                 SettingsRow("设置来源", detail: snapshot.source == "workspace" ? "此 Workspace" : snapshot.source == "host" ? "主机设置" : "默认设置") {
                     if projectID != nil {
                         if snapshot.overrides.hasDaysOverride { Button(friday: "使用主机设置") { save(reset: true, owner: owner) }.buttonStyle(FridayButtonStyle(compact: true)) }
-                    } else if snapshot.defaults.sidebarAutoSettleAfterDays != 3 {
+                    } else if snapshot.defaults.sidebarAutoSettleAfterDays != nil {
                         Button(friday: "恢复默认") { save(reset: true, owner: owner) }.buttonStyle(FridayButtonStyle(compact: true))
                     }
                 }.disabled(state.busy || !store.connected)

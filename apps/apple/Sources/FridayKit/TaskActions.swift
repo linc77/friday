@@ -162,9 +162,11 @@ private struct TaskActions: ViewModifier {
                 Button(friday: task.pinnedAt == nil ? "置顶任务" : "取消置顶", systemImage: task.pinnedAt == nil ? "pin" : "pin.slash") {
                     change(["pinned": task.pinnedAt == nil])
                 }
+                #if os(iOS)
                 Button(friday: TaskWorkspaces.shelf(task, now: .now) == .settled ? "移回活跃任务" : "结束跟进", systemImage: "checkmark.circle") {
                     change(["settled": TaskWorkspaces.shelf(task, now: .now) != .settled])
                 }
+                #endif
                 if TaskSnooze.isSnoozed(task, now: .now) {
                     Button(friday: "唤醒任务", systemImage: "clock") { change(["snoozedUntil": NSNull()]) }
                 } else {
@@ -191,6 +193,7 @@ private struct TaskActions: ViewModifier {
                     .disabled(task.titleRegeneration != nil)
             }
             Button(friday: "标为未读", systemImage: "envelope.badge") { change(["read": false]) }
+            #if os(iOS)
             Menu {
                 Button { change(["autoSettle": true]) } label: {
                     FridaySymbolLabel(friday: "启用", systemImage: task.autoSettle != false ? "checkmark" : "circle")
@@ -199,6 +202,7 @@ private struct TaskActions: ViewModifier {
                     FridaySymbolLabel(friday: "停用", systemImage: task.autoSettle == false ? "checkmark" : "circle")
                 }
             } label: { FridaySymbolLabel(friday: "自动结束跟进", systemImage: "timer") }
+            #endif
             Divider()
             Menu {
                 Button(friday: "目录", systemImage: "folder") { copy(task.cwd) }

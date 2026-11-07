@@ -175,12 +175,10 @@ struct TaskHeaderTitle: View {
             if let configuration = rename.configuration(store: store) {
                 TaskTitleEditor(configuration: configuration).id(configuration.token).frame(minWidth: 120, idealWidth: 240, maxWidth: 360).frame(height: 22)
             } else {
-                HStack(spacing: 6) {
-                    Text(task.title).font(.callout.weight(.medium)).lineLimit(1)
-                        .opacity(task.titleRegeneration == nil ? 1 : 0.55)
-                        .help(task.titleRegeneration == nil ? Text(task.title) : Text(friday: "正在重新生成标题"))
-                    FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9)).foregroundStyle(.secondary)
-                }.taskActions(store: store, task: task, opensMenu: true, onRename: { rename.begin(task, store: store) })
+                Text(task.title).font(.callout.weight(.medium)).lineLimit(1)
+                    .opacity(task.titleRegeneration == nil ? 1 : 0.55)
+                    .help(task.titleRegeneration == nil ? Text(task.title) : Text(friday: "正在重新生成标题"))
+                    .taskActions(store: store, task: task, opensMenu: true, onRename: { rename.begin(task, store: store) })
             }
         }
         .modifier(TaskTitleKeyboardGuard(token: rename.state.edit?.id))

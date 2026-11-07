@@ -3,6 +3,7 @@ import SwiftUI
 struct TaskProjectScriptsControl: View {
     @ObservedObject var store: FridayStore
     let task: WorkItem
+    var showsControls = true
     var updateSetup: (TaskWorktreeSetupSnapshot?) -> Void = { _ in }
     @State private var setup: TaskWorktreeSetupSnapshot?
     @State private var scripts: [ProjectScript] = []
@@ -21,6 +22,33 @@ struct TaskProjectScriptsControl: View {
     private var preferredCache: String { "project-script-last-invoked:" + (task.projectId ?? task.id) }
     private var cache: String { "project-script-pending:" + task.id }
     var body: some View {
+        Group {
+            if showsControls { toolbar }
+            else { Color.clear.frame(width: 0, height: 0) }
+        }
+        .modifier(ProjectScriptKeyboardActions(scripts: scripts, keybindings: keybindings, enabled: store.connected && !busy && pending == nil && context == identity, run: start))
+        .sheet(item: $selected) { ProjectScriptRunView(store: store, id: $0.id, autoPreview: $0.id == autoPreviewID).id(store.connectionIdentity + "\n" + $0.id) }
+        .sheet(isPresented: $settings) {
+            VStack(spacing: 0) {
+                HStack { Spacer(); Button(friday: "完成") { settings = false } }.padding(12)
+                ProjectScriptsSettingsView(store: store, initialProjectId: task.projectId)
+            }
+            #if os(macOS)
+            .frame(width: 720, height: 650)
+            #endif
+        }
+        .task(id: identity) {
+            let scope = identity; context = scope; scripts = []; runs = []; busy = false; error = nil; selected = nil; settings = false
+            setup = nil; updateSetup(nil)
+            pending = TaskDraftCache.load(PendingProjectScript.self, server: store.connection.server, context: cache)
+            preferred = TaskDraftCache.load(String.self, server: store.connection.server, context: preferredCache)
+            while !Task.isCancelled && context == scope {
+                if store.connected { await load(scope) }
+                do { try await Task.sleep(for: .seconds(runs.contains { $0.active } || setup?.active == true || task.preparingWorkspace != nil ? 1 : 3)) } catch { break }
+            }
+        }
+    }
+    private var toolbar: some View {
         HStack(spacing: 2) {
             if let primary {
                 Button { start(primary) } label: { FridaySymbolImage(systemName: primary.symbol).frame(width: 24, height: 24) }
@@ -47,27 +75,6 @@ struct TaskProjectScriptsControl: View {
                 .menuStyle(.borderlessButton)
                 #endif
                 .fixedSize().fridayInteractiveCursor().accessibilityLabel(Text(friday: "项目脚本"))
-        }
-        .modifier(ProjectScriptKeyboardActions(scripts: scripts, keybindings: keybindings, enabled: store.connected && !busy && pending == nil && context == identity, run: start))
-        .sheet(item: $selected) { ProjectScriptRunView(store: store, id: $0.id, autoPreview: $0.id == autoPreviewID).id(store.connectionIdentity + "\n" + $0.id) }
-        .sheet(isPresented: $settings) {
-            VStack(spacing: 0) {
-                HStack { Spacer(); Button(friday: "完成") { settings = false } }.padding(12)
-                ProjectScriptsSettingsView(store: store, initialProjectId: task.projectId)
-            }
-            #if os(macOS)
-            .frame(width: 720, height: 650)
-            #endif
-        }
-        .task(id: identity) {
-            let scope = identity; context = scope; scripts = []; runs = []; busy = false; error = nil; selected = nil; settings = false
-            setup = nil; updateSetup(nil)
-            pending = TaskDraftCache.load(PendingProjectScript.self, server: store.connection.server, context: cache)
-            preferred = TaskDraftCache.load(String.self, server: store.connection.server, context: preferredCache)
-            while !Task.isCancelled && context == scope {
-                if store.connected { await load(scope) }
-                do { try await Task.sleep(for: .seconds(runs.contains { $0.active } || setup?.active == true || task.preparingWorkspace != nil ? 1 : 3)) } catch { break }
-            }
         }
     }
     private func load(_ scope: String) async {

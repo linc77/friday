@@ -35,8 +35,10 @@ struct TaskOpenInControl: View {
                     Menu { choices } label: { FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9)).frame(width: 20, height: 24) }
                         #if os(macOS)
                         .menuStyle(.borderlessButton)
+                        .menuIndicator(.hidden)
                         #endif
                         .fixedSize()
+                        .accessibilityLabel(Text(friday: "打开方式"))
                 }.buttonStyle(FridaySymbolButtonStyle()).fridayInteractiveCursor()
             }
         }

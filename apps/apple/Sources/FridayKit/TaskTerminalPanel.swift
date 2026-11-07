@@ -21,6 +21,7 @@ struct TaskTerminalPanel: View {
     @ObservedObject var store: FridayStore
     let task: WorkItem
     let close: () -> Void
+    var showsCloseButton = true
     var canAddContext = false
     var addContext: (TaskTerminalSelection) async -> Bool = { _ in false }
     @State private var layout = TerminalLayout()
@@ -138,7 +139,9 @@ struct TaskTerminalPanel: View {
                 Button(friday: "减小终端字体") { fontSize = max(9, fontSize - 1) }
                 Button(friday: "重置终端字体") { fontSize = 13 }
             } label: { FridaySymbolImage(systemName: "ellipsis").frame(width: 22, height: 22) }.menuStyle(.borderlessButton).fridayInteractiveCursor()
-            Button(action: close) { FridaySymbolImage(systemName: "chevron.down") }.buttonStyle(FridaySymbolButtonStyle()).help(Text(friday: "收起终端"))
+            if showsCloseButton {
+                Button(action: close) { FridaySymbolImage(systemName: "chevron.down") }.buttonStyle(FridaySymbolButtonStyle()).help(Text(friday: "收起终端"))
+            }
         }.padding(.horizontal, 10).padding(.vertical, 5)
     }
     private var searchBar: some View {
