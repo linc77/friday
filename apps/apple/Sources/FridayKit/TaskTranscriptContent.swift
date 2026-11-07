@@ -169,6 +169,7 @@ private struct FridayAssistantMessage: View {
                 .padding(.top, FridayTheme.conversationAssistantVerticalPadding)
             bubble
         }
+        .disclosureGroupStyle(AssistantRecordDisclosureStyle())
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -220,6 +221,34 @@ private struct FridayAssistantMessage: View {
         case "preparing": return active ? "准备中" : "已中断"
         case "pending": return active ? "等待执行" : "已中断"
         default: return active ? "执行中" : "已中断"
+        }
+    }
+}
+
+/// Make the entire record header actionable, including its title and status.
+private struct AssistantRecordDisclosureStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                configuration.isExpanded.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    FridaySymbolImage(systemName: configuration.isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 10, weight: .medium))
+                    configuration.label
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(FridaySymbolButtonStyle())
+            .foregroundStyle(.secondary)
+            .accessibilityValue(Text(friday: configuration.isExpanded ? "已展开" : "已收起"))
+            if configuration.isExpanded {
+                configuration.content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 16)
+            }
         }
     }
 }
