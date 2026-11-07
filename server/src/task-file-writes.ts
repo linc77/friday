@@ -8,8 +8,8 @@ const sha = (value: string) => createHash('sha256').update(value).digest('hex');
 type Saved = { status: 'saved'; requestId: string; path: string; version: string; workspaceVersion: string; byteLength: number };
 type Outcome = Saved | { status: 'unconfirmed' | 'superseded' | 'missing'; requestId: string; error?: string };
 type Intent = { requestId: string; digest: string; workspaceVersion: string; target: string; path: string; contentsHash: string; editorId: string; revision: number; result?: Saved; error?: string };
-const Receipt = defineDocFamily<{ intent?: Intent }, { id: string }>({ kind: 'friday.file_write_receipt', version: 1, scope: 'session', family: true, initial: () => ({}) });
-const Stream = defineDocFamily<{ revision: number; requestId?: string }, { id: string }>({ kind: 'friday.file_editor_revision', version: 1, scope: 'session', family: true, initial: () => ({ revision: 0 }) });
+const Receipt = defineDocFamily<{ intent?: Intent }, { id: string }>({ kind: 'friday.file_write_receipt', version: 1, scope: 'session', checkpointWhen: () => false, family: true, initial: () => ({}) });
+const Stream = defineDocFamily<{ revision: number; requestId?: string }, { id: string }>({ kind: 'friday.file_editor_revision', version: 1, scope: 'session', checkpointWhen: () => false, family: true, initial: () => ({ revision: 0 }) });
 
 /** Direct editor saves use Pi Durable receipts, outside the task transcript.
  * A receipt with no result is inspected against the file; it is never replayed.

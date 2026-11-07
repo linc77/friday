@@ -121,11 +121,11 @@ test('API authenticates, validates bounds, hides newly archived results and rech
 
 test('Reader schema failures expose a bounded unavailable response and worker shutdown rejects later queries', async t => {
   const f = await setup(t); await f.add('schema', [message('schema', 'user', 'schema needle')]); const app = f.app();
-  const db = new DatabaseSync(join(f.directory, 'friday.sqlite')); db.exec('UPDATE durable_schema SET version=2 WHERE singleton=1');
+  const db = new DatabaseSync(join(f.directory, 'friday.sqlite')); db.exec('UPDATE durable_schema SET version=999 WHERE singleton=1');
   try {
     const response = await app.request('/api/tasks/search?query=needle', { headers: f.headers }); assert.equal(response.status, 503);
     assert.ok(!(await response.text()).includes(f.directory));
-  } finally { db.exec('UPDATE durable_schema SET version=1 WHERE singleton=1'); db.close(); }
+  } finally { db.exec('UPDATE durable_schema SET version=2 WHERE singleton=1'); db.close(); }
   assert.equal((await f.search('needle')).matches.length, 1);
   const controller = new AbortController(); controller.abort(); await assert.rejects(f.engine.taskSearch.search(taskSearchInput('needle'), controller.signal));
   await f.engine.taskSearch.close(); await assert.rejects(f.search('needle'));

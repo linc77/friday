@@ -4,6 +4,8 @@ import { mkdtemp, readFile, rm, symlink, writeFile, stat } from 'node:fs/promise
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createModels, fauxProvider, fauxAssistantMessage, fauxToolCall, type Credential } from '@earendil-works/pi-ai';
+import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
+import type { ConversationId } from '@earendil-works/pi-durable';
 import { Engine } from '../src/engine.js';
 import { defaultCodexSettings, saveCodexSettings } from '../src/codex-settings.js';
 import { ModelCredentials } from '../src/model.js';
@@ -258,5 +260,30 @@ test('Friday delegates to an independent task and reports its result through its
     assert.equal(main.result, 'Friday 已核对任务结果。');
     assert.equal(child.agent, 'codex'); assert.equal(child.threadId, 'child-thread'); assert.equal(child.status, 'completed');
     assert.equal(child.result, 'Codex child result'); assert.equal(child.conversationId, undefined); assert.equal(calls, 1);
+  } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
+
+test('Bounded Durable views retain the last 100 chat messages across a tool-heavy history and reopen', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-history-window-'));
+  const { faux, options } = model();
+  faux.setResponses([fauxAssistantMessage('First answer'), fauxAssistantMessage('After reopen')]);
+  let engine = await new Engine(directory, noCodex, options).open();
+  try {
+    const id = await engine.createTask(input('window-first'));
+    const state = await until(engine, s => s.tasks[0]?.status === 'completed');
+    const conversation = (await engine.harness.conversation(state.tasks[0].conversationId as ConversationId, context))!;
+    for (let i = 0; i < 110; i++) await conversation.submit({ type: 'write', entry: {
+      kind: 'test.history', model: [{ role: 'user', content: `historical-${i}`, timestamp: i }],
+    } }, context);
+    // Non-message entries count toward the watch window, but not the chat limit.
+    for (let i = 0; i < 210; i++) await conversation.submit({ type: 'write', entry: { kind: 'test.output', data: { index: i } } }, context);
+    await engine.close(); engine = await new Engine(directory, noCodex, options).open();
+    await engine.createTask({ ...input('window-next'), continueId: id });
+    const done = await until(engine, s => s.tasks[0]?.status === 'completed');
+    assert.equal(done.tasks[0].messages?.length, 100);
+    assert.equal(done.tasks[0].messages?.[0].text, 'historical-12');
+    assert.equal(done.tasks[0].messages?.at(-1)?.text, 'After reopen');
+    assert.equal(faux.state.callCount, 2);
   } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
 });
