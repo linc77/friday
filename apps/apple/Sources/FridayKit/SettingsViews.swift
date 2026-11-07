@@ -158,6 +158,7 @@ struct ConnectionView: View {
     @State private var code = ""
     @State private var name = ""
     @State private var busy = false
+    @State private var changingHost = false
     #endif
     @State private var pairing: PairingCode?
     @State private var error: String?
@@ -183,7 +184,9 @@ struct ConnectionView: View {
             hostSettings
             deviceSettings
             #if os(iOS)
-            pairingSettings
+            if store.connection.token.isEmpty || changingHost {
+                pairingSettings
+            }
             #endif
             if let error = error ?? store.error {
                 Text(fridayString: error).font(.caption).foregroundStyle(.orange)
@@ -213,10 +216,26 @@ struct ConnectionView: View {
                     .lineLimit(2).truncationMode(.middle)
             }
             #endif
-            SettingsDivider()
-            SettingsRow("重新连接", detail: "主机需要保持运行，才能继续处理任务。") {
+            if !store.connected {
+                SettingsDivider()
                 Button(friday: "重新连接") { Task { await store.connect() } }
+                    .buttonStyle(FridayButtonStyle(compact: true))
+                    .padding(16)
             }
+            #if os(iOS)
+            if !store.connection.token.isEmpty {
+                SettingsDivider()
+                Button(friday: changingHost ? "取消" : "更换主机") {
+                    changingHost.toggle()
+                    server = store.connection.server
+                    code = ""
+                    error = nil
+                }
+                .buttonStyle(FridayButtonStyle(compact: true))
+                .disabled(busy)
+                .padding(16)
+            }
+            #endif
         }
     }
 
@@ -256,10 +275,6 @@ struct ConnectionView: View {
                     }
                 }
             }
-        } else {
-            SettingsGroup("设备访问") {
-                SettingsRow("在主机上管理设备", detail: "请在主机客户端生成配对码或撤销其他设备的访问权限。") { EmptyView() }
-            }
         }
     }
 
@@ -285,7 +300,12 @@ struct ConnectionView: View {
                 Button(friday: busy ? "正在连接…" : "连接") {
                     busy = true
                     Task {
-                        do { try await store.pair(server: server, code: code, name: name); code = ""; error = nil }
+                        do {
+                            try await store.pair(server: server, code: code, name: name)
+                            code = ""
+                            error = nil
+                            changingHost = false
+                        }
                         catch { self.error = error.localizedDescription }
                         busy = false
                     }
