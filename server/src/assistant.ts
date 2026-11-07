@@ -184,7 +184,10 @@ export class FridayAssistant {
       const live = view.docs['pi.live'] as LiveState | undefined;
       const partial = live?.generation?.message;
       if (partial) { const value = messageText(partial as Message); if (value) messages.push({ id: 'streaming', role: 'assistant', text: value.slice(-80_000) }); }
-      await this.engine.patchTask(work.id, task => { task.messages = messages.slice(-100); task.result = messages.findLast(m => m.role === 'assistant')?.text ?? ''; });
+      // A new user entry ends the previous answer. Until this turn emits text,
+      // its result must stay empty rather than borrowing an older reply.
+      const latest = messages.at(-1);
+      await this.engine.patchTask(work.id, task => { task.messages = messages.slice(-100); task.result = latest?.role === 'assistant' ? latest.text : ''; });
     };
     try {
       await projectView(watch.value);

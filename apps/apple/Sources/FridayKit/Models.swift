@@ -764,7 +764,12 @@ struct WorkItem: Codable, Identifiable {
     var agentName: String { agent == "claude" ? "Claude Code" : TaskProviderCatalog.name(agent) }
     var conversation: [ChatMessage] {
         var history = messages?.filter { $0.revertedAt == nil } ?? [ChatMessage(id: "original-user", role: "user", text: prompt)]
-        if !result.isEmpty && (history.last?.role != "assistant" || history.last?.text != result) { history.append(ChatMessage(id: "current-answer", role: "assistant", text: result)) }
+        // Older Friday services can retain the prior answer as result while the
+        // next user turn is pending. Do not synthesize another copy below it.
+        let resultIsStored = agent == "friday"
+            ? history.contains { $0.role == "assistant" && $0.text == result }
+            : history.last?.role == "assistant" && history.last?.text == result
+        if !result.isEmpty && !resultIsStored { history.append(ChatMessage(id: "current-answer", role: "assistant", text: result)) }
         return history
     }
     var queueActive: Bool { queue?.dispatcherId != nil && queue?.paused == false }

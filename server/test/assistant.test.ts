@@ -53,6 +53,28 @@ test('Friday owns the model/tool loop and persistent conversation without a Code
   } finally { await engine.close(); auth.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
+test('A follow-up awaiting input does not reuse the previous answer as its current result', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-follow-up-result-')); const { faux, options } = model();
+  faux.setResponses([
+    fauxAssistantMessage('上一轮回复'),
+    fauxAssistantMessage(fauxToolCall('ask_user', { question: '请补充时间' }), { stopReason: 'toolUse' }),
+    fauxAssistantMessage('上一轮回复'),
+  ]);
+  const engine = await new Engine(directory, noCodex, options).open();
+  try {
+    const id = await engine.createTask({ ...input('first-answer'), prompt: '第一轮问题' });
+    await until(engine, s => s.tasks[0]?.status === 'completed');
+    await engine.createTask({ ...input('follow-up-answer'), continueId: id, prompt: '第二轮问题' });
+    const waiting = await until(engine, s => s.tasks[0]?.status === 'waiting' && s.tasks[0].messages?.at(-1)?.text === '第二轮问题');
+    assert.equal(waiting.tasks[0].result, '', 'An unanswered user turn must not inherit an earlier assistant result');
+    assert.deepEqual(waiting.tasks[0].messages?.map(m => m.text), ['第一轮问题', '上一轮回复', '第二轮问题']);
+    await engine.answer(id, waiting.tasks[0].approvals.find(a => a.state === 'pending')!.id, 'accept', { answer: ['周六'] });
+    const done = await until(engine, s => s.tasks[0]?.status === 'completed');
+    assert.equal(done.tasks[0].result, '上一轮回复');
+    assert.equal(done.tasks[0].messages?.filter(m => m.role === 'assistant').length, 2, 'Genuine identical answers in different turns are preserved');
+  } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
 test('Native file tools enforce project boundaries and persist explicit approval before writes', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-files-')); const project = await mkdtemp(join(tmpdir(), 'friday-project-')); const outside = await mkdtemp(join(tmpdir(), 'friday-outside-'));
   await writeFile(join(outside, 'secret.txt'), 'private'); await symlink(outside, join(project, 'escape'));

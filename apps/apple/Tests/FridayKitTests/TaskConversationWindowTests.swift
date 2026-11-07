@@ -22,6 +22,22 @@ import Foundation
             hasEarlier: from > 0, touchVersion: 0, touches: [], messages: (from..<to).map { message($0) }, events: events ?? (from..<to).map { event($0) })
     }
     static func main() throws {
+        let fixture = try task(from: 0, to: 3, sequence: 1)
+        var followUpData = try JSONSerialization.jsonObject(with: JSONEncoder().encode(fixture)) as! [String: Any]
+        followUpData["agent"] = "friday"; followUpData["result"] = "Message 1"
+        for status in ["queued", "running", "waiting", "failed", "cancelled", "completed"] {
+            followUpData["status"] = status
+            let followUp = try JSONDecoder().decode(WorkItem.self, from: JSONSerialization.data(withJSONObject: followUpData))
+            precondition(followUp.conversation.map(\.id) == ["message-0", "message-1", "message-2"], "A stale result must not repeat the previous answer below a new user message")
+        }
+        followUpData["result"] = "New streamed answer"
+        var followUp = try JSONDecoder().decode(WorkItem.self, from: JSONSerialization.data(withJSONObject: followUpData))
+        precondition(followUp.conversation.last?.text == "New streamed answer", "New output remains visible before it is stored as a message")
+        followUpData["result"] = "Message 1"
+        followUp = try JSONDecoder().decode(WorkItem.self, from: JSONSerialization.data(withJSONObject: followUpData))
+        followUp.messages?.append(message(3, text: "Message 1"))
+        precondition(followUp.conversation.map(\.id) == ["message-0", "message-1", "message-2", "message-3"], "Identical real replies in separate turns retain their own identities")
+
         var window = TaskConversationWindow(); let scope = "account:task"
         var live = try task(from: 80, to: 100, sequence: 2)
         live.messages?.append(message(70, text: "New control context")); live.events.append(event(70, digest: "new-70", text: "New control output"))
