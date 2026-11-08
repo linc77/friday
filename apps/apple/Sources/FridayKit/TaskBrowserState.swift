@@ -2,10 +2,8 @@ import Foundation
 
 struct TaskBrowserServer: Decodable, Identifiable, Equatable {
     let host:String;let port:Int;let url:String;let processName:String?;let pid:Int?
-    let terminal:TaskBrowserTerminalOwner?
     var id:Int { port }
 }
-struct TaskBrowserTerminalOwner:Decodable,Equatable {let threadId:String;let terminalId:String}
 struct TaskBrowserServers:Decodable {let servers:[TaskBrowserServer];let scannedAt:String}
 struct TaskBrowserResolvedAddress:Decodable {let url:String}
 struct TaskBrowserTab:Codable,Equatable,Identifiable {

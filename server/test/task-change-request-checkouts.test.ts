@@ -57,18 +57,18 @@ test('Checkout reference parser accepts URLs/numbers/CLI text as data and reject
   for (const text of ['17', '#17', 'gh pr checkout 17', 'https://github.com/other/repo/pull/17']) assert.equal(checkoutReference(text, repository).number, 17);
   for (const text of ['gh pr checkout 17; touch /tmp/file', '17 && true', '$(echo 17)', 'https://evil.test/u/r/pull/17', 'https://github.com@evil.test/u/r/pull/17', 'https://github.com/u/r/pull/17?x=1', '#0']) assert.throws(() => checkoutReference(text, repository));
 });
-test('PR Worktree setup runs before draft handoff, reuses the interactive terminal without fake tasks, and skips unchanged reuse and local checkout', async t => {
+test('PR Worktree setup runs before draft handoff, retains script logs without fake tasks, and skips unchanged reuse and local checkout', async t => {
   const f = await fixture(t);
   await f.engine.mutate(s => { s.projects[0].scripts = [{ id: 'setup', name: 'Setup', command: 'printf setup >> setup-marker; printf "%s" "$T3CODE_WORKTREE_PATH" > setup-path', icon: 'configure', runOnWorktreeCreate: true, async: false }]; });
   const id = await f.engine.changeRequestCheckouts.start('p', await f.input()), prepared = await f.finish(id); assert.equal(prepared.status, 'ready', prepared.error); assert(prepared.setupRunId);
   assert.equal(await readFile(join(prepared.plan!.cwd, 'setup-marker'), 'utf8'), 'setup'); assert.equal(await readFile(join(prepared.plan!.cwd, 'setup-path'), 'utf8'), prepared.plan!.root);
-  let state = await f.engine.snapshot(); assert.equal(state.tasks.length, 0); assert.equal(f.state.requests.length, 0); const run = state.projectScriptRuns![0]; assert.equal(run.status, 'completed'); assert.match(run.terminalOwner, /^script-/);
-  const auth = new Auth(f.data); t.after(async () => auth.close()); const app = createAPI(f.engine, auth, () => []), terminalPath = `/api/tasks/${run.terminalOwner}/terminals/${run.terminalId}`;
-  assert.equal((await app.request(terminalPath)).status, 401); assert.equal((await app.request(terminalPath, { headers: { Authorization: 'Bearer ' + auth.token } })).status, 200);
+  let state = await f.engine.snapshot(); assert.equal(state.tasks.length, 0); assert.equal(f.state.requests.length, 0); const run = state.projectScriptRuns![0]; assert.equal(run.status, 'completed');
+  const auth = new Auth(f.data); t.after(async () => auth.close()); const app = createAPI(f.engine, auth, () => []), outputPath = `/api/project-scripts/runs/${run.id}`;
+  assert.equal((await app.request(outputPath)).status, 401); assert.equal((await app.request(outputPath, { headers: { Authorization: 'Bearer ' + auth.token } })).status, 200);
   const reused = await f.finish(await f.engine.changeRequestCheckouts.start('p', await f.input('worktree', { requestId: 'reuse-script' }))); assert.equal(reused.status, 'ready', reused.error); assert.equal(reused.plan?.scriptWorktree, true); assert.equal(reused.setupRunId, undefined); assert.equal((await f.engine.snapshot()).projectScriptRuns?.length, 1);
   const taskId = await f.engine.createTask({ prompt: 'fixture', projectId: 'p', agent: 'codex', mode: 'code', workspace: { mode: 'worktree', preparationId: id }, requestId: 'send-script-task' });
   await until(() => f.engine.snapshot(), s => s.tasks[0]?.status === 'completed'); state = await f.engine.snapshot(); assert.equal(state.projectScriptRuns?.length, 1); assert.equal(state.projectScriptRuns?.[0].taskId, taskId);
-  await f.engine.deleteTask(taskId); assert.equal(f.engine.terminals.store.get(run.terminalOwner, run.terminalId), undefined);
+  await f.engine.deleteTask(taskId); assert.equal(f.engine.projectScripts.processes.output(run.id), undefined);
   const local = await f.finish(await f.engine.changeRequestCheckouts.start('p', await f.input('checkout', { requestId: 'local-script' }))); assert.equal(local.status, 'ready', local.error); assert.equal(local.setupRunId, undefined); await assert.rejects(readFile(join(f.cwd, 'setup-marker')), /ENOENT/);
 });
 for (const provider of ['github', 'gitlab', 'bitbucket'] as const) test(`${provider}: local cross-Fork checkout preserves target main, tracks true Fork head and never starts an Agent`, async t => {

@@ -9,7 +9,6 @@ struct TaskDetailHeader: View {
     @Binding var worktreeSetup: TaskWorktreeSetupSnapshot?
     @Binding var filesPanel: TaskFilesPanelState
     @Binding var activePanel: String
-    @Binding var terminalShown: Bool
     @Binding var browserPanel: TaskBrowserPanelState
     @Binding var diffSelection: TaskDiffSelection?
     let workspacePanelVisible: Bool
@@ -46,14 +45,6 @@ struct TaskDetailHeader: View {
                 #endif
                 if task.git?.status == "repository" { TaskGitActionsControl(store: store, task: task) }
                 #if os(iOS)
-                Button { terminalShown.toggle() } label: {
-                    FridaySymbolImage(systemName: "terminal").font(.system(size: 15)).frame(width: 24, height: 24)
-                }.buttonStyle(FridaySymbolButtonStyle())
-                    .foregroundStyle(terminalShown ? FridayTheme.accent : .secondary)
-                    .disabled(task.projectId == nil)
-                    .keyboardShortcut("j", modifiers: .command)
-                    .accessibilityLabel(Text(friday: terminalShown ? "收起终端" : "显示终端"))
-                    .help(Text(friday: "终端 · ⌘J"))
                 Button {if browserPanel.visible && activePanel=="browser" {browserPanel.visible=false} else {browserPanel.visible=true;if browserPanel.tabs.isEmpty {browserPanel.open()};activePanel="browser"}} label: {
                     FridaySymbolImage(systemName:"globe").font(.system(size:15)).frame(width:24,height:24)
                 }.buttonStyle(FridaySymbolButtonStyle()).foregroundStyle(browserPanel.visible && activePanel=="browser" ? FridayTheme.accent:.secondary).accessibilityLabel(Text(friday:"网页预览"))
@@ -70,7 +61,7 @@ struct TaskDetailHeader: View {
                     .foregroundStyle(FridayTheme.foreground)
                     .background(workspacePanelVisible ? FridayTheme.sidebarBackground : .clear, in: RoundedRectangle(cornerRadius: 6))
                     .accessibilityLabel(Text(friday: workspacePanelVisible ? "收起侧栏" : "展开侧栏"))
-                    .help(Text(friday: "文件、改动与终端"))
+                    .help(Text(friday: "文件与改动"))
                 #endif
             } else {
                 VStack(alignment: .leading, spacing: 10) {
@@ -85,13 +76,6 @@ struct TaskDetailHeader: View {
         #else
         .padding(.horizontal, 26).padding(.top, 10).padding(.bottom, 8)
         .background {
-            if task.localAgent {
-                Button("") {
-                    if terminalShown && activePanel == "terminal" { toggleWorkspacePanel() }
-                    else { terminalShown = true; activePanel = "terminal" }
-                }.keyboardShortcut("j", modifiers: .command)
-                    .disabled(task.projectId == nil).hidden().accessibilityHidden(true)
-            }
             if task.localAgent && task.projectId != nil && task.subagentOrigin == nil {
                 TaskProjectScriptsControl(store: store, task: task, showsControls: false, updateSetup: { worktreeSetup = $0 })
             }

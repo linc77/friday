@@ -17,7 +17,7 @@ struct ProjectScriptsSettingsView: View {
     private var editable: Bool { !busy && pending == nil && store.connected && snapshot != nil }
     private var dirty: Bool { snapshot.map { scripts != $0.scripts || keybindings.filter { !$0.value.isEmpty } != ($0.keybindings ?? [:]) || inherited != ($0.source == "default" && !scope.isEmpty) } ?? false }
     var body: some View {
-        SettingsPage(title: "项目脚本", subtitle: "在任务终端运行常用命令，也可在创建 Worktree 或收起任务时运行。") {
+        SettingsPage(title: "项目脚本", subtitle: "运行常用命令并查看日志，也可在创建 Worktree 或收起任务时运行。") {
             SettingsGroup("设置范围") {
                 SettingsRow("应用到") {
                     SettingsSelect(title: "设置范围", selection: $scope,

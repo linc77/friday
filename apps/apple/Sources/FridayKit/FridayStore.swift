@@ -83,7 +83,6 @@ final class FridayStore {
     var delegatingIdeas: Set<String> = []
     let connection = Connection()
     let taskUndo = TaskActionUndo()
-    let terminalSessions = TaskTerminalSessions()
     let browserClientID=UUID()
     @ObservationIgnored private var streamTask: Task<Void, Never>?
     private let snapshotDecoding = TaskStreamDecoding()

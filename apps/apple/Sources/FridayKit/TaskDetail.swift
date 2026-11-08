@@ -30,7 +30,6 @@ struct TaskDetail: View {
     @State private var activePanel = "diff"
     @State private var browserPanel=TaskBrowserPanelState()
     @State private var panelContext = ""
-    @State private var terminalShown = false
     @State private var worktreeSetup: TaskWorktreeSetupSnapshot?
     @State private var rewindTarget: TaskRewindTarget?
     @State private var rewindDraft: TaskRewindDraft?
@@ -135,7 +134,6 @@ struct TaskDetail: View {
             }
             .onChange(of: activePanel) { _, _ in savePanels() }
             .onChange(of: diffWidth) { _, _ in savePanels() }
-            .onChange(of: terminalShown) { _, _ in savePanels() }
             .onChange(of: id) { _, _ in
                 draftLoaded = false; sending = false; queueEdit = nil; rewindDraft = nil; rewindTarget = nil; message = ""; images = []; contexts = []; contextInsertion = nil; sendError = nil; messageId = UUID().uuidString; resumeRequestId = UUID().uuidString
                 restoreDraft()
@@ -149,10 +147,7 @@ struct TaskDetail: View {
                 composerAtBottom = true
                 #endif
             }
-            #if os(iOS)
-            .modifier(TaskTerminalPanelLayout(store: store, task: task, shown: $terminalShown, canAddContext: !sending && !task.sessionBusy, addContext: addTerminalContext))
-            #endif
-            .modifier(TaskWorkspacePanelLayout(store: store, task: task, diff: $diffSelection, files: $filesPanel, browser: $browserPanel, terminal: $terminalShown, active: $activePanel, width: $diffWidth, canAddContext: !sending && !task.sessionBusy, addContext: addTerminalContext))
+            .modifier(TaskWorkspacePanelLayout(store: store, task: task, diff: $diffSelection, files: $filesPanel, browser: $browserPanel, active: $activePanel, width: $diffWidth))
             .environment(\.taskFileMentionBridge, fileMentionBridge)
             .environment(\.taskBrowserOpen,{url in
                 guard panelContext==store.connection.server+"\n"+id,TaskBrowserPolicy.url(url.absoluteString) != nil else{return false};browserPanel.open(url.absoluteString,defaults:TaskBrowserPreferences.shared(server:store.connection.server).defaults);activePanel="browser";return true
@@ -493,14 +488,14 @@ struct TaskDetail: View {
     private func header(_ task: WorkItem) -> TaskDetailHeader {
         TaskDetailHeader(store: store, task: task, onOpenTask: onOpenTask,
                          worktreeSetup: $worktreeSetup, filesPanel: $filesPanel,
-                         activePanel: $activePanel, terminalShown: $terminalShown,
+                         activePanel: $activePanel,
                          browserPanel: $browserPanel, diffSelection: $diffSelection,
                          workspacePanelVisible: workspacePanelVisible,
                          toggleWorkspacePanel: toggleWorkspacePanel)
     }
 
     private var workspacePanelVisible: Bool {
-        diffSelection != nil || filesPanel.visible || browserPanel.visible || terminalShown
+        diffSelection != nil || filesPanel.visible || browserPanel.visible
     }
 
     private func toggleWorkspacePanel() {
@@ -508,12 +503,11 @@ struct TaskDetail: View {
             for tab in filesPanel.tabs {
                 FileEditorStore.shared.flush(FileEditorStore.key(server: store.connection.server, token: store.connection.token, cwd: task?.cwd ?? "", path: tab.path))
             }
-            diffSelection = nil; filesPanel.visible = false; browserPanel.visible = false; terminalShown = false
+            diffSelection = nil; filesPanel.visible = false; browserPanel.visible = false
         } else {
             switch activePanel {
             case "files": filesPanel.visible = true
             case "browser" where !browserPanel.tabs.isEmpty: browserPanel.visible = true
-            case "terminal" where task?.projectId != nil: terminalShown = true
             default: diffSelection = TaskDiffSelection(); activePanel = "diff"
             }
         }
@@ -522,13 +516,13 @@ struct TaskDetail: View {
     private func restorePanels() {
         panelContext = store.connection.server + "\n" + id
         let preferences = TaskDraftCache.load(TaskPanelPreferences.self, server: store.connection.server, context: "task-panel:" + id) ?? TaskPanelPreferences()
-        diffSelection = preferences.diff; diffWidth = preferences.width.isFinite ? max(320, min(1600, preferences.width)) : 460; terminalShown = preferences.terminalShown == true
-        filesPanel = preferences.files ?? TaskFilesPanelState(); activePanel = preferences.activePanel ?? "diff"
+        diffSelection = preferences.diff; diffWidth = preferences.width.isFinite ? max(320, min(1600, preferences.width)) : 460
+        filesPanel = preferences.files ?? TaskFilesPanelState(); activePanel = ["diff", "files", "browser"].contains(preferences.activePanel ?? "") ? preferences.activePanel! : "diff"
         browserPanel=preferences.browser ?? TaskBrowserPanelState();browserPanel.validate()
     }
     private func savePanels() {
         guard panelContext == store.connection.server + "\n" + id else { return }
-        TaskDraftCache.save(TaskPanelPreferences(diff: diffSelection, width: diffWidth, terminalShown: terminalShown, files: filesPanel, activePanel: activePanel,browser:browserPanel.persisted), server: store.connection.server, context: "task-panel:" + id)
+        TaskDraftCache.save(TaskPanelPreferences(diff: diffSelection, width: diffWidth, files: filesPanel, activePanel: activePanel,browser:browserPanel.persisted), server: store.connection.server, context: "task-panel:" + id)
     }
 
     private func discardDraft() {
@@ -579,28 +573,6 @@ struct TaskDetail: View {
             saveDraft()
         }
         if store.reviewGuideComposerHandoff?.id == value.id { store.reviewGuideComposerHandoff = nil }
-    }
-    private func addTerminalContext(_ selection: TaskTerminalSelection) async -> Bool {
-        guard !sending, task?.localAgent == true, task?.sessionBusy != true else { return false }
-        let server = store.connection.server; let taskID = id; let scope = TaskContextScope(taskID: id)
-        let editorIdentity = store.taskComposerIdentity(scope)
-        do {
-                let reference = try await store.captureTaskContext(scope: scope, input: selection.body)
-                guard draftContext == server + "\n" + taskID, store.taskComposerIdentity(scope) == editorIdentity, !sending, task?.sessionBusy != true else { return false }
-                let duplicate = contexts.first { $0.kind == reference.kind && $0.digest == reference.digest && $0.terminalId == reference.terminalId && $0.generation == reference.generation && $0.lineStart == reference.lineStart && $0.lineEnd == reference.lineEnd }
-                guard duplicate != nil || TaskContextDocument.used(message, records: contexts).count < 20 else { throw ConnectionError.message("每条消息最多添加 20 个上下文引用") }
-                if duplicate == nil { draftContexts.wrappedValue.append(reference) }
-                let accepted = duplicate ?? reference
-                if task?.approvals.contains(where: { $0.state == "pending" }) == true {
-                    draftMessage.wrappedValue += (message.isEmpty || message.hasSuffix(" ") || message.hasSuffix("\n") ? "" : " ") + TaskContextDocument.token(accepted) + " "
-                } else {
-                    contextInsertion = TaskContextInsertion(reference: accepted, identity: editorIdentity, previousOccurrences: TaskContextDocument.occurrences(message).filter { $0.id == accepted.id }.count)
-                }
-                #if os(macOS)
-                composerExpandRequest += 1
-                #endif
-                return true
-        } catch { if draftContext == server + "\n" + taskID { sendError = error.localizedDescription }; return false }
     }
     private func saveDraft() {
         guard draftLoaded, task?.localAgent == true, draftContext == store.connection.server + "\n" + id else { return }

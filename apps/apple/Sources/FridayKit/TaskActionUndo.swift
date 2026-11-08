@@ -146,7 +146,7 @@ struct TaskUndoNotice: View {
 }
 
 #if os(macOS)
-/// Local keyboard routing only. Native text input and terminal/browser focus
+/// Local keyboard routing only. Native text input and browser focus
 /// retain their responder-chain Undo; no window/AX inspection is performed.
 struct TaskUndoKeyboard: NSViewRepresentable {
     let undo: () -> Bool
@@ -161,7 +161,7 @@ struct TaskUndoKeyboard: NSViewRepresentable {
             if responder is NSTextInputClient { return event }
             var ancestor = responder as? NSView
             while let current = ancestor {
-                if current is WKWebView || NSStringFromClass(type(of: current)).contains("Terminal") { return event }
+                if current is WKWebView { return event }
                 ancestor = current.superview
             }
             return coordinator?.undo?() == true ? nil : event

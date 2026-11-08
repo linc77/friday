@@ -1,4 +1,3 @@
-import type { TaskTerminalSummary } from './terminal-types.js';
 import type { TaskContextReference } from './task-context-types.js';
 import type { SourceControlWritingStyle, TextGenerationModelSelection, TextGenerationSettings } from './text-generation-settings.js';
 import type { TaskSettlementSettings } from './task-settlement.js';
@@ -269,7 +268,6 @@ export type WorkItem = {
   contentOmitted?: boolean; contentVersion?: string; contentSequence?: number; // Explicit overview transport, never persisted.
   activityStartedAt?: string;
   pullRequests?: TaskPullRequest[]; // Public read-only metadata across Git operations.
-  terminals?: TaskTerminalSummary[]; // Read-only live metadata, separate private storage.
 };
 export type Workspace = {
   approvalResponses?: Record<string, import('./provider-approvals.js').ApprovalResponseReceipt>;
@@ -289,7 +287,6 @@ export type Workspace = {
   projectScriptSettings?: import('./project-script-types.js').ProjectScriptSettings;
   projectScriptRuns?: import('./project-script-types.js').ProjectScriptRun[];
   projectScriptSettles?: Record<string, string>;
-  projectScriptTerminalsBusy?: boolean;
   changeRequestCheckouts?: import('./task-change-request-checkout-types.js').ChangeRequestCheckout[];
   reviewGuideRequests?: Record<string,{taskId:string;runId:string;digest:string}>;
   textGenerationSettings?: TextGenerationSettings;

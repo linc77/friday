@@ -3,7 +3,7 @@ import Foundation
 struct TaskWorktreeSetupSnapshot: Decodable, Equatable {
     let threadId: String; let runId: String; let attempt: Int; let phase: String
     let startedAt: String; let endedAt: String?; let branch: String?; let baseRef: String?; let worktreePath: String?
-    struct Script: Decodable, Equatable { let runId: String; let name: String; let command: String; let terminalId: String }
+    struct Script: Decodable, Equatable { let runId: String; let name: String; let command: String }
     struct Stage: Decodable, Equatable, Identifiable {
         let id: String; let status: String; let startedAt: String?; let endedAt: String?; let percent: Int?; let detail: String?; let tail: [String]
         var label: String { switch id { case "fetch": "获取基准分支"; case "checkout": "检出文件"; case "submodules": "初始化子模块"; case "setup-script": "运行初始化脚本"; case "agent": "启动 Agent"; default: id } }

@@ -5,7 +5,7 @@ struct TaskWorktreeSetupCard: View {
     let task: WorkItem; let run: TaskRun; let snapshot: TaskWorktreeSetupSnapshot
     @State private var details = false
     @State private var expanded = false
-    @State private var terminal: ProjectScriptIdentifier?
+    @State private var scriptOutput: ProjectScriptIdentifier?
     @State private var stopping = false
     @State private var error: String?
     private var title: String { switch snapshot.phase { case "failed": "工作区准备失败"; case "cancelled": "工作区准备已停止"; case "done": snapshot.stages.contains { $0.status == "failed" } ? "初始化脚本未成功完成" : snapshot.stages.contains { $0.id == "submodules" && $0.status == "warning" } ? "子模块初始化未成功完成" : "工作区准备已结束"; default: snapshot.handedOff ? "初始化脚本仍在运行" : "正在准备工作区…" } }
@@ -43,7 +43,7 @@ struct TaskWorktreeSetupCard: View {
             if let message = snapshot.error { Text(fridayString: message).font(.caption).foregroundStyle(.orange).textSelection(.enabled).padding(.leading, 25) }
             HStack(spacing: 12) {
                 if let script = snapshot.setupScript {
-                    Button(friday: "查看输出", systemImage: "terminal") { terminal = ProjectScriptIdentifier(id: script.runId) }
+                    Button(friday: "查看输出", systemImage: "terminal") { scriptOutput = ProjectScriptIdentifier(id: script.runId) }
                         .buttonStyle(FridaySymbolButtonStyle()).disabled(!store.connected)
                 }
                 Button { details.toggle() } label: { FridaySymbolLabel(friday: details ? "收起详情" : "准备详情", systemImage: details ? "chevron.up" : "chevron.down") }
@@ -63,7 +63,7 @@ struct TaskWorktreeSetupCard: View {
             if run.preparationFailed { TaskWorkspacePreparationFailure(store: store, task: task, run: run, compact: true) }
             if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
         }.font(.caption).frame(maxWidth: .infinity, alignment: .leading)
-        .sheet(item: $terminal) { ProjectScriptRunView(store: store, id: $0.id).id(store.connectionIdentity + "\n" + $0.id) }
+        .sheet(item: $scriptOutput) { ProjectScriptRunView(store: store, id: $0.id).id(store.connectionIdentity + "\n" + $0.id) }
     }
     @ViewBuilder private func elapsed(until end: Date) -> some View {
         if let start = CodexTranscript.date(snapshot.startedAt) {

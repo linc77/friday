@@ -10,14 +10,14 @@ export type WorktreeSetupStage = {
 export type WorktreeSetupSnapshot = {
   threadId: string; runId: string; attempt: number; phase: 'running' | 'done' | 'failed' | 'cancelled';
   startedAt: string; endedAt: string | null; branch: string | null; baseRef: string | null; worktreePath: string | null;
-  setupScript: { runId: string; name: string; command: string; terminalId: string } | null;
+  setupScript: { runId: string; name: string; command: string } | null;
   stages: WorktreeSetupStage[]; error: string | null; sequence: number;
 };
 const clamp = (text: string, length: number) => Buffer.from(text.length <= length ? text : text.slice(0, length - 1) + '…', 'utf8').toString('utf8');
 const active = (script: ProjectScriptRun | undefined) => script && ['queued','running'].includes(script.status);
-/** Output is an authenticated projection of the captured terminal generation.
- * No terminal transcript or output tail is added to the Durable root projection. */
-export function worktreeSetupSnapshot(state: Workspace, task: WorkItem, readTail?: (run: ProjectScriptRun) => { text: string; sequence: number; shell?: string } | undefined): WorktreeSetupSnapshot | null {
+/** Output is an authenticated projection of the script's private log.
+ * No output tail is added to the Durable root projection. */
+export function worktreeSetupSnapshot(state: Workspace, task: WorkItem, readTail?: (run: ProjectScriptRun) => { text: string; sequence: number } | undefined): WorktreeSetupSnapshot | null {
   if (task.agent === 'friday') return null;
   const candidates = (task.runs ?? []).filter(run => run.workspacePreparation && !run.revertedAt && !run.inheritedFrom && !run.executionExcludedAt);
   const scriptFor = (run: typeof candidates[number]) => {
@@ -48,12 +48,12 @@ export function worktreeSetupSnapshot(state: Workspace, task: WorkItem, readTail
     endedAt: phase === 'running' ? null : [preparation.completedAt, script?.completedAt, agentStarted].filter((value): value is string => !!value).sort().at(-1) ?? task.updatedAt,
     branch: plan.targetBranch ?? plan.branch?.replace(/^refs\/heads\//, '') ?? null,
     baseRef: plan.branch?.replace(/^refs\/heads\//, '') ?? plan.commit ?? null, worktreePath: checkoutEnd ? plan.root : null,
-    setupScript: script ? { runId: script.id, name: script.script.name, command: script.script.command, terminalId: script.terminalId } : null,
+    setupScript: script ? { runId: script.id, name: script.script.name, command: script.script.command } : null,
     stages: [...(plan.mode === 'worktree' && plan.startFromOrigin !== undefined ? [stage('fetch', plan.fetch?.status === 'running' && cancelled ? 'skipped' : plan.fetch?.status ?? (cancelled ? 'skipped' : 'pending'), plan.fetch?.startedAt, plan.fetch?.completedAt, plan.fetch?.detail)] : []),
       stage('checkout', checkoutStatus, plan.checkout?.startedAt ?? preparation.startedAt, checkoutEnd),
       ...(plan.submodules ? [stage('submodules', plan.submodules.status === 'running' && cancelled ? 'skipped' : plan.submodules.status, plan.submodules.startedAt, plan.submodules.completedAt, plan.submodules.detail)] : []),
       stage('setup-script', scriptStatus, script?.startedAt ?? script?.createdAt, script?.completedAt,
-        script?.exitCode !== undefined ? `exit ${script.exitCode ?? 'unknown'}` : script?.error, output ? projectScriptProgress(output.text.slice(0, Math.max(output.text.lastIndexOf('\n'), output.text.lastIndexOf('\r')) + 1), script?.script.command, output.shell).split('\n').filter(Boolean).slice(-4).map(line => clamp(line, 400)) : []),
+        script?.exitCode !== undefined ? `exit ${script.exitCode ?? 'unknown'}` : script?.error, output ? projectScriptProgress(output.text.slice(0, Math.max(output.text.lastIndexOf('\n'), output.text.lastIndexOf('\r')) + 1)).split('\n').filter(Boolean).slice(-4).map(line => clamp(line, 400)) : []),
       stage('agent', agentStatus, agentStarted ?? (checkoutEnd && preparation.setupResolvedAt ? preparation.setupResolvedAt : undefined), agentStarted)],
     error: failed ? clamp(preparation.error ?? script?.error ?? task.error ?? '工作区准备失败', 1000) : null,
     sequence: state.revision + (output?.sequence ?? 0),

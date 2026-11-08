@@ -43,7 +43,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
         case .providers: "Providers 模型服务 供应商 Base URL 本地工具 Friday DeepSeek API 密钥 Codex Claude Code Hermes Pi 编码 账号 模型 路径 环境变量 推理 Runtime"
         case .textGeneration: "文字生成 任务标题 命名 提交 PR 说明 模型 推理 Workspace Text generation Titles Commit Source Control"
         case .sourceControl: "Source Control Git GitHub GitLab Bitbucket Token 仓库 发布 认证 登录 主机 密钥 合并 Agent 署名 credits merge squash"
-        case .projectScripts: "项目脚本 初始化 收起 终端 Worktree setup settle scripts commands t3.json"
+        case .projectScripts: "项目脚本 初始化 收起 日志 Worktree setup settle scripts commands t3.json"
         case .browser: "浏览器 浏览配置 默认 缩放 外观 Cookie 缓存 网页 Browser Profiles Appearance Zoom Cache"
         case .archived: "归档 历史 任务 恢复 删除 Workspace Archived Threads Restore Delete"
         case .devices: "设备管理 iPhone Mac 主机 连接 配对码 访问 撤销 重新连接 Devices Host Connection Access Reconnect"

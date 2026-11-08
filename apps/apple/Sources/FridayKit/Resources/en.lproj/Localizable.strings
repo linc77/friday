@@ -689,52 +689,13 @@
 "恢复文件" = "Restore files";
 "Worktree 目录已清理，将重新创建并恢复所选检查点。" = "The worktree directory was removed. It will be recreated from the selected checkpoint.";
 
-/* Integrated task terminal. */
-"显示终端" = "Show terminal";
-"收起终端" = "Hide terminal";
-"终端 · ⌘J" = "Terminal · ⌘J";
-"搜索终端" = "Search terminal";
+/* Shared actions. */
 "粘贴" = "Paste";
-"新建终端" = "New terminal";
-"拆分终端" = "Split terminal";
-"关闭终端" = "Close terminal";
-"清空终端" = "Clear terminal";
-"重新启动终端" = "Restart terminal";
 "重新启动" = "Restart";
-"重命名终端" = "Rename terminal";
-"终端名称" = "Terminal name";
-"复制选中文字" = "Copy selection";
-"增大终端字体" = "Increase terminal font size";
-"减小终端字体" = "Decrease terminal font size";
-"重置终端字体" = "Reset terminal font size";
-"停止终端中的程序？" = "Stop programs in this terminal?";
-"停止并重新启动" = "Stop and restart";
-"停止并关闭" = "Stop and close";
-"终端仍有程序在运行，停止后尚未完成的工作会中断。" = "Programs are still running in this terminal. Stopping them will interrupt unfinished work.";
-"正在打开终端…" = "Opening terminal…";
-"尚未打开终端" = "No open terminals";
-"继续输入" = "Continue typing";
-"正在连接终端…" = "Connecting to terminal…";
-"终端已退出，历史输出已保留。" = "Terminal exited. Output history is preserved.";
-"已加载最近的终端输出。" = "Recent terminal output loaded.";
-"调整终端高度" = "Resize terminal height";
-"上一段输入是否送达尚未确认。请检查终端内容后再继续输入；不会自动重发。" = "The last input could not be confirmed. Check the terminal before continuing; input will not be sent again automatically.";
-"粘贴内容过大，尚未发送的输入已取消。" = "The paste is too large. Unsent input was cancelled.";
 "主机连接已切换" = "Host connection changed";
-"终端连接暂时不可用" = "Terminal connection is unavailable.";
-"终端连接授权失效或会话已被移除" = "Terminal access expired or the session was removed.";
-"终端输出不同步，正在重新加载。" = "Terminal output is out of sync. Reloading…";
-"终端输出保存失败，已停止接收输入，请重新启动。" = "Terminal output could not be saved. Input is stopped; restart the terminal to continue.";
 "服务已停止；保留输出，等待明确重新启动，不重放输入。" = "The service stopped. Output is preserved. Restart explicitly to continue; input will not be replayed.";
-"服务曾中断；保留终端输出，等待明确重新启动，不重放输入。" = "The service was interrupted. Output is preserved. Restart explicitly to continue; input will not be replayed.";
-"终端操作曾中断，等待明确重新启动；不会自动重放。" = "The terminal operation was interrupted. Restart explicitly; it will not be replayed.";
-"终端操作已中断；输入不会自动重放。" = "The terminal operation was interrupted. Input will not be replayed.";
-"终端操作未能确认提交，请明确重新启动或关闭。" = "The terminal operation could not be confirmed. Explicitly restart or close it.";
 
 /* Task source references. */
-"添加到任务输入框" = "Add to task input";
-"添加选区到任务" = "Add selection to task";
-"正在添加引用…" = "Adding reference…";
 "引用 Workspace 内容" = "Reference workspace content";
 "搜索文件或目录" = "Search files or folders";
 "引用文件、目录或代码" = "Reference a file, folder, or code";
@@ -754,8 +715,6 @@
 "每条消息最多添加 20 个上下文引用" = "A message can include up to 20 references.";
 "上下文引用已改变，请重新打开" = "The reference changed. Open it again.";
 "文件已改变，请重新查看后添加引用" = "The file changed. Review it again before adding a reference.";
-"终端已退出或重新启动，请重新选取内容" = "The terminal exited or restarted. Select the excerpt again.";
-"终端选区不能为空，且最多 64,000 字" = "Select terminal text, up to 64,000 characters.";
 "不能引用 Friday 的私有运行数据" = "Friday private runtime data cannot be referenced.";
 "上下文引用已失效，请重新添加后发送" = "The reference expired. Add it again before sending.";
 "上下文引用不属于此任务或 Workspace，请重新添加" = "This reference belongs to another task or workspace. Add it again.";
@@ -765,7 +724,6 @@
 "引用行超出已读取文件，请重新选择" = "The line range is outside the loaded file. Select it again.";
 "读取期间文件已改变，请重新选择" = "The file changed while being read. Select it again.";
 "引用内容已截取，未包含全部源内容。" = "This excerpt does not include the full source.";
-"引用未能添加，选区已保留；请检查任务输入框后重试。" = "The reference was not added. Your selection is preserved; check the task input and retry.";
 
 "从此回复分叉" = "Fork from this response";
 "从当前会话分叉" = "Fork current session";
@@ -967,7 +925,6 @@
 "关闭侧栏" = "Close side panel";
 "收起侧栏" = "Collapse side panel";
 "展开侧栏" = "Expand side panel";
-"文件、改动与终端" = "Files, changes and terminal";
 "调整侧栏宽度" = "Resize side panel";
 "复制绝对路径" = "Copy absolute path";
 "显示源代码" = "Show source";
@@ -1983,7 +1940,6 @@
 
 /* Project scripts */
 "项目脚本" = "Project scripts";
-"在任务终端运行常用命令，也可在创建 Worktree 或收起任务时运行。" = "Run common commands in the task terminal, on worktree creation, or when settling a task.";
 "使用主机脚本" = "Use host scripts";
 "此 Workspace 使用主机脚本；关闭继承后可单独编辑或清空。" = "This workspace inherits host scripts. Turn inheritance off to edit or clear them.";
 "添加脚本" = "Add script";
@@ -2013,7 +1969,6 @@
 "快捷键" = "Keyboard shortcut";
 "清除快捷键" = "Clear shortcut";
 "查看输出" = "View output";
-"脚本终端" = "Script terminals";
 
 /* Merge preferences */
 "合并设置" = "Merge settings";
@@ -2213,7 +2168,6 @@
 "归档已保存；清理尚未确认，请检查后重新归档。" = "Archive saved. Cleanup is unconfirmed. Inspect the session and archive again.";
 "归档清理曾中断；原生操作不会重新执行。" = "Archive cleanup was interrupted. Native operations will not be replayed.";
 "正在清理归档会话，请等待完成后继续" = "Archive cleanup is in progress. Wait for it to finish.";
-"请先恢复并完成归档清理，再打开终端" = "Restore the task and finish archive cleanup before opening a terminal.";
 "请先恢复并完成归档清理，再运行项目脚本" = "Restore the task and finish archive cleanup before running project scripts.";
 "任务执行范围已经改变" = "The task scope changed.";
 
@@ -2342,8 +2296,6 @@
 "取消本次执行" = "Cancel this execution";
 "更多授权选项" = "More approval options";
 "始终允许" = "Always allow";
-"终端账号配置已改变，请恢复这条任务使用的 Codex 目录" = "The terminal account configuration changed. Restore the Codex home used by this task.";
-"终端账号配置已改变，请恢复这条任务使用的 Claude 目录" = "The terminal account configuration changed. Restore the Claude home used by this task.";
 "授权回应请求 ID 无效" = "Invalid approval response request ID.";
 "授权回应请求 ID 已用于其他决定" = "This approval response ID was already used for a different decision.";
 "回应结果尚未确认，请核对或停止执行，不会自动重复授权" = "The response is unconfirmed. Check or stop the execution; approval will not be sent again automatically.";
@@ -2405,8 +2357,6 @@
 "临时任务目录的归属已改变，请恢复原目录或创建新任务" = "The scratch task directory was replaced. Restore the original directory or create a new task.";
 "临时工作区分配记录不存在" = "The scratch workspace allocation record is missing.";
 "临时目录的创建结果待核对，请重试工作区准备；不会自动重复分配" = "The scratch directory creation needs review. Retry workspace preparation to allocate a different directory.";
-"请先完成临时工作区准备再打开终端" = "Complete scratch workspace preparation before opening the terminal.";
-"临时任务目录已改变，请重新打开终端" = "The scratch task directory changed. Reopen the terminal.";
 "请先完成临时工作区准备再访问文件" = "Complete scratch workspace preparation before accessing files.";
 "临时任务目录已改变，请重新打开文件" = "The scratch task directory changed. Reopen the file.";
 
@@ -2718,3 +2668,8 @@
 "搜索字体" = "Search fonts";
 
 "Midnight" = "Midnight";
+"文件与改动" = "Files and changes";
+"运行中的脚本" = "Running scripts";
+"运行常用命令并查看日志，也可在创建 Worktree 或收起任务时运行。" = "Run common commands and view logs, on worktree creation, or when settling a task.";
+"脚本执行结果未确认，请检查日志后明确重试；不会自动重放" = "The script result is unconfirmed. Check the logs and retry explicitly; it will not run again automatically.";
+"脚本未成功完成，请查看日志" = "The script did not finish successfully. Check the logs.";

@@ -9,7 +9,6 @@ import { PiExecutor } from '../src/pi.js';
 import { piFramer } from '../src/pi-rpc.js';
 import { piActiveBranch } from '../src/pi-history.js';
 import type { ExecutionUpdate, WorkItem } from '../src/types.js';
-import { terminalProviderEnvironment } from '../src/terminal-provider-environment.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/pi.mjs', import.meta.url));
 const work = (cwd: string, changes: Partial<WorkItem> = {}) => ({ id: 'pi-task', agent: 'pi', cwd, title: 'Pi fixture', model: 'fixture/small', reasoningEffort: 'medium', currentRunId: 'pi-run-1', events: [], approvals: [], threadId: null, ...changes }) as WorkItem;
@@ -93,7 +92,7 @@ test('Pi model reasoning options follow native per-model maps and custom model I
   assert.throws(() => validatePiSettings({ ...defaultPiSettings, permissionMode: 'plan' }), /权限|规划/);
   assert.equal(validatePiSettings({ ...defaultPiSettings, permissionMode: 'acceptEdits' }).permissionMode, 'acceptEdits');
 });
-test('Pi owner settings redact credentials, preserve masked secrets, discover real commands and keep terminal account identity', async t => {
+test('Pi owner settings redact credentials, preserve masked secrets, discover real commands', async t => {
   const { directory, connection } = await setup(t);
   await connection.save({ ...defaultPiSettings, enabled: true, binaryPath: fixture, homePath: join(directory, 'account'), environment: [{ name: 'FIXTURE_KEY', value: 'never-public' }], customModels: [{ id: 'custom/model', name: 'Custom' }] });
   const owner = await connection.status(true), remote = await connection.status(false);
@@ -101,8 +100,6 @@ test('Pi owner settings redact credentials, preserve masked secrets, discover re
   assert.deepEqual(owner.models.find(value => value.id === 'custom/model')?.reasoningEfforts, []);
   await connection.save(owner.settings); assert.equal(JSON.parse(await readFile(join(directory, 'pi-provider.json'), 'utf8')).environment[0].value, 'never-public');
   const workspace = await connection.workspace(directory); assert.equal(workspace.commands[0]!.name, 'compact'); assert.equal(workspace.commands[1]!.name, 'native-command'); assert.equal(workspace.skills[0]!.name, 'fixture');
-  const environment = await terminalProviderEnvironment(directory, { agent: 'pi', piHome: join(directory, 'account') }); assert.equal(environment.FIXTURE_KEY, 'never-public');
-  await assert.rejects(terminalProviderEnvironment(directory, { agent: 'pi', piHome: join(directory, 'other') }), /配置已改变/);
 });
 test('Pi persists the native session before prompt, streams Unicode output and resumes the same native file', async t => {
   const { directory, connection, executor, trace } = await setup(t), before = join(directory, 'external-start');

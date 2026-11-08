@@ -8,7 +8,6 @@ const data = {
   overview:[['snapshot',snapshot],['taskSummaries',{sessionId:'service',sequence:2,serial:2,tasks:[],removed:[]}]],
   task:[['taskSnapshot',{taskId:'a',sessionId:'service',sequence:1,serial:1,version:'v1',task}],['taskRemoved',{taskId:'a',sessionId:'service',sequence:2,serial:2}]],
   output:[['output',output],['output',{...output,running:false}]],
-  terminal:[['terminal',{type:'output',generation:1,sequence:1,data:Buffer.from('你好').toString('base64')}],['terminal',{type:'closed',generation:1,sequence:2}]],
 };
 const liveTask = {...task,status:'running',turnId:'live-turn',events:[
   {id:'reasoning',kind:'reasoning',turnId:'live-turn',text:'正在分析项目 🚀',at:'2026-10-18T00:00:00Z',status:'running'},

@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { macAppIdentity } from './mac-app-identity.mjs';
-import { preparePtyRuntime } from './mac-pty-runtime.mjs';
 import { loadReleaseNotes } from './release-notes.mjs';
 import { macSwiftBuildArguments } from './mac-swift-build.mjs';
 
@@ -37,7 +36,6 @@ await cp(join(bin, 'Friday'), join(contents, 'MacOS', identity.executable));
 await cp('apps/apple/Info-mac.plist', join(contents, 'Info.plist'));
 await cp('apps/apple/Assets/Friday.icns', join(contents, 'Resources/Friday.icns'));
 await cp(join(bin, 'Friday_FridayKit.bundle'), join(contents, 'Resources/Friday_FridayKit.bundle'), { recursive: true });
-await cp(join(bin, 'SwiftTerm_SwiftTerm.bundle'), join(contents, 'Resources/SwiftTerm_SwiftTerm.bundle'), { recursive: true });
 // SwiftPM leaves .strings as text. SwiftUI's explicit-locale lookups parse
 // these tables repeatedly during layout; compile the packaged copies so
 // navigation does not spend its animation frames in the text plist parser.
@@ -51,7 +49,6 @@ async function compileStringTables(directory) {
   }
 }
 await compileStringTables(join(contents, 'Resources/Friday_FridayKit.bundle'));
-await cp('apps/apple/.build/checkouts/SwiftTerm/LICENSE', join(contents, 'Resources/SwiftTerm-LICENSE'));
 const framework = join(root, 'apps/apple/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework');
 run('/usr/bin/ditto', [framework, join(contents, 'Frameworks/Sparkle.framework')]);
 const plist = (key, type, value) => run('/usr/bin/plutil', ['-replace', key, '-' + type, String(value), join(contents, 'Info.plist')]);
@@ -80,8 +77,6 @@ if (standalone) {
   run('pnpm', ['install', '--prod', '--frozen-lockfile', '--ignore-scripts', '--dir', 'dist/runtime']);
   await rm('dist/runtime/pnpm-lock.yaml');
   await cp('dist/runtime', join(contents, 'Resources/runtime'), { recursive: true, verbatimSymlinks: true });
-  const terminalRuntime = await preparePtyRuntime(join(contents, 'Resources/runtime'));
-  await cp(terminalRuntime.license, join(contents, 'Resources/node-pty-LICENSE'));
   await cp(join(vendor, `node-v${config.nodeVersion}-darwin-arm64/LICENSE`), join(contents, 'Resources/Node-LICENSE'));
   const sparkleLicense = join(root, 'apps/apple/.build/checkouts/Sparkle/LICENSE');
   await cp(sparkleLicense, join(contents, 'Resources/Sparkle-LICENSE'));

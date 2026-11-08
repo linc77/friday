@@ -75,7 +75,6 @@ import { SourceControlConnections, type SourceControlConnectionOptions } from '.
 import { SourceControlCredentials } from './source-control-credentials.js';
 import { TaskRuns } from './task-runs.js';
 import { TaskRewinds } from './task-rewinds.js';
-import { TaskTerminals } from './task-terminals.js';
 import { TaskContexts } from './task-contexts.js';
 import { TaskFileWrites } from './task-file-writes.js';
 import { TaskForks } from './task-forks.js';
@@ -176,7 +175,6 @@ export class Engine extends EventEmitter {
   readonly delegations: TaskDelegations;
   readonly taskRuns: TaskRuns;
   readonly taskRewinds: TaskRewinds;
-  readonly terminals: TaskTerminals;
   readonly hostBrowsers: TaskHostBrowsers;
   readonly contexts: TaskContexts;
   readonly fileWrites: TaskFileWrites;
@@ -452,7 +450,6 @@ export class Engine extends EventEmitter {
     this.reviewGuides = new TaskReviewGuides(this);
     this.taskRuns = new TaskRuns(this);
     this.taskRewinds = new TaskRewinds(this);
-    this.terminals = new TaskTerminals(this);
     this.hostBrowsers = new TaskHostBrowsers(this.directory);
     this.contexts = new TaskContexts(this);
     this.taskForks = new TaskForks(this);
@@ -511,7 +508,7 @@ export class Engine extends EventEmitter {
     try {
       await this.modelConnection.open();
       const registry = createRegistry();
-      registry.install(defineExtension({ name: 'friday', tasks: [this.proactive.scheduler, this.proactive.share, this.proactive.notify, this.projectRepositories.definition, this.execution, this.response, this.branchSwitch, this.taskQueue.definition, this.projectScripts.definition, this.taskTitles.definition, this.gitOperations.definition, this.changeRequests.definition, this.changeRequestStacks.definition, this.changeRequestCheckouts.definition, this.reviewGuides.definition, this.taskRewinds.definition, this.terminals.definition, this.taskForks.definition, this.backgroundCommands.definition, this.nativeTurns.definition, this.nativeBackground.definition, this.backgroundStops.definition, this.subagents.definition, this.archives.definition, this.settles.definition, this.sessionActions.definition, this.delegations.definition, this.providerCreditResets.definition, this.taskFeedback.definition, this.usageLimitSources.definition] }));
+      registry.install(defineExtension({ name: 'friday', tasks: [this.proactive.scheduler, this.proactive.share, this.proactive.notify, this.projectRepositories.definition, this.execution, this.response, this.branchSwitch, this.taskQueue.definition, this.projectScripts.definition, this.taskTitles.definition, this.gitOperations.definition, this.changeRequests.definition, this.changeRequestStacks.definition, this.changeRequestCheckouts.definition, this.reviewGuides.definition, this.taskRewinds.definition, this.taskForks.definition, this.backgroundCommands.definition, this.nativeTurns.definition, this.nativeBackground.definition, this.backgroundStops.definition, this.subagents.definition, this.archives.definition, this.settles.definition, this.sessionActions.definition, this.delegations.definition, this.providerCreditResets.definition, this.taskFeedback.definition, this.usageLimitSources.definition] }));
       registry.install(this.assistant.extension);
       registry.install(this.proactive.assistantExtension);
       const persistence = await openFridayStorage(this.directory);
@@ -524,8 +521,13 @@ export class Engine extends EventEmitter {
         ...(this.personalClock ? { now: this.personalClock } : {}),
       }, context);
       this.root = await this.harness.root(context);
+      // Retire unfinished operations from the removed interactive terminal.
+      // A missing definition settles as orphaned; no shell or saved input is replayed.
+      for (const { record } of (await this.harness.inspect(context)).tasks) {
+        if (record.kind === 'friday.terminal') await this.harness.abortTask(record.id, context);
+      }
       await this.root.commit(async tx => { const state = await tx.doc(WorkspaceDoc); state.projectScriptSettles ??= {}; for (const task of state.tasks) if (task.settledAt && (!task.settleCleanup || task.settleCleanup.status === 'completed')) state.projectScriptSettles[task.id] ??= task.settledAt; }, context);
-      await this.terminals.open();
+      await this.projectScripts.processes.open(this.directory);
       await this.contexts.open();
       await this.taskHistory.recoverIndexes();
       await this.taskPreparations.recoverMetadata();
@@ -568,7 +570,7 @@ export class Engine extends EventEmitter {
       this.changeRequestDiscovery.start();
       this.changeRequestWatch.start();
       return this;
-    } catch (error) { await this.runtimeTools.close(); await this.changeRequestWatch.close(); await this.changeRequestSync.close(); await this.changeRequestDiscovery.close(); this.changeRequestLinks.close(); await this.sourceControl.close(); await this.terminals.close().catch(() => {}); this.contexts.close(); await this.harness?.close(context).catch(() => {}); await this.imageStorage?.close(context).catch(() => {}); this.lease.close(); throw error; }
+    } catch (error) { await this.runtimeTools.close(); await this.changeRequestWatch.close(); await this.changeRequestSync.close(); await this.changeRequestDiscovery.close(); this.changeRequestLinks.close(); await this.sourceControl.close(); await this.projectScripts.processes.close().catch(() => {}); this.contexts.close(); await this.harness?.close(context).catch(() => {}); await this.imageStorage?.close(context).catch(() => {}); this.lease.close(); throw error; }
   }
   async snapshot(): Promise<Workspace> {
     const state: Workspace = structuredClone((await this.harness.snapshot(WorkspaceDoc, context))!);
@@ -592,15 +594,13 @@ export class Engine extends EventEmitter {
       const pending = task.approvals.find(approval => approval.subagentId && approval.state === 'pending');
       if (pending) task.pendingSubagentRequest = pending.method.includes('requestUserInput') ? 'user_input' : 'approval';
       if (task.delegatedTasks?.some(child => !child.suppressed && child.hasPendingQuestion)) task.pendingSubagentRequest ??= 'user_input';
-      const terminals = this.terminals.summaries(task.id); if (terminals.length) task.terminals = terminals;
       if (task.subagentOrigin) task.subagents = tasksById.get(task.subagentOrigin.rootTaskId)?.subagents?.filter(agent => agent.parentSubagentId === task.subagentOrigin!.subagentId);
       if (task.agent !== 'friday') { task.nativeSessionConnected = this.executor.hasSession?.(task.id) === true; task.history = this.taskHistory.info(task); task.pullRequests = taskPullRequests(task); task.titleGenerationSupported = !task.subagentOrigin && this.taskTitles.supported; task.sidebarSettledAt = taskSidebarSettledAt(task); task.sidebarActivity = taskSidebarActivity(task); task.settlementManaged = true;
         task.snoozed = taskIsSnoozed(task, snapshotAt); task.snoozeWakeAt = taskSnoozeWakeAt(task, snapshotAt); task.canSnooze = canSnoozeTask(task); task.canSettle = taskCanSettle(task);
         task.backgroundActivity = backgroundCommandActivity(task);
       }
     }
-    let projectScriptTerminalsBusy = false; try { projectScriptTerminalsBusy = this.terminals.store.list().some(t => t.taskId.startsWith('script-') && (t.hasRunningSubprocess || ['starting','closing'].includes(t.status))); } catch {}
-    return { ...state, projectScriptTerminalsBusy, sourceControlPreferencesVersion: state.sourceControlPreferences?.version ?? 0, textGenerationSettingsVersion: state.textGenerationSettings?.version ?? 0, taskSidebarOrderingSupported: true, taskSidebarProjectScopesSupported: true, taskScratchWorkspaceSupported: true, projectRepositoryOperationsSupported: true, namedProjectCreationSupported: true, newProjectsRoot: await this.managedProjects.root(), ...(scratchRoot ? { scratchWorkspaceRoot: scratchRoot } : {}), taskExistingWorkspaceSupported: true, taskComposerCommandsSupported: true, taskArchiveLifecycleSupported: true, providerResetCreditsSupported: true, usageLimitSourcesSupported: true, taskSidebarWorkingSupported: true, taskAutoSettlementSupported: true, taskBackgroundCommandsSupported: typeof this.executor.stopBackgroundCommand === 'function', taskNativeBackgroundSupported: typeof this.executor.stopNativeBackground === 'function', taskBackgroundSettlementSupported: typeof this.executor.stopBackgroundCommand === 'function' || typeof this.executor.settleNativeBackground === 'function', taskSettlementSettingsVersion: state.taskSettlementSettings?.version ?? 0 };
+    return { ...state, sourceControlPreferencesVersion: state.sourceControlPreferences?.version ?? 0, textGenerationSettingsVersion: state.textGenerationSettings?.version ?? 0, taskSidebarOrderingSupported: true, taskSidebarProjectScopesSupported: true, taskScratchWorkspaceSupported: true, projectRepositoryOperationsSupported: true, namedProjectCreationSupported: true, newProjectsRoot: await this.managedProjects.root(), ...(scratchRoot ? { scratchWorkspaceRoot: scratchRoot } : {}), taskExistingWorkspaceSupported: true, taskComposerCommandsSupported: true, taskArchiveLifecycleSupported: true, providerResetCreditsSupported: true, usageLimitSourcesSupported: true, taskSidebarWorkingSupported: true, taskAutoSettlementSupported: true, taskBackgroundCommandsSupported: typeof this.executor.stopBackgroundCommand === 'function', taskNativeBackgroundSupported: typeof this.executor.stopNativeBackground === 'function', taskBackgroundSettlementSupported: typeof this.executor.stopBackgroundCommand === 'function' || typeof this.executor.settleNativeBackground === 'function', taskSettlementSettingsVersion: state.taskSettlementSettings?.version ?? 0 };
   }
   async taskSearchVisibility() {
     const state = await this.harness.snapshot(WorkspaceDoc, context);
@@ -721,8 +721,6 @@ export class Engine extends EventEmitter {
     if (activeStatuses.includes((await this.snapshot()).tasks.find(task => task.id === id)!.status)) await this.cancel(id);
     await this.executor.stopNativeSession?.(id, task.executionSessionId ?? '');
     await this.projectScripts.stopTask(id);
-    for (const owner of new Set(this.projectScripts.list(await this.snapshot(), id).map(run => run.terminalOwner).filter(owner => owner !== id))) await this.terminals.deleteTask(owner);
-    await this.terminals.deleteTask(id);
     const removedChildren: string[] = [];
     await this.mutate(workspace => {
       const current = workspace.tasks.find(task => task.id === id);
@@ -735,6 +733,7 @@ export class Engine extends EventEmitter {
       // Keep request receipts as tombstones: retrying an old submission must
       // never recreate a deleted task or repeat its external side effects.
     });
+    for (const run of this.projectScripts.list(await this.snapshot(), id)) this.projectScripts.processes.delete(run.id);
     await this.hostBrowsers.deleteTask(id);
     for (const child of removedChildren) await this.hostBrowsers.deleteTask(child);
     this.commandOutputs.remove(id);
@@ -1186,13 +1185,12 @@ export class Engine extends EventEmitter {
     this.changeRequestLinks.close();
     await this.taskSettlement.close();
     this.taskTitles.beginShutdown();
-    this.terminals.beginShutdown();
     // A failed Durable Session cannot persist shutdown state. Still close its
     // database and release the service lease; startup holds queued work again.
     await this.taskQueue.hold().catch(error => { if (!(error instanceof SessionFailed)) throw error; });
     await this.taskSearch.close();
     await this.executor.close?.();
     if (this.customExecutor) await this.providerInstances.close();
-    await this.modelConnection.close(); await this.sourceControl.close(); await this.harness.close(context); this.changeRequests.close(); this.reviewGuides.close(); await this.terminals.close(); this.contexts.close(); await this.watch?.stop(); this.lease.close(); this.removeAllListeners();
+    await this.modelConnection.close(); await this.sourceControl.close(); await this.harness.close(context); this.changeRequests.close(); this.reviewGuides.close(); await this.projectScripts.processes.close(); this.contexts.close(); await this.watch?.stop(); this.lease.close(); this.removeAllListeners();
   }
 }

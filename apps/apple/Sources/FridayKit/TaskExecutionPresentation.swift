@@ -9,7 +9,6 @@ struct TaskDiffSelection: Codable, Equatable {
 struct TaskPanelPreferences: Codable {
     var diff: TaskDiffSelection? = nil
     var width: Double = 460
-    var terminalShown: Bool? = nil
     var files: TaskFilesPanelState? = nil
     var activePanel: String? = nil
     var browser:TaskBrowserPanelState? = nil

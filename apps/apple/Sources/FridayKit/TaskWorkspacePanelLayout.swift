@@ -8,21 +8,11 @@ struct TaskWorkspacePanelLayout: ViewModifier {
     @Binding var diff: TaskDiffSelection?
     @Binding var files: TaskFilesPanelState
     @Binding var browser:TaskBrowserPanelState
-    @Binding var terminal: Bool
     @Binding var active: String
     @Binding var width: Double
-    var canAddContext = false
-    var addContext: (TaskTerminalSelection) async -> Bool = { _ in false }
-    private var visible: Bool { diff != nil || files.visible || browser.visible || showingTerminal }
-    private var showingTerminal: Bool {
-        #if os(macOS)
-        terminal && task.localAgent && (active == "terminal" || diff == nil && !files.visible && !browser.visible)
-        #else
-        false
-        #endif
-    }
-    private var showingBrowser:Bool {!showingTerminal && browser.visible && (active == "browser" || diff == nil && !files.visible)}
-    private var showingFiles: Bool { !showingTerminal && !showingBrowser && files.visible && (active == "files" || diff == nil) }
+    private var visible: Bool { diff != nil || files.visible || browser.visible }
+    private var showingBrowser:Bool {browser.visible && (active == "browser" || diff == nil && !files.visible)}
+    private var showingFiles: Bool { !showingBrowser && files.visible && (active == "files" || diff == nil) }
     private var browserScope:String {TaskBrowserSessionScope.value(owner:store.browserClientID,connection:store.connectionIdentity,task:task.id)}
     private var browserDragScope:String {SHA256.hash(data:Data(browserScope.utf8)).map {String(format:"%02x",$0)}.joined()}
     func body(content: Content) -> some View {
@@ -39,15 +29,12 @@ struct TaskWorkspacePanelLayout: ViewModifier {
                 ScrollView(.horizontal) {
                     HStack(spacing: 6) {
                         #if os(macOS)
-                        sectionButton("改动", symbol: "plus.forwardslash.minus", selected: !showingFiles && !showingBrowser && !showingTerminal) {
+                        sectionButton("改动", symbol: "plus.forwardslash.minus", selected: !showingFiles && !showingBrowser) {
                             diff = diff ?? TaskDiffSelection(); active = "diff"
                         }
                         sectionButton("文件", symbol: "folder", selected: showingFiles) {
                             files.visible = true; active = "files"
                         }.disabled(!store.connected)
-                        sectionButton("终端", symbol: "terminal", selected: showingTerminal) {
-                            terminal = true; active = "terminal"
-                        }.disabled(task.projectId == nil).help(Text(friday: "终端 · ⌘J"))
                         #else
                         if diff != nil { Button { active = "diff" } label: { FridaySymbolLabel(friday: "改动", systemImage: "plus.forwardslash.minus").padding(6).background(!showingFiles && !showingBrowser ? FridayTheme.accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 5)) } }
                         #endif
@@ -90,11 +77,7 @@ struct TaskWorkspacePanelLayout: ViewModifier {
             Divider()
             #endif
             Group {
-                if showingTerminal {
-                    TaskTerminalPanel(store: store, task: task, close: close, showsCloseButton: false, canAddContext: canAddContext, addContext: addContext)
-                        .id(store.connection.server + "|" + task.id)
-                }
-                else if showingBrowser {TaskBrowserPanel(store:store,task:task,state:$browser).id(browserScope)}
+                if showingBrowser {TaskBrowserPanel(store:store,task:task,state:$browser).id(browserScope)}
                 else if showingFiles { TaskFilesPanel(store: store, task: task, state: $files).id(store.connectionIdentity + ":" + task.id + ":" + task.cwd) }
                 else if let value = diff { TaskChangesPanel(store: store, task: task, selection: Binding(get: { diff ?? value }, set: { diff = $0 }), close: close) }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -117,8 +100,5 @@ struct TaskWorkspacePanelLayout: ViewModifier {
     private func close() {
         for tab in files.tabs { editors.flush(editorKey(tab.path)) }
         diff = nil; files.visible = false; browser.visible = false
-        #if os(macOS)
-        terminal = false
-        #endif
     }
 }

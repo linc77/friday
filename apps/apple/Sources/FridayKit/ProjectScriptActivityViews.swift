@@ -40,7 +40,7 @@ struct ProjectScriptActivityGroup: View {
     var body: some View {
         Group {
             if !runs.isEmpty {
-                SettingsGroup("脚本终端") {
+                SettingsGroup("运行中的脚本") {
                     ForEach(runs) { run in
                         SettingsRow(verbatim: run.script.name) {
                             Text(fridayString: run.label).font(.caption).foregroundStyle(.secondary)

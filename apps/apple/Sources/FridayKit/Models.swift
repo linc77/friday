@@ -733,7 +733,6 @@ struct WorkItem: Codable, Identifiable {
     var rewindOperation: TaskRewindOperation? = nil
     var claudeResumeSessionAt: String? = nil
     var claudeResumePendingRun: String? = nil
-    var terminals: [TaskTerminalSummary]? = nil
     var forkOrigin: TaskForkOrigin? = nil
     var forkOperation: TaskForkOperation? = nil
     var history: TaskHistoryInfo? = nil
@@ -1057,16 +1056,4 @@ struct TaskFileEntry: Decodable, Equatable, Identifiable {
 struct TaskFileListing: Decodable { let entries: [TaskFileEntry]; let truncated: Bool }
 struct TaskFilePreview: Decodable {
     let path: String; let text: String; let lineStart: Int; let lineEnd: Int; let truncated: Bool; let version: String
-}
-
-struct TaskTerminalSummary: Codable, Equatable, Identifiable {
-    let id: String; let taskId: String; let generation: Int; let cwd: String; let shell: String; let label: String; let title: String; let status: String
-    let pid: Int?; let cols: Int; let rows: Int; let sequence: Int; let baseSequence: Int; let hasRunningSubprocess: Bool
-    let createdAt: String; let updatedAt: String; let exitCode: Int?; let exitSignal: Int?; let error: String?; let historyTruncated: Bool?
-    var canType: Bool { status == "running" }
-    var canRestart: Bool { !["starting", "closing"].contains(status) }
-}
-struct TaskTerminalEvent: Decodable {
-    let type: String; let generation: Int; let sequence: Int
-    let terminal: TaskTerminalSummary?; let history: String?; let data: String?; let truncated: Bool?
 }

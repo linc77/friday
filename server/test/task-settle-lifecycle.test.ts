@@ -71,12 +71,9 @@ test('An early Undo may restore metadata but no new execution can replace the id
   await f.reopen(); assert.equal((await f.task()).settledAt, null); assert.equal(f.owner.calls, 1);
 });
 
-test('Settle preserves interactive terminals and recovery never starts or resumes an idle native provider', async t => {
+test('Settle preserves results and recovery never starts or resumes an idle native provider', async t => {
   const f = await fixture(t);
-  await f.engine.terminals.lifecycle('task', { action: 'open', terminalId: 'terminal', requestId: 'terminal', cols: 80, rows: 24, shell: '/bin/sh' });
-  await until(async () => f.engine.terminals.snapshot('task', 'terminal'), frame => frame.terminal?.status === 'running');
   assert.equal((await f.patch({ settled: true, requestId: 'settle' })).status, 200);
-  assert.equal(f.engine.terminals.snapshot('task', 'terminal').terminal?.status, 'running');
   assert.equal((await f.task()).result, 'Kept answer'); assert.equal((await f.task()).updatedAt, at);
   await f.reopen(); assert.equal(f.owner.calls, 0); assert.deepEqual(f.owner.closes, ['old-session']);
 });

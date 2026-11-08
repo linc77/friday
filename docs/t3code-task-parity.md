@@ -1,5 +1,7 @@
 # 我的任务：T3 Code 对齐清单
 
+> 2026-11-08 范围调整：内置交互终端已移除，以下终端实现和验收条目仅保留为历史。项目脚本改用非交互子进程与只读日志，当前行为见 [architecture.md](architecture.md)。
+
 > 当前范围（2026-11-07）：任务 Agent 只保留 Codex、Claude、Pi。OpenCode、Grok、Muse、Cursor、Antigravity、ACP Registry 已退出产品范围；下方带日期的相关实现记录仅为历史，不代表当前支持。当前配置以 [providers.md](providers.md) 为准。
 
 

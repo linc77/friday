@@ -8,8 +8,6 @@ import { Engine } from '../src/engine.js';
 import { Auth } from '../src/auth.js';
 import { createAPI } from '../src/api.js';
 import { ServiceMaintenance } from '../src/maintenance.js';
-import { TerminalStore } from '../src/terminal-store.js';
-import type { TaskTerminalSummary } from '../src/terminal-types.js';
 import { importableProjectScripts, projectScripts, projectScriptSettings, resolveProjectScripts, updateProjectScriptSettings } from '../src/project-script-settings.js';
 import { parseScriptShortcut } from '../src/project-script-shortcuts.js';
 import { projectScriptProgress } from '../src/project-script-progress.js';
@@ -40,7 +38,7 @@ async function fixture(t: { after(fn: () => Promise<unknown>): void }, scripts: 
   };
   const run = (id: string) => f.engine.projectScripts.get(id);
   const done = (id: string) => until(() => run(id), r => !['queued','running'].includes(r.status));
-  const output = async (id: string) => { const r = await run(id); return Buffer.from(f.engine.terminals.snapshot(r.terminalOwner, r.terminalId).history, 'base64').toString('utf8'); };
+  const output = async (id: string) => f.engine.projectScripts.processes.output(id)?.text ?? '';
   return Object.assign(f, { task, run, done, output });
 }
 
@@ -73,7 +71,8 @@ test('Script keybindings sync with settings, normalize T3 aliases and plus keys,
 });
 
 test('Script progress strips terminal controls, bounds lines, and stays in authenticated projections rather than durable root state', async t => {
-  assert.equal(projectScriptProgress('\x1b]0;title\x07\x1b[31mReady\x1b[0m\r\n__FRIDAY_SCRIPT_DONE_abcd:0\n'), 'Ready');
+  assert.equal(projectScriptProgress('\x1b]0;title\x07\x1b[31mReady\x1b[0m\r\n'), 'Ready');
+  assert.equal(projectScriptProgress('begin\n__FRIDAY_SCRIPT_DONE_abcd:0\n'), 'begin\n__FRIDAY_SCRIPT_DONE_abcd:0', 'Ordinary log content must not be mistaken for removed terminal protocol markers');
   assert(projectScriptProgress(('long'.repeat(1000) + '\n').repeat(20)).length <= 4096);
   assert.equal(projectScriptProgress('begin' + 'x'.repeat(600) + 'end').length, 400); assert(projectScriptProgress('begin' + 'x'.repeat(600) + 'end').startsWith('begin'));
   const f = await fixture(t, [script({ command: "printf 'LINE_%s\\n' \"$((23*47))\"" })]), task = await f.task(); await until(() => f.engine.snapshot(), s => s.tasks[0].status === 'completed');
@@ -82,37 +81,24 @@ test('Script progress strips terminal controls, bounds lines, and stays in authe
   const receipt = await(await api.request('/api/project-scripts/runs/' + id, { headers })).json(); assert.match(receipt.run.progress, /LINE_1081/);
   const projected = await(await api.request('/api/tasks/' + task + '/scripts', { headers })).json(); assert.match(projected.runs[0].progress, /LINE_1081/);
   assert.equal((await f.engine.snapshot()).projectScriptRuns?.[0] && Object.hasOwn((await f.engine.snapshot()).projectScriptRuns![0], 'progress'), false);
-  await f.engine.mutate(s => { delete s.projectScriptRuns![0].generation; });
-  const pending = await(await api.request('/api/project-scripts/runs/' + id, { headers })).json(); assert.equal(pending.run.progress, undefined, 'A terminal without its captured generation cannot project output');
+  f.engine.projectScripts.processes.delete(id);
+  const pending = await(await api.request('/api/project-scripts/runs/' + id, { headers })).json(); assert.equal(pending.run.progress, undefined, 'Missing logs do not project fabricated output');
 });
 
-test('Bounded terminal tails release their read cursor, retain byte order and cannot mix restarted generations', async t => {
-  const directory = await realpath(await mkdtemp(join(tmpdir(), 'friday-script-tail-'))), store = new TerminalStore(); await store.open(directory);
-  t.after(async () => { store.close(); await rm(directory, { recursive: true, force: true }); });
-  const row: TaskTerminalSummary = { taskId: 'script-owner', id: 'script', generation: 1, cwd: directory, shell: '/bin/sh', label: 'script', title: 'sh', status: 'closed', pid: null, cols: 80, rows: 24, sequence: 0, baseSequence: 1, hasRunningSubprocess: false, createdAt: '', updatedAt: '' }; store.save(row);
-  const chunks = Array.from({ length: 24 }, (_, i) => Buffer.alloc(1024, 65 + i)); for (const bytes of chunks) store.output(row, bytes);
-  assert.deepEqual(store.historyTail(row), Buffer.concat(chunks).subarray(-8192));
-  store.output(row, Buffer.from('still-writable')); assert.match(store.historyTail(row).toString('utf8'), /still-writable$/);
-  const restarted = { ...row, generation: 2, sequence: 0 }; store.save(restarted); store.output(restarted, Buffer.from('second generation'));
-  assert.equal(store.historyTail(restarted).toString('utf8'), 'second generation'); assert(!store.historyTail(row).toString('utf8').includes('second generation'));
-  store.deleteTask(row.taskId); assert.equal(store.historyTail(row).length, 0);
-});
-
-test('Manual scripts use a real interactive terminal, preserve multiline heredocs, export roots and deduplicate after config changes', async t => {
+test('Manual scripts run without a terminal, preserve multiline heredocs, export roots and deduplicate after config changes', async t => {
   const command = "cat <<'END' > result\nheredoc value\nEND\nprintf '%s|%s|%s' \"$T3CODE_PROJECT_ROOT\" \"$NO_COLOR\" \"$FORCE_COLOR\"\n# trailing comment";
   const f = await fixture(t, [script({ command })]), taskId = await f.task(); await until(() => f.engine.snapshot(), s => s.tasks[0].status === 'completed');
   const id = await f.engine.projectScripts.startTask(taskId, 'test', 'manual'), run = await f.done(id); assert.equal(run.status, 'completed', run.error); assert.equal(run.exitCode, 0);
   assert.equal(await readFile(join(f.repo, 'result'), 'utf8'), 'heredoc value\n'); assert.match(await f.output(id), new RegExp(f.repo + '\\|1\\|0'));
-  assert(!JSON.stringify(await f.engine.snapshot()).includes('heredoc value\r\n'), 'PTY output stays in private terminal storage');
+  assert(!JSON.stringify(await f.engine.snapshot()).includes('heredoc value\r\n'), 'Script output stays in private log storage');
   await f.engine.mutate(s => { s.projects[0].scripts = []; }); assert.equal(await f.engine.projectScripts.startTask(taskId, 'test', 'manual'), id);
   assert.equal((await f.engine.snapshot()).projectScriptRuns?.length, 1);
 });
 
-test('Interactive stdin waits for user input rather than consuming the completion wrapper; errors retain output and cancel stops only the script', async t => {
-  const f = await fixture(t, [script({ command: "printf 'WAIT_INPUT\\n'; read answer; printf 'ANSWER=%s\\n' \"$answer\"; exit 7" })]), taskId = await f.task(); await until(() => f.engine.snapshot(), s => s.tasks[0].status === 'completed');
-  const id = await f.engine.projectScripts.startTask(taskId, 'test', 'interactive'); await until(() => f.output(id).catch(() => ''), text => text.includes('WAIT_INPUT\r\n'));
-  let run = await f.run(id); assert.equal(run.status, 'running'); await f.engine.terminals.write(run.terminalOwner, run.terminalId, { requestId: 'answer', generation: run.generation!, data: Buffer.from('typed value\r').toString('base64') });
-  run = await f.done(id); assert.equal(run.status, 'failed'); assert.equal(run.exitCode, 7); assert.match(await f.output(id), /ANSWER=typed value/); assert.equal(f.engine.terminals.store.get(run.terminalOwner, run.terminalId)?.status, 'running');
+test('Scripts have no interactive stdin, retain failure output and cancel only their own process', async t => {
+  const f = await fixture(t, [script({ command: "if [ -t 0 ]; then exit 99; fi; read answer; printf 'NO_INPUT=%s\\n' \"$?\"; exit 7" })]), taskId = await f.task(); await until(() => f.engine.snapshot(), s => s.tasks[0].status === 'completed');
+  const id = await f.engine.projectScripts.startTask(taskId, 'test', 'noninteractive');
+  const run = await f.done(id); assert.equal(run.status, 'failed'); assert.equal(run.exitCode, 7); assert.match(await f.output(id), /NO_INPUT=1/);
   await f.engine.mutate(s => { s.projects[0].scripts = [script({ command: 'sleep 60' })]; }); const long = await f.engine.projectScripts.startTask(taskId, 'test', 'long'); await until(() => f.run(long), r => r.status === 'running');
   await f.engine.projectScripts.cancel(long); assert.equal((await f.run(long)).status, 'cancelled'); assert.equal((await f.engine.snapshot()).tasks[0].status, 'completed');
 });
@@ -122,13 +108,13 @@ test('A synchronous setup runs once before the Agent in the Worktree; default as
   const id = await f.task(true); const state = await until(() => f.engine.snapshot(), s => s.tasks.find(v => v.id === id)?.status === 'completed'); const task = state.tasks.find(v => v.id === id)!;
   assert.equal(await readFile(join(task.cwd, 'setup-marker'), 'utf8'), 'ready'); assert.equal(state.projectScriptRuns?.length, 1); assert.equal(state.projectScriptRuns?.[0].trigger, 'setup'); assert.equal(f.calls[0].task.cwd, task.cwd);
   await assert.rejects(readFile(join(f.repo, 'setup-marker')), /ENOENT/); await assert.rejects(readFile(join(task.cwd, 'second')), /ENOENT/);
-  await f.engine.mutate(s => { s.projects[0].scripts = [script({ command: "printf 'SETUP_WAIT\\n'; read answer", runOnWorktreeCreate: true })]; });
+  await f.engine.mutate(s => { s.projects[0].scripts = [script({ command: "printf 'SETUP_WAIT\\n'; sleep 60", runOnWorktreeCreate: true })]; });
   const asyncId = await f.task(true); const second = await until(() => f.engine.snapshot(), s => s.tasks.find(v => v.id === asyncId)?.status === 'completed'); const run = second.projectScriptRuns!.find(r => r.taskId === asyncId)!;
   assert.equal(run.status, 'running'); await f.engine.projectScripts.cancel(run.id); assert.equal((await f.engine.snapshot()).tasks.find(v => v.id === asyncId)?.status, 'completed');
 });
 
 test('Stopping synchronous setup never starts the Agent; a failed setup requires an explicit retry with a new attempt', async t => {
-  const f = await fixture(t, [script({ command: 'read answer', runOnWorktreeCreate: true, async: false })]); const id = await f.task(true);
+  const f = await fixture(t, [script({ command: 'sleep 60', runOnWorktreeCreate: true, async: false })]); const id = await f.task(true);
   await until(() => f.engine.snapshot(), s => s.projectScriptRuns?.[0]?.status === 'running'); await f.engine.cancel(id); assert.equal((await f.engine.snapshot()).projectScriptRuns?.[0].status, 'cancelled'); assert.equal(f.calls.length, 0);
   await f.engine.mutate(s => { s.projects[0].scripts = [script({ command: 'exit 3', runOnWorktreeCreate: true, async: false })]; }); const failed = await f.task(true);
   const broken = await until(() => f.engine.snapshot(), s => s.tasks.find(v => v.id === failed)?.status === 'failed');
@@ -179,13 +165,13 @@ test('A manual Settle detaches the idle provider before admitting its Worktree s
 });
 
 test('Restart never resends an uncertain script; HTTP authentication and maintenance cover prep-only scripts without fake Agent tasks', async t => {
-  const f = await fixture(t, [script({ command: 'printf x >> once; read answer' })]), id = await f.task(); await until(() => f.engine.snapshot(), s => s.tasks[0].status === 'completed');
-  const runId = await f.engine.projectScripts.startTask(id, 'test', 'once'); await until(() => f.output(runId).catch(() => ''), text => text.includes('read answer'));
+  const f = await fixture(t, [script({ command: 'printf x >> once; printf READY; sleep 60' })]), id = await f.task(); await until(() => f.engine.snapshot(), s => s.tasks[0].status === 'completed');
+  const runId = await f.engine.projectScripts.startTask(id, 'test', 'once'); await until(() => f.output(runId).catch(() => ''), text => text.includes('READY'));
   await until(() => readFile(join(f.repo, 'once'), 'utf8').catch(() => ''), text => text === 'x'); await f.engine.close(); f.engine = await new Engine(f.data, f.executor).open();
   const run = await f.done(runId); assert.equal(run.status, 'interrupted'); assert.equal(await readFile(join(f.repo, 'once'), 'utf8'), 'x'); assert.equal(await f.engine.projectScripts.startTask(id, 'test', 'once'), runId);
   const auth = new Auth(f.data); t.after(async () => auth.close()); const api = createAPI(f.engine, auth, () => []), path = '/api/project-scripts/runs/' + runId;
   assert.equal((await api.request(path)).status, 401); assert.equal((await api.request(path, { headers: { Authorization: 'Bearer ' + auth.token } })).status, 200);
-  const state = await f.engine.snapshot(); state.projectScriptTerminalsBusy = true; const maintenance = new ServiceMaintenance(async () => state); await assert.rejects(maintenance.prepare(), /项目脚本/); assert.equal(maintenance.preparing, false);
+  const state = await f.engine.snapshot(); state.projectScriptRuns![0].status = 'running'; const maintenance = new ServiceMaintenance(async () => state); await assert.rejects(maintenance.prepare(), /项目脚本/); assert.equal(maintenance.preparing, false);
 });
 
 test('t3.json import reads bounded ordinary files as data, supplies defaults, and never installs or executes discovered commands', async t => {
@@ -197,23 +183,22 @@ test('t3.json import reads bounded ordinary files as data, supplies defaults, an
   await rm(file); await symlink(join(f.repo, 'file'), file); await assert.rejects(importableProjectScripts(f.engine, 'p'), /普通文件/);
 });
 
-test('Completed prep scripts preserve background processes and block maintenance until the explicit terminal close', async t => {
+test('Prep scripts track background output processes and block maintenance until stopped', async t => {
   const f = await fixture(t), taskId = await f.task(true); const state = await until(() => f.engine.snapshot(), s => s.tasks[0].status === 'completed');
   await f.engine.mutate(s => { s.projects[0].scripts = [script({ command: 'sleep 60 &', runOnWorktreeCreate: true })]; });
   const id = await f.engine.projectScripts.setup({ projectId: 'p', preparationId: 'fixture-prep', plan: state.tasks.find(t => t.id === taskId)!.executionWorkspace!, requestId: 'prep-bg' }); assert(id);
-  const run = await f.done(id); assert.equal(run.status, 'completed', run.error);
-  await until(() => f.engine.snapshot(), s => s.projectScriptTerminalsBusy === true); assert.equal(f.engine.terminals.store.get(run.terminalOwner, run.terminalId)?.status, 'running');
+  await until(() => f.run(id), run => run.status === 'running');
   const maintenance = new ServiceMaintenance(() => f.engine.snapshot()); await assert.rejects(maintenance.prepare(), /项目脚本/);
   const auth = new Auth(f.data); t.after(async () => auth.close()); const api = createAPI(f.engine, auth, () => []), headers = { Authorization: 'Bearer ' + auth.token };
   assert.equal((await api.request('/api/project-scripts/runs')).status, 401);
   const open = await(await api.request('/api/project-scripts/runs?projectId=p', { headers })).json(); assert.equal(open.runs[0].id, id); assert.equal(open.runs[0].taskId, undefined);
-  await f.engine.terminals.lifecycle(run.terminalOwner, { action: 'close', terminalId: run.terminalId, requestId: 'close-bg', force: true });
-  await until(() => f.engine.snapshot(), s => s.projectScriptTerminalsBusy === false); await maintenance.prepare(); maintenance.cancel();
+  await f.engine.projectScripts.cancel(id);
+  await until(() => f.run(id), run => run.status === 'cancelled'); await maintenance.prepare(); maintenance.cancel();
   const closed = await(await api.request('/api/project-scripts/runs?projectId=p', { headers })).json(); assert.equal(closed.runs.length, 0);
 });
 
 test('Preparation cancellation is authenticated, attempt-scoped, idempotent and refuses an Agent already handed off', async t => {
-  const f = await fixture(t, [script({ command:'read answer',runOnWorktreeCreate:true,async:false })]);
+  const f = await fixture(t, [script({ command:'sleep 60',runOnWorktreeCreate:true,async:false })]);
   const id=await f.task(true), pending=await until(()=>f.engine.snapshot(),s=>s.projectScriptRuns?.[0]?.status==='running');
   const task=pending.tasks.find(v=>v.id===id)!, run=task.runs!.find(r=>r.id===task.currentRunId)!;
   const auth=new Auth(f.data);t.after(async()=>auth.close());const api=createAPI(f.engine,auth), path='/api/tasks/'+id+'/preparation/cancel';
@@ -222,7 +207,7 @@ test('Preparation cancellation is authenticated, attempt-scoped, idempotent and 
   assert.equal((await request({...body,attempt:2})).status,400);assert.equal((await request({...body,runId:'foreign'})).status,400);
   assert.equal((await request(body)).status,200);assert.equal((await request(body)).status,200);
   const cancelled=(await f.engine.snapshot()).tasks.find(v=>v.id===id)!;assert.equal(cancelled.status,'cancelled');assert.equal(cancelled.runs![0].workspacePreparation?.status,'cancelled');assert.equal(f.calls.length,0);
-  await f.engine.mutate(s=>{s.projects[0].scripts=[script({command:'read answer',runOnWorktreeCreate:true})];});
+  await f.engine.mutate(s=>{s.projects[0].scripts=[script({command:'sleep 60',runOnWorktreeCreate:true})];});
   const secondId=await f.task(true), handedOff=await until(()=>f.engine.snapshot(),s=>s.tasks.find(v=>v.id===secondId)?.status==='completed');
   const second=handedOff.tasks.find(v=>v.id===secondId)!;
   const late=await api.request('/api/tasks/'+secondId+'/preparation/cancel',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+auth.token},body:JSON.stringify({runId:second.currentRunId,attempt:1})});
@@ -230,8 +215,11 @@ test('Preparation cancellation is authenticated, attempt-scoped, idempotent and 
 });
 
 test('A persisted cancellation claim survives restart before the abort RPC and never replays setup or starts the Agent', async t => {
-  const f=await fixture(t,[script({command:'printf x >> once; read answer',runOnWorktreeCreate:true,async:false})]), id=await f.task(true);
+  const f=await fixture(t,[script({command:'printf x >> once; sleep 60',runOnWorktreeCreate:true,async:false})]), id=await f.task(true);
   const state=await until(()=>f.engine.snapshot(),s=>s.projectScriptRuns?.[0]?.startedAt!==undefined), task=state.tasks.find(v=>v.id===id)!;
+  // Spawn acknowledgement precedes the command's side effect. Observe the
+  // marker before shutting down so this specifically tests at-most-once recovery.
+  await until(() => readFile(join(task.cwd,'once'),'utf8').catch(() => ''), text => text === 'x');
   await f.engine.mutate(s=>{s.tasks.find(v=>v.id===id)!.runs![0].workspacePreparation!.cancelRequestedAt=new Date().toISOString();});
   await f.engine.close();f.engine=await new Engine(f.data,f.executor).open();
   const ended=await until(()=>f.engine.snapshot(),s=>s.tasks.find(v=>v.id===id)?.status==='cancelled');

@@ -92,12 +92,12 @@ import Foundation
         precondition(!probe.decodedOnMainThread, "Loading a snapshot from the UI must decode outside the main thread")
     }
     static func network(_ base: String) async throws {
-        for route in ["overview", "task", "output", "terminal", "live"] {
+        for route in ["overview", "task", "output", "live"] {
             var request = URLRequest(url: URL(string: base + "/" + route)!); request.timeoutInterval = 10
             let (bytes, response) = try await URLSession.shared.bytes(for: request)
             precondition((response as? HTTPURLResponse)?.statusCode == 200)
             let decoder = TaskStreamDecoding()
-            var output = TaskOutputStream(); var terminal = TaskTerminalStream(); var count = 0
+            var output = TaskOutputStream(); var count = 0
             for try await line in bytes.lines {
                 switch route {
                 case "overview": if try await decoder.readWorkspace(line) != nil { count += 1 }
@@ -117,7 +117,6 @@ import Foundation
                             precondition((reply as? HTTPURLResponse)?.statusCode == 204, "Native timeline must receive the running text before completion is released")
                         } else { precondition(count == 2 && frame.task.status == "completed") }
                     }
-                default: if try terminal.read(line) != nil { count += 1 }
                 }
             }
             precondition(count == 2, "Actual AsyncBytes.lines must deliver both \(route) frames without empty SSE lines")

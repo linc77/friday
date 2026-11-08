@@ -2,7 +2,7 @@ import type { Hono } from 'hono';
 import type { Engine } from './engine.js';
 import { TaskBrowserDiscovery, resolveBrowserAddress } from './task-browser.js';
 
-export function installTaskBrowserAPI(app: Hono<{ Variables: { device: string } }>, engine: Engine, discovery = new TaskBrowserDiscovery(undefined, undefined, () => engine.terminals.browserProcessOwners())) {
+export function installTaskBrowserAPI(app: Hono<{ Variables: { device: string } }>, engine: Engine, discovery = new TaskBrowserDiscovery()) {
   async function scope(taskId: unknown) {
     if (typeof taskId !== 'string' || !taskId || taskId.length > 512) throw new Error('任务不存在');
     await engine.contexts.owner({ taskId });

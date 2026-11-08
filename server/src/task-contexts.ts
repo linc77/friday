@@ -6,7 +6,6 @@ import type { Engine } from './engine.js';
 import type { Project, WorkItem } from './types.js';
 import { contextID, contextIDs, contextLabel, contextOccurrences, type TaskContextCapture, type TaskContextKind, type TaskContextReference, type TaskContextScope } from './task-context-types.js';
 import { TaskFiles } from './task-files.js';
-import { terminalID } from './terminal-types.js';
 import { reviewComment, reviewDiffPath } from './task-review-comments.js';
 import { applyPromptReplacements, prepareAssistantCitations } from './assistant-citations.js';
 import { normalizeBrowserAnnotation, browserAnnotationLabel, renderBrowserAnnotation } from './browser-annotations.js';
@@ -51,24 +50,16 @@ export class TaskContexts {
   }
   async capture(input: Record<string, unknown>): Promise<TaskContextReference> {
     const id = contextID(input.id); const source = scope(input.scope); const kind = input.kind as TaskContextKind;
-    if (!['terminal', 'file', 'directory', 'code', 'review-comment', 'preview-annotation'].includes(kind)) throw new Error('上下文引用类型无效');
+    if (!['file', 'directory', 'code', 'review-comment', 'preview-annotation'].includes(kind)) throw new Error('上下文引用类型无效');
     if (input.expectedVersion !== undefined && (typeof input.expectedVersion !== 'string' || !/^[a-f0-9]{64}$/.test(input.expectedVersion))) throw new Error('文件预览版本无效');
     const review = kind === 'review-comment' ? reviewComment(input) : undefined;
     const annotation = kind === 'preview-annotation' ? normalizeBrowserAnnotation(input.annotation) : undefined;
-    const normalized = { id, scope: source, kind, ...(annotation ? { annotation } : kind === 'terminal' ? { terminalId: input.terminalId, generation: input.generation, text: input.text, lineStart: input.lineStart, lineEnd: input.lineEnd } : { path: input.path, expectedVersion: input.expectedVersion, ...(['code', 'review-comment'].includes(kind) ? { lineStart: input.lineStart, lineEnd: input.lineEnd } : {}), ...(kind === 'review-comment' ? { comment: input.comment, contents: input.contents, workspaceRoot: input.workspaceRoot, workspaceVersion: input.workspaceVersion, diffReview: review?.diffReview } : {}) }) };
+    const normalized = { id, scope: source, kind, ...(annotation ? { annotation } : { path: input.path, expectedVersion: input.expectedVersion, ...(['code', 'review-comment'].includes(kind) ? { lineStart: input.lineStart, lineEnd: input.lineEnd } : {}), ...(kind === 'review-comment' ? { comment: input.comment, contents: input.contents, workspaceRoot: input.workspaceRoot, workspaceVersion: input.workspaceVersion, diffReview: review?.diffReview } : {}) }) };
     const intent = sha(JSON.stringify(normalized)); const saved = this.record(id);
     if (saved) { if (saved.intent !== intent) throw new Error('上下文引用 ID 已被其他选区使用'); return saved.reference; }
     const owner = await this.source(source); let capturedCwd = owner.cwd; let text = ''; let details: Partial<TaskContextReference> = {};
     if (annotation) { text = JSON.stringify(annotation); details = { label: browserAnnotationLabel(annotation) }; }
-    else if (kind === 'terminal') {
-      const terminal = owner.task && this.engine.terminals.store.get(owner.task.id, terminalID(input.terminalId));
-      if (!terminal || terminal.generation !== input.generation) throw new Error('终端已退出或重新启动，请重新选取内容');
-      capturedCwd = terminal.cwd;
-      if (typeof input.text !== 'string' || !input.text || input.text.length > 64_000 || /\x00/.test(input.text)) throw new Error('终端选区不能为空，且最多 64,000 字');
-      if (!Number.isSafeInteger(input.lineStart) || !Number.isSafeInteger(input.lineEnd) || Number(input.lineStart) < 1 || Number(input.lineEnd) < Number(input.lineStart)) throw new Error('终端选区行范围无效');
-      text = input.text.replace(/\r\n/g, '\n').replace(/^\n+|\n+$/g, ''); if (!text.trim()) throw new Error('终端选区不能为空');
-      details = { terminalId: terminal.id, terminalLabel: terminal.label, generation: terminal.generation, lineStart: Number(input.lineStart), lineEnd: Number(input.lineEnd), label: `${terminal.label}:${input.lineStart}${input.lineEnd === input.lineStart ? '' : '-' + input.lineEnd}` };
-    } else if (kind === 'review-comment') {
+    else if (kind === 'review-comment') {
       let path: string;
       if (review!.diffReview) {
         if (input.workspaceRoot !== owner.cwd) throw new Error('批注所属工作区已改变，请重新添加');

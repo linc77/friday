@@ -38,7 +38,6 @@ import { SourceControlCredentialConflict } from './source-control-credentials.js
 import { installChangeRequestAPI } from './task-change-request-api.js';
 import { sourceControlRateFailure } from './source-control-request-policy.js';
 import { branchBlocksTask } from './branch-switch.js';
-import { installTerminalAPI } from './terminal-api.js';
 import { installContextAPI } from './context-api.js';
 import { maxTaskFileBytes } from './task-attachments.js';
 import { installTaskFileAssets } from './task-file-assets.js';
@@ -122,7 +121,6 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     if (!device) return c.json({ error: '请先连接或配对设备' }, 401);
     c.set('device', device); await next();
   });
-  installTerminalAPI(app, engine, auth);
   installContextAPI(app, engine, integrations.hostEditors);
   app.post('/api/tasks/:id/session-operation', async c => {
     const body = await c.req.json();

@@ -8,7 +8,7 @@ function fixture() {
   const task = { id:'task', agent:'codex', status:'running', currentRunId:'run', createdAt:at, updatedAt:next, error:null,
     executionWorkspace:{ mode:'worktree', root:'/synthetic/tree', targetBranch:'feature', branch:'refs/heads/main', commit:'a'.repeat(40), state:'ready' },
     runs:[{id:'run',status:'running',at,workspacePreparation:{status:'ready',attempt:1,startedAt:at,completedAt:next,checkoutCompletedAt:next,setupRunId:'script',setupResolvedAt:next}}] } as unknown as WorkItem;
-  const script = {id:'script',taskId:'task',trigger:'setup',requestId:'setup-task-run',createdAt:next,updatedAt:next,status:'running',startedAt:next,terminalId:'term',script:{name:'Initialize',command:'literal',async:false}} as ProjectScriptRun;
+  const script = {id:'script',taskId:'task',trigger:'setup',requestId:'setup-task-run',createdAt:next,updatedAt:next,status:'running',startedAt:next,script:{name:'Initialize',command:'literal',async:false}} as ProjectScriptRun;
   const state = {revision:7, projectScriptRuns:[script]} as Workspace;
   return {task,script,state,read:()=>worktreeSetupSnapshot(state,task,()=>({text:'\x1b[31mfirst\x1b[0m\rsecond\nthird\nfourth\nfifth\n',sequence:3}))};
 }
@@ -44,12 +44,12 @@ test('Output is bounded, cancellation claims render immediately, and successful 
   delete f.task.runs![0].workspacePreparation!.cancelRequestedAt;f.state.projectScriptRuns=[];f.task.executionWorkspace!.mode='checkout';
   assert.deepEqual(f.read()!.stages.map(s=>s.status),['done','skipped','running']);assert.equal(f.read()!.setupScript,null);
 });
-test('Setup output waits for complete lines, removes only the active shell wrapper and remains valid Unicode', () => {
+test('Setup output waits for complete lines, preserves command-like output and remains valid Unicode', () => {
   const f=fixture();f.script.script.command='printf literal';
-  const snapshot=worktreeSetupSnapshot(f.state,f.task,()=>({text:'prompt> ( printf literal\r\ncomplete\rpartial',sequence:1,shell:'/bin/sh'}))!;
-  assert.deepEqual(snapshot.stages[1].tail,['complete']);
-  const fish=worktreeSetupSnapshot(f.state,f.task,()=>({text:'begin\rprintf literal\rdone\rpartial',sequence:1,shell:'/opt/fish'}))!;
-  assert.deepEqual(fish.stages[1].tail,['done']);
+  const snapshot=worktreeSetupSnapshot(f.state,f.task,()=>({text:'prompt> ( printf literal\r\ncomplete\rpartial',sequence:1}))!;
+  assert.deepEqual(snapshot.stages[1].tail,['prompt> ( printf literal','complete']);
+  const commandLike=worktreeSetupSnapshot(f.state,f.task,()=>({text:'begin\rprintf literal\rdone\rpartial',sequence:1}))!;
+  assert.deepEqual(commandLike.stages[1].tail,['begin','printf literal','done']);
   const unicode=worktreeSetupSnapshot(f.state,f.task,()=>({text:'x'.repeat(399)+'😀\n',sequence:1}))!.stages[1].tail[0];
   assert.equal(unicode.length,400);assert.equal(unicode.charCodeAt(399),0xfffd);
 });

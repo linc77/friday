@@ -56,17 +56,12 @@ test('T3 archive retains pin position, Snooze, conversation and files; unarchive
   assert.equal(f.executor.calls, 0); assert.equal((await f.engine.snapshot()).projectScriptRuns?.length ?? 0, 0);
 });
 
-test('Archive cancels owned execution and queued input, closes the terminal while keeping its tail, and rejects late callbacks after restoration', async t => {
+test('Archive cancels owned execution and queued input, rejects late callbacks after restoration', async t => {
   const f = await fixture(t), id = await f.engine.createTask({ agent: 'codex', mode: 'research', projectId: 'project', prompt: 'Owned running request', requestId: 'owned' });
   const live = await until(() => f.task(id), task => task.canSteer === true);
   await f.engine.taskQueue.enqueue(id, { text: 'Must never run after archive' }, 'cancelled-queue');
-  await f.engine.terminals.lifecycle(id, { action: 'open', terminalId: 'owned-terminal', requestId: 'open-owned-terminal', shell: '/bin/sh' });
-  await until(async () => f.engine.terminals.summaries(id), rows => rows.some(row => row.status === 'running'));
-  await f.engine.terminals.write(id, 'owned-terminal', { requestId: 'owned-stdin', generation: 1, data: Buffer.from("printf 'archive-tail\\n'\n").toString('base64') });
-  await until(async () => f.engine.terminals.snapshot(id, 'owned-terminal'), frame => Buffer.from(frame.history ?? '', 'base64').toString().includes('archive-tail'));
   assert.equal((await f.patch(id, { archived: true })).status, 200); const archived = await f.task(id);
   assert.equal(archived.status, 'cancelled'); assert.equal(archived.queue?.messages[0].status, 'cancelled'); assert.deepEqual(f.executor.closes, [id + ':owned-session']); assert.equal(f.executor.calls, 1);
-  assert.equal(f.engine.terminals.snapshot(id, 'owned-terminal').terminal!.status, 'closed'); assert.match(Buffer.from(f.engine.terminals.snapshot(id, 'owned-terminal').history ?? '', 'base64').toString(), /archive-tail/);
   assert.equal((await f.patch(id, { archived: false })).status, 200);
   await f.engine.updateExecution(id, { kind: 'output', text: 'Stale reply' }, live.currentRunId); assert.equal((await f.task(id)).result, 'Kept partial answer');
   await f.reopen(); assert.equal(f.executor.calls, 1); assert.equal((await f.task(id)).queue?.messages[0].status, 'cancelled');

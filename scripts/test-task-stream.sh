@@ -12,7 +12,6 @@ swiftc -parse-as-library \
   apps/apple/Sources/FridayKit/TaskConversationWindow.swift \
   apps/apple/Sources/FridayKit/TaskViewHistoryCache.swift \
   apps/apple/Sources/FridayKit/TaskOutputProtocol.swift \
-  apps/apple/Sources/FridayKit/TaskTerminalProtocol.swift \
   apps/apple/Tests/FridayKitTests/TaskStreamStateTests.swift \
   -o "$FRIDAY_STREAM_CHECK_DIR/check"
 node server/test/fixtures/task-stream.mjs "$FRIDAY_STREAM_CHECK_DIR/check"

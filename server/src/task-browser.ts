@@ -3,8 +3,7 @@ import { promisify } from 'node:util';
 
 const run = promisify(execFile);
 export const browserLoopbackHosts = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
-export interface TaskBrowserTerminalOwner { threadId: string; terminalId: string }
-export interface TaskBrowserServer { host: string; port: number; url: string; processName: string | null; pid: number | null; terminal: TaskBrowserTerminalOwner | null }
+export interface TaskBrowserServer { host: string; port: number; url: string; processName: string | null; pid: number | null }
 export function normalizeBrowserURL(raw: unknown): string {
   if (typeof raw !== 'string' || raw.length > 2048 || !raw.trim()) throw new Error('请输入网页地址');
   const value = raw.trim(), local = /^(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1?\])(?::|\/|$)/i.test(value);
@@ -31,7 +30,7 @@ export function resolveBrowserAddress(raw: unknown): string {
   }
   const search = 'https://duckduckgo.com/?q=' + encodeURIComponent(value); if (search.length > 2048) throw new Error('网页地址过长'); return search;
 }
-export function parseBrowserListeners(raw: string, owners: ReadonlyMap<number, TaskBrowserTerminalOwner> = new Map()): TaskBrowserServer[] {
+export function parseBrowserListeners(raw: string): TaskBrowserServer[] {
   let pid: number | null = null, processName: string | null = null;
   const values = new Map<number, TaskBrowserServer>();
   for (const line of raw.split('\n')) {
@@ -41,10 +40,7 @@ export function parseBrowserListeners(raw: string, owners: ReadonlyMap<number, T
     if (tag !== 'n') continue;
     const match = /^(.+):([^:]+)$/.exec(value.split(' ', 1)[0]?.trim() ?? ''); if (!match || !['*', '[::]', '[::1]', ...browserLoopbackHosts].includes(match[1])) continue;
     const port = Number.parseInt(match[2],10); if (!Number.isFinite(port) || port < 1 || port > 65535) continue;
-    const previous = values.get(port);
-    const terminal = pid === null ? null : owners.get(pid) ?? null;
-    if (!previous) values.set(port, { host: 'localhost', port, url: `http://localhost:${port}`, processName, pid, terminal });
-    else if (!terminal) values.set(port, { ...previous, terminal: null });
+    if (!values.has(port)) values.set(port, { host: 'localhost', port, url: `http://localhost:${port}`, processName, pid });
   }
   return [...values.values()].sort((a, b) => a.port - b.port);
 }
@@ -72,7 +68,7 @@ export class TaskBrowserDiscovery {
     return result.stdout;
   }, private readonly probe = async (url: string) => {
     try { const response = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(1000), headers: { Accept: 'text/html, application/xhtml+xml' } }); const value = browserWebResponse(response.status, response.headers.get('Content-Type'), response.headers.get('Location')); await response.body?.cancel().catch(() => {}); return value; } catch { return false; }
-  }, private readonly owners: () => Promise<ReadonlyMap<number, TaskBrowserTerminalOwner>> = async () => new Map()) {}
+  }) {}
   private async scan() {
     if (this.snapshot && Date.now() - this.snapshot.at < 3000) return this.snapshot.raw;
     if (this.pending) return this.pending;
@@ -86,14 +82,14 @@ export class TaskBrowserDiscovery {
     this.probing.set(key, pending); return pending;
   }
   async list(configuredValue?: unknown) {
-    const configured = browserConfiguredURLs(configuredValue), [raw, owners] = await Promise.all([this.scan(), this.owners()]), servers = parseBrowserListeners(raw, owners), byPort = new Map(servers.map(server => [server.port, server]));
-    const groups: { server: TaskBrowserServer; urls: string[]; configured: boolean; result?: TaskBrowserServer }[] = configured.map(raw => {
+    const configured = browserConfiguredURLs(configuredValue);
+    if (!configured.length) return { servers: [], scannedAt: new Date().toISOString() };
+    const raw = await this.scan(), servers = parseBrowserListeners(raw), byPort = new Map(servers.map(server => [server.port, server]));
+    const groups: { server: TaskBrowserServer; urls: string[]; result?: TaskBrowserServer }[] = configured.map(raw => {
       const url = new URL(raw), port = Number(url.port || (url.protocol === 'http:' ? 80 : 443));
-      return { server: byPort.get(port) ?? { host: url.hostname, port, url: raw, pid: null, processName: null, terminal: null }, urls: [raw], configured: true };
+      return { server: byPort.get(port) ?? { host: url.hostname, port, url: raw, pid: null, processName: null }, urls: [raw] };
     });
-    // Match T3: only terminal-owned listeners receive automatic HTTP/TLS probes.
-    // Explicit configured URLs may also point to a service started outside Friday.
-    for (const server of servers) if (server.terminal) groups.push({ server, urls: [`http://${server.host}:${server.port}`, `https://${server.host}:${server.port}`], configured: false });
+    // Probe only explicitly configured URLs.
     let next = 0;
     await Promise.all(Array.from({ length: Math.min(16, groups.length) }, async () => {
       while (next < groups.length) {

@@ -40,8 +40,6 @@ export class TaskArchives {
           // still exists; closing it first would only mark them interrupted.
           await engine.backgroundStops.cancelSettled(current);
           await engine.executor.stopNativeSession?.(work.id, current.executionSessionId ?? input.sessionId);
-          await engine.terminals.archiveTask(work.id);
-          for (const owner of new Set(engine.projectScripts.list(await engine.snapshot(), work.id).map(run => run.terminalOwner).filter(owner => owner !== work.id))) await engine.terminals.archiveTask(owner);
           await this.finish(input, 'completed');
           await runtime.commit(() => ({ status: 'terminal', outcome: { status: 'completed', result: { status: 'completed' } } }), ctx);
         } catch (error) {

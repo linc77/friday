@@ -126,7 +126,6 @@ struct ProjectScriptRunView: View {
     @State private var error: String?
     @State private var busy = false
     @State private var context = ""
-    @State private var confirmation = false
     private var identity: String { store.connectionIdentity + "\n" + (store.taskStreamSession ?? "legacy") + "\n" + id }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -143,12 +142,12 @@ struct ProjectScriptRunView: View {
                         Button(friday: "网页预览") { preview(url) }.buttonStyle(FridayButtonStyle(compact: true))
                     }
                     if receipt.run.active { Button(friday: "停止脚本") { Task { await cancel() } }.buttonStyle(FridayButtonStyle(compact: true)).disabled(busy || !store.connected) }
-                    else if receipt.terminal?.canType == true { Button(friday: "关闭终端") { confirmation = true }.buttonStyle(FridayButtonStyle(compact: true)).disabled(busy || !store.connected) }
                 }.font(.caption)
                 Text(verbatim: receipt.run.cwd).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                if let terminal = receipt.terminal {
-                    ProjectScriptTerminal(connection: store.connection, metadata: terminal).id(identity)
-                } else { Text(friday: "正在打开终端…").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity) }
+                ScrollView([.horizontal, .vertical]) {
+                    Text(verbatim: receipt.output ?? "").font(.system(.body, design: .monospaced)).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 if let problem = receipt.run.error { Text(fridayString: problem).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
             } else { Text(friday: "正在读取脚本运行…").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity) }
             if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
@@ -162,10 +161,6 @@ struct ProjectScriptRunView: View {
                 await load(scope)
                 do { try await Task.sleep(for: .seconds(1)) } catch { break }
             }
-        }
-        .confirmationDialog(Text(friday: "停止终端中的程序？"), isPresented: $confirmation, titleVisibility: .visible) {
-            Button(friday: "停止并关闭", role: .destructive) { Task { await closeTerminal() } }
-            Button(friday: "取消", role: .cancel) {}
         }
     }
     private func preview(_ url: URL) { if openPreview?(url) != true { openURL(url) }; dismiss() }
@@ -183,30 +178,5 @@ struct ProjectScriptRunView: View {
         guard !busy, receipt?.run.active == true else { return }; let scope = identity; busy = true
         do { _ = try await store.connection.data("/api/project-scripts/runs/\(id)/cancel", method: "POST", body: [:]); if identity == scope { await load(scope) } }
         catch { if identity == scope { self.error = error.localizedDescription } }; if identity == scope { busy = false }
-    }
-    private func closeTerminal() async {
-        guard !busy, let row = receipt?.terminal else { return }; let scope = identity; busy = true
-        do { _ = try await store.connection.data("/api/tasks/\(row.taskId)/terminals", method: "POST", body: ["action": "close", "terminalId": row.id, "requestId": UUID().uuidString, "force": true]); if identity == scope { await load(scope) } }
-        catch { if identity == scope { self.error = error.localizedDescription } }; if identity == scope { busy = false }
-    }
-}
-
-private struct ProjectScriptTerminal: View {
-    @StateObject private var session: TaskTerminalSession
-    let metadata: TaskTerminalSummary
-    @FridayPreference("friday.terminal.fontSize") private var fontSize = 13.0
-    init(connection: Connection, metadata: TaskTerminalSummary) {
-        self.metadata = metadata; _session = StateObject(wrappedValue: TaskTerminalSession(connection: connection, terminal: metadata))
-    }
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            TaskTerminalSurface(session: session).frame(maxWidth: .infinity, maxHeight: .infinity)
-            if let issue = session.inputProblem { HStack { Text(fridayString: issue).font(.caption).foregroundStyle(.orange); Button(friday: "继续输入") { session.resumeInput() } } }
-            else if let issue = session.error { Text(fridayString: issue).font(.caption).foregroundStyle(.orange) }
-        }
-        .onAppear { session.sync(metadata); session.setFontSize(fontSize); session.attach() }
-        .onChange(of: metadata) { _, value in session.sync(value) }
-        .onChange(of: fontSize) { _, value in session.setFontSize(value) }
-        .onDisappear { session.detach() }
     }
 }

@@ -1,3 +1,4 @@
+// Terminal references are read-only legacy message snapshots; new captures are rejected.
 export type TaskContextKind = 'terminal' | 'file' | 'directory' | 'code' | 'review-comment' | 'preview-annotation' | 'review-guide' | 'attachment' | 'handoff';
 export type TaskContextReference = {
   id: string; kind: TaskContextKind; label: string; capturedAt: string; digest: string;

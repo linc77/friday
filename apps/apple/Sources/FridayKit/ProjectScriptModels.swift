@@ -30,14 +30,14 @@ struct ProjectScriptSettingsSnapshot: Decodable {
 struct ProjectScriptRun: Decodable, Equatable, Identifiable {
     let id: String; let projectId: String; let taskId: String?; let preparationId: String?
     let requestId: String; let script: ProjectScript; let trigger: String; let cwd: String
-    let terminalOwner: String; let terminalId: String; let generation: Int?; let status: String
+    let status: String
     let startedAt: String?; let exitCode: Int?; let error: String?
     let progress: String?
     var active: Bool { status == "queued" || status == "running" }
     var label: String { switch status { case "queued": "等待脚本"; case "running": "脚本运行中"; case "completed": "脚本已完成"; case "failed": "脚本失败"; case "cancelled": "脚本已停止"; default: "脚本结果待确认" } }
 }
 struct TaskProjectScriptsSnapshot: Decodable { let scripts: [ProjectScript]; let runs: [ProjectScriptRun]; let keybindings: [String: String]?; let worktreeSetup: TaskWorktreeSetupSnapshot? }
-struct ProjectScriptRunReceipt: Decodable { let run: ProjectScriptRun; let terminal: TaskTerminalSummary? }
+struct ProjectScriptRunReceipt: Decodable { let run: ProjectScriptRun; let output: String? }
 struct ProjectScriptRunsSnapshot: Decodable { let runs: [ProjectScriptRun] }
 struct ProjectScriptIdentifier: Decodable, Identifiable { let id: String }
 struct ProjectScriptImport: Decodable { let scripts: [ProjectScript] }

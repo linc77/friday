@@ -33,7 +33,7 @@ import Foundation
         precondition(roundTrip == configured.scripts[1] && roundTrip.autoOpenPreview == true)
         precondition(configured.scripts[0].body["async"] as? Bool == false && configured.scripts[1].body["async"] == nil)
         let receipt = try decoder.decode(ProjectScriptRunReceipt.self, from: Data(#"{"run":{"id":"r","projectId":"p","preparationId":"prepared","requestId":"nonce","script":{"id":"s","name":"Setup","command":"true","icon":"play","runOnWorktreeCreate":true},"trigger":"setup","cwd":"/project/worktree","terminalOwner":"script-r","terminalId":"script-r","status":"queued"}}"#.utf8))
-        precondition(receipt.run.active && receipt.run.taskId == nil && receipt.terminal == nil)
+        precondition(receipt.run.active && receipt.run.taskId == nil && receipt.output == nil)
         precondition(receipt.run.preparationId == "prepared")
         let pending = PendingProjectScript(scriptId: "dev", requestId: "original-nonce")
         let recovered = try decoder.decode(PendingProjectScript.self, from: JSONEncoder().encode(pending))
