@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel>
 <title>Friday Personal Preview</title><link>https://github.com/linc77/friday</link><description>Friday macOS updates</description><language>zh-CN</language>
-<item><title>Friday 0.1.0-beta.10</title><pubDate>Sat, 07 Nov 2026 18:14:50 GMT</pubDate>
+<item><title>Friday 0.1.0-beta.11</title><pubDate>Sun, 08 Nov 2026 06:05:29 GMT</pubDate>
 <description><![CDATA[<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark">
 <style>
 body { font: 14px/1.7 -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px 24px; color: #303038; }
@@ -11,7 +11,16 @@ span { font-weight: normal; opacity: .55; margin-left: 6px; } ul { padding-left:
 .notice { font-size: 12px; opacity: .65; margin-top: 28px; }
 .sparkle-installed-version, .sparkle-installed-version ~ .release { display: none; }
 @media (prefers-color-scheme: dark) { body { color: #e7e7eb; } .release + .release { border-color: #3b3b42; } }
-</style></head><body><section class="release" data-sparkle-version="10">
+</style></head><body><section class="release" data-sparkle-version="11">
+<h2>v0.1.0-beta.11</h2>
+<h3>新功能 <span>2</span></h3>
+<ul><li>外观设置增加正文字体、字号、代码字体、代码配色和对话宽度选项。</li><li>Friday 对话头像支持分别调整球体、眼睛和领结颜色。</li></ul>
+<h3>改进 <span>5</span></h3>
+<ul><li>优化模块与任务切换，减少无关数据更新、重复排版和历史记录计算对当前界面的影响。</li><li>输入框收放时保持会话滚动范围稳定，保留上翻收起、点击展开和回到底部恢复的交互。</li><li>统一对话气泡、输入框、Markdown 排版及 Midnight 主题的面板样式，精简文件改动卡片。</li><li>功能图标默认保持静态，左侧栏仅保留想法与设置入口的单次点击动效。</li><li>统一 Claude 的会话启动、能力检测和输入处理，改善不同入口的行为一致性。</li></ul>
+<h3>修复 <span>3</span></h3>
+<ul><li>修复右侧工具面板拉宽时出现白色竖条和绘制残留的问题。</li><li>修正 Task 模块切换时侧栏小手光标的原生交互区域。</li><li>修复思考记录与工具记录只有部分标题区域能够点击展开的问题。</li></ul>
+</section>
+<section class="release" data-sparkle-version="10">
 <h2>v0.1.0-beta.10</h2>
 <h3>改进 <span>3</span></h3>
 <ul><li>Friday 对话头像增加蓝色短绒质感，调整眼睛和领结细节，并保留轻微眨眼与鼠标跟随。</li><li>助手头像移到回复气泡左侧，名称保留在气泡内，让头像与正文各有独立空间。</li><li>Mac 对话正文与输入文字调整为 14 pt 常规字体，收紧段落和列表间距。</li></ul>
@@ -75,7 +84,7 @@ span { font-weight: normal; opacity: .55; margin-left: 6px; } ul { padding-left:
 <h3>更新 <span>5</span></h3>
 <ul><li>原生 SwiftUI 客户端、Node 24.21.0、Pi Durable 常驻服务和生产依赖一起打包，无需准备开发环境。</li><li>通过 macOS 登录项管理后台服务，关闭窗口后任务仍由服务处理。</li><li>菜单「Friday → 检查更新」使用 Sparkle 验证并安装后续版本。</li><li>更新前检查活动任务、阻止新写入、停止服务并备份数据库；任务尚未完成时暂缓安装。</li><li>保留现有数据目录、主机凭据、记忆和设备配对信息。</li></ul>
 </section><p class="notice">个人测试版，尚未经过 Developer ID 签名和 Apple 公证。更新前请完成或停止正在执行的任务。</p></body></html>]]></description>
-<sparkle:version>10</sparkle:version><sparkle:shortVersionString>0.1.0-beta.10</sparkle:shortVersionString>
+<sparkle:version>11</sparkle:version><sparkle:shortVersionString>0.1.0-beta.11</sparkle:shortVersionString>
 <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-<enclosure url="https://github.com/linc77/friday/releases/download/v0.1.0-beta.10/Friday-0.1.0-beta.10-macOS-arm64.zip" sparkle:edSignature="+cgVVL3PfXhjd08/yFoacnF2drFiuAePKPzhvoCEHs2S4HFzVVCeR5t99YMAob6fe+zeu5ubNEGaIQl/3D8sAQ==" length="222770624" type="application/octet-stream"/>
+<enclosure url="https://github.com/linc77/friday/releases/download/v0.1.0-beta.11/Friday-0.1.0-beta.11-macOS-arm64.zip" sparkle:edSignature="5CDkL8vG00iOEeEnZOdZTHQLGC9p4iKTlseB+G/qNvZ+QwqdfVIQMnOQXRehxHlAIltVECLpP3nEd3I+lSlxAw==" length="223229257" type="application/octet-stream"/>
 </item></channel></rss>
