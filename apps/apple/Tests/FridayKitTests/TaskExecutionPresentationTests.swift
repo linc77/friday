@@ -26,6 +26,23 @@ struct TaskExecutionPresentationTests {
         precondition(TaskFileTree.directories(paths: paths, cwd: "/project") == ["src", "src/nested"])
         precondition(TaskExecutionPresentation.relativePath("/project-other/file", cwd: "/project") == "/project-other/file")
 
+        let compactPaths = ["/project/apps/apple/Sources/FridayKit/Task.swift", "/project/README.md"]
+        let compactTree = TaskFileTree.rows(paths: compactPaths, cwd: "/project", compact: true)
+        precondition(compactTree.map(\.name) == ["apps/apple/Sources/FridayKit", "Task.swift", "README.md"])
+        precondition(compactTree.map(\.depth) == [0, 1, 0])
+        precondition(compactTree[1].originalPath == compactPaths[0], "Compaction preserves the original diff target")
+        let compactDirectories = TaskFileTree.directories(paths: compactPaths, cwd: "/project", compact: true)
+        precondition(compactDirectories == ["apps/apple/Sources/FridayKit"])
+        precondition(TaskFileTree.rows(paths: compactPaths, cwd: "/project", collapsed: compactDirectories, compact: true).map(\.name) == ["apps/apple/Sources/FridayKit", "README.md"])
+        precondition(TaskFileTree.rows(paths: paths, cwd: "/project", compact: true).map(\.path) == tree.map(\.path), "Branches and single files must not collapse into their parent")
+        let totals = TaskFileTree.directoryStats([
+            ("/project/src/a.swift", 10, 3), ("src/nested/b.swift", 2, 0),
+            ("src/nested/image.png", nil, nil), ("src-other/c.swift", 99, 99)
+        ], cwd: "/project")
+        precondition(totals["src"]?.additions == 12 && totals["src"]?.deletions == 3)
+        precondition(totals["src/nested"]?.additions == 2 && totals["src/nested"]?.deletions == 0)
+        precondition(TaskFileTree.rows(paths: [], cwd: "/project", compact: true).isEmpty)
+
         let prefs = TaskPanelPreferences(diff: TaskDiffSelection(eventID: "historical-event", path: "src/a.swift"), width: 540)
         let restored = try JSONDecoder().decode(TaskPanelPreferences.self, from: JSONEncoder().encode(prefs))
         precondition(restored.diff == prefs.diff && restored.width == 540)

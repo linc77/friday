@@ -2,11 +2,18 @@ import SwiftUI
 
 struct TaskDiffStat: View {
     let additions: Int?; let deletions: Int?
+    var aligned = false
     var body: some View {
-        HStack(spacing: 6) {
-            if let additions, additions > 0 { Text(verbatim: "+\(additions)").foregroundStyle(.green) }
-            if let deletions, deletions > 0 { Text(verbatim: "−\(deletions)").foregroundStyle(.red) }
-        }.font(.system(.caption, design: .monospaced)).monospacedDigit()
+        HStack(spacing: aligned ? 10 : 6) {
+            if let additions, aligned || additions > 0 {
+                Text(verbatim: "+\(additions)").foregroundStyle(.green)
+                    .frame(minWidth: aligned ? 34 : nil, alignment: .trailing)
+            }
+            if let deletions, aligned || deletions > 0 {
+                Text(verbatim: "−\(deletions)").foregroundStyle(.red)
+                    .frame(minWidth: aligned ? 34 : nil, alignment: .trailing)
+            }
+        }.font(.system(.caption, design: .monospaced)).monospacedDigit().fixedSize()
             .accessibilityElement(children: .combine)
     }
 }
@@ -18,7 +25,7 @@ struct TaskChangedFilesCard: View {
     @State private var collapsed: Set<String> = []
     private var changes: [TaskFileChange] { event.changes ?? [] }
     private var paths: [String] { changes.map(\.path) }
-    private var directories: Set<String> { TaskFileTree.directories(paths: paths, cwd: task.cwd) }
+    private var directories: Set<String> { TaskFileTree.directories(paths: paths, cwd: task.cwd, compact: true) }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
@@ -26,19 +33,19 @@ struct TaskChangedFilesCard: View {
                 TaskDiffStat(additions: changes.reduce(0) { $0 + $1.additions }, deletions: changes.reduce(0) { $0 + $1.deletions })
                 Spacer(minLength: 4)
                 if !directories.isEmpty {
-                    Button { collapsed = collapsed.isEmpty ? directories : [] } label: {
-                        FridaySymbolImage(systemName: collapsed.isEmpty ? "chevron.up.chevron.down" : "chevron.down")
-                    }.buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: collapsed.isEmpty ? "收起所有文件夹" : "展开所有文件夹"))
+                    Button { collapsed = collapsed.isDisjoint(with: directories) ? directories : [] } label: {
+                        FridaySymbolImage(systemName: collapsed.isDisjoint(with: directories) ? "chevron.up.chevron.down" : "chevron.down")
+                    }.buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: collapsed.isDisjoint(with: directories) ? "收起所有文件夹" : "展开所有文件夹"))
                 }
                 Button { open(changes.first?.path) } label: { FridaySymbolLabel(friday: "打开 Diff", systemImage: "doc.text.magnifyingglass") }
                     .buttonStyle(FridaySymbolButtonStyle()).font(.caption)
-            }.padding(12)
+            }.padding(.horizontal, 12).padding(.vertical, 10)
             if event.status != "completed" {
                 Text(friday: event.status == "running" ? "正在修改文件" : "这些改动未确认应用成功")
                     .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 12).padding(.bottom, 8)
             }
-            TaskFileTreeView(paths: paths, cwd: task.cwd, collapsed: $collapsed, selected: nil, canOpenLocalFiles: canOpenLocalFiles, open: { open($0) }) { path in
-                if let file = changes.first(where: { $0.path == path }) { TaskDiffStat(additions: file.additions, deletions: file.deletions) }
+            TaskFileTreeView(paths: paths, cwd: task.cwd, collapsed: $collapsed, selected: nil, canOpenLocalFiles: canOpenLocalFiles, open: { open($0) }, compact: true, directoryStats: TaskFileTree.directoryStats(changes.map { ($0.path, $0.additions, $0.deletions) }, cwd: task.cwd)) { path in
+                if let file = changes.first(where: { $0.path == path }) { TaskDiffStat(additions: file.additions, deletions: file.deletions, aligned: true) }
             }.padding(.horizontal, 6).padding(.bottom, 8)
         }.background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
     }
@@ -51,33 +58,36 @@ struct TaskRunChangesCard: View {
     @State private var collapsed: Set<String> = []
     private var changes: [TaskRunFile] { run.changes ?? [] }
     private var paths: [String] { changes.map(\.path) }
-    private var directories: Set<String> { TaskFileTree.directories(paths: paths, cwd: run.cwd) }
+    private var directories: Set<String> { TaskFileTree.directories(paths: paths, cwd: run.cwd, compact: true) }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
-                Text(friday: run.diffError == nil ? "整轮文件改动" : "整轮文件改动暂不可用").font(.caption.weight(.medium))
+                if run.diffError != nil {
+                    Text(friday: "整轮文件改动暂不可用").font(.caption.weight(.medium))
+                } else {
+                    Text(friday: "\(changes.count) 个文件改动").font(.caption.weight(.medium))
+                }
                 if !changes.isEmpty {
-                    Text(verbatim: "\(changes.count)").font(.caption).foregroundStyle(.secondary)
                     TaskDiffStat(additions: changes.reduce(0) { $0 + ($1.additions ?? 0) }, deletions: changes.reduce(0) { $0 + ($1.deletions ?? 0) })
                 }
                 Spacer(minLength: 4)
                 if !directories.isEmpty {
-                    Button { collapsed = collapsed.isEmpty ? directories : [] } label: { FridaySymbolImage(systemName: collapsed.isEmpty ? "chevron.up.chevron.down" : "chevron.down") }
-                        .buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: collapsed.isEmpty ? "收起所有文件夹" : "展开所有文件夹"))
+                    Button { collapsed = collapsed.isDisjoint(with: directories) ? directories : [] } label: { FridaySymbolImage(systemName: collapsed.isDisjoint(with: directories) ? "chevron.up.chevron.down" : "chevron.down") }
+                        .buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: collapsed.isDisjoint(with: directories) ? "收起所有文件夹" : "展开所有文件夹"))
                 }
                 if !paths.isEmpty {
                     Button { open(paths.first) } label: { FridaySymbolLabel(friday: "打开 Diff", systemImage: "doc.text.magnifyingglass") }
                         .buttonStyle(FridaySymbolButtonStyle()).font(.caption)
                 }
-            }.padding(12)
+            }.padding(.horizontal, 12).padding(.vertical, 10)
             if let error = run.diffError {
                 Text(verbatim: error).font(.caption).foregroundStyle(.secondary).textSelection(.enabled).padding(.horizontal, 12).padding(.bottom, 10)
             }
             if !paths.isEmpty {
-                TaskFileTreeView(paths: paths, cwd: run.cwd, collapsed: $collapsed, selected: nil, canOpenLocalFiles: canOpenLocalFiles, open: { open($0) }) { path in
+                TaskFileTreeView(paths: paths, cwd: run.cwd, collapsed: $collapsed, selected: nil, canOpenLocalFiles: canOpenLocalFiles, open: { open($0) }, compact: true, directoryStats: TaskFileTree.directoryStats(changes.map { ($0.path, $0.additions, $0.deletions) }, cwd: run.cwd)) { path in
                     if let file = changes.first(where: { $0.path == path }) {
                         if file.binary { Text(friday: "二进制").font(.caption).foregroundStyle(.secondary) }
-                        else { TaskDiffStat(additions: file.additions, deletions: file.deletions) }
+                        else { TaskDiffStat(additions: file.additions, deletions: file.deletions, aligned: true) }
                     }
                 }.padding(.horizontal, 6).padding(.bottom, 8)
             }
@@ -91,26 +101,34 @@ struct TaskFileTreeView<Accessory: View>: View {
     let selected: String?
     let canOpenLocalFiles: Bool
     let open: (String) -> Void
+    var compact = false
+    var directoryStats: [String: TaskFileTree.Stat] = [:]
     @ViewBuilder let accessory: (String) -> Accessory
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            ForEach(TaskFileTree.rows(paths: paths, cwd: cwd, collapsed: collapsed)) { row in
+        VStack(alignment: .leading, spacing: compact ? 0 : 1) {
+            ForEach(TaskFileTree.rows(paths: paths, cwd: cwd, collapsed: collapsed, compact: compact)) { row in
                 Button {
                     if row.directory { if collapsed.contains(row.path) { collapsed.remove(row.path) } else { collapsed.insert(row.path) } }
                     else if let path = row.originalPath { open(path) }
                 } label: {
-                    HStack(spacing: 7) {
+                    HStack(spacing: compact ? 8 : 7) {
                         if row.directory {
                             FridaySymbolImage(systemName: collapsed.contains(row.path) ? "chevron.right" : "chevron.down").font(.system(size: 9)).frame(width: 10)
-                        } else { Color.clear.frame(width: 10, height: 1) }
+                        } else if !compact || paths.contains(where: { TaskExecutionPresentation.relativePath($0, cwd: cwd).contains("/") }) { Color.clear.frame(width: 10, height: 1) }
                         FridaySymbolImage(systemName: row.directory ? "folder" : "doc.text").foregroundStyle(.secondary).frame(width: 14)
                         Text(verbatim: row.name).lineLimit(1).truncationMode(.middle)
+                            .foregroundStyle(compact && row.directory ? Color.secondary : Color.primary)
                         Spacer(minLength: 4)
                         if let path = row.originalPath { accessory(path) }
-                    }.font(.caption).padding(.leading, 5 + CGFloat(row.depth) * 14).padding(.trailing, 7).padding(.vertical, 6)
+                        else if let stat = directoryStats[row.path], stat.additions > 0 || stat.deletions > 0 {
+                            TaskDiffStat(additions: stat.additions, deletions: stat.deletions, aligned: true)
+                        }
+                    }.font(.system(.caption, design: compact ? .monospaced : .default))
+                        .padding(.leading, (compact ? 8 : 5) + CGFloat(row.depth) * 14).padding(.trailing, 7).padding(.vertical, 6)
                         .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                         .background(selected != nil && row.originalPath == selected ? FridayTheme.accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 5))
                 }.buttonStyle(FridaySymbolButtonStyle())
+                    .help(row.path)
                     .accessibilityLabel(Text(verbatim: row.path))
                     .accessibilityValue(Text(fridayString: row.directory ? (collapsed.contains(row.path) ? "已收起" : "已展开") : ""))
                     .contextMenu {

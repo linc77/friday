@@ -87,11 +87,31 @@ enum TaskExecutionPresentation {
 }
 
 enum TaskFileTree {
+    struct Stat {
+        var additions: Int
+        var deletions: Int
+    }
+
+    static func directoryStats(_ files: [(path: String, additions: Int?, deletions: Int?)], cwd: String) -> [String: Stat] {
+        var result: [String: Stat] = [:]
+        for file in files {
+            var components = TaskExecutionPresentation.relativePath(file.path, cwd: cwd).split(separator: "/").map(String.init)
+            if !components.isEmpty { components.removeLast() }
+            while !components.isEmpty {
+                let path = components.joined(separator: "/")
+                result[path, default: Stat(additions: 0, deletions: 0)].additions += file.additions ?? 0
+                result[path, default: Stat(additions: 0, deletions: 0)].deletions += file.deletions ?? 0
+                components.removeLast()
+            }
+        }
+        return result
+    }
+
     struct Row: Identifiable {
         let id: String; let path: String; let name: String; let depth: Int; let directory: Bool
         let originalPath: String?
     }
-    static func rows(paths: [String], cwd: String, collapsed: Set<String> = []) -> [Row] {
+    static func rows(paths: [String], cwd: String, collapsed: Set<String> = [], compact: Bool = false) -> [Row] {
         var directories: [String: Set<String>] = ["": []]
         var files: [String: String] = [:]
         for path in paths {
@@ -114,14 +134,24 @@ enum TaskFileTree {
             }
             for child in children {
                 let directory = directories[child] != nil
-                result.append(Row(id: (directory ? "dir:" : "file:") + child, path: child, name: (child as NSString).lastPathComponent, depth: depth, directory: directory, originalPath: files[child]))
-                if directory && !collapsed.contains(child) { append(child, depth: depth + 1) }
+                var path = child
+                var name = (child as NSString).lastPathComponent
+                // Keep the file as its own row; compact only single-directory chains.
+                if compact && directory {
+                    while let descendants = directories[path], descendants.count == 1,
+                          let next = descendants.first, directories[next] != nil {
+                        name += "/" + (next as NSString).lastPathComponent
+                        path = next
+                    }
+                }
+                result.append(Row(id: (directory ? "dir:" : "file:") + path, path: path, name: name, depth: depth, directory: directory, originalPath: files[path]))
+                if directory && !collapsed.contains(path) { append(path, depth: depth + 1) }
             }
         }
         append("", depth: 0)
         return result
     }
-    static func directories(paths: [String], cwd: String) -> Set<String> {
-        Set(rows(paths: paths, cwd: cwd).filter(\.directory).map(\.path))
+    static func directories(paths: [String], cwd: String, compact: Bool = false) -> Set<String> {
+        Set(rows(paths: paths, cwd: cwd, compact: compact).filter(\.directory).map(\.path))
     }
 }
