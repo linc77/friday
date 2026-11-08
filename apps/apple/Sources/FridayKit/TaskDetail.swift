@@ -271,7 +271,7 @@ struct TaskDetail: View {
                     )
                 }
             }
-            .frame(maxWidth: reading.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
+            .frame(maxWidth: reading.contentWidth).padding(.horizontal, task.localAgent ? 24 : 44).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
             .background(GeometryReader { geometry in
                 Color.clear.preference(key: TaskComposerHeightKey.self, value: geometry.size.height)
             })
@@ -315,7 +315,7 @@ struct TaskDetail: View {
                     )
                     #if os(macOS)
                     .background {
-                        TranscriptHistoryScrollGesture(composerHeight: composerHeight) {
+                        TranscriptHistoryScrollGesture(composerHeight: composerHeight, horizontalInset: task.localAgent ? 24 : 44) {
                             followingEnd = false
                             composerNeedsRestore = true
                             composerCollapseRequest += 1
@@ -764,7 +764,10 @@ private struct FloatingComposer: View {
         }
         .clipped().opacity(expanded ? 1 : 0)
         .disabled(!expanded).allowsHitTesting(expanded).accessibilityHidden(!expanded)
-        .modifier(AgentTaskComposerSurface(embeddedInMobileDock: false, focused: focused))
+        .background {
+            FridayWindowBackground(configuresWindow: false)
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+        }
         .overlay {
             if !expanded {
                 Button { setExpanded(true); focusRequest += 1 } label: {

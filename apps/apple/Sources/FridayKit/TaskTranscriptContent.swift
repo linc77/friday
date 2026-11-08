@@ -24,6 +24,14 @@ struct TaskTranscriptContent: View {
     let endSpacing: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var horizontalInset: CGFloat {
+        #if os(macOS)
+        task.localAgent ? 24 : 44
+        #else
+        24
+        #endif
+    }
+
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 24) {
             #if os(iOS)
@@ -43,7 +51,7 @@ struct TaskTranscriptContent: View {
         .scrollTargetLayout()
         // Animate only approval insertion/removal, never the streamed result.
         .animation(reduceMotion ? nil : FridayTheme.motion, value: task.approvals.filter { $0.state == "pending" }.map(\.id))
-        .padding(.horizontal, 24)
+        .padding(.horizontal, horizontalInset)
         #if os(iOS)
         .padding(.bottom, 24)
         .padding(.top, task.localAgent ? 24 : topInset + 24)
@@ -51,7 +59,7 @@ struct TaskTranscriptContent: View {
         .padding(.bottom, task.localAgent ? 0 : 24)
         .padding(.top, 24)
         #endif
-        .frame(maxWidth: reading.contentWidth + 48).frame(maxWidth: .infinity)
+        .frame(maxWidth: reading.contentWidth + horizontalInset * 2).frame(maxWidth: .infinity)
         .background(GeometryReader { geometry in
             let frame = geometry.frame(in: .named("task-transcript"))
             Color.clear.preference(key: TranscriptScrollKey.self, value: TranscriptScrollMetrics(top: frame.minY, bottom: frame.maxY, viewportHeight: viewportHeight))
@@ -131,7 +139,7 @@ private struct TaskTranscriptMessages: View {
                     .background(FridayTheme.conversationUserBackground, in: RoundedRectangle(cornerRadius: FridayTheme.conversationUserBubbleRadius))
             }
         } else {
-            FridayAssistantMessage(message: message, name: task.agentName, active: task.active, latest: latest)
+            FridayAssistantMessage(message: message, active: task.active, latest: latest)
         }
     }
 
@@ -156,37 +164,34 @@ private func assistantToolName(_ name: String) -> String {
 private struct FridayAssistantMessage: View {
     @ReadingPreferences private var reading: ReadingStyle
     let message: ChatMessage
-    let name: String
     let active: Bool
     let latest: Bool
     @State private var thinkingExpanded: Bool
 
-    init(message: ChatMessage, name: String, active: Bool, latest: Bool) {
-        self.message = message; self.name = name; self.active = active; self.latest = latest
+    init(message: ChatMessage, active: Bool, latest: Bool) {
+        self.message = message; self.active = active; self.latest = latest
         _thinkingExpanded = State(initialValue: message.streaming == true && active)
     }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             FridayMark(size: 32, interactive: latest)
+                #if os(macOS)
+                .offset(y: -FridayTheme.conversationAssistantVerticalPadding)
+                #else
                 .padding(.top, FridayTheme.conversationAssistantVerticalPadding)
+                #endif
             bubble
         }
+        #if os(macOS)
+        .padding(.leading, -44)
+        #endif
         .disclosureGroupStyle(AssistantRecordDisclosureStyle())
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var bubble: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(name).font(.subheadline.weight(.semibold))
-            if let thinking = message.thinking, !thinking.isEmpty {
-                DisclosureGroup(isExpanded: $thinkingExpanded) {
-                    Text(verbatim: thinking).font(.callout).foregroundStyle(FridayTheme.secondaryText)
-                        .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                } label: {
-                    Text(friday: "思考记录").font(.callout).foregroundStyle(FridayTheme.secondaryText).fridayInteractiveCursor()
-                }
-            }
             ForEach(message.tools ?? []) { tool in
                 DisclosureGroup {
                     if let output = tool.output, !output.isEmpty {
@@ -200,19 +205,34 @@ private struct FridayAssistantMessage: View {
                     }.font(.callout).foregroundStyle(FridayTheme.secondaryText).fridayInteractiveCursor()
                 }
             }
-            if !message.text.isEmpty {
-                AgentMarkdown(text: message.text, isStreaming: message.streaming == true && active,
-                    bodyFont: reading.bodyFont, bodyLineSpacing: reading.lineSpacing,
-                    bodyParagraphSpacing: FridayTheme.conversationParagraphSpacing,
-                    bodyListItemSpacing: FridayTheme.conversationListItemSpacing)
-                    #if os(macOS)
-                    .tint(FridayTheme.link)
-                    .accentColor(FridayTheme.link)
-                    #endif
+            if message.thinking?.isEmpty == false || !message.text.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let thinking = message.thinking, !thinking.isEmpty {
+                        DisclosureGroup(isExpanded: $thinkingExpanded) {
+                            Text(verbatim: thinking).font(.callout).foregroundStyle(FridayTheme.secondaryText)
+                                .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                        } label: {
+                            Text(friday: "思考记录").font(.callout).foregroundStyle(FridayTheme.secondaryText).fridayInteractiveCursor()
+                        }
+                    }
+                    if !message.text.isEmpty {
+                        AgentMarkdown(text: message.text, isStreaming: message.streaming == true && active,
+                            bodyFont: reading.bodyFont, bodyLineSpacing: reading.lineSpacing,
+                            bodyParagraphSpacing: FridayTheme.conversationParagraphSpacing,
+                            bodyListItemSpacing: FridayTheme.conversationListItemSpacing)
+                            #if os(macOS)
+                            .tint(FridayTheme.link)
+                            .accentColor(FridayTheme.link)
+                            #endif
+                    }
+                }
             }
         }
         .padding(.horizontal, FridayTheme.conversationAssistantHorizontalPadding)
         .padding(.vertical, FridayTheme.conversationAssistantVerticalPadding)
+        #if os(macOS)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        #endif
         .background(FridayTheme.conversationAssistantBackground, in: RoundedRectangle(cornerRadius: FridayTheme.conversationBubbleRadius))
     }
 
