@@ -52,6 +52,7 @@ struct TaskPromptEditor: View {
                 identity: identity, contexts: contexts, skills: skills, insertion: insertion, inserted: inserted, openContext: openContext,
                 mention: mention, mentionChanged: mentionChanged, suggestions: suggestions, selectedSuggestion: selectedSuggestion,
                 loadingSuggestions: loadingSuggestions, moveSuggestion: moveSuggestion, chooseSuggestion: chooseSuggestion, dismissSuggestions: dismissSuggestions, chooseEntry: chooseEntry, fileMentions: fileMentions,selectionChanged:selectionChanged,openCitation:openCitation)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityLabel(Text(fridayString: accessibilityName))
         }.frame(height: max(minimumHeight, min(maximumHeight, height)))
     }
@@ -88,6 +89,13 @@ private struct NativeTaskPromptEditor: NSViewRepresentable {
     var openCitation:((TaskAssistantCitation)->Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSScrollView, context: Context) -> CGSize? {
+        // The SwiftUI prompt owns the viewport size. An empty text document's
+        // fitting size must not shrink its native hit area to the initial width.
+        guard let width = proposal.width, let height = proposal.height,
+              width.isFinite, height.isFinite else { return nil }
+        return CGSize(width: max(0, width), height: max(0, height))
+    }
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = TaskPromptScrollView(); scroll.drawsBackground = false
         scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true
@@ -242,8 +250,16 @@ private struct NativeTaskPromptEditor: NSViewRepresentable {
 private final class TaskPromptScrollView: NSScrollView {
     override func tile() {
         super.tile()
+        sizeEditorToViewport()
+    }
+    override func layout() {
+        super.layout()
+        // SwiftUI can resize the viewport after AppKit has tiled its scrollers.
+        sizeEditorToViewport()
+    }
+    private func sizeEditorToViewport() {
         guard let editor = documentView as? NSTextView else { return }
-        let viewport = contentSize
+        let viewport = contentView.bounds.size
         guard viewport.width > 0, viewport.height > 0 else { return }
         editor.minSize = NSSize(width: 0, height: viewport.height)
         let size = NSSize(width: viewport.width, height: max(viewport.height, editor.frame.height))
