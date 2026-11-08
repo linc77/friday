@@ -245,7 +245,7 @@ test('Claude tasks route through Durable, preserve provider/session across resta
   } finally { await engine.close(); auth.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
-test('Claude sends typed image blocks in initial and live messages', async () => {
+for (const purpose of [undefined, 'git_text'] as const) test(`Claude ${purpose ?? 'resident'} sends typed image blocks in initial and live messages`, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-claude-images-')); await chmod(binaryPath, 0o755);
   const connection = new ClaudeConnection(directory); const executor = new ClaudeExecutor(connection);
   const { openFridayStorage } = await import('../src/durable-image-storage.js'); const { storage, images: store } = await openFridayStorage(directory);
@@ -254,7 +254,7 @@ test('Claude sends typed image blocks in initial and live messages', async () =>
   try {
     await connection.save({ ...defaultClaudeSettings, binaryPath, homePath: directory });
     let steered = false;
-    const result = await executor.run({ task: work(directory), prompt: 'wait-for-steer', images, signal: new AbortController().signal, update: async update => {
+    const result = await executor.run({ task: work(directory), purpose, prompt: 'wait-for-steer', images, signal: new AbortController().signal, update: async update => {
       if (update.kind === 'output' && !steered) { steered = true; await executor.steer('claude-test', 'Inspect this image', 'image-steer', images); }
     } });
     assert.equal(result, 'Included: Inspect this image');

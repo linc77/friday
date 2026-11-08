@@ -2,7 +2,7 @@
 import { appendFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 const args = process.argv.slice(2);
-appendFileSync('claude-wire.jsonl', JSON.stringify({ args, configDirectory: process.env.CLAUDE_CONFIG_DIR }) + '\n');
+appendFileSync('claude-wire.jsonl', JSON.stringify({ args, configDirectory: process.env.CLAUDE_CONFIG_DIR, pid: process.pid }) + '\n');
 if (args.includes('--version')) { console.log('2.1.285 (Claude Code)'); process.exit(0); }
 if (args.includes('auth')) {
   const loggedIn = process.env.FRIDAY_TEST_AUTH !== 'none';
@@ -11,6 +11,11 @@ if (args.includes('auth')) {
 createInterface({ input: process.stdin }).on('line', line => {
   const message = JSON.parse(line); appendFileSync('claude-wire.jsonl', line + '\n');
   if (message.type === 'user') throw new Error('A provider probe must not start a turn');
+  if (message.type === 'control_request' && message.request.subtype === 'initialize' && process.env.FRIDAY_TEST_PROBE === 'hang') return;
+  if (message.type === 'control_request' && (process.env.FRIDAY_TEST_PROBE === 'error' || message.request.subtype === 'get_usage' && process.env.FRIDAY_TEST_USAGE === 'error')) {
+    console.error('private-claude-test-key');
+    console.log(JSON.stringify({ type: 'control_response', response: { subtype: 'error', request_id: message.request_id, error: 'private-claude-test-key' } })); return;
+  }
   if (message.type === 'control_request' && message.request.subtype === 'get_usage') {
     console.log(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: message.request_id, response: {
       rate_limits_available: process.env.FRIDAY_TEST_USAGE !== 'unsupported', rate_limits: { five_hour: { utilization: 23, resets_at: '2033-05-18T03:33:20Z' }, seven_day: { utilization: 45, resets_at: null }, model_scoped: [{ display_name: 'Future Model', utilization: 67, resets_at: null }] },
