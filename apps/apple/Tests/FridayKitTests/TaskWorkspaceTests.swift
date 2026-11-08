@@ -165,6 +165,8 @@ struct TaskWorkspaceTests {
         precondition(restored.name == "Reading" && restored.icon == "book.closed" && restored.color == "purple")
         precondition(restored.path == legacyWorkspace.path && restored.context == legacyWorkspace.context)
         precondition(WorkspaceStyle.color(restored.color, name: "Another name") == "purple", "Renaming must not change a chosen color")
+        precondition(WorkspaceStyle.icons.count == WorkspaceStyle.iconLabels.count, "Every icon in the appearance grid must have an accessibility/help label")
+        precondition(WorkspaceStyle.colors.count == WorkspaceStyle.colorLabels.count, "Every color in the appearance picker must have an accessibility/help label")
         precondition(WorkspaceStyle.icon("future-symbol") == "folder", "Unsupported saved icons have a visible fallback")
         precondition(WorkspaceStyle.colors.contains(WorkspaceStyle.color("future-color", name: "Friday")))
         precondition(!WorkspaceStyle.validName(" \n ") && !WorkspaceStyle.validName(String(repeating: "a", count: 121)))
