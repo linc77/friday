@@ -7,18 +7,20 @@ import UIKit
 
 enum FridayTheme {
     static var accent: Color {
+        if isMidnight { return color(0x3b6fcf) }
         #if os(macOS)
-        Color(nsColor: .labelColor)
+        return Color(nsColor: .labelColor)
         #else
-        Color(uiColor: .label)
+        return Color(uiColor: .label)
         #endif
     }
 
     static var onAccent: Color {
+        if isMidnight { return .white }
         #if os(macOS)
-        Color(nsColor: .textBackgroundColor)
+        return Color(nsColor: .textBackgroundColor)
         #else
-        Color(uiColor: .systemBackground)
+        return Color(uiColor: .systemBackground)
         #endif
     }
     static let contentWidth: CGFloat = 780
@@ -26,6 +28,13 @@ enum FridayTheme {
     static let motionResponse = 0.28
     static let motionDamping = 0.86
     static let motion = Animation.spring(response: motionResponse, dampingFraction: motionDamping)
+    static var paneSpacing: CGFloat {
+        #if os(macOS)
+        windowEdgeInset
+        #else
+        0
+        #endif
+    }
     #if os(macOS)
     static let sidebarWidth: CGFloat = 60
     static let trafficLightSize: CGFloat = 13.2
@@ -38,46 +47,50 @@ enum FridayTheme {
     #endif
 
     static var canvas: Color {
+        if isMidnight { return color(0x1c1e27) }
         #if os(macOS)
-        Color(nsColor: NSColor(name: nil) { appearance in
+        return Color(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
                 ? NSColor(white: 0.11, alpha: 1)
                 : NSColor(white: 0.965, alpha: 1)
         })
         #else
-        Color(uiColor: .systemGroupedBackground)
+        return Color(uiColor: .systemGroupedBackground)
         #endif
     }
 
     static var surface: Color {
+        if isMidnight { return color(0x161820) }
         #if os(macOS)
-        Color(nsColor: NSColor(name: nil) { appearance in
+        return Color(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
                 ? NSColor(white: 0.15, alpha: 1)
                 : NSColor.white
         })
         #else
-        Color(uiColor: .secondarySystemGroupedBackground)
+        return Color(uiColor: .secondarySystemGroupedBackground)
         #endif
     }
 
     static var conversationCanvas: Color {
+        if isMidnight { return color(0x1c1e27) }
         #if os(iOS)
-        Color(uiColor: .systemBackground)
+        return Color(uiColor: .systemBackground)
         #else
-        Color(nsColor: .textBackgroundColor)
+        return Color(nsColor: .textBackgroundColor)
         #endif
     }
 
     static var conversationAssistantBackground: Color {
+        if isMidnight { return color(0x252731) }
         #if os(macOS)
-        Color(nsColor: NSColor(name: nil) { appearance in
+        return Color(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
                 ? NSColor(white: 0.15, alpha: 1)
                 : NSColor(red: 243.0 / 255.0, green: 243.0 / 255.0, blue: 245.0 / 255.0, alpha: 1)
         })
         #else
-        surface
+        return surface
         #endif
     }
 
@@ -99,8 +112,8 @@ enum FridayTheme {
 
     static var conversationFont: Font {
         #if os(macOS)
-        // Match the desktop reference's system font, 14 px / 21 px, weight 400.
-        .system(size: 14, weight: .regular, design: .default)
+        // Paseo desktop defaults: system sans, 15 px, weight 400.
+        .system(size: 15, weight: .regular, design: .default)
         #else
         .body
         #endif
@@ -129,14 +142,15 @@ enum FridayTheme {
     #endif
 
     static var conversationInput: Color {
+        if isMidnight { return color(0x252731) }
         #if os(iOS)
-        Color(uiColor: UIColor { traits in
+        return Color(uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark
                 ? UIColor.secondarySystemBackground.resolvedColor(with: traits)
                 : UIColor(white: 243.0 / 255.0, alpha: 1)
         })
         #else
-        accent.opacity(0.06)
+        return accent.opacity(0.06)
         #endif
     }
 }
@@ -164,7 +178,7 @@ private struct FridayCard: ViewModifier {
             .background(FridayTheme.surface, in: RoundedRectangle(cornerRadius: radius))
             .overlay {
                 RoundedRectangle(cornerRadius: radius)
-                    .strokeBorder(highlighted ? FridayTheme.accent.opacity(0.5) : Color.primary.opacity(contrast == .increased ? 0.3 : 0.07), lineWidth: 1)
+                    .strokeBorder(highlighted ? FridayTheme.accent.opacity(0.5) : (contrast == .increased ? FridayTheme.foreground.opacity(0.3) : FridayTheme.separator), lineWidth: 1)
             }
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.1 : 0.035), radius: 12, x: 0, y: 4)
     }
@@ -176,7 +190,7 @@ private struct FridayFloatingSurface: ViewModifier {
     @Environment(\.colorSchemeContrast) private var contrast
 
     @ViewBuilder func body(content: Content) -> some View {
-        if reduceTransparency || contrast == .increased {
+        if FridayTheme.isMidnight || reduceTransparency || contrast == .increased {
             content.fridayCard()
         } else {
             #if compiler(>=6.2)
@@ -200,6 +214,15 @@ private struct FridayFloatingSurface: ViewModifier {
 }
 
 extension View {
+    /// Independent macOS panes expose the shared window material in their gutters.
+    @ViewBuilder func fridayPaneSurface(_ background: Color = FridayTheme.canvas, isContainer: Bool = false) -> some View {
+        #if os(macOS)
+        modifier(FridayReadingSurface(background: background, isContainer: isContainer))
+        #else
+        self
+        #endif
+    }
+
     func fridayCard(radius: CGFloat = FridayTheme.cornerRadius, highlighted: Bool = false) -> some View {
         modifier(FridayCard(radius: radius, highlighted: highlighted))
     }
@@ -210,7 +233,7 @@ extension View {
 }
 
 #if os(macOS)
-/// One continuous native material behind the rail, title bar, and content edges.
+/// One continuous native material behind the rail and window edges.
 struct FridayWindowBackground: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
@@ -219,7 +242,14 @@ struct FridayWindowBackground: View {
         FridayWindowVisualEffect()
             .overlay {
                 if reduceTransparency || contrast == .increased {
-                    Color(nsColor: .windowBackgroundColor)
+                    if FridayTheme.isMidnight {
+                        FridayTheme.sidebarBackground
+                    } else {
+                        Color(nsColor: .windowBackgroundColor)
+                    }
+                } else if FridayTheme.isMidnight {
+                    // Tint the native material without hiding its backdrop blur.
+                    FridayTheme.sidebarBackground.opacity(0.80)
                 }
             }
             .allowsHitTesting(false)
@@ -252,14 +282,32 @@ private final class FridayWindowEffectView: NSVisualEffectView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         guard let window else { return }
-        window.styleMask.insert(.fullSizeContentView)
+        if #available(macOS 15.0, *), window.styleMask.contains(.titled) {
+            // Changing the style rebuilds AppKit's frame view. Wait until the
+            // current attachment finishes, then let viewDidMoveToWindow configure it.
+            DispatchQueue.main.async { [weak self, weak window] in
+                guard let window, window.styleMask.contains(.titled) else { return }
+                window.styleMask.remove(.titled)
+                window.isMovableByWindowBackground = true
+                window.collectionBehavior.insert(.fullScreenPrimary)
+                self?.scheduleWindowButtonLayout()
+            }
+        }
+        if window.styleMask.contains(.titled) {
+            window.styleMask.insert(.fullSizeContentView)
+        } else {
+            window.styleMask.formUnion([.closable, .miniaturizable, .resizable])
+            window.collectionBehavior.insert(.fullScreenPrimary)
+        }
         // Keep the workspace name in the window list without adding a title to the custom rail.
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .none
         window.backgroundColor = .clear
         window.isOpaque = false
-        for name in [NSWindow.didResizeNotification, NSWindow.didExitFullScreenNotification] {
+        // WindowServer's shadow can include a thin rim even on borderless windows.
+        window.hasShadow = false
+        for name in [NSWindow.didResizeNotification, NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(scheduleWindowButtonLayout), name: name, object: window)
         }
         scheduleWindowButtonLayout()
@@ -282,7 +330,18 @@ private final class FridayWindowEffectView: NSVisualEffectView {
     }
 
     private func layoutWindowButtons() {
-        guard let window, !window.styleMask.contains(.fullScreen) else { return }
+        guard let window else { return }
+        if window.hasShadow { window.hasShadow = false }
+        if !window.styleMask.contains(.titled) {
+            // Plain windows have no system rim; clip their content instead of
+            // drawing a replacement border. Keep full-screen corners square.
+            window.contentView?.wantsLayer = true
+            window.contentView?.layer?.cornerRadius = window.styleMask.contains(.fullScreen) ? 0 : 14
+            window.contentView?.layer?.cornerCurve = .continuous
+            window.contentView?.layer?.masksToBounds = true
+            return
+        }
+        guard !window.styleMask.contains(.fullScreen) else { return }
         let buttons = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton]
             .compactMap { window.standardWindowButton($0) }
         guard buttons.count == 3, let container = buttons.first?.superview,
@@ -312,19 +371,25 @@ private final class FridayWindowEffectView: NSVisualEffectView {
 
 /// Keep text on a quiet surface, inset into the translucent window chrome.
 struct FridayReadingSurface: ViewModifier {
-    @Environment(\.colorScheme) private var colorScheme
+    var background: Color = FridayTheme.canvas
+    var isContainer = false
     @Environment(\.colorSchemeContrast) private var contrast
 
     func body(content: Content) -> some View {
-        content
-            .background(FridayTheme.canvas)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay {
-                RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(.primary.opacity(contrast == .increased ? 0.25 : 0.045), lineWidth: 1)
-                    .allowsHitTesting(false)
-            }
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.12 : 0.04), radius: 10, x: 0, y: 3)
+        if isContainer {
+            content
+        } else {
+            content
+                .background(background)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay {
+                    if contrast == .increased {
+                        RoundedRectangle(cornerRadius: 14)
+                            .strokeBorder(.primary.opacity(0.25), lineWidth: 1)
+                            .allowsHitTesting(false)
+                    }
+                }
+        }
     }
 }
 
@@ -379,7 +444,7 @@ private struct FridayButtonBody: View {
             .font(.system(compact ? .caption : .callout, weight: .medium))
             .padding(.horizontal, compact ? 11 : 15)
             .padding(.vertical, compact ? 7 : 10)
-            .foregroundStyle(prominent ? FridayTheme.onAccent : configuration.role == .destructive ? .red : .primary)
+            .foregroundStyle(prominent ? FridayTheme.onAccent : configuration.role == .destructive ? .red : FridayTheme.foreground)
             .background {
                 RoundedRectangle(cornerRadius: compact ? 10 : 12)
                     .fill(prominent ? FridayTheme.accent : Color.primary.opacity(hovering ? 0.085 : 0.045))

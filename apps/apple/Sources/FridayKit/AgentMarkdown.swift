@@ -22,6 +22,7 @@ private extension EnvironmentValues {
 }
 
 struct AgentMarkdown: View {
+    @ReadingPreferences private var reading: ReadingStyle
     let text: String
     var compact = false
     var canOpenLocalFiles = false
@@ -52,8 +53,10 @@ struct AgentMarkdown: View {
             if let parsed { MarkdownBlockGroup(blocks: parsed, compact: compact, canOpenLocalFiles: canOpenLocalFiles, workspacePath: workspacePath, isStreaming: isStreaming || parsedSource != text) }
             else { Text(verbatim: text) }
         }
-        .font(bodyFont ?? (compact ? .callout : .body))
-        .lineSpacing(bodyLineSpacing ?? (compact ? 4 : 6))
+        .font(bodyFont ?? (compact ? reading.compactFont : reading.bodyFont))
+        .foregroundStyle(FridayTheme.foreground)
+        .tint(FridayTheme.link)
+        .lineSpacing(bodyLineSpacing ?? reading.lineSpacing)
         .frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
         .overlay { if let citationModel { TaskCitationSelectionOverlay(model:citationModel) } }
         .environment(\.markdownNavigation, navigation)
@@ -131,6 +134,7 @@ private struct MarkdownBlockGroup: View {
 }
 
 private struct MarkdownBlockView: View {
+    @ReadingPreferences private var reading: ReadingStyle
     let block: MarkdownBlock; let compact: Bool; let canOpenLocalFiles: Bool; let workspacePath: String?; let isStreaming: Bool
     @Environment(\.markdownTaskToggle) private var taskToggle
     @Environment(\.taskCitationPath) private var citationPath
@@ -145,7 +149,7 @@ private struct MarkdownBlockView: View {
         switch block {
         case .paragraph(let value): inline(value)
         case .heading(let level, let value):
-            inline(value,role:.heading(level)).font(level == 1 ? .title2.weight(.semibold) : level == 2 ? .title3.weight(.semibold) : .headline)
+            inline(value,role:.heading(level)).font(Font(ReadingStyle.semibold(reading.nativeFont(scale: ReadingStyle.headingScale(level)))))
                 .padding(.top, compact ? 4 : 10).accessibilityAddTraits(.isHeader)
         case .code(let fence):
             if fence.language == "mermaid" { MermaidCodeBlock(fence: fence, isStreaming: isStreaming) }
@@ -165,7 +169,7 @@ private struct MarkdownBlockView: View {
                                         .accessibilityLabel(Text(friday: checked ? "已完成" : "未完成"))
                                 }
                             } else { Text(list.start.map { "\($0 + UInt(index))." } ?? "•").monospacedDigit() }
-                        }.foregroundStyle(.secondary).frame(minWidth: width, alignment: .trailing).padding(.top, 2)
+                        }.foregroundStyle(FridayTheme.secondaryText).frame(minWidth: width, alignment: .trailing).padding(.top, 2)
                         nested(item.blocks,suffix:[1,index])
                     }
                 }
@@ -173,7 +177,7 @@ private struct MarkdownBlockView: View {
         case .quote(let blocks):
             HStack(alignment: .top, spacing: 12) {
                 Rectangle().fill(.primary.opacity(0.16)).frame(width: 3)
-                nested(blocks).foregroundStyle(.secondary).environment(\.taskCitationSecondary,true)
+                nested(blocks).foregroundStyle(FridayTheme.secondaryText).environment(\.taskCitationSecondary,true)
             }.fixedSize(horizontal: false, vertical: true)
         case .alert(let kind, let blocks):
             HStack(alignment: .top, spacing: 12) {
@@ -206,6 +210,7 @@ private struct MarkdownBlockView: View {
 }
 
 private struct MarkdownInlineView: View {
+    @ReadingPreferences private var reading: ReadingStyle
     let value: MarkdownInline; let compact: Bool; let canOpenLocalFiles: Bool; let workspacePath: String?
     var role:TaskCitationTextRole? = nil
     var maximumLines:Int? = nil
@@ -230,7 +235,7 @@ private struct MarkdownInlineView: View {
             ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
                 switch part {
                 case .text(let runs):
-                    if citationModel != nil { TaskCitationSelectableText(value:TaskCitationTextStyle.runs(runs,role:role ?? (compact ? .callout:.body),links:runs.map { link($0.link) },secondary:citationSecondary),part:index,maximumLines:maximumLines) }
+                    if citationModel != nil || runs.contains(where: { $0.style.contains(.code) || $0.style.contains(.keyboard) }) { TaskCitationSelectableText(value:TaskCitationTextStyle.runs(runs,role:role ?? (compact ? .callout:.body),links:runs.map { link($0.link) },secondary:citationSecondary,reading:reading),part:index,maximumLines:maximumLines) }
                     else { Text(attributed(runs)).frame(maxWidth: .infinity, alignment: .leading) }
                 case .image(let image):
                     if MarkdownMediaKind.video(image.source) { MarkdownVideoView(image: image, workspacePath: workspacePath) }
@@ -243,14 +248,21 @@ private struct MarkdownInlineView: View {
         var result = AttributedString()
         for run in runs {
             var value = AttributedString(run.text); var intent: InlinePresentationIntent = []
-            if run.style.contains(.strong) { intent.insert(.stronglyEmphasized) }
             if run.style.contains(.emphasis) { intent.insert(.emphasized) }
             if run.style.contains(.strike) { intent.insert(.strikethrough) }
-            if run.style.contains(.code) { intent.insert(.code); value.font = .system(compact ? .callout : .body, design: .monospaced); value.backgroundColor = .primary.opacity(0.06) }
-            if run.style.contains(.keyboard) { value.font = .system(.callout, design: .monospaced); value.backgroundColor = .primary.opacity(0.09) }
+            if run.style.contains(.code) { intent.insert(.code); value.font = reading.codeFont; value.backgroundColor = .primary.opacity(0.06) }
+            if run.style.contains(.keyboard) { value.font = reading.codeFont; value.backgroundColor = .primary.opacity(0.09) }
             if run.style.contains(.underline) { value.underlineStyle = .single }
             if run.style.contains(.subscriptText) { value.font = .caption; value.baselineOffset = -3 }
             if run.style.contains(.superscriptText) { value.font = .caption; value.baselineOffset = 5 }
+            if run.style.contains(.strong) {
+                let base: Font
+                if let font = value.font { base = font }
+                else if case .heading(let level) = role {
+                    base = Font(reading.nativeFont(scale: ReadingStyle.headingScale(level)))
+                } else { base = compact ? reading.compactFont : reading.bodyFont }
+                value.font = base.weight(.semibold)
+            }
             value.inlinePresentationIntent = intent
             if let link = run.link {
                 value.link = navigation?.target(link) != nil ? URL(string: link)
@@ -303,7 +315,7 @@ private struct MarkdownTableView: View {
                     #endif
                     .fridayInteractiveCursor().help(Text(friday: copied ? "已复制" : "复制表格"))
                     .accessibilityLabel(Text(friday: copied ? "已复制" : "复制表格"))
-            }.font(.caption).foregroundStyle(.secondary)
+            }.font(.caption).foregroundStyle(FridayTheme.secondaryText)
         }.task(id: copyID) {
             guard copied else { return }; try? await Task.sleep(for: .milliseconds(1200))
             if !Task.isCancelled { copied = false }
@@ -320,6 +332,7 @@ private struct MarkdownTableView: View {
 }
 
 struct AgentCodeBlock: View {
+    @ReadingPreferences private var reading: ReadingStyle
     var language = ""
     let text: String
     var title: String? = nil
@@ -334,8 +347,8 @@ struct AgentCodeBlock: View {
     @Environment(\.taskCitationDocument) private var citationModel
     @State private var highlighted: CodeHighlight? = nil
     @State private var highlightedKey: HighlightKey? = nil
-    private struct HighlightKey: Hashable { let text: String; let language: String; let dark: Bool }
-    private var highlightKey: HighlightKey { HighlightKey(text: text, language: language, dark: colorScheme == .dark) }
+    private struct HighlightKey: Hashable { let text: String; let language: String; let dark: Bool; let theme: String }
+    private var highlightKey: HighlightKey { HighlightKey(text: text, language: language, dark: colorScheme == .dark, theme: reading.codeTheme.rawValue) }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 14) {
@@ -350,11 +363,11 @@ struct AgentCodeBlock: View {
                 else { Button { copyAgentText(text); copied = true; copyID = UUID() } label: { FridaySymbolImage(systemName: copied ? "checkmark" : "doc.on.doc") }
                     .buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: copied ? "已复制" : "复制代码"))
                 }
-            }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 14).padding(.vertical, 10)
+            }.font(.caption).foregroundStyle(FridayTheme.secondaryText).padding(.horizontal, 14).padding(.vertical, 10)
             Divider()
             if wrap.wrappedValue { code.fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading) }
             else { ScrollView(.horizontal) { code.fixedSize(horizontal: true, vertical: true) } }
-        }.background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+        }.background(highlightedKey == highlightKey ? highlighted.map { codeColor($0.background) } ?? Color.primary.opacity(0.04) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.primary.opacity(0.06)))
             .task(id: copyID) {
                 guard copied else { return }; try? await Task.sleep(for: .milliseconds(1200))
@@ -362,14 +375,14 @@ struct AgentCodeBlock: View {
             }.onChange(of: text) { _, _ in copied = false }
             .task(id: highlightKey) {
                 let key = highlightKey
-                let value = await CodeHighlighter.shared.highlight(text, language: language, dark: key.dark)
+                let value = await CodeHighlighter.shared.highlight(text, language: language, dark: key.dark, theme: key.theme)
                 guard !Task.isCancelled else { return }; highlighted = value; highlightedKey = key
             }
     }
     private var code: some View {
         Group {
-            if citationModel != nil { TaskCitationSelectableText(value:TaskCitationTextStyle.code(text,highlight:highlightedKey == highlightKey ? highlighted:nil),part:0) }
-            else { Text(highlightedText).font(.system(.callout, design: .monospaced)).lineSpacing(4).textSelection(.enabled) }
+            if citationModel != nil { TaskCitationSelectableText(value:TaskCitationTextStyle.code(text,highlight:highlightedKey == highlightKey ? highlighted:nil,reading:reading),part:0) }
+            else { Text(highlightedText).font(reading.codeFont).lineSpacing(4).textSelection(.enabled) }
         }.padding(14)
     }
     private var highlightedText: AttributedString {
@@ -377,7 +390,7 @@ struct AgentCodeBlock: View {
         var result = AttributedString()
         for token in highlighted.tokens {
             var value = AttributedString(token.text)
-            var font = Font.system(.callout, design: .monospaced).weight(token.style & 2 != 0 ? .bold : .regular)
+            var font = reading.codeFont.weight(token.style & 2 != 0 ? .bold : .regular)
             if token.style & 1 != 0 { font = font.italic() }
             value.font = font; value.foregroundColor = codeColor(token.color)
             if token.style & 4 != 0 { value.underlineStyle = Text.LineStyle(pattern: .solid) }

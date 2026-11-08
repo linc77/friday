@@ -1,13 +1,14 @@
 import Foundation
 
 enum FridayAppearance: String, CaseIterable, Identifiable {
-    case system, light, dark
+    case system, light, dark, midnight
     var id: String { rawValue }
     var title: String {
         switch self {
         case .system: "系统"
         case .light: "浅色"
         case .dark: "深色"
+        case .midnight: "Midnight"
         }
     }
 }

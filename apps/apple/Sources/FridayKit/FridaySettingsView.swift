@@ -2,7 +2,10 @@
 import SwiftUI
 
 enum FridaySettingsSection: String, CaseIterable, Identifiable {
+    case general = "通用"
     case appearance = "外观"
+    case taskSidebar = "任务侧栏"
+    case taskBehavior = "任务设置"
     case providers = "Providers"
     case textGeneration = "文字生成"
     case sourceControl = "Source Control"
@@ -16,7 +19,10 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
+        case .general: "slider.horizontal.3"
         case .appearance: "circle.lefthalf.filled"
+        case .taskSidebar: "sidebar.left"
+        case .taskBehavior: "checklist"
         case .providers: "cpu"
         case .textGeneration: "text.bubble"
         case .sourceControl: "arrow.triangle.branch"
@@ -30,7 +36,10 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
 
     var searchTerms: String {
         switch self {
-        case .appearance: "外观 主题 系统 浅色 深色 语言 中文 英文 任务 侧栏 分组 排序 自动 结束 跟进 天数 Auto Settle Inactivity Working Inbox Beta Appearance Theme System Light Dark Language Chinese English"
+        case .general: "通用 语言 中文 英文 输入框 斜杠 菜单 Skill 技能 General Language Chinese English Composer Input Slash Menu"
+        case .appearance: "外观 主题 系统 浅色 深色 字体 字号 正文 代码 布局 内容 宽度 全宽 配色 高亮 Appearance Theme System Light Dark Font Size Typography Layout Width Syntax Highlight Midnight 午夜 深蓝 Pierre GitHub Visual Studio Code Catppuccin"
+        case .taskSidebar: "任务 侧栏 项目 分组 仓库 排序 顺序 最近 活动 发送 手动 旧版 项目树 默认 显示 数量 恢复 Working Inbox Beta Sidebar Project Group Sort Order Preview"
+        case .taskBehavior: "任务 设置 操作 归档 确认 自动 结束 跟进 不活跃 天数 主机 Workspace PR 合并 Task Settings Archive Confirmation Auto Settle Inactivity Merge"
         case .providers: "Providers 模型服务 供应商 Base URL 本地工具 Friday DeepSeek API 密钥 Codex Claude Code Hermes Pi 编码 账号 模型 路径 环境变量 推理 Runtime"
         case .textGeneration: "文字生成 任务标题 命名 提交 PR 说明 模型 推理 Workspace Text generation Titles Commit Source Control"
         case .sourceControl: "Source Control Git GitHub GitLab Bitbucket Token 仓库 发布 认证 登录 主机 密钥 合并 Agent 署名 credits merge squash"
@@ -56,12 +65,14 @@ struct FridaySettingsView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-            Divider()
+        HStack(spacing: FridayTheme.paneSpacing) {
+            sidebar.fridayPaneSurface(FridayTheme.surface)
             Group {
                 switch selection {
-                case .appearance: AppearanceSettingsView(store: store)
+                case .general: GeneralSettingsView()
+                case .appearance: AppearanceSettingsView()
+                case .taskSidebar: TaskSidebarSettingsView(store: store)
+                case .taskBehavior: TaskBehaviorSettingsView(store: store)
                 case .providers: ProvidersView(store: store)
                 case .textGeneration: TextGenerationSettingsView(store: store)
                 case .sourceControl: SourceControlSettingsView(store: store)
@@ -74,7 +85,7 @@ struct FridaySettingsView: View {
             }
             .id(selection)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(FridayTheme.surface)
+            .fridayPaneSurface(FridayTheme.surface)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .tint(FridayTheme.accent)
@@ -87,13 +98,13 @@ struct FridaySettingsView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .padding(.horizontal, 8)
             HStack(spacing: 7) {
-                FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(.secondary).fridaySymbolFeedback()
+                FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(FridayTheme.secondaryText).fridaySymbolFeedback()
                 TextField(friday: "搜索设置", text: $search)
                     .textFieldStyle(.plain)
                     .accessibilityLabel(Text(friday: "搜索设置"))
                 if !search.isEmpty {
                     Button { search = "" } label: {
-                        FridaySymbolImage(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        FridaySymbolImage(systemName: "xmark.circle.fill").foregroundStyle(FridayTheme.secondaryText)
                     }
                     .buttonStyle(FridaySymbolButtonStyle())
                     .accessibilityLabel(Text(friday: "清除搜索"))
@@ -106,12 +117,13 @@ struct FridaySettingsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    navigationGroup("通用", sections: [.appearance,.browser,.archived])
-                    navigationGroup("Friday", sections: [.providers, .health, .textGeneration, .sourceControl, .projectScripts])
+                    navigationGroup("通用", sections: [.general, .appearance, .taskSidebar, .browser])
+                    navigationGroup("任务与项目", sections: [.taskBehavior, .archived, .sourceControl, .projectScripts])
+                    navigationGroup("Friday", sections: [.providers, .health, .textGeneration])
                     navigationGroup("连接与同步", sections: [.devices])
                     if filteredSections.isEmpty {
                         Text(friday: "没有匹配的设置")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(FridayTheme.secondaryText)
                             .padding(.horizontal, 8)
                     }
                 }
@@ -123,7 +135,7 @@ struct FridaySettingsView: View {
         .padding(.bottom, 16)
         .frame(width: 220)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(FridayTheme.canvas.opacity(0.65))
+        .background(FridayTheme.surface)
     }
 
     @ViewBuilder private func navigationGroup(_ title: String, sections: [FridaySettingsSection]) -> some View {
@@ -131,7 +143,7 @@ struct FridaySettingsView: View {
         if !visible.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 Text(fridayString: title)
-                    .font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                    .font(.system(size: 12, weight: .medium)).foregroundStyle(FridayTheme.secondaryText)
                     .padding(.horizontal, 8).padding(.bottom, 4)
                 ForEach(visible) { section in
                     Button { selection = section } label: {
@@ -139,7 +151,7 @@ struct FridaySettingsView: View {
                             FridaySymbolImage(systemName: section.icon)
                                 .font(.system(size: 13, weight: .regular))
                                 .frame(width: 16)
-                            Text(fridayString: section.rawValue).font(.system(size: 13))
+                            Text(fridayString: section.rawValue).font(FridayTheme.interfaceFont)
                             Spacer(minLength: 0)
                         }
                         .padding(.horizontal, 8)
@@ -159,7 +171,7 @@ private struct SettingsNavigationStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(.primary)
+            .foregroundStyle(FridayTheme.foreground)
             .background(.primary.opacity(selected ? 0.065 : configuration.isPressed ? 0.035 : 0),
                         in: RoundedRectangle(cornerRadius: 7))
             .fridaySymbolFeedback(active: configuration.isPressed)

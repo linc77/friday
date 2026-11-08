@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TaskDetail: View {
+    @ReadingPreferences private var reading: ReadingStyle
     @ObservedObject var store: FridayStore
     let id: String
     var onOpenTask: ((String) -> Void)? = nil
@@ -142,6 +143,7 @@ struct TaskDetail: View {
             }
         } else {
             EmptyPanel(icon: "checklist", title: store.taskWasRemoved(id) ? "任务不存在" : "正在加载任务", subtitle: store.taskStreamErrors[id] ?? "连接主机后会显示最新进展。")
+                .fridayPaneSurface()
                 #if os(iOS)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     // The home must remain navigable before its composer is available.
@@ -243,7 +245,7 @@ struct TaskDetail: View {
                     error: store.error,
                     send: sendMessage
                 )
-                .frame(maxWidth: FridayTheme.contentWidth)
+                .frame(maxWidth: reading.contentWidth)
                 .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
                 .frame(maxWidth: .infinity)
             }
@@ -267,7 +269,7 @@ struct TaskDetail: View {
                             message: draftMessage, images: draftImages, contexts: draftContexts, contextInsertion: $contextInsertion, sending: sending, send: sendAgentMessage)
                     }
                 }
-                    .frame(maxWidth: FridayTheme.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
+                    .frame(maxWidth: reading.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
                     .background(GeometryReader { geometry in
                         Color.clear.preference(key: TaskComposerHeightKey.self, value: geometry.size.height)
                     })
@@ -737,6 +739,7 @@ private struct TranscriptScrollObserver: ViewModifier {
 }
 
 private struct FloatingComposer: View {
+    @ReadingPreferences private var reading: ReadingStyle
     @Binding var message: String
     let active: Bool
     let sending: Bool
@@ -748,7 +751,7 @@ private struct FloatingComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             TextField(friday: active ? "补充要求，或告诉 Friday 更多背景…" : "基于这个结果，接着做什么？", text: $message, axis: .vertical)
-                .font(FridayTheme.conversationFont).lineLimit(2...5).textFieldStyle(.plain)
+                .font(reading.bodyFont).lineLimit(2...5).textFieldStyle(.plain)
                 .focused($focused).accessibilityLabel(Text(friday: "补充要求"))
                 .onChatSubmit { if !disabled { send() } }
             HStack(spacing: 12) {

@@ -39,6 +39,7 @@ for (const [entry, name, notice] of [
   ['mermaid.mjs', 'MermaidRenderer.js', 'MermaidLicenses.txt'],
   ['markdown.mjs', 'MarkdownParser.js', 'MarkdownParserLicenses.txt'],
 ]) {
+  if (process.argv.includes('--highlighter-only') && entry !== 'highlighter.mjs') continue;
   const result = await build({ absWorkingDir: root, entryPoints: [join(root, 'scripts/markdown-highlighting', entry)], bundle: true,
     write: false, minify: true, metafile: true, platform: entry === 'markdown.mjs' ? 'neutral' : 'browser',
     ...(entry === 'markdown.mjs' ? { mainFields: ['module', 'main'] } : {}),

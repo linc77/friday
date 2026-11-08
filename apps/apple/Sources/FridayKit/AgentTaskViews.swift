@@ -8,6 +8,7 @@ import AppKit
 #endif
 
 struct NewAgentTaskView: View {
+    @ReadingPreferences private var reading: ReadingStyle
     @ObservedObject var store: FridayStore
     var project: Project? = nil
     var onSelectProject: (Project) -> Void = { _ in }
@@ -83,8 +84,8 @@ struct NewAgentTaskView: View {
     var body: some View {
         GeometryReader { geometry in
             ScrollView {
-                taskForm(availableWidth: min(geometry.size.width - 56, FridayTheme.contentWidth))
-                    .padding(28).frame(maxWidth: FridayTheme.contentWidth + 56)
+                taskForm(availableWidth: min(geometry.size.width - 56, reading.contentWidth))
+                    .padding(28).frame(maxWidth: reading.contentWidth + 56)
                     .frame(maxWidth: .infinity, minHeight: geometry.size.height)
                     .animation(workspaceTransition, value: draftKey)
                     .animation(workspaceTransition, value: showsExecutionLocation)
@@ -1174,7 +1175,7 @@ private struct AgentTaskComposerSurface: ViewModifier {
             content.padding(8)
         } else {
             #if os(macOS)
-            if reduceTransparency || contrast == .increased {
+            if FridayTheme.isMidnight || reduceTransparency || contrast == .increased {
                 content.fridayCard(radius: 22, highlighted: focused)
             } else {
                 #if compiler(>=6.2)

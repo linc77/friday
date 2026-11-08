@@ -4,6 +4,7 @@ import SwiftUI
 /// Building them inline in GeometryReader/ScrollView multiplies temporary value
 /// storage and can exhaust the iPhone main-thread stack in unoptimized builds.
 struct TaskTranscriptContent: View {
+    @ReadingPreferences private var reading: ReadingStyle
     @ObservedObject var store: FridayStore
     let task: WorkItem
     let header: () -> TaskDetailHeader
@@ -50,7 +51,7 @@ struct TaskTranscriptContent: View {
         .padding(.bottom, task.localAgent ? 0 : 24)
         .padding(.top, 24)
         #endif
-        .frame(maxWidth: FridayTheme.contentWidth + 48).frame(maxWidth: .infinity)
+        .frame(maxWidth: reading.contentWidth + 48).frame(maxWidth: .infinity)
         .background(GeometryReader { geometry in
             let frame = geometry.frame(in: .named("task-transcript"))
             Color.clear.preference(key: TranscriptScrollKey.self, value: TranscriptScrollMetrics(top: frame.minY, bottom: frame.maxY, viewportHeight: viewportHeight))
@@ -60,6 +61,7 @@ struct TaskTranscriptContent: View {
 }
 
 private struct TaskTranscriptMessages: View {
+    @ReadingPreferences private var reading: ReadingStyle
     @ObservedObject var store: FridayStore
     let task: WorkItem
     let hasEarlierHistory: Bool
@@ -97,7 +99,7 @@ private struct TaskTranscriptMessages: View {
             }
             if task.active {
                 Text(fridayString: assistantStatus)
-                    .font(.callout).foregroundStyle(.secondary)
+                    .font(.callout).foregroundStyle(FridayTheme.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .id("friday-activity")
             }
@@ -123,7 +125,7 @@ private struct TaskTranscriptMessages: View {
             HStack {
                 Spacer(minLength: 36)
                 Text(verbatim: message.text)
-                    .font(FridayTheme.conversationFont).lineSpacing(FridayTheme.conversationUserLineSpacing)
+                    .font(reading.bodyFont).lineSpacing(reading.lineSpacing)
                     .foregroundStyle(FridayTheme.conversationUserForeground).textSelection(.enabled)
                     .padding(.horizontal, 18).padding(.vertical, FridayTheme.conversationUserVerticalPadding)
                     .background(FridayTheme.conversationUserBackground, in: RoundedRectangle(cornerRadius: FridayTheme.conversationUserBubbleRadius))
@@ -152,6 +154,7 @@ private func assistantToolName(_ name: String) -> String {
 }
 
 private struct FridayAssistantMessage: View {
+    @ReadingPreferences private var reading: ReadingStyle
     let message: ChatMessage
     let name: String
     let active: Bool
@@ -178,33 +181,33 @@ private struct FridayAssistantMessage: View {
             Text(name).font(.subheadline.weight(.semibold))
             if let thinking = message.thinking, !thinking.isEmpty {
                 DisclosureGroup(isExpanded: $thinkingExpanded) {
-                    Text(verbatim: thinking).font(.callout).foregroundStyle(.secondary)
+                    Text(verbatim: thinking).font(.callout).foregroundStyle(FridayTheme.secondaryText)
                         .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                 } label: {
-                    Text(friday: "思考记录").font(.callout).foregroundStyle(.secondary).fridayInteractiveCursor()
+                    Text(friday: "思考记录").font(.callout).foregroundStyle(FridayTheme.secondaryText).fridayInteractiveCursor()
                 }
             }
             ForEach(message.tools ?? []) { tool in
                 DisclosureGroup {
                     if let output = tool.output, !output.isEmpty {
-                        Text(verbatim: output).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
+                        Text(verbatim: output).font(.callout).foregroundStyle(FridayTheme.secondaryText).textSelection(.enabled)
                     }
                 } label: {
                     HStack {
                         Text(fridayString: assistantToolName(tool.name))
                         Spacer()
                         Text(fridayString: toolStatus(tool))
-                    }.font(.callout).foregroundStyle(.secondary).fridayInteractiveCursor()
+                    }.font(.callout).foregroundStyle(FridayTheme.secondaryText).fridayInteractiveCursor()
                 }
             }
             if !message.text.isEmpty {
                 AgentMarkdown(text: message.text, isStreaming: message.streaming == true && active,
-                    bodyFont: FridayTheme.conversationFont, bodyLineSpacing: FridayTheme.conversationLineSpacing,
+                    bodyFont: reading.bodyFont, bodyLineSpacing: reading.lineSpacing,
                     bodyParagraphSpacing: FridayTheme.conversationParagraphSpacing,
                     bodyListItemSpacing: FridayTheme.conversationListItemSpacing)
                     #if os(macOS)
-                    .tint(FridayTheme.conversationUserBackground)
-                    .accentColor(FridayTheme.conversationUserBackground)
+                    .tint(FridayTheme.link)
+                    .accentColor(FridayTheme.link)
                     #endif
             }
         }
@@ -242,7 +245,7 @@ private struct AssistantRecordDisclosureStyle: DisclosureGroupStyle {
                 .contentShape(Rectangle())
             }
             .buttonStyle(FridaySymbolButtonStyle())
-            .foregroundStyle(.secondary)
+            .foregroundStyle(FridayTheme.secondaryText)
             .accessibilityValue(Text(friday: configuration.isExpanded ? "已展开" : "已收起"))
             if configuration.isExpanded {
                 configuration.content
@@ -281,7 +284,7 @@ private struct TaskTranscriptFooter: View {
                     FridaySymbolImage(systemName: "terminal").fridaySymbolFeedback()
                     VStack(alignment: .leading, spacing: 4) {
                         Text(child.title).lineLimit(2)
-                        Text(child.agentName).font(.caption).foregroundStyle(.secondary)
+                        Text(child.agentName).font(.caption).foregroundStyle(FridayTheme.secondaryText)
                     }
                     Spacer()
                     StatusBadge(task: child)

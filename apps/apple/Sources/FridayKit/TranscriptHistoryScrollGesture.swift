@@ -56,7 +56,7 @@ final class TranscriptHistoryScrollView: NSView {
         // Scrolling the editor itself must not dismiss it. The composer floats
         // over this viewport, so exclude its actual bottom-center footprint.
         let distanceFromBottom = viewport.isFlipped ? viewport.bounds.maxY - point.y : point.y - viewport.bounds.minY
-        let composerWidth = min(FridayTheme.contentWidth, max(0, viewport.bounds.width - 48))
+        let composerWidth = min(ReadingStyle.current.contentWidth, max(0, viewport.bounds.width - 48))
         if distanceFromBottom <= composerHeight && abs(point.x - viewport.bounds.midX) <= composerWidth / 2 { return }
 
         // A bounded mouse-wheel scroll at the bottom may produce no geometry

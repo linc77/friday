@@ -46,7 +46,6 @@ public struct FridayRootView: View {
     @State private var mobileKeyboardVisible = false
     #endif
     #if os(macOS)
-    @Environment(\.colorSchemeContrast) private var contrast
     @State private var settingsSection: FridaySettingsSection = .appearance
     @State private var taskModelJump: TaskModelJumpContext?
     @State private var taskTitleEditors: Set<UUID> = []
@@ -70,7 +69,7 @@ public struct FridayRootView: View {
                     content
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .modifier(FridayReadingSurface())
+                .modifier(FridayReadingSurface(isContainer: navigation.section == .tasks || navigation.section == .settings))
                 .padding([.top, .trailing, .bottom], FridayTheme.windowEdgeInset)
             }
             // The traffic lights sit over the rail; content reaches the top window edge.
@@ -111,7 +110,10 @@ public struct FridayRootView: View {
                         NavigationLink(friday: "文字生成") { TextGenerationSettingsView(store: store) }
                         NavigationLink(friday: "Source Control") { SourceControlSettingsView(store: store) }
                         NavigationLink(friday: "项目脚本") { ProjectScriptsSettingsView(store: store) }
-                        NavigationLink(friday: "外观") { AppearanceSettingsView(store: store) }
+                        NavigationLink(friday: "通用") { GeneralSettingsView() }
+                        NavigationLink(friday: "外观") { AppearanceSettingsView() }
+                        NavigationLink(friday: "任务侧栏") { TaskSidebarSettingsView(store: store) }
+                        NavigationLink(friday: "任务设置") { TaskBehaviorSettingsView(store: store) }
                         NavigationLink(friday: "已归档任务") { TaskArchivedTasks(store: store) }
                         NavigationLink(friday: "连接与设备") { ConnectionView(store: store) }
                         NavigationLink(friday: "健康与主动分享") { HealthSettingsView(store: store) }
@@ -136,6 +138,8 @@ public struct FridayRootView: View {
             }
             #endif
         }
+        .font(FridayTheme.interfaceFont)
+        .foregroundStyle(FridayTheme.foreground)
         .tint(FridayTheme.accent)
         #if os(macOS)
         .buttonStyle(FridayDefaultButtonStyle())
@@ -153,6 +157,7 @@ public struct FridayRootView: View {
         .background(TaskUndoKeyboard { store.taskUndo.undo(store: store) }.frame(width: 0, height: 0))
         #endif
         .preferredColorScheme(appearance.colorScheme)
+        .onChange(of: appearance, initial: true) { _, value in FridayPalette.shared.appearance = value }
         .overlay(alignment: .bottomTrailing) { VStack(alignment: .trailing, spacing: 8) { ProjectPublicationNotices(store: store); TaskReviewGuideNotices(store: store) }.padding(16) }
         .sheet(item: $store.reviewGuideOpenRequest) { target in TaskChangeRequestPanel(store: store, taskID: target.taskID, url: target.url, initialTab: "guide") }
         .task(id: store.connection.server) {
@@ -208,7 +213,7 @@ public struct FridayRootView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(fridayString: store.connected ? "主机已连接" : "等待连接主机").font(.caption.weight(.medium))
-                if !store.outbox.isEmpty { Text(friday: "\(store.outbox.count) 条想法待同步").font(.caption2).foregroundStyle(.secondary) }
+                if !store.outbox.isEmpty { Text(friday: "\(store.outbox.count) 条想法待同步").font(.caption2).foregroundStyle(FridayTheme.secondaryText) }
             }
         }.accessibilityElement(children: .combine)
     }
@@ -237,19 +242,19 @@ public struct FridayRootView: View {
         case .inbox: inbox
         case .tasks:
             #if os(macOS)
-            HStack(spacing: 0) {
+            HStack(spacing: FridayTheme.paneSpacing) {
                 TaskWorkspaceSidebar(store: store, scope: $workspaceScope, draftProjectId: $draftProjectId, selectedTask: $selectedTask) {
                     selectedTask = nil
                 }
                 .frame(width: 250)
                 .frame(maxHeight: .infinity)
-                Divider()
-                    .opacity(contrast == .increased ? 1 : 0.35)
+                .fridayPaneSurface()
                 if let selectedTask { TaskDetail(store: store, id: selectedTask, onOpenTask: openLocalTask).id(selectedTask).frame(minWidth: 420) }
                 else {
                     NewAgentTaskView(store: store, project: store.projects.first { $0.id == draftProjectId }, onSelectProject: { project in
                         draftProjectId = project.id
                     }, onCreated: openLocalTask, drafts: $taskDrafts)
+                    .fridayPaneSurface()
                 }
             }
             #else
@@ -369,7 +374,7 @@ public struct FridayRootView: View {
                             Button { selectedTask = task.id } label: {
                                 TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects), workspace: TaskWorkspaces.project(for: task, in: store.projects), selected: selectedTask == task.id,
                                     acknowledgeWake: { Task { await store.acknowledgeTaskWake(task) } }).padding(.horizontal, 12)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(FridayTheme.foreground)
                             }.buttonStyle(TaskRowButtonStyle(selected: selectedTask == task.id))
                                 .accessibilityAddTraits(selectedTask == task.id ? .isSelected : [])
                         }
@@ -412,6 +417,11 @@ private struct FridaySidebar: View, Equatable {
         .padding(.bottom, 12)
         .frame(width: FridayTheme.sidebarWidth)
         .frame(maxHeight: .infinity)
+        .overlay(alignment: .top) {
+            if #available(macOS 15.0, *) {
+                FridayWindowControls().frame(height: FridayTheme.sidebarTopInset)
+            }
+        }
     }
 
     private func row(_ item: FridaySection) -> some View {

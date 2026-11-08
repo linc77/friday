@@ -1,5 +1,28 @@
 import SwiftUI
 
+struct TaskSidebarSettingsView: View {
+    @ObservedObject var store: FridayStore
+
+    var body: some View {
+        SettingsPage(title: "任务侧栏", subtitle: "调整项目分组、任务排序和侧栏列表。") {
+            SettingsGroup("任务侧栏") {
+                TaskSidebarSettingsRows()
+                SettingsDivider()
+                SettingsRow("Working 分组（Beta）", detail: "折叠正在处理的任务；需要你处理时回到活跃列表顶部，活跃列表按返回时间排序。") {
+                    Toggle(isOn: $store.sidebarWorkingShelfEnabled) { Text(friday: "Working 分组（Beta）") }
+                        .labelsHidden().toggleStyle(.switch).fridayInteractiveCursor()
+                }
+                if store.sidebarWorkingShelfEnabled {
+                    SettingsDivider()
+                    SettingsRow("恢复默认", detail: "关闭 Working 分组并恢复已保存的手动排序。") {
+                        Button(friday: "恢复默认") { store.sidebarWorkingShelfEnabled = false }.buttonStyle(FridayButtonStyle(compact: true))
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct TaskSidebarSettingsRows: View {
     @AppStorage(FridayPreferenceKeys.legacySidebar) private var legacySidebar = false
     @AppStorage(FridayPreferenceKeys.projectGrouping) private var grouping: TaskProjectGrouping = .repository

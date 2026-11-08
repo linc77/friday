@@ -4,6 +4,7 @@ import AppKit
 #endif
 
 struct NewConversationView: View {
+    @ReadingPreferences private var reading: ReadingStyle
     @ObservedObject var store: FridayStore
     let onCreated: (String) -> Void
     @AppStorage("friday.chatDraft") private var draft = ""
@@ -20,7 +21,7 @@ struct NewConversationView: View {
                     PageHeading(title: "想到什么，直接说。", subtitle: "一个想法，一件想推进的事。")
                 }
                 .padding(.horizontal, 24).padding(.top, geometry.safeAreaInsets.top + 24)
-                .frame(maxWidth: 660).frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: reading.contentWidth).frame(maxWidth: .infinity, alignment: .leading)
             }
             .fridayMobileHomeScroll()
             .scrollDismissesKeyboard(.interactively)
@@ -40,8 +41,8 @@ struct NewConversationView: View {
                 PageHeading(title: "想到什么，直接说。", subtitle: "一个想法，一件想推进的事。")
                 VStack(alignment: .leading, spacing: 12) {
                     ZStack(alignment: .topLeading) {
-                        if draft.isEmpty { Text(friday: "告诉 Friday 你想做什么…").font(FridayTheme.conversationFont).foregroundStyle(.tertiary).padding(.leading, 5).padding(.top, 8).allowsHitTesting(false) }
-                        TextEditor(text: $draft).font(FridayTheme.conversationFont).frame(height: 90).scrollContentBackground(.hidden).focused($focused).accessibilityLabel(Text(friday: "告诉 Friday 你想做什么"))
+                        if draft.isEmpty { Text(friday: "告诉 Friday 你想做什么…").font(reading.bodyFont).foregroundStyle(.tertiary).padding(.leading, 5).padding(.top, 8).allowsHitTesting(false) }
+                        TextEditor(text: $draft).font(reading.bodyFont).frame(height: 90).scrollContentBackground(.hidden).focused($focused).accessibilityLabel(Text(friday: "告诉 Friday 你想做什么"))
                             .onChatSubmit(send)
                     }
                     HStack {
@@ -52,7 +53,7 @@ struct NewConversationView: View {
                     }
                 }.padding(20).fridayCard(highlighted: focused)
                 if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
-            }.frame(maxWidth: 660).padding(28)
+            }.frame(maxWidth: reading.contentWidth).padding(28)
             Spacer(minLength: 80)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FridayTheme.conversationCanvas)

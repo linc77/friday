@@ -10,6 +10,7 @@ private typealias FileColor = UIColor
 #endif
 
 struct TaskSourceFileView: View {
+    @ReadingPreferences private var reading: ReadingStyle
     let source: String; let language: String; let identity: String; let line: Int?; let reveal: Int; let wrapping: Bool
     var editable = false
     var change: (String) -> Void = { _ in }
@@ -24,15 +25,24 @@ struct TaskSourceFileView: View {
     @State private var highlight: CodeHighlight?
     @State private var highlightedKey: String?
     @State private var highlightID = UUID()
-    private var key: String { identity + ":" + language + ":" + String(colorScheme == .dark) + ":" + source }
+    private var key: String { identity + ":" + language + ":" + String(colorScheme == .dark) + ":" + reading.codeTheme.rawValue + ":" + source }
     var body: some View {
         TaskSourceNativeView(source: source, highlight: highlightedKey == key ? highlight : nil, highlightID: highlightedKey == key && highlight != nil ? highlightID : nil,
             identity: identity, line: line, reveal: reveal, wrapping: wrapping, editable: editable, change: change, edited: edited,
             annotations: annotations, canComment: canComment, beginComment: beginComment, submitComment: submitComment, removeComment: removeComment, locale: locale, dark: colorScheme == .dark)
+            .background {
+                if highlightedKey == key, let highlight, let color = FileSourceText.color(highlight.background) {
+                    #if os(macOS)
+                    Color(nsColor: color)
+                    #else
+                    Color(uiColor: color)
+                    #endif
+                }
+            }
             .task(id: key) {
                 let request = key
                 if editable { do { try await Task.sleep(for: .milliseconds(80)) } catch { return } }
-                let value = await CodeHighlighter.shared.highlight(source, language: language, dark: colorScheme == .dark)
+                let value = await CodeHighlighter.shared.highlight(source, language: language, dark: colorScheme == .dark, theme: reading.codeTheme.rawValue)
                 if !Task.isCancelled { highlight = value; highlightedKey = request; highlightID = UUID() }
             }
     }
@@ -46,8 +56,8 @@ private enum FileSourceText {
         storage.endEditing()
     }
     @MainActor static func attributed(_ source: String, highlight: CodeHighlight?) -> NSAttributedString {
-        let paragraph = NSMutableParagraphStyle(); paragraph.minimumLineHeight = 20
-        let font = FileFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        let font = ReadingStyle.current.nativeFont(code: true)
+        let paragraph = NSMutableParagraphStyle(); paragraph.minimumLineHeight = max(20, font.pointSize * 1.5)
         #if os(macOS)
         let foreground = NSColor.textColor
         #else
@@ -65,7 +75,7 @@ private enum FileSourceText {
                 var value = font; if traits & 1 != 0 { value = NSFontManager.shared.convert(value, toHaveTrait: .italicFontMask) }; if traits & 2 != 0 { value = NSFontManager.shared.convert(value, toHaveTrait: .boldFontMask) }; fonts[traits] = value
                 #else
                 var value: UIFontDescriptor.SymbolicTraits = []; if traits & 1 != 0 { value.insert(.traitItalic) }; if traits & 2 != 0 { value.insert(.traitBold) }
-                fonts[traits] = font.fontDescriptor.withSymbolicTraits(value).map { UIFont(descriptor: $0, size: 13) } ?? font
+                fonts[traits] = font.fontDescriptor.withSymbolicTraits(value).map { UIFont(descriptor: $0, size: font.pointSize) } ?? font
                 #endif
             }
             result.addAttribute(.font, value: fonts[traits] ?? font, range: range)
@@ -165,6 +175,7 @@ private final class FileSourceTextView: NSTextView {
     let annotations = TaskSourceAnnotations()
     var annotationUpdate: (() -> Void)?
     var externalUndo: TaskSourceExternalUndo<TaskSourceUndoSnapshot>?
+    var readingStyle: ReadingStyle?
     var source = "", style: UUID?, loaded = false
     var request: TaskSourceRevealRequest?, origin = CGPoint.zero, pendingOrigin: CGPoint?, pendingLine: Int?
     var pendingCommit: String?
@@ -206,6 +217,7 @@ private final class FileSourceHost: NSView {
 }
 
 private struct TaskSourceNativeView: NSViewRepresentable {
+    @ReadingPreferences private var reading: ReadingStyle
     let source: String; let highlight: CodeHighlight?; let highlightID: UUID?
     let identity: String; let line: Int?; let reveal: Int; let wrapping: Bool
     let editable: Bool; let change: (String) -> Void
@@ -282,7 +294,7 @@ private struct TaskSourceNativeView: NSViewRepresentable {
         if let ruler = scroll.verticalRulerView as? FileLineRuler { if ruler.canComment != canComment { ruler.canComment = canComment; ruler.window?.invalidateCursorRects(for: ruler) }; ruler.beginComment = beginComment }
         guard !text.hasMarkedText() else { return }
         let contents = state.pendingCommit ?? source, styleID = contents == source ? highlightID : nil
-        if !state.loaded || contents != state.source || state.style != styleID {
+        if !state.loaded || contents != state.source || state.style != styleID || state.readingStyle != reading {
             let ranges = text.selectedRanges, origin = state.pendingOrigin ?? scroll.contentView.bounds.origin
             saved.applying = true
             if let storage = text.textStorage {
@@ -296,7 +308,7 @@ private struct TaskSourceNativeView: NSViewRepresentable {
             }
             text.typingAttributes = FileSourceText.attributed(" ", highlight: nil).attributes(at: 0, effectiveRange: nil)
             if !state.loaded || contents == state.source { text.selectedRanges = ranges.map { NSValue(range: TaskSourceEditorPosition.selection($0.rangeValue, length: (contents as NSString).length)) } }
-            state.source = contents; state.style = styleID; state.loaded = true; state.pendingOrigin = origin
+            state.source = contents; state.style = styleID; state.readingStyle = reading; state.loaded = true; state.pendingOrigin = origin
             if let ruler = scroll.verticalRulerView as? FileLineRuler { ruler.lines = TaskSourceLines(contents); ruler.ruleThickness = max(58, CGFloat(String(ruler.lines.starts.count).count) * 8 + 30) }
             saved.applying = false
         }
@@ -332,6 +344,7 @@ private final class FileSourceTextView: UITextView {
     let annotations = TaskSourceAnnotations()
     var annotationUpdate: (() -> Void)?
     var externalUndo: TaskSourceExternalUndo<TaskSourceUndoSnapshot>?
+    var readingStyle: ReadingStyle?
     var source = "", style: UUID?, loaded = false, wrapping = true
     var request: TaskSourceRevealRequest?, origin = CGPoint.zero, pendingOrigin: CGPoint?, pendingLine: Int?
     var pendingCommit: String?
@@ -367,6 +380,7 @@ private final class FileSourceHost: UIView {
 }
 
 private struct TaskSourceNativeView: UIViewRepresentable {
+    @ReadingPreferences private var reading: ReadingStyle
     let source: String; let highlight: CodeHighlight?; let highlightID: UUID?
     let identity: String; let line: Int?; let reveal: Int; let wrapping: Bool
     let editable: Bool; let change: (String) -> Void
@@ -462,7 +476,7 @@ private struct TaskSourceNativeView: UIViewRepresentable {
         view.canComment = canComment; view.beginComment = beginComment
         guard view.markedTextRange == nil else { return }
         let contents = state.pendingCommit ?? source, styleID = contents == source ? highlightID : nil
-        if !state.loaded || contents != state.source || state.style != styleID {
+        if !state.loaded || contents != state.source || state.style != styleID || state.readingStyle != reading {
             let range = view.selectedRange, origin = state.pendingOrigin ?? view.contentOffset
             saved.applying = true
             let attributes = FileSourceText.attributed(contents, highlight: contents == source ? highlight : nil)
@@ -474,7 +488,7 @@ private struct TaskSourceNativeView: UIViewRepresentable {
             view.typingAttributes = FileSourceText.attributed(" ", highlight: nil).attributes(at: 0, effectiveRange: nil)
             view.lines = TaskSourceLines(contents)
             if !state.loaded || contents == state.source { view.selectedRange = TaskSourceEditorPosition.selection(range, length: (contents as NSString).length) }
-            state.source = contents; state.style = styleID; state.loaded = true; state.pendingOrigin = origin
+            state.source = contents; state.style = styleID; state.readingStyle = reading; state.loaded = true; state.pendingOrigin = origin
             saved.applying = false
         }
         state.annotationUpdate = { [weak state] in state?.annotations.update(annotations, locale: locale, dark: dark, submit: submitComment, remove: removeComment) }

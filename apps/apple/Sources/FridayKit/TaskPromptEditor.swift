@@ -9,6 +9,7 @@ import UIKit
 /// Native text/IME/undo with atomic context attachments. The binding keeps a
 /// portable reference document; captured source bytes stay in private storage.
 struct TaskPromptEditor: View {
+    @ReadingPreferences private var reading: ReadingStyle
     @Binding var text: String
     var placeholder: String
     var enabled: Bool
@@ -43,7 +44,7 @@ struct TaskPromptEditor: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             if text.isEmpty {
-                Text(fridayString: placeholder).font(.body).foregroundStyle(.tertiary)
+                Text(fridayString: placeholder).font(reading.bodyFont).foregroundStyle(.tertiary)
                     .padding(.top, 4).padding(.leading, 3).allowsHitTesting(false)
             }
             NativeTaskPromptEditor(text: $text, height: $height, enabled: enabled, focused: focused,
@@ -58,6 +59,7 @@ struct TaskPromptEditor: View {
 
 #if os(macOS)
 private struct NativeTaskPromptEditor: NSViewRepresentable {
+    @ReadingPreferences private var reading: ReadingStyle
     @Binding var text: String
     @Binding var height: CGFloat
     let enabled: Bool
@@ -92,8 +94,8 @@ private struct NativeTaskPromptEditor: NSViewRepresentable {
         let editor = TaskNativeTextView(frame: NSRect(x: 0, y: 0, width: 1, height: 48))
         editor.isRichText = true; editor.importsGraphics = false; editor.allowsUndo = true
         editor.isAutomaticLinkDetectionEnabled = false; editor.isAutomaticTextReplacementEnabled = false
-        editor.drawsBackground = false; editor.font = .systemFont(ofSize: 14)
-        editor.textColor = .labelColor; editor.insertionPointColor = .labelColor
+        editor.drawsBackground = false; editor.font = ReadingStyle.current.nativeFont()
+        editor.textColor = FridayTheme.nativeForeground; editor.insertionPointColor = FridayTheme.nativeForeground
         editor.textContainerInset = NSSize(width: 0, height: 4)
         editor.textContainer?.lineFragmentPadding = 3
         editor.isVerticallyResizable = true; editor.isHorizontallyResizable = false
@@ -118,15 +120,22 @@ private struct NativeTaskPromptEditor: NSViewRepresentable {
         context.coordinator.parent = self
         let current = TaskContextText.canonical(editor.attributedString())
         if !editor.hasMarkedText(), changedScope || current != text || context.coordinator.renderedContexts != contexts || context.coordinator.renderedSkills != skills && editor.undoManager?.canUndo != true {
-            let selection = TaskContextText.modelRange(editor.selectedRange(), in: editor.attributedString()); editor.textStorage?.setAttributedString(TaskContextText.document(text, records: contexts, skills: skills, font: .systemFont(ofSize: 14)))
+            let selection = TaskContextText.modelRange(editor.selectedRange(), in: editor.attributedString()); editor.textStorage?.setAttributedString(TaskContextText.document(text, records: contexts, skills: skills, font: ReadingStyle.current.nativeFont()))
             editor.setSelectedRange(current == text && !changedScope ? TaskContextText.viewRange(selection, in: editor.attributedString()) : NSRange(location: editor.string.utf16.count, length: 0))
             if current != text { editor.undoManager?.removeAllActions(); context.coordinator.appliedInsertion = nil }
             context.coordinator.renderedSkills = skills; context.coordinator.renderedContexts = contexts
         }
+        if !editor.hasMarkedText(), editor.font != reading.nativeFont() {
+            let undo = editor.undoManager, enabled = undo?.isUndoRegistrationEnabled == true
+            if enabled { undo?.disableUndoRegistration() }
+            editor.textStorage?.addAttribute(.font, value: reading.nativeFont(), range: NSRange(location: 0, length: editor.string.utf16.count))
+            editor.font = reading.nativeFont()
+            if enabled { undo?.enableUndoRegistration() }
+        }
         editor.isEditable = enabled; editor.isSelectable = true
-        editor.typingAttributes = [.font: NSFont.systemFont(ofSize: 14), .foregroundColor: NSColor.labelColor]
+        editor.typingAttributes = [.font: ReadingStyle.current.nativeFont(), .foregroundColor: FridayTheme.nativeForeground]
         editor.onSubmit = { alternate in if alternate { (alternateSubmit ?? submit)() } else { submit() } }; editor.onImages = importProviders
-        editor.renderPastedText = { TaskContextText.document($0, records: contexts, skills: skills, font: .systemFont(ofSize: 14)) }
+        editor.renderPastedText = { TaskContextText.document($0, records: contexts, skills: skills, font: ReadingStyle.current.nativeFont()) }
         editor.onContextClick = openContext
         editor.fileMentions = fileMentions
         editor.onCompletionKey = { key in
@@ -159,7 +168,7 @@ private struct NativeTaskPromptEditor: NSViewRepresentable {
         init(_ parent: NativeTaskPromptEditor) { self.parent = parent }
         func textDidChange(_ notification: Notification) {
             guard let editor = notification.object as? NSTextView else { return }
-            parent.text = TaskContextText.canonical(editor.attributedString()); formatSkills(editor); editor.typingAttributes = [.font: NSFont.systemFont(ofSize: 14), .foregroundColor: NSColor.labelColor]; changedSelection(editor); measure(editor)
+            parent.text = TaskContextText.canonical(editor.attributedString()); formatSkills(editor); editor.typingAttributes = [.font: ReadingStyle.current.nativeFont(), .foregroundColor: FridayTheme.nativeForeground]; changedSelection(editor); measure(editor)
         }
         func textViewDidChangeSelection(_ notification: Notification) { if let editor = notification.object as? NSTextView { changedSelection(editor) } }
         private func changedSelection(_ editor: NSTextView) {
@@ -172,7 +181,7 @@ private struct NativeTaskPromptEditor: NSViewRepresentable {
         private func formatSkills(_ editor: NSTextView) {
             guard !formattingSkills, !editor.hasMarkedText(), parent.insertion == nil, editor.undoManager?.isUndoing != true, editor.undoManager?.isRedoing != true else { return }
             let document = editor.attributedString(), selection = TaskContextText.modelRange(editor.selectedRange(), in: document)
-            let edits = TaskContextText.skillEdits(document, skills: parent.skills, records: parent.contexts, font: .systemFont(ofSize: 14))
+            let edits = TaskContextText.skillEdits(document, skills: parent.skills, records: parent.contexts, font: ReadingStyle.current.nativeFont())
             guard !edits.isEmpty else { return }; formattingSkills = true
             editor.undoManager?.beginUndoGrouping()
             for edit in edits { editor.insertText(edit.replacement, replacementRange: edit.range) }
@@ -204,7 +213,7 @@ private struct NativeTaskPromptEditor: NSViewRepresentable {
                     let selected = TaskContextText.modelRange(editor.selectedRange(), in: document)
                     let range = TaskContextDocument.insertionRange(insertion, text: text, caret: selected)
                     let target = TaskContextText.viewRange(range, in: document)
-                    editor.insertText(TaskContextText.document(TaskContextDocument.insertionText(insertion, text: text), records: self.parent.contexts, skills: self.parent.skills, font: .systemFont(ofSize: 14)), replacementRange: target)
+                    editor.insertText(TaskContextText.document(TaskContextDocument.insertionText(insertion, text: text), records: self.parent.contexts, skills: self.parent.skills, font: ReadingStyle.current.nativeFont()), replacementRange: target)
                 }
                 if let caret=insertion.caret { editor.setSelectedRange(TaskContextText.viewRange(NSRange(location:caret,length:0),in:editor.attributedString())) }
                 if insertion.focus { editor.window?.makeFirstResponder(editor) }
@@ -354,6 +363,7 @@ private final class TaskNativeTextView: NSTextView {
 }
 #else
 private struct NativeTaskPromptEditor: UIViewRepresentable {
+    @ReadingPreferences private var reading: ReadingStyle
     @Binding var text: String
     @Binding var height: CGFloat
     let enabled: Bool
@@ -383,7 +393,7 @@ private struct NativeTaskPromptEditor: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeUIView(context: Context) -> TaskNativeTextView {
         let editor = TaskNativeTextView(); editor.backgroundColor = .clear
-        editor.font = .preferredFont(forTextStyle: .body); editor.adjustsFontForContentSizeCategory = true
+        editor.font = ReadingStyle.current.nativeFont(); editor.adjustsFontForContentSizeCategory = true
         editor.textContainerInset = UIEdgeInsets(top: 4, left: 0, bottom: 4, right: 0)
         editor.textContainer.lineFragmentPadding = 3; editor.delegate = context.coordinator
         editor.attributedText = TaskContextText.document(text, records: contexts, skills: skills, font: editor.font!)
@@ -396,13 +406,20 @@ private struct NativeTaskPromptEditor: UIViewRepresentable {
         context.coordinator.parent = self
         let current = TaskContextText.canonical(editor.attributedText)
         if editor.markedTextRange == nil, changedScope || current != text || context.coordinator.renderedContexts != contexts || context.coordinator.renderedSkills != skills && editor.undoManager?.canUndo != true {
-            let selection = TaskContextText.modelRange(editor.selectedRange, in: editor.attributedText); editor.attributedText = TaskContextText.document(text, records: contexts, skills: skills, font: .preferredFont(forTextStyle: .body))
+            let selection = TaskContextText.modelRange(editor.selectedRange, in: editor.attributedText); editor.attributedText = TaskContextText.document(text, records: contexts, skills: skills, font: ReadingStyle.current.nativeFont())
             editor.selectedRange = current == text && !changedScope ? TaskContextText.viewRange(selection, in: editor.attributedText) : NSRange(location: editor.text.utf16.count, length: 0)
             if current != text { editor.undoManager?.removeAllActions(); context.coordinator.appliedInsertion = nil }; context.coordinator.renderedSkills = skills; context.coordinator.renderedContexts = contexts
         }
+        if editor.markedTextRange == nil, editor.font != reading.nativeFont() {
+            let undo = editor.undoManager, enabled = undo?.isUndoRegistrationEnabled == true
+            if enabled { undo?.disableUndoRegistration() }
+            editor.textStorage.addAttribute(.font, value: reading.nativeFont(), range: NSRange(location: 0, length: editor.text.utf16.count))
+            editor.font = reading.nativeFont()
+            if enabled { undo?.enableUndoRegistration() }
+        }
         editor.isEditable = enabled; editor.onImages = importProviders
-        editor.typingAttributes = [.font: UIFont.preferredFont(forTextStyle: .body), .foregroundColor: UIColor.label]
-        editor.renderPastedText = { TaskContextText.document($0, records: contexts, skills: skills, font: .preferredFont(forTextStyle: .body)) }
+        editor.typingAttributes = [.font: ReadingStyle.current.nativeFont(), .foregroundColor: FridayTheme.nativeForeground]
+        editor.renderPastedText = { TaskContextText.document($0, records: contexts, skills: skills, font: ReadingStyle.current.nativeFont()) }
         editor.onContextClick = openContext
         editor.fileMentions = fileMentions
         editor.onCompletionKey = { key in
@@ -426,7 +443,7 @@ private struct NativeTaskPromptEditor: UIViewRepresentable {
         func textViewDidChange(_ editor: UITextView) {
             parent.text = TaskContextText.canonical(editor.attributedText)
             if let editor = editor as? TaskNativeTextView { formatSkills(editor) }
-            editor.typingAttributes = [.font: UIFont.preferredFont(forTextStyle: .body), .foregroundColor: UIColor.label]; textViewDidChangeSelection(editor); measure(editor)
+            editor.typingAttributes = [.font: ReadingStyle.current.nativeFont(), .foregroundColor: FridayTheme.nativeForeground]; textViewDidChangeSelection(editor); measure(editor)
         }
         func textViewDidChangeSelection(_ editor: UITextView) {
             guard editor.markedTextRange == nil, editor.isFirstResponder else { return }
@@ -438,7 +455,7 @@ private struct NativeTaskPromptEditor: UIViewRepresentable {
         private func formatSkills(_ editor: TaskNativeTextView) {
             guard !formattingSkills, editor.markedTextRange == nil, parent.insertion == nil, editor.undoManager?.isUndoing != true, editor.undoManager?.isRedoing != true else { return }
             let document = editor.attributedText!, selection = TaskContextText.modelRange(editor.selectedRange, in: document)
-            let edits = TaskContextText.skillEdits(document, skills: parent.skills, records: parent.contexts, font: .preferredFont(forTextStyle: .body))
+            let edits = TaskContextText.skillEdits(document, skills: parent.skills, records: parent.contexts, font: ReadingStyle.current.nativeFont())
             guard !edits.isEmpty else { return }; formattingSkills = true
             editor.undoManager?.beginUndoGrouping()
             for edit in edits { editor.replaceContext(edit.range, with: edit.replacement) }
@@ -477,7 +494,7 @@ private struct NativeTaskPromptEditor: UIViewRepresentable {
                 if insertion.shouldInsert(in: text) {
                     let selected = TaskContextText.modelRange(editor.selectedRange, in: editor.attributedText)
                     let range = TaskContextDocument.insertionRange(insertion, text: text, caret: selected)
-                    editor.replaceContext(TaskContextText.viewRange(range, in: editor.attributedText), with: TaskContextText.document(TaskContextDocument.insertionText(insertion, text: text), records: self.parent.contexts, skills: self.parent.skills, font: .preferredFont(forTextStyle: .body)))
+                    editor.replaceContext(TaskContextText.viewRange(range, in: editor.attributedText), with: TaskContextText.document(TaskContextDocument.insertionText(insertion, text: text), records: self.parent.contexts, skills: self.parent.skills, font: ReadingStyle.current.nativeFont()))
                 }
                 if let caret=insertion.caret { editor.selectedRange=TaskContextText.viewRange(NSRange(location:caret,length:0),in:editor.attributedText) }
                 if insertion.focus { editor.becomeFirstResponder() }
