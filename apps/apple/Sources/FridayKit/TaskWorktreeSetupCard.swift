@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskWorktreeSetupCard: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem; let run: TaskRun; let snapshot: TaskWorktreeSetupSnapshot
     @State private var details = false
     @State private var expanded = false
@@ -27,7 +27,6 @@ struct TaskWorktreeSetupCard: View {
                     HStack(spacing: 9) {
                         FridaySymbolImage(systemName: stage.symbol).frame(width: 16)
                             .foregroundStyle(stage.status == "failed" || stage.status == "warning" ? Color.orange : .secondary)
-                            .fridaySymbolFeedback(value: stage.status)
                         Text(fridayString: stage.id == "setup-script" ? snapshot.setupScript?.name ?? stage.label : stage.label)
                         Spacer(minLength: 8)
                         if stage.status == "running" { Text(friday: "进行中").foregroundStyle(.secondary) }

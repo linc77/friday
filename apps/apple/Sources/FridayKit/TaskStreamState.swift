@@ -52,6 +52,9 @@ struct TaskStreamState {
         if let deleted = removed[frame.taskId], frame.sequence <= deleted { return false }
         if let old = details[frame.taskId], old.sessionId == frame.sessionId {
             if frame.sequence < old.sequence || frame.sequence == old.sequence && frame.serial < old.serial { return false }
+            // Reopening a task gets an HTTP snapshot followed by the SSE
+            // snapshot. Identical cursors/content must not refresh the whole UI.
+            if frame.sequence == old.sequence, frame.serial == old.serial, frame.version == old.version { return false }
         }
         if (summary.contentSequence ?? 0) > frame.sequence && summary.contentVersion != frame.version { return false }
         details[frame.taskId] = frame; removed.removeValue(forKey: frame.taskId); touch(frame.taskId)
@@ -63,7 +66,10 @@ struct TaskStreamState {
         details.removeValue(forKey: frame.taskId); recent.removeAll { $0 == frame.taskId }; removed[frame.taskId] = frame.sequence; return true
     }
     func task(_ id: String, summaries: [WorkItem], scope: String) -> WorkItem? {
-        guard self.scope == scope, let summary = summaries.first(where: { $0.id == id }) else { return nil }
+        task(id, summary: summaries.first(where: { $0.id == id }), scope: scope)
+    }
+    func task(_ id: String, summary: WorkItem?, scope: String) -> WorkItem? {
+        guard self.scope == scope, let summary else { return nil }
         guard summary.contentOmitted == true else { return summary }
         guard let task = details[id]?.task else { return nil }
         if let epoch = summary.history?.epoch, epoch != (task.conversationHistory?.epoch ?? task.history?.epoch) { return nil }

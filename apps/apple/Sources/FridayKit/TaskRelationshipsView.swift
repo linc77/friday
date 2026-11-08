@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskRelationshipsControl: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let canNavigate: Bool
     let openTask: (String) -> Void

@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct GeneralSettingsView: View {
-    @AppStorage(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
-    @AppStorage("friday.composer.showSkillsInSlashMenu") private var showSkillsInSlashMenu = true
+    @FridayPreference(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
+    @FridayPreference("friday.composer.showSkillsInSlashMenu") private var showSkillsInSlashMenu = true
 
     var body: some View {
         SettingsPage(title: "通用", subtitle: "设置界面语言和输入习惯。") {

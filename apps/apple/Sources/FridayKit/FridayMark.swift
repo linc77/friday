@@ -8,6 +8,9 @@ import AppKit
 struct FridayMark: View {
     var size: CGFloat = 40
     var interactive = false
+    @FridayPreference(FridayPreferenceKeys.avatarBodyColor) private var bodyColorHex = FridayAvatarColor.bodyDefault
+    @FridayPreference(FridayPreferenceKeys.avatarEyeColor) private var eyeColorHex = FridayAvatarColor.eyeDefault
+    @FridayPreference(FridayPreferenceKeys.avatarBowTieColor) private var bowTieColorHex = FridayAvatarColor.bowTieDefault
     @State private var gaze = CGPoint.zero
     @State private var eyesClosed = false
     @State private var visible = false
@@ -15,20 +18,13 @@ struct FridayMark: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private var animates: Bool { interactive && visible && !reduceMotion && scenePhase == .active }
+    private var bodyTint: FridayAvatarColor { FridayAvatarColor(hex: bodyColorHex == "101116" ? "000000" : bodyColorHex) ?? FridayAvatarColor(hex: FridayAvatarColor.bodyDefault)! }
+    private var eyeTint: FridayAvatarColor { FridayAvatarColor(hex: eyeColorHex) ?? FridayAvatarColor(hex: FridayAvatarColor.eyeDefault)! }
+    private var bowTieTint: FridayAvatarColor { FridayAvatarColor(hex: bowTieColorHex) ?? FridayAvatarColor(hex: FridayAvatarColor.bowTieDefault)! }
 
     var body: some View {
         ZStack {
-            // Keep the fine velvet texture at every display scale. The source
-            // has transparent margins; normalize its visible sphere here.
-            Image("FridayAvatarBody", bundle: .module)
-                .renderingMode(.original)
-                .resizable()
-                .interpolation(.high)
-                .frame(width: size * 1.30, height: size * 1.30)
-                .offset(x: size * 0.002, y: -size * 0.014)
-                .frame(width: size * 0.96, height: size * 0.96)
-                .clipped()
-                .offset(y: -size * 0.02)
+            bodySphere
 
             HStack(spacing: size * 0.105) {
                 eye
@@ -38,14 +34,13 @@ struct FridayMark: View {
             .offset(x: gaze.x * size * 0.065, y: -size * 0.105 + gaze.y * size * 0.045)
 
             FridayBowTie()
-                .fill(LinearGradient(colors: [Color(white: 0.17), Color(white: 0.055)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .fill(bowTieTint.color)
                 .frame(width: size * 0.475, height: size * 0.195)
                 .overlay {
                     Ellipse()
-                        .fill(Color(white: 0.10))
+                        .fill(bowTieTint.color)
                         .frame(width: size * 0.035, height: size * 0.045)
                 }
-                .shadow(color: .black.opacity(0.20), radius: size * 0.012, y: -size * 0.012)
                 .rotationEffect(.degrees(Double(gaze.x) * 1.5))
                 .offset(y: size * 0.40)
         }
@@ -81,12 +76,18 @@ struct FridayMark: View {
         }
     }
 
+    private var bodySphere: some View {
+        Circle()
+        // A solid fill matches the selected swatch; the vector edge stays smooth.
+        .fill(bodyTint.color)
+        .frame(width: size * 0.92, height: size * 0.92)
+        .offset(y: -size * 0.02)
+    }
+
     private var eye: some View {
         Ellipse()
-            .fill(LinearGradient(colors: [Color(white: 0.16), Color(white: 0.08)],
-                startPoint: .topLeading, endPoint: .bottomTrailing))
+            .fill(eyeTint.color)
             .frame(width: size * 0.088, height: size * 0.136)
-            .shadow(color: .black.opacity(0.28), radius: size * 0.009, x: size * 0.003, y: size * 0.008)
             .scaleEffect(x: 1, y: eyesClosed ? 0.15 : 1)
     }
 }

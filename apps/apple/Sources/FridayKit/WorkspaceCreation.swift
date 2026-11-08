@@ -11,7 +11,7 @@ struct NamedProjectCreationResult: Decodable {
 
 
 struct WorkspaceAddView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     var onAdded: (Project) -> Void = { _ in }
     @Environment(\.dismiss) private var dismiss
     private enum Mode: Hashable { case new, existing, clone }

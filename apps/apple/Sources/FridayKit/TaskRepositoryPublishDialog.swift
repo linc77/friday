@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskRepositoryPublishDialog: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String
     let review: TaskGitStatus
     let connectionIdentity: String
@@ -114,7 +114,6 @@ struct TaskRepositoryPublishDialog: View {
             if let operation {
                 HStack(spacing: 8) {
                     FridaySymbolImage(systemName: operation.active ? "circle.dashed" : operation.status == "completed" ? "checkmark.circle" : "exclamationmark.circle")
-                        .fridaySymbolFeedback(value: operation.status)
                     Text(fridayString: operation.active ? TaskGitPresentation.phase(operation.phase) : operation.status == "completed" ? "Git 操作已完成" : "Git 操作未完成").font(.callout.weight(.medium))
                 }
                 if let publication = operation.repositoryPublication {

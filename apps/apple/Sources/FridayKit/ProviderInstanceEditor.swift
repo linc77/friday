@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ProviderInstanceEditor: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     var instance: ProviderInstanceInfo? = nil
     var saved: (String) -> Void
     @Environment(\.dismiss) private var dismiss

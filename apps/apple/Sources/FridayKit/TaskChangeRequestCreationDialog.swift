@@ -6,7 +6,7 @@ extension FridayStore {
     }
 }
 struct TaskChangeRequestCreationDialog: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String; let review: TaskGitStatus; let submitting: Bool; let submissionError: String?
     var initialNewBranch = false
     var initialName = ""

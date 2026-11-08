@@ -2,7 +2,7 @@ import SwiftUI
 import CryptoKit
 
 struct TaskAnnotatableDiffView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @ObservedObject var bridge: TaskFileMentionBridge
     let taskID: String; let root: String; let path: String; let patch: String; let split: Bool
     let identity: String; let sectionID: String; let sectionTitle: String

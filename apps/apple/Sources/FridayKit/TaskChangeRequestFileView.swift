@@ -2,7 +2,7 @@ import SwiftUI
 import WebKit
 
 struct TaskChangeRequestFileView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String; let url: String; let target: TaskChangeRequestFileTarget
     @State private var side = "new"
     @State private var contents: TaskChangeRequestFileContents?

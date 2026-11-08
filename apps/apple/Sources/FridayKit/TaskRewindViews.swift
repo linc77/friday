@@ -3,7 +3,7 @@ import SwiftUI
 struct TaskRewindTarget: Identifiable { let id: String }
 
 struct TaskRewindDialog: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let messageID: String
     let begin: (String) -> Void
@@ -74,7 +74,7 @@ struct TaskRewindDialog: View {
 }
 
 struct TaskRewindStatusView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let hasOriginalDraft: Bool
     let restoreOriginalDraft: () -> Void
@@ -132,7 +132,7 @@ struct TaskRewindStatusView: View {
 }
 
 private struct TaskRewindFileReview: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem; let operation: TaskRewindOperation
     let openChanges: (String?) -> Void
     @Environment(\.dismiss) private var dismiss

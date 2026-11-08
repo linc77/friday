@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskChangeRequestStackView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String; let url: String; let detail: TaskChangeRequestDetail; let refreshID: UUID
     let busy: Bool; let draft: TaskChangeRequestDraft
     let navigate: (String) -> Void; let submit: (TaskChangeRequestSubmission) -> Void

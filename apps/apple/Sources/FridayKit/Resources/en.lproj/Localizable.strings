@@ -2684,6 +2684,18 @@
 
 /* Reading appearance */
 "调整主题、字体、内容宽度和代码配色。" = "Customize the theme, fonts, content width, and code colors.";
+"调整主题、Friday 形象、字体、内容宽度和代码配色。" = "Customize the theme, Friday's appearance, fonts, content width, and code colors.";
+"Friday 形象" = "Friday avatar";
+"当前形象" = "Current avatar";
+"颜色会立即应用到对话中的 Friday。" = "Colors apply to Friday in conversations immediately.";
+"恢复形象默认颜色" = "Reset avatar colors";
+"球体" = "Body";
+"眼睛" = "Eyes";
+"领结" = "Bow tie";
+"自定义颜色" = "Custom color";
+"白色" = "White";
+"黑色" = "Black";
+"红色" = "Red";
 "正文字体" = "Text font";
 "用于对话正文、Markdown 和消息输入；中文使用所选字体或系统回退字体。" = "Used for conversations, Markdown, and message input. Missing characters use system fallback fonts.";
 "正文字号" = "Text size";

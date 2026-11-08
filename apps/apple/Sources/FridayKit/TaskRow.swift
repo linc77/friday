@@ -54,7 +54,7 @@ struct TaskRow: View {
                     HStack(spacing: 3) {
                         FridaySymbolImage(systemName: activity.commands == count ? "terminal" : "square.stack").font(.system(size: 10)).accessibilityHidden(true)
                         Text(verbatim: String(count)).font(.system(size: 10)).monospacedDigit()
-                    }.foregroundStyle(.secondary).accessibilityLabel(Text(friday: "后台工作")).fridaySymbolFeedback(value: count)
+                    }.foregroundStyle(.secondary).accessibilityLabel(Text(friday: "后台工作"))
                 }
                 if let badge = TaskPullRequestPresentation.badge(task.pullRequests ?? [], stacks: task.changeRequestStacks ?? [:], branch: task.branchPullRequest) {
                     HStack(spacing: 3) {
@@ -182,7 +182,6 @@ struct TaskRowButtonStyle: ButtonStyle {
 struct WorkspaceTitleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         SidebarRowButtonBody(configuration: configuration, selected: false)
-            .fridaySymbolFeedback(active: configuration.isPressed)
     }
 }
 

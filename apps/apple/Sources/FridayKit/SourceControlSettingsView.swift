@@ -8,7 +8,7 @@ private struct SourceControlSaveAttempt {
 }
 
 struct SourceControlSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @Environment(\.openURL) private var openURL
     @State private var scope = ""
     @State private var loadToken = UUID()
@@ -157,7 +157,7 @@ struct SourceControlSettingsView: View {
 
     private func providerRow(_ provider: TaskPublishProvider) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            FridaySymbolImage(systemName: provider.status == "ready" ? "checkmark.circle" : "exclamationmark.circle").foregroundStyle(provider.status == "ready" ? Color.secondary : Color.orange).fridaySymbolFeedback(value: provider.status)
+            FridaySymbolImage(systemName: provider.status == "ready" ? "checkmark.circle" : "exclamationmark.circle").foregroundStyle(provider.status == "ready" ? Color.secondary : Color.orange)
             VStack(alignment: .leading, spacing: 5) {
                 Text(verbatim: provider.label + " · " + (provider.baseURL ?? provider.host)).font(.callout.weight(.medium))
                 Text(fridayString: provider.status == "ready" ? "已认证" : provider.status == "configured" ? "已配置，状态未确认" : provider.status == "missing" ? "主机工具未安装" : "未认证").font(.caption).foregroundStyle(.secondary)

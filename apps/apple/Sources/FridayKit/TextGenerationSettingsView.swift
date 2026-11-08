@@ -7,7 +7,7 @@ private enum TextGenerationField: String, Identifiable {
 }
 
 struct TextGenerationSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var scope: String
     @State private var state = TextGenerationSettingsState()
     @State private var states: [String: CodexConnectionState] = [:]

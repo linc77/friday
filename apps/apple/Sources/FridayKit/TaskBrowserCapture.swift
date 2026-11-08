@@ -80,7 +80,7 @@ struct TaskBrowserArtifactNotice<Controller:TaskBrowserCaptureOwner>:View {
 }
 struct TaskBrowserCaptureButton<Controller:TaskBrowserCaptureOwner>:View {
     @ObservedObject var controller:Controller
-    @AppStorage("friday.browser.recording.fps") private var fps=30
+    @FridayPreference("friday.browser.recording.fps") private var fps=30
     var body:some View {
         Group {
             if let session=controller.recordingSession {TaskBrowserRecordingStopButton(session:session).contextMenu {Button(friday:"截取网页") {controller.capture()}}}
@@ -104,9 +104,9 @@ private struct TaskBrowserRecordingStopButton:View {
 }
 
 struct TaskBrowserRecordingPreferences:View {
-    @AppStorage("friday.browser.recording.fps") private var fps=30
-    @AppStorage("friday.browser.recording.keys") private var keys=false
-    @AppStorage("friday.browser.recording.mouse") private var mouse=false
+    @FridayPreference("friday.browser.recording.fps") private var fps=30
+    @FridayPreference("friday.browser.recording.keys") private var keys=false
+    @FridayPreference("friday.browser.recording.mouse") private var mouse=false
     var body:some View {
         Menu {
             Picker(selection:$fps) {ForEach(TaskBrowserCapturePolicy.frameRates,id:\.self) {value in Text(verbatim:"\(value) fps").tag(value)}} label:{Text(friday:"录屏帧率")}

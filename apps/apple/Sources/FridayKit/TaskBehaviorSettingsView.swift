@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct TaskBehaviorSettingsView: View {
-    @ObservedObject var store: FridayStore
-    @AppStorage("friday.tasks.confirmArchive") private var confirmArchive = false
+    @Bindable var store: FridayStore
+    @FridayPreference("friday.tasks.confirmArchive") private var confirmArchive = false
 
     var body: some View {
         SettingsPage(title: "任务设置", subtitle: "管理任务归档确认和自动结束跟进规则。") {

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskSubagentTimelineRow: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let agent: TaskSubagent
     var allowsStop = false
     let openTask: (String) -> Void
@@ -63,7 +63,7 @@ struct TaskSubagentTimelineRow: View {
 }
 
 struct TaskNativeSubagentBar: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let openTask: (String) -> Void
     var body: some View {
@@ -89,7 +89,7 @@ struct TaskNativeSubagentBar: View {
 }
 
 private struct TaskNativeHistoryStatus: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     @State private var busy = false
     @State private var failed = false

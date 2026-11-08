@@ -53,7 +53,7 @@ struct AgentTaskSidebarActivity: View {
             HStack(spacing: 4) {
                 FridaySymbolImage(systemName: symbol)
                     .font(.system(size: 14)).frame(width: 16, height: 16)
-                    .fridaySymbolFeedback(value: task.forkOperation?.status ?? task.activityStatus).accessibilityHidden(true)
+                    .accessibilityHidden(true)
                 Text(fridayString: label).fontWeight(.medium)
                 if task.pendingSubagentRequest == nil, task.preparingWorkspace == nil, task.activityStatus == "running" || task.activityStatus == "queued", let start = TaskRowPresentation.runningStart(task) {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -61,14 +61,14 @@ struct AgentTaskSidebarActivity: View {
                     }.accessibilityHidden(true)
                 }
             }.foregroundStyle(color)
-        } else if let wake = TaskSnooze.unseenWake(task) {
+        } else if TaskSnooze.unseenWake(task) != nil {
             if let acknowledgeWake {
                 Button(action: acknowledgeWake) { wokeLabel }
                     .buttonStyle(TaskWakeButtonStyle()).fridayInteractiveCursor()
                     .help(Text(friday: "确认唤醒提醒"))
                     .accessibilityLabel(Text(friday: "确认唤醒提醒"))
             } else {
-                wokeLabel.fridaySymbolFeedback(value: wake)
+                wokeLabel
             }
         } else {
             TimelineView(.periodic(from: .now, by: 60)) { context in
@@ -89,7 +89,6 @@ private struct TaskWakeButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .opacity(configuration.isPressed ? 0.65 : 1)
-            .fridaySymbolFeedback(active: configuration.isPressed)
     }
 }
 

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskSearchControl: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     var scope: String? = nil
     var projectIDs: Set<String>? = nil
     var presented: Binding<Bool>? = nil
@@ -25,7 +25,7 @@ struct TaskSearchControl: View {
 }
 
 private struct TaskSearchPanel: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let scope: String?
     var projectIDs: Set<String>? = nil
     let dismiss: () -> Void

@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 #if os(macOS)
 import AppKit
 #else
@@ -88,16 +89,86 @@ final class AssistantCitationTests: XCTestCase {
         model.unregister(code);model.rebuild();XCTAssertNil(model.selected);XCTAssertFalse(model.reveal(citation))
         XCTAssertFalse(model.reveal(TaskAssistantCitation(environmentId:"other-host",threadId:"task",messageId:"message",text:"cell",start:0,end:4,prefix:"",suffix:"")))
     }
+
+    @MainActor func testUnchangedNativePartsDoNotRebuildTheirCitationGraph() async {
+        let model = TaskCitationSelectionModel(source: .init(environment: "host", task: "task", message: "message", connection: "connection"))
+        let part = CitationTestPart(key: [0], group: [0], text: "unchanged text")
+        model.register(part)
+        for _ in 0..<3 { await Task.yield() }
+        let initialPaints = part.paints
+        for _ in 0..<120 { model.register(part) }
+        for _ in 0..<3 { await Task.yield() }
+        XCTAssertEqual(part.paints, initialPaints, "A layout-only native update cannot repaint all citation parts")
+        let replacement = CitationTestPart(key: [0], group: [0], text: "changed text")
+        model.register(replacement)
+        for _ in 0..<3 { await Task.yield() }
+        XCTAssertEqual(model.text, "changed text")
+        XCTAssertGreaterThan(replacement.paints, 0)
+    }
+
+    @MainActor func testUnselectedClicksAndScrollsDoNotPublishOrRepaintTheTranscript() async {
+        let model=TaskCitationSelectionModel(source:.init(environment:"host",task:"task",message:"message",connection:"connection"))
+        let part=CitationTestPart(key:[0],group:[0],text:"selectable message")
+        model.register(part);model.rebuild()
+        // Drain the coalesced registration before counting interaction work.
+        for _ in 0..<3 { await Task.yield() }
+        var publications=0,selectionChanges=0
+        let observation=model.objectWillChange.sink { publications += 1 }
+        defer { observation.cancel() }
+        model.didSelect={ selectionChanges += 1 }
+        let initialPaints=part.paints
+        for _ in 0..<100 {
+            model.dismiss()
+            model.select(nil)
+            model.finish(at:CGPoint(x:20,y:40))
+        }
+        XCTAssertEqual(publications,0)
+        XCTAssertEqual(selectionChanges,0)
+        XCTAssertEqual(part.paints,initialPaints)
+
+        model.select(NSRange(location:0,length:6),showAction:true)
+        XCTAssertEqual(part.highlighted,NSRange(location:0,length:6))
+        publications=0
+        let selectedPaints=part.paints
+        for _ in 0..<100 { model.select(NSRange(location:0,length:6),showAction:true) }
+        XCTAssertEqual(publications,0)
+        XCTAssertEqual(part.paints,selectedPaints)
+        model.dismiss()
+        XCTAssertNil(model.selected)
+        XCTAssertFalse(model.actionVisible)
+        XCTAssertNil(part.highlighted)
+        XCTAssertEqual(selectionChanges,2)
+        publications=0
+        for _ in 0..<100 { model.dismiss() }
+        XCTAssertEqual(publications,0)
+    }
+
+    @MainActor func testRebuiltPartsReceiveUnchangedSelectionWithoutRepublishingIt() async {
+        let model=TaskCitationSelectionModel(source:.init(environment:"host",task:"task",message:"message",connection:"connection"))
+        let original=CitationTestPart(key:[0],group:[0],text:"hello")
+        model.register(original);model.rebuild()
+        model.select(NSRange(location:0,length:5))
+        let replacement=CitationTestPart(key:[0],group:[0],text:"hello world")
+        model.register(replacement);model.rebuild()
+        XCTAssertEqual(model.selected,NSRange(location:0,length:5))
+        XCTAssertEqual(replacement.highlighted,NSRange(location:0,length:5))
+        model.finish(at:.zero,clicks:2)
+        model.dismiss()
+        try? await Task.sleep(for:.milliseconds(550))
+        XCTAssertNil(model.selected)
+        XCTAssertFalse(model.actionVisible,"A dismissed pending selection must not reopen its action")
+    }
 }
 
 @MainActor private final class CitationTestPart: TaskCitationNativePart {
     let citationKey:[Int];let citationGroup:[Int];let citationText:String
     let citationView=TaskCitationPlatformView(frame:.zero)
     var highlighted:NSRange?
+    var paints=0
     init(key:[Int],group:[Int],text:String) { citationKey=key;citationGroup=group;citationText=text }
     func offset(at point:CGPoint)->Int { 0 }
     func rectangles(_ range:NSRange)->[CGRect] { [] }
-    func highlight(_ range:NSRange?) { highlighted=range }
+    func highlight(_ range:NSRange?) { highlighted=range;paints += 1 }
     func link(at offset:Int)->URL? { nil }
     func reveal(_ range:NSRange) {}
 }

@@ -40,7 +40,7 @@ struct TaskChangeRequestDraftHandoff: Identifiable {
 }
 
 struct TaskChangeRequestCheckoutDialog: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let project: Project
     var initialReference = ""
     let prepared: (TaskChangeRequestCheckoutReceipt) -> Void
@@ -51,7 +51,7 @@ struct TaskChangeRequestCheckoutDialog: View {
     }
 }
 private struct TaskChangeRequestCheckoutContent: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let project: Project; let prepared: (TaskChangeRequestCheckoutReceipt) -> Void
     @ObservedObject fileprivate var session: ChangeRequestCheckoutSession
     @Environment(\.dismiss) private var dismiss

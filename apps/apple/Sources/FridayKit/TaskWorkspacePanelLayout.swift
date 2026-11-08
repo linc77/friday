@@ -2,7 +2,7 @@ import SwiftUI
 import CryptoKit
 
 struct TaskWorkspacePanelLayout: ViewModifier {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @ObservedObject private var editors = FileEditorStore.shared
     let task: WorkItem
     @Binding var diff: TaskDiffSelection?
@@ -13,7 +13,6 @@ struct TaskWorkspacePanelLayout: ViewModifier {
     @Binding var width: Double
     var canAddContext = false
     var addContext: (TaskTerminalSelection) async -> Bool = { _ in false }
-    @State private var dragWidth: Double?
     private var visible: Bool { diff != nil || files.visible || browser.visible || showingTerminal }
     private var showingTerminal: Bool {
         #if os(macOS)
@@ -28,18 +27,8 @@ struct TaskWorkspacePanelLayout: ViewModifier {
     private var browserDragScope:String {SHA256.hash(data:Data(browserScope.utf8)).map {String(format:"%02x",$0)}.joined()}
     func body(content: Content) -> some View {
         #if os(macOS)
-        GeometryReader { geometry in
-            let maximum = max(320, geometry.size.width - 380), panelWidth = min(maximum, max(320, width))
-            HStack(spacing: 0) {
-                content.frame(maxWidth: .infinity, maxHeight: .infinity).fridayPaneSurface()
-                if visible {
-                    Color.clear.frame(width: FridayTheme.paneSpacing).contentShape(Rectangle()).fridayInteractiveCursor()
-                        .gesture(DragGesture().onChanged { gesture in if dragWidth == nil { dragWidth = panelWidth }; width = min(maximum, max(320, (dragWidth ?? panelWidth) - gesture.translation.width)) }.onEnded { _ in dragWidth = nil })
-                        .accessibilityLabel(Text(friday: "调整侧栏宽度")).accessibilityAdjustableAction { width = min(maximum, max(320, width + ($0 == .increment ? 40 : -40))) }
-                    panel.frame(width: panelWidth)
-                }
-            }
-        }
+        TaskPanelSplitView(width: $width, visible: visible,
+            main: content.frame(maxWidth: .infinity, maxHeight: .infinity).fridayPaneSurface(), panel: { panel })
         #else
         content.sheet(isPresented: Binding(get: { visible }, set: { if !$0 { close() } })) { panel }
         #endif

@@ -119,7 +119,7 @@ extension EnvironmentValues {
 }
 
 struct TaskUndoNotice: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @ObservedObject var state: TaskActionUndo
     var body: some View {
         if state.ledger.context == TaskActionUndo.context(store), let notice = state.ledger.notice {

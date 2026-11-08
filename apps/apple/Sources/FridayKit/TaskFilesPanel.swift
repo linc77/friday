@@ -4,16 +4,16 @@ import AppKit
 #endif
 
 struct TaskFilesPanel: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @ObservedObject private var editors = FileEditorStore.shared
     @StateObject private var hostEditors = TaskHostEditorModel()
     let task: WorkItem
     @Binding var state: TaskFilesPanelState
-    @AppStorage("friday.files.renderMarkdown") private var renderMarkdown = true
-    @AppStorage("friday.files.renderHTML") private var renderHTML = true
-    @AppStorage("friday.files.renderTable") private var renderTable = true
-    @AppStorage("friday.files.wrap") private var wrapping = true
-    @AppStorage("friday.tasks.remoteEditorRevision") private var remoteEditorRevision = 0
+    @FridayPreference("friday.files.renderMarkdown") private var renderMarkdown = true
+    @FridayPreference("friday.files.renderHTML") private var renderHTML = true
+    @FridayPreference("friday.files.renderTable") private var renderTable = true
+    @FridayPreference("friday.files.wrap") private var wrapping = true
+    @FridayPreference("friday.tasks.remoteEditorRevision") private var remoteEditorRevision = 0
     private var hostEditorIdentity: String { identity + ":editors:" + String(store.connected) + ":" + String(remoteEditorRevision) }
     @State private var entries: [String: [TaskFileEntry]] = [:]
     @State private var loadedGeneration: [String: Int] = [:]

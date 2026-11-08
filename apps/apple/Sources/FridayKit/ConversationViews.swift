@@ -5,9 +5,9 @@ import AppKit
 
 struct NewConversationView: View {
     @ReadingPreferences private var reading: ReadingStyle
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let onCreated: (String) -> Void
-    @AppStorage("friday.chatDraft") private var draft = ""
+    @FridayPreference("friday.chatDraft") private var draft = ""
     @State private var requestId = UUID().uuidString
     @State private var sending = false
     @State private var error: String?
@@ -102,7 +102,7 @@ extension View {
 }
 
 struct WorkspaceChoice: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     @State private var busy = false
     @State private var path = ""

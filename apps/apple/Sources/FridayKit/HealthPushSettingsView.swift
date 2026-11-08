@@ -4,7 +4,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 struct HealthPushSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let onSaved: () async -> Void
     @State private var provider: PushProviderState?
     @State private var keyId = ""

@@ -108,9 +108,9 @@ struct ReadingStyle: Codable, Equatable {
 }
 
 /// Each reader observes the same saved value, including views in sheets/windows.
-@propertyWrapper
+@MainActor @propertyWrapper
 struct ReadingPreferences: DynamicProperty {
-    @AppStorage(ReadingStyle.storageKey) private var data = Data()
+    @FridayPreference(ReadingStyle.storageKey) private var data = Data()
     var wrappedValue: ReadingStyle {
         get { ((try? JSONDecoder().decode(ReadingStyle.self, from: data)) ?? ReadingStyle()).validated }
         nonmutating set { if let encoded = try? JSONEncoder().encode(newValue.validated) { data = encoded } }

@@ -37,7 +37,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
     var searchTerms: String {
         switch self {
         case .general: "通用 语言 中文 英文 输入框 斜杠 菜单 Skill 技能 General Language Chinese English Composer Input Slash Menu"
-        case .appearance: "外观 主题 系统 浅色 深色 字体 字号 正文 代码 布局 内容 宽度 全宽 配色 高亮 Appearance Theme System Light Dark Font Size Typography Layout Width Syntax Highlight Midnight 午夜 深蓝 Pierre GitHub Visual Studio Code Catppuccin"
+        case .appearance: "外观 主题 系统 浅色 深色 Friday 形象 球体 眼睛 领结 颜色 字体 字号 正文 代码 布局 内容 宽度 全宽 配色 高亮 Appearance Theme Avatar Color Eyes Bow Tie System Light Dark Font Size Typography Layout Width Syntax Highlight Midnight 午夜 深蓝 Pierre GitHub Visual Studio Code Catppuccin"
         case .taskSidebar: "任务 侧栏 项目 分组 仓库 排序 顺序 最近 活动 发送 手动 旧版 项目树 默认 显示 数量 恢复 Working Inbox Beta Sidebar Project Group Sort Order Preview"
         case .taskBehavior: "任务 设置 操作 归档 确认 自动 结束 跟进 不活跃 天数 主机 Workspace PR 合并 Task Settings Archive Confirmation Auto Settle Inactivity Merge"
         case .providers: "Providers 模型服务 供应商 Base URL 本地工具 Friday DeepSeek API 密钥 Codex Claude Code Hermes Pi 编码 账号 模型 路径 环境变量 推理 Runtime"
@@ -53,7 +53,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
 }
 
 struct FridaySettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @Binding var selection: FridaySettingsSection
     @State private var search = ""
 
@@ -98,7 +98,7 @@ struct FridaySettingsView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .padding(.horizontal, 8)
             HStack(spacing: 7) {
-                FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(FridayTheme.secondaryText).fridaySymbolFeedback()
+                FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(FridayTheme.secondaryText)
                 TextField(friday: "搜索设置", text: $search)
                     .textFieldStyle(.plain)
                     .accessibilityLabel(Text(friday: "搜索设置"))
@@ -174,7 +174,6 @@ private struct SettingsNavigationStyle: ButtonStyle {
             .foregroundStyle(FridayTheme.foreground)
             .background(.primary.opacity(selected ? 0.065 : configuration.isPressed ? 0.035 : 0),
                         in: RoundedRectangle(cornerRadius: 7))
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
     }
 }

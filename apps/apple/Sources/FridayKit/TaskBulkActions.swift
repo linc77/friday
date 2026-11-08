@@ -141,7 +141,7 @@ struct TaskBulkMenu: View {
 }
 
 struct TaskBulkBar: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @ObservedObject var actions: TaskBulkActions
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -199,7 +199,7 @@ extension View {
 }
 
 private struct TaskBulkPresentation: ViewModifier {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @ObservedObject var actions: TaskBulkActions
     let beforeExecute: (TaskBulkPlan) -> Void
     func body(content: Content) -> some View {

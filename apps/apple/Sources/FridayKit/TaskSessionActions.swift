@@ -25,7 +25,7 @@ extension FridayStore {
 }
 
 struct TaskSessionOperationNotice: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     @State private var retrying = false
     @State private var failure: String?
@@ -55,7 +55,7 @@ struct TaskSessionOperationNotice: View {
 }
 
 struct TaskPendingTransfers: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     @State private var preview: TaskContextReference?
     @State private var removing: String?

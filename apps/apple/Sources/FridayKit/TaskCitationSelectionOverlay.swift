@@ -33,7 +33,7 @@ final class CitationSelectionView: NSView {
         stopObserving()
         guard window != nil else { return }
         if let monitor=NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown,handler:{ [weak self] event in
-            guard let self, event.window === self.window else { return event }
+            guard let self, event.window === self.window, self.model.selected != nil else { return event }
             let point = self.convert(event.locationInWindow, from: nil)
             let nearAction=self.model.actionVisible && abs(point.x-self.model.actionPoint.x)<90 && abs(point.y-self.model.actionPoint.y)<65
             if !self.bounds.contains(point) && !nearAction && !self.citationPopover.shown { self.model.dismiss() }

@@ -3,6 +3,7 @@ import Foundation
 // A bounded snapshot is a live window, not a deletion of previously loaded
 // messages. Merge by stable identity and sequence, within one account/epoch.
 struct TaskConversationWindow {
+    private(set) var presentationRevision = 0
     private(set) var scope = ""
     private(set) var epoch = ""
     private(set) var earlierCursor: String?
@@ -31,6 +32,8 @@ struct TaskConversationWindow {
     func contains(_ id: String) -> Bool { events[id] != nil || messages[id] != nil && visibleMessages.contains(id) }
 
     mutating func accept(_ task: WorkItem, scope: String) {
+        let nextRevision = presentationRevision &+ 1
+        defer { presentationRevision = nextRevision }
         guard let info = task.conversationHistory else { return }
         if self.scope != scope || epoch != info.epoch {
             self = TaskConversationWindow(); self.scope = scope; epoch = info.epoch
@@ -80,6 +83,8 @@ struct TaskConversationWindow {
     }
 
     @discardableResult mutating func apply(_ page: TaskConversationPage, live: WorkItem, scope: String, cursor: String, gap: Bool) -> Bool {
+        let nextRevision = presentationRevision &+ 1
+        defer { presentationRevision = max(presentationRevision, nextRevision) &+ 1 }
         guard self.scope == scope, self.epoch == page.epoch, let info = live.conversationHistory,
               page.taskId == live.id, page.epoch == info.epoch, page.from >= 0, page.to >= page.from,
               (page.kind ?? "turns") == (info.kind ?? "turns"),
@@ -97,6 +102,8 @@ struct TaskConversationWindow {
     }
 
     @discardableResult mutating func apply(_ page: TaskEventPage, live: WorkItem, scope: String) -> Bool {
+        let nextRevision = presentationRevision &+ 1
+        defer { presentationRevision = max(presentationRevision, nextRevision) &+ 1 }
         guard self.scope == scope, epoch == page.epoch, let info = live.conversationHistory, page.taskId == live.id, info.epoch == page.epoch else { return false }
         let expected = Dictionary(info.touches.map { ($0.id, $0.digest) }, uniquingKeysWith: { _, last in last })
         var progressed = false

@@ -23,6 +23,9 @@ enum FridayLanguage: String, CaseIterable, Identifiable {
 
 enum FridayPreferenceKeys {
     static let appearance = "friday.appearance"
+    static let avatarBodyColor = "friday.avatar.bodyColor"
+    static let avatarEyeColor = "friday.avatar.eyeColor"
+    static let avatarBowTieColor = "friday.avatar.bowTieColor"
     static let language = "friday.language"
     static let workingShelfEnabled = "friday.tasks.workingShelfEnabled"
     static let legacySidebar = "friday.tasks.legacySidebar"

@@ -34,8 +34,9 @@ private struct SourceAnnotationHeightKey: PreferenceKey {
     private var heights: [Int: CGFloat] = [:]
     private var pairedHeights: [Int: CGFloat] = [:]
     var reservedHeights: [Int: CGFloat] { heights }
+    private var source = ""
     private var lines = TaskSourceLines("")
-    private var lastWidth: CGFloat = 0
+    private(set) var lineIndexBuilds = 0
     private var leadingInset: CGFloat = 0
     private var viewportAnchored = false
     private(set) var contentHeight: CGFloat = 0
@@ -45,7 +46,11 @@ private struct SourceAnnotationHeightKey: PreferenceKey {
     func attach(_ text: UITextView) { self.text = text; text.layoutManager.delegate = self }
     #endif
     func update(_ values: [TaskFileLineAnnotation], rangeLabels: [UUID: String] = [:], leadingInset: CGFloat = 0, viewportAnchored: Bool = false, locale: Locale, dark: Bool, submit: @escaping (UUID, String) -> Void, remove: @escaping (UUID) -> Void, content: ((String) -> AnyView?)? = nil) {
-        guard let text else { return }; annotations = values; lines = TaskSourceLines(text.stringValue)
+        guard let text else { return }; annotations = values
+        if !values.isEmpty || !hosts.isEmpty || !heights.isEmpty || !pairedHeights.isEmpty {
+            let value = text.stringValue
+            if source != value { source = value; lines = TaskSourceLines(value); lineIndexBuilds += 1 }
+        }
         self.leadingInset = leadingInset; self.viewportAnchored = viewportAnchored; actions.submit = submit; actions.remove = remove; actions.content = content
         let ids = Set(values.map(\.id))
         for id in Array(hosts.keys) where !ids.contains(id) { hosts.removeValue(forKey: id)?.removeFromSuperview(); keys.removeValue(forKey: id) }
@@ -85,14 +90,17 @@ private struct SourceAnnotationHeightKey: PreferenceKey {
             next[value.range.end, default: 0] += host.frame.height
         }
         for value in values where value.range.end > lines.starts.count { hosts[value.id]?.isHidden = true }
-        if next != heights || lastWidth != width {
-            heights = next; lastWidth = width
+        if next != heights {
+            heights = next
             text.sourceLayout?.invalidateLayout(forCharacterRange: NSRange(location: 0, length: lines.length), actualCharacterRange: nil)
         }
         position()
     }
     func reserve(_ values: [Int: CGFloat]) {
         guard values != pairedHeights else { return }; pairedHeights = values
+        if !values.isEmpty, let value = text?.stringValue, source != value {
+            source = value; lines = TaskSourceLines(value); lineIndexBuilds += 1
+        }
         text?.sourceLayout?.invalidateLayout(forCharacterRange: NSRange(location: 0, length: lines.length), actualCharacterRange: nil)
     }
     private func resize(_ id: UUID, height: CGFloat, key: RenderKey) {
@@ -105,9 +113,12 @@ private struct SourceAnnotationHeightKey: PreferenceKey {
         #endif
     }
     func layoutManager(_ layoutManager: NSLayoutManager, paragraphSpacingAfterGlyphAt glyphIndex: Int, withProposedLineFragmentRect rect: CGRect) -> CGFloat {
+        guard !heights.isEmpty || !pairedHeights.isEmpty else { return 0 }
         let number = lines.number(at: layoutManager.characterIndexForGlyph(at: glyphIndex)); return max(heights[number] ?? 0, pairedHeights[number] ?? 0)
     }
     func position() {
+        contentHeight = 0
+        guard !annotations.isEmpty else { return }
         guard let text, let layout = text.sourceLayout, let container = text.sourceContainer else { return }
         layout.ensureLayout(for: container); var offsets: [Int: CGFloat] = [:]; contentHeight = 0
         for value in annotations where value.range.end <= lines.starts.count {

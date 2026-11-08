@@ -27,7 +27,7 @@ final class FridayNavigation: ObservableObject {
 
 @MainActor
 public struct FridayRootView: View {
-    @StateObject private var store = FridayStore()
+    @State private var store: FridayStore
     @StateObject private var navigation = FridayNavigation()
     @State private var selectedTask: String?
     @State private var workspaceScope: String?
@@ -39,8 +39,8 @@ public struct FridayRootView: View {
     @State private var mobileTab = 0
     @State private var mobileTaskPath: [String] = []
     @State private var startingConversation = false
-    @AppStorage(FridayPreferenceKeys.appearance) private var appearance: FridayAppearance = .system
-    @AppStorage(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
+    @FridayPreference(FridayPreferenceKeys.appearance) private var appearance: FridayAppearance = .system
+    @FridayPreference(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
     @State private var mobileKeyboardVisible = false
@@ -50,16 +50,17 @@ public struct FridayRootView: View {
     @State private var taskModelJump: TaskModelJumpContext?
     @State private var taskTitleEditors: Set<UUID> = []
     #endif
-    public init() {}
+    public init() { _store = State(initialValue: FridayStore()) }
 
     #if os(macOS)
     init(store: FridayStore, navigation: FridayNavigation) {
-        _store = StateObject(wrappedValue: store)
+        _store = State(initialValue: store)
         _navigation = StateObject(wrappedValue: navigation)
     }
     #endif
 
     public var body: some View {
+        let _ = TaskPresentationTiming.changes(Self.self)
         Group {
             #if os(macOS)
             HStack(spacing: 0) {
@@ -209,7 +210,6 @@ public struct FridayRootView: View {
         HStack(spacing: 8) {
             FridaySymbolImage(systemName: store.connected ? "checkmark.circle" : "wifi.slash")
                 .foregroundStyle(store.connected ? FridayTheme.accent : .orange)
-                .fridaySymbolFeedback(active: store.connected)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(fridayString: store.connected ? "主机已连接" : "等待连接主机").font(.caption.weight(.medium))
@@ -220,7 +220,7 @@ public struct FridayRootView: View {
 
     private func errorBanner(_ message: String) -> some View {
         HStack(spacing: 10) {
-            FridaySymbolImage(systemName: "exclamationmark.circle").fridaySymbolFeedback()
+            FridaySymbolImage(systemName: "exclamationmark.circle")
             Text(fridayString: message).lineLimit(2)
             Spacer()
             Button(friday: "连接设置") {
@@ -237,7 +237,17 @@ public struct FridayRootView: View {
     }
 
     @ViewBuilder private var content: some View {
-        switch navigation.section {
+        #if os(macOS)
+        FridayModuleContainer(selection: navigation.section, scope: store.connectionIdentity) {
+            moduleContent(navigation.section)
+        }
+        #else
+        moduleContent(navigation.section)
+        #endif
+    }
+
+    @ViewBuilder private func moduleContent(_ section: FridaySection) -> some View {
+        switch section {
         case .chat: conversation
         case .inbox: inbox
         case .tasks:
@@ -249,13 +259,18 @@ public struct FridayRootView: View {
                 .frame(width: 250)
                 .frame(maxHeight: .infinity)
                 .fridayPaneSurface()
-                if let selectedTask { TaskDetail(store: store, id: selectedTask, onOpenTask: openLocalTask).id(selectedTask).frame(minWidth: 420) }
-                else {
-                    NewAgentTaskView(store: store, project: store.projects.first { $0.id == draftProjectId }, onSelectProject: { project in
-                        draftProjectId = project.id
-                    }, onCreated: openLocalTask, drafts: $taskDrafts)
-                    .fridayPaneSurface()
+                FridayRetainedPages(selection: selectedTask,
+                    scope: store.connectionIdentity + ":" + String(store.taskHistoryGeneration), capacity: 4,
+                    validKeys: Set([nil] + store.tasks.map { Optional($0.id) }), presentationID: selectedTask) {
+                    if let selectedTask { TaskDetail(store: store, id: selectedTask, onOpenTask: openLocalTask).id(selectedTask) }
+                    else {
+                        NewAgentTaskView(store: store, project: store.projects.first { $0.id == draftProjectId }, onSelectProject: { project in
+                            draftProjectId = project.id
+                        }, onCreated: openLocalTask, drafts: $taskDrafts)
+                        .fridayPaneSurface()
+                    }
                 }
+                .frame(minWidth: 420)
             }
             #else
             tasksList
@@ -431,9 +446,13 @@ private struct FridaySidebar: View, Equatable {
             if navigation.section != item { navigation.section = item }
         } label: {
             if animatesSymbol {
-                FridaySymbolLabel(friday: item.rawValue, systemImage: item.icon,
-                                  motion: item == .settings ? .rotate : .drawOn)
-                    .fridaySymbolFeedback(value: activations[item, default: 0])
+                Label {
+                    Text(fridayString: item.rawValue)
+                } icon: {
+                    FridaySidebarSymbolImage(systemName: item.icon,
+                                             motion: item == .settings ? .rotate : .drawOn)
+                }
+                .fridaySidebarSymbolFeedback(value: activations[item, default: 0])
             } else {
                 Label(friday: item.rawValue, systemImage: item.icon)
             }
@@ -476,7 +495,7 @@ private struct FridaySidebarButtonBody: View {
             }
             .contentShape(RoundedRectangle(cornerRadius: FridayTheme.sidebarCornerRadius))
             .onHover { hovering = $0 }
-            .fridayInteractiveCursor()
+            .fridayInteractiveCursor(nativeRegion: true)
     }
 }
 #endif

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskSidebarSearchShell<Toolbar: View, Content: View>: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let projectIDs: Set<String>?
     var includeUnassociated = false
     @Binding var focus: Bool

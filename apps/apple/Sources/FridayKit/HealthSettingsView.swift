@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HealthSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var settings = HealthShareSettings.initial
     @State private var state: HealthStatus?
     @State private var busy = false

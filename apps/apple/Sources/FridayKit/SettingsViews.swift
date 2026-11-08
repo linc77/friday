@@ -4,7 +4,7 @@ import AppKit
 #endif
 
 struct ProjectsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @Environment(\.locale) private var locale
     @State private var adding = false
     @State private var editing: Project?
@@ -58,13 +58,12 @@ private struct ProjectCardStyle: ButtonStyle {
             .opacity(configuration.isPressed ? 0.85 : 1)
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.985 : 1)
             .animation(reduceMotion ? nil : FridayTheme.motion, value: configuration.isPressed)
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
     }
 }
 
 struct ProjectEditor: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let project: Project?
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
@@ -124,7 +123,7 @@ struct ProjectEditor: View {
 }
 
 struct MemoriesView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var draft = ""
     @State private var editingId: String?
     @State private var busy = false
@@ -139,7 +138,7 @@ struct MemoriesView: View {
                 }.buttonStyle(FridayButtonStyle(prominent: true)).disabled(busy || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !store.connected) }
                 ForEach(store.memories) { memory in
                     HStack(alignment: .top, spacing: 14) {
-                        FridaySymbolImage(systemName: "sparkles").foregroundStyle(.secondary).fridaySymbolFeedback()
+                        FridaySymbolImage(systemName: "sparkles").foregroundStyle(.secondary)
                         Text(memory.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                         Menu { Button(friday: "编辑") { draft = memory.text; editingId = memory.id }; Button(friday: "删除", role: .destructive) { Task { _ = await store.perform("/api/memories/\(memory.id)", method: "DELETE") } } } label: { FridaySymbolImage(systemName: "ellipsis") }
                             .buttonStyle(FridaySymbolButtonStyle())
@@ -152,7 +151,7 @@ struct MemoriesView: View {
 }
 
 struct ConnectionView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     #if os(iOS)
     @State private var server = ""
     @State private var code = ""
@@ -206,7 +205,6 @@ struct ConnectionView: View {
                 FridaySymbolLabel(friday: store.connected ? "已连接" : "离线", systemImage: store.connected ? "checkmark.circle" : "wifi.slash")
                     .font(.system(size: 12)).foregroundStyle(store.connected ? FridayTheme.accent : .orange)
                     .fixedSize()
-                    .fridaySymbolFeedback(value: store.connected)
             }
             #if os(iOS)
             SettingsDivider()
@@ -218,7 +216,7 @@ struct ConnectionView: View {
             #endif
             if !store.connected {
                 SettingsDivider()
-                Button(friday: "重新连接") { Task { await store.connect() } }
+                Button(friday: "重新连接") { Task { await store.connect(force: true) } }
                     .buttonStyle(FridayButtonStyle(compact: true))
                     .padding(16)
             }

@@ -32,7 +32,7 @@ import SwiftUI
 }
 
 struct TaskChangeRequestPanel: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String; let url: String
     var initialTab = "summary"
     @State private var stackURL: String?
@@ -45,7 +45,7 @@ struct TaskChangeRequestPanel: View {
 }
 
 private struct TaskChangeRequestContent: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String; let url: String; let initialTab: String; let navigate: (String) -> Void
     @ObservedObject var session: ChangeRequestReviewSession
     @Environment(\.dismiss) private var dismiss
@@ -144,7 +144,8 @@ private struct TaskChangeRequestContent: View {
         }
         .onChange(of: store.textGenerationSettingsVersion) { _, _ in Task { await reload() } }
         .task(id: session.operationID) { await poll() }
-        .onReceive(store.$tasks) { tasks in
+        .onChange(of: store.taskRevision(taskID), initial: true) { _, _ in
+            let tasks = store.tasks
             if current, store.snapshotIdentity == store.connectionIdentity,
                let snapshot = tasks.first(where: { $0.id == taskID })?.pullRequests?.first(where: { $0.url == url })?.snapshot,
                snapshot != snapshotFingerprint {

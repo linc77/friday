@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskBrowserAnnotationPreview:View {
-    @ObservedObject var store:FridayStore
+    @Bindable var store:FridayStore
     let annotation:TaskBrowserAnnotationRecord
     @Environment(\.taskBrowserOpen) private var openPage
     var body:some View {

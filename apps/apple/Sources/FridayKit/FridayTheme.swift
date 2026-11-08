@@ -235,11 +235,12 @@ extension View {
 #if os(macOS)
 /// One continuous native material behind the rail and window edges.
 struct FridayWindowBackground: View {
+    var configuresWindow = true
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        FridayWindowVisualEffect()
+        FridayWindowVisualEffect(configuresWindow: configuresWindow)
             .overlay {
                 if reduceTransparency || contrast == .increased {
                     if FridayTheme.isMidnight {
@@ -258,22 +259,28 @@ struct FridayWindowBackground: View {
 }
 
 private struct FridayWindowVisualEffect: NSViewRepresentable {
+    let configuresWindow: Bool
+
     func makeNSView(context: Context) -> FridayWindowEffectView {
         let view = FridayWindowEffectView()
+        view.configuresWindow = configuresWindow
         view.material = .sidebar
         view.blendingMode = .behindWindow
         view.state = .followsWindowActiveState
         return view
     }
 
-    func updateNSView(_ nsView: FridayWindowEffectView, context: Context) {}
+    func updateNSView(_ nsView: FridayWindowEffectView, context: Context) {
+        nsView.configuresWindow = configuresWindow
+    }
 }
 
 private final class FridayWindowEffectView: NSVisualEffectView {
+    var configuresWindow = true
     private var buttonLayoutScheduled = false
 
     override func viewWillMove(toWindow newWindow: NSWindow?) {
-        if let window {
+        if configuresWindow, let window {
             NotificationCenter.default.removeObserver(self, name: nil, object: window)
         }
         super.viewWillMove(toWindow: newWindow)
@@ -281,6 +288,7 @@ private final class FridayWindowEffectView: NSVisualEffectView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        guard configuresWindow else { return }
         guard let window else { return }
         if #available(macOS 15.0, *), window.styleMask.contains(.titled) {
             // Changing the style rebuilds AppKit's frame view. Wait until the
@@ -319,7 +327,7 @@ private final class FridayWindowEffectView: NSVisualEffectView {
     }
 
     @objc private func scheduleWindowButtonLayout() {
-        guard !buttonLayoutScheduled else { return }
+        guard configuresWindow, !buttonLayoutScheduled else { return }
         buttonLayoutScheduled = true
         // AppKit positions the title-bar buttons during its own layout pass first.
         DispatchQueue.main.async { [weak self] in
@@ -415,7 +423,6 @@ private struct FridayToolbarButtonBody: View {
             }
             .contentShape(RoundedRectangle(cornerRadius: 6))
             .onHover { hovering = $0 }
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
     }
 }
@@ -458,7 +465,6 @@ private struct FridayButtonBody: View {
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)
             .onHover { hovering = $0 }
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
     }
 }
@@ -475,7 +481,6 @@ struct EmptyPanel: View {
                 .frame(width: 64, height: 64)
                 .background(FridayTheme.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 22))
                 .padding(.bottom, 4)
-                .fridaySymbolFeedback()
                 .accessibilityHidden(true)
             Text(fridayString: title).font(.title3.weight(.semibold))
             Text(fridayString: subtitle).font(.callout).foregroundStyle(.secondary)
