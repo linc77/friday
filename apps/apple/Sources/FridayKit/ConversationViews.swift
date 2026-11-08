@@ -23,7 +23,7 @@ struct NewConversationView: View {
                 .padding(.horizontal, 24).padding(.top, geometry.safeAreaInsets.top + 24)
                 .frame(maxWidth: reading.contentWidth).frame(maxWidth: .infinity, alignment: .leading)
             }
-            .fridayMobileHomeScroll()
+
             .scrollDismissesKeyboard(.interactively)
             .ignoresSafeArea(.container, edges: .top)
         }

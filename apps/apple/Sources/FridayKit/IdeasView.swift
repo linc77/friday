@@ -51,6 +51,7 @@ struct InboxView: View {
                     .background(FridayTheme.canvas)
                     .navigationTitle("")
                     .navigationBarTitleDisplayMode(.inline)
+                    .toolbar(.hidden, for: .tabBar)
                     .modifier(MobileIdeaZoomDestination(id: mobileNoteSourceID, namespace: noteTransition))
                 }
             #else
@@ -125,7 +126,7 @@ struct InboxView: View {
             #endif
         }
         #if os(iOS)
-        .fridayMobileHomeScroll()
+
         .fridayMobileHomeNavigation()
         #endif
         #if os(macOS)

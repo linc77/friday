@@ -44,8 +44,6 @@ struct TaskDetail: View {
     @State private var historyError: String?
     @State private var historyRequest = UUID()
     #if os(iOS)
-    @Environment(\.fridayMobileNavigationInComposer) private var mobileHomeNavigation
-    @Environment(\.fridayMobileKeyboardVisible) private var mobileKeyboardVisible
     #endif
     #if os(macOS)
     @State private var composerHeight: CGFloat = 136
@@ -169,14 +167,7 @@ struct TaskDetail: View {
         } else {
             EmptyPanel(icon: "checklist", title: store.taskWasRemoved(id) ? "任务不存在" : "正在加载任务", subtitle: store.taskStreamErrors[id] ?? "连接主机后会显示最新进展。")
                 .fridayPaneSurface()
-                #if os(iOS)
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    // The home must remain navigable before its composer is available.
-                    if mobileHomeNavigation, !mobileKeyboardVisible {
-                        FridayMobileNavigationBar(collapsed: .constant(false))
-                    }
-                }
-                #endif
+
         }
     }
 
@@ -354,7 +345,7 @@ struct TaskDetail: View {
                 .coordinateSpace(name: "task-transcript")
                 .scrollPosition(id: Binding(get: { scrollTracking.anchor }, set: { scrollTracking.anchor = $0 }), anchor: .top)
                 #if os(iOS)
-                .fridayMobileHomeScroll()
+
                 .scrollDismissesKeyboard(.interactively)
                 .ignoresSafeArea(.container, edges: task.localAgent ? [] : .top)
                 #endif

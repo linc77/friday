@@ -43,7 +43,6 @@ public struct FridayRootView: View {
     @FridayPreference(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
-    @State private var mobileKeyboardVisible = false
     @State private var mobileModelChoice: TaskModelChoice?
     #endif
     #if os(macOS)
@@ -82,61 +81,57 @@ public struct FridayRootView: View {
             .toolbarBackground(.hidden, for: .windowToolbar)
             .frame(minWidth: 980, minHeight: 640)
             #else
-            ZStack {
+            TabView(selection: $mobileTab) {
                 NavigationStack {
                     conversation
-                        .fridayMobileHomeNavigation(inComposer: true)
-                        .toolbar(.hidden, for: .navigationBar)
+                        .fridayMobileHomeNavigation()
+                        .navigationTitle("")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button(friday: "新对话", systemImage: "square.and.pencil", action: newTask)
+                            }
+                        }
                         .overlay(alignment: .top) { FridayMobileTopFade() }
-                }.fridayMobilePage(isSelected: mobileTab == 0)
+                }.tabItem { Label(friday: "对话", systemImage: "ellipsis.message") }.tag(0)
                 NavigationStack { inbox.fridayMobilePageTitle("想法") }
-                    .fridayMobilePage(isSelected: mobileTab == 1)
+                    .tabItem { Label(friday: "想法", systemImage: "scribble") }.tag(1)
                 NavigationStack(path: $mobileTaskPath) {
                     tasksList.fridayMobilePageTitle("任务")
                         .safeAreaInset(edge: .bottom, spacing: 0) { mobileTaskDock }
-                        .fridayMobileHomeNavigation(inComposer: true)
-                        .navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id, onOpenTask: openLocalTask) }
+                        .fridayMobileHomeNavigation()
+                        .navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id, onOpenTask: openLocalTask).toolbar(.hidden, for: .tabBar) }
                         .toolbar {
                             if mobileTab == 2 {
                                 TaskSearchControl(store: store, openTask: openLocalTask)
                             }
                         }
                         .sheet(isPresented: $choosingMobileWorkspace) { mobileNewTaskSheet }
-                }.fridayMobilePage(isSelected: mobileTab == 2)
+                }.tabItem { Label(friday: "任务", systemImage: "checklist") }.tag(2)
                 NavigationStack {
                     List {
                         connectionStatus
                         if let error = store.error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
-                        NavigationLink(friday: "Workspace") { ProjectsView(store: store) }
-                        NavigationLink(friday: "记忆") { MemoriesView(store: store) }
-                        NavigationLink("Providers") { ProvidersView(store: store) }
-                        NavigationLink(friday: "文字生成") { TextGenerationSettingsView(store: store) }
-                        NavigationLink(friday: "Source Control") { SourceControlSettingsView(store: store) }
-                        NavigationLink(friday: "项目脚本") { ProjectScriptsSettingsView(store: store) }
-                        NavigationLink(friday: "通用") { GeneralSettingsView() }
-                        NavigationLink(friday: "外观") { AppearanceSettingsView() }
-                        NavigationLink(friday: "任务侧栏") { TaskSidebarSettingsView(store: store) }
-                        NavigationLink(friday: "任务设置") { TaskBehaviorSettingsView(store: store) }
-                        NavigationLink(friday: "已归档任务") { TaskArchivedTasks(store: store) }
-                        NavigationLink(friday: "连接与设备") { ConnectionView(store: store) }
-                        NavigationLink(friday: "健康与主动分享") { HealthSettingsView(store: store) }
+                        NavigationLink(friday: "Workspace") { ProjectsView(store: store).toolbar(.hidden, for: .tabBar) }
+                        NavigationLink(friday: "记忆") { MemoriesView(store: store).toolbar(.hidden, for: .tabBar) }
+                        NavigationLink("Providers") { ProvidersView(store: store).toolbar(.hidden, for: .tabBar) }
+                        NavigationLink(friday: "文字生成") { TextGenerationSettingsView(store: store).toolbar(.hidden, for: .tabBar) }
+                        NavigationLink(friday: "Source Control") { SourceControlSettingsView(store: store).toolbar(.hidden, for: .tabBar) }
+                        NavigationLink(friday: "项目脚本") { ProjectScriptsSettingsView(store: store).toolbar(.hidden, for: .tabBar) }
+                        NavigationLink(friday: "通用") { GeneralSettingsView().toolbar(.hidden, for: .tabBar) }
+                        NavigationLink(friday: "外观") { AppearanceSettingsView().toolbar(.hidden, for: .tabBar) }
+                        NavigationLink(friday: "任务侧栏") { TaskSidebarSettingsView(store: store).toolbar(.hidden, for: .tabBar) }
+                        NavigationLink(friday: "任务设置") { TaskBehaviorSettingsView(store: store).toolbar(.hidden, for: .tabBar) }
+                        NavigationLink(friday: "已归档任务") { TaskArchivedTasks(store: store).toolbar(.hidden, for: .tabBar) }
+                        NavigationLink(friday: "连接与设备") { ConnectionView(store: store).toolbar(.hidden, for: .tabBar) }
+                        NavigationLink(friday: "健康与主动分享") { HealthSettingsView(store: store).toolbar(.hidden, for: .tabBar) }
                     }
-                    .fridayMobileHomeScroll()
+
                     .fridayMobileHomeNavigation()
                     .navigationTitle(Text(friday: "我的 Friday"))
-                }.fridayMobilePage(isSelected: mobileTab == 3)
+                }.tabItem { Label(friday: "设置", systemImage: "gear") }.tag(3)
             }
-            .fridayMobileTabPresentation()
-            .environment(\.fridayMobileTabSelection, $mobileTab)
-            .environment(\.fridayMobileNewConversation, newTask)
-            .environment(\.fridayMobileKeyboardVisible, mobileKeyboardVisible)
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-                mobileKeyboardVisible = true
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
-                // Restore only after dismissal, so navigation never rides above the keyboard.
-                mobileKeyboardVisible = false
-            }
+            .modifier(FridayNativeTabBarBehavior())
             .onChange(of: mobileTab) { _, _ in
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
@@ -340,7 +335,7 @@ public struct FridayRootView: View {
     }
     #if os(iOS)
     private var mobileTaskDock: some View {
-        FridayMobileComposerDock(homeSection: .tasks) {
+        FridayMobileComposerDock() {
             HStack(spacing: 0) {
                 Button { draftProjectId = nil; choosingMobileWorkspace = true } label: {
                     Text("Let's do it.")

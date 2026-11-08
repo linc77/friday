@@ -33,7 +33,7 @@ struct MobileTaskList: View {
                 }.taskActions(store: store, task: task, bulk: bulk.menu(store, row: task.id))
             }
         }
-        .fridayMobileHomeScroll()
+
         .refreshable { await store.refresh() }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {

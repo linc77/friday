@@ -101,7 +101,7 @@ struct MobileIdeasView: View {
             .padding(.bottom, 20)
         }
         .scrollDismissesKeyboard(.interactively)
-        .fridayMobileHomeScroll()
+
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -122,11 +122,11 @@ struct MobileIdeasView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
-        .fridayMobileHomeNavigation(inComposer: true)
+        .fridayMobileHomeNavigation()
     }
 
     private var bottomBar: some View {
-        FridayMobileComposerDock(homeSection: .inbox) {
+        FridayMobileComposerDock() {
             HStack(spacing: 8) {
                 FridaySymbolImage(systemName: "magnifyingglass").accessibilityHidden(true)
                     .padding(.leading, 16)
