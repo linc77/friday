@@ -26,6 +26,31 @@ struct TaskOpenInControl: View {
         Group {
             if menuOnly { Menu { choices } label: { FridaySymbolLabel(friday: "打开方式", systemImage: "arrow.up.forward.app") } }
             else {
+                #if os(macOS)
+                Group {
+                    if enabled {
+                        Button {
+                            if let preferred, enabled { open(preferred, identity: sourceIdentity) }
+                        } label: { editorIcon }
+                    } else {
+                        Menu { choices } label: { editorIcon }
+                    }
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden)
+                .buttonStyle(FridaySymbolButtonStyle())
+                .foregroundStyle(FridayTheme.foreground).tint(FridayTheme.foreground)
+                .fixedSize().fridayInteractiveCursor()
+                .accessibilityLabel(Text(friday: "打开"))
+                .accessibilityValue(Text(verbatim: preferred?.label ?? ""))
+                .help(Text(friday: enableShortcut ? "在首选编辑器中打开 · ⌘O" : "在主机上打开"))
+                .contextMenu { choices }
+                .background {
+                    if enableShortcut {
+                        Button("") { if let preferred, enabled { open(preferred, identity: sourceIdentity) } }
+                            .keyboardShortcut("o", modifiers: .command).disabled(!enabled).hidden().accessibilityHidden(true)
+                    }
+                }
+                #else
                 HStack(spacing: 0) {
                     Button { if let preferred { open(preferred, identity: sourceIdentity) } } label: {
                         FridaySymbolLabel(friday: "打开", systemImage: preferred?.symbol ?? "arrow.up.forward.app").font(.caption)
@@ -33,13 +58,10 @@ struct TaskOpenInControl: View {
                         .help(Text(friday: enableShortcut ? "在首选编辑器中打开 · ⌘O" : "在主机上打开"))
                         .background { if enableShortcut { Button("") { if let preferred, enabled { open(preferred, identity: sourceIdentity) } }.keyboardShortcut("o", modifiers: .command).disabled(!enabled).hidden().accessibilityHidden(true) } }
                     Menu { choices } label: { FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9)).frame(width: 20, height: 24) }
-                        #if os(macOS)
-                        .menuStyle(.borderlessButton)
-                        .menuIndicator(.hidden)
-                        #endif
                         .fixedSize()
                         .accessibilityLabel(Text(friday: "打开方式"))
                 }.buttonStyle(FridaySymbolButtonStyle()).fridayInteractiveCursor()
+                #endif
             }
         }
         .task(id: discoveryIdentity) {
@@ -69,13 +91,32 @@ struct TaskOpenInControl: View {
             }.padding(24).frame(minWidth: 320, maxWidth: 440)
         }
     }
+    #if os(macOS)
+    private var editorIcon: some View {
+        TaskHostEditorIcon(editor: preferred)
+            .opacity(enabled ? 1 : 0.45)
+            .frame(width: 26, height: 26)
+            .background(FridayTheme.sidebarBackground, in: RoundedRectangle(cornerRadius: 6))
+    }
+    #endif
     @ViewBuilder private var choices: some View {
         let sourceIdentity = identity
         if let host = model.snapshot?.remoteHost { Text(verbatim: "SSH: " + host) }
         if model.loading { Text(friday: "正在查找主机编辑器…") }
         else if editors.isEmpty { Text(friday: "主机上未找到可用编辑器") }
         ForEach(editors) { editor in
-            Button { open(editor, identity: sourceIdentity) } label: { Label { Text(verbatim: editor.label) } icon: { FridaySymbolImage(systemName: editor.id == preferred?.id ? "checkmark" : editor.symbol) } }
+            Button { open(editor, identity: sourceIdentity) } label: {
+                Label {
+                    Text(verbatim: editor.label)
+                } icon: {
+                    #if os(macOS)
+                    if editor.id == preferred?.id { FridaySymbolImage(systemName: "checkmark") }
+                    else { TaskHostEditorIcon(editor: editor) }
+                    #else
+                    FridaySymbolImage(systemName: editor.id == preferred?.id ? "checkmark" : editor.symbol)
+                    #endif
+                }
+            }
                 .disabled(!store.connected || model.busy)
         }
         Divider()

@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Measures the mounted content directly, including attachments and errors.
 /// Only collapse changes the available height; expanded content is never clipped
-/// by a stale geometry preference from the surrounding glass surface.
+/// by a stale geometry preference from the surrounding surface.
 struct TaskComposerLayout: Layout {
     var expansion: CGFloat
     var animatableData: CGFloat {

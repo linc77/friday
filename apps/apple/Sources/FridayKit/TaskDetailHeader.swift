@@ -67,7 +67,8 @@ struct TaskDetailHeader: View {
                 Button(action: toggleWorkspacePanel) {
                     FridaySymbolImage(systemName: "sidebar.right").font(.system(size: 15)).frame(width: 24, height: 24)
                 }.buttonStyle(FridaySymbolButtonStyle())
-                    .foregroundStyle(workspacePanelVisible ? FridayTheme.accent : .secondary)
+                    .foregroundStyle(FridayTheme.foreground)
+                    .background(workspacePanelVisible ? FridayTheme.sidebarBackground : .clear, in: RoundedRectangle(cornerRadius: 6))
                     .accessibilityLabel(Text(friday: workspacePanelVisible ? "收起侧栏" : "展开侧栏"))
                     .help(Text(friday: "文件、改动与终端"))
                 #endif
@@ -82,7 +83,7 @@ struct TaskDetailHeader: View {
         #if os(iOS)
         .padding(.bottom, 8)
         #else
-        .padding(.horizontal, 26).padding(.top, 24).padding(.bottom, 10)
+        .padding(.horizontal, 26).padding(.top, 10).padding(.bottom, 8)
         .background {
             if task.localAgent {
                 Button("") {

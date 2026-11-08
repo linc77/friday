@@ -662,7 +662,7 @@ struct AgentTaskComposer: View {
     @ViewBuilder private var composerSurface: some View {
         #if os(macOS)
         TaskComposerLayout(expansion: compact ? 0 : 1) {
-            expandedContent.padding(16).fixedSize(horizontal: false, vertical: true)
+            expandedContent.padding(.horizontal, 16).padding(.vertical, 10).fixedSize(horizontal: false, vertical: true)
         }
             .clipped().opacity(compact ? 0 : 1)
             .disabled(compact).allowsHitTesting(!compact).accessibilityHidden(compact)
@@ -686,7 +686,7 @@ struct AgentTaskComposer: View {
     }
 
     private var expandedContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: composerSpacing) {
             if provider == "codex", let task {
                 if let goal = task.goal { TaskGoalBanner(goal: goal, working: task.active, disabled: !store.connected || codexCommands.busy,
                     resume: { runGoalCommand("/goal resume", task: task) }, clear: { runGoalCommand("/goal clear", task: task) }) }
@@ -728,7 +728,7 @@ struct AgentTaskComposer: View {
             }
             TaskPromptEditor(text: $message, placeholder: placeholder,
                 enabled: !compact && !sending && (!requiresProject || projectPath != nil), focused: focused,
-                minimumHeight: embeddedInMobileDock ? 28 : task == nil ? 60 : 40,
+                minimumHeight: promptMinimumHeight,
                 focusChanged: { focused = $0 }, submit: { submit(alternate: false) }, importProviders: importProviders,
                 alternateSubmit: { submit(alternate: true) }, identity: fullEditorIdentity, contexts: contexts, skills: commandCatalog.catalog?.skills ?? [], insertion: contextInsertion,
                 inserted: { contextInsertion = nil }, openContext: openContext,
@@ -1066,10 +1066,12 @@ struct AgentTaskComposer: View {
     }
     private var modelControls: some View {
         HStack(spacing: 12) {
+            #if os(iOS)
             if showsBranchControl {
                 branchControl
                 Divider().frame(height: 16)
             }
+            #endif
             Button { showModels.toggle() } label: {
                 HStack(spacing: 5) {
                     AgentProviderIcon(provider: provider, size: 14)
@@ -1081,6 +1083,22 @@ struct AgentTaskComposer: View {
                     TaskModelPicker(server: store.connection.server, scope: store.connectionIdentity, states: states, lockedProvider: canChangeProvider ? nil : task?.agent, provider: provider, model: selectedModel?.id ?? model, instances: store.providerInstances, instanceId: selectedInstance, lockedInstance: canChangeProvider ? nil : task?.resolvedProviderInstance, select: chooseModel).environment(\.locale, locale)
                 }
         }
+    }
+
+    private var composerSpacing: CGFloat {
+        #if os(macOS)
+        8
+        #else
+        12
+        #endif
+    }
+
+    private var promptMinimumHeight: CGFloat {
+        #if os(macOS)
+        32
+        #else
+        embeddedInMobileDock ? 28 : task == nil ? 60 : 40
+        #endif
     }
 
     private func chooseModel(_ choice: TaskModelChoice) {
@@ -1150,13 +1168,20 @@ private struct AgentTaskActionButtonBody: View {
 
     var body: some View {
         configuration.label
+            #if os(macOS)
+            .foregroundStyle(destructive ? Color.red : FridayTheme.foreground)
+            .frame(width: 28, height: 28)
+            .background(FridayTheme.foreground.opacity(configuration.isPressed ? 0.12 : hovering && isEnabled ? 0.06 : 0), in: RoundedRectangle(cornerRadius: 6))
+            .opacity(isEnabled ? 1 : 0.4)
+            .contentShape(Rectangle())
+            #else
             .foregroundStyle(destructive ? Color.white : FridayTheme.onAccent)
             .frame(width: 32, height: 32)
             .background(background.opacity(destructive && !hovering ? 0.9 : 1), in: Circle())
-            .overlay(Circle().strokeBorder(Color.white.opacity(isEnabled ? 0.12 : 0), lineWidth: 1))
             .shadow(color: background.opacity(isEnabled && !configuration.isPressed ? 0.24 : 0), radius: 1, y: 1)
             .opacity(isEnabled ? 1 : 0.64)
             .contentShape(Circle())
+            #endif
             .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
             .onHover { hovering = $0 }
@@ -1166,48 +1191,16 @@ private struct AgentTaskActionButtonBody: View {
 struct AgentTaskComposerSurface: ViewModifier {
     let embeddedInMobileDock: Bool
     let focused: Bool
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.colorSchemeContrast) private var contrast
-    @Namespace private var glassNamespace
 
     @ViewBuilder func body(content: Content) -> some View {
         if embeddedInMobileDock {
             content.padding(8)
         } else {
             #if os(macOS)
-            if FridayTheme.isMidnight || reduceTransparency || contrast == .increased {
-                content.fridayCard(radius: 22, highlighted: focused)
-            } else {
-                #if compiler(>=6.2)
-                if #available(macOS 26.0, *) {
-                    GlassEffectContainer(spacing: 0) {
-                        content
-                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22))
-                            .glassEffectID("task-composer", in: glassNamespace)
-                    }
-                } else {
-                    materialSurface(content)
-                }
-                #else
-                materialSurface(content)
-                #endif
-            }
+            content.background(FridayTheme.sidebarBackground, in: RoundedRectangle(cornerRadius: 18))
             #else
             content.padding(16).fridayCard(highlighted: focused)
             #endif
         }
     }
-
-    #if os(macOS)
-    private func materialSurface(_ content: Content) -> some View {
-        content
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22))
-            .overlay {
-                RoundedRectangle(cornerRadius: 22)
-                    .strokeBorder(focused ? FridayTheme.accent.opacity(0.35) : .primary.opacity(0.07))
-                    .allowsHitTesting(false)
-            }
-            .shadow(color: .black.opacity(0.035), radius: 12, x: 0, y: 4)
-    }
-    #endif
 }

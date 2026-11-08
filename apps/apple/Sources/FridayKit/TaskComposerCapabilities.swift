@@ -200,13 +200,16 @@ struct TaskContextWindowControl: View {
     @State private var showing = false
     var body: some View {
         Button { showing.toggle() } label: {
-            if let usage, let fraction = usage.fraction {
-                Gauge(value: fraction) { Text(friday: "上下文窗口") }
-                    .gaugeStyle(.accessoryCircularCapacity).tint(fraction > 0.9 ? Color.red : .secondary)
-                    .scaleEffect(0.5).frame(width: 24, height: 24).accessibilityHidden(true)
-            } else {
-                FridaySymbolImage(systemName: "circle.dotted").frame(width: 24, height: 24)
-            }
+            Group {
+                if let fraction = usage?.fraction {
+                    Gauge(value: fraction) { EmptyView() }
+                        .gaugeStyle(.accessoryCircularCapacity)
+                        .tint(fraction > 0.9 ? Color.red : FridayTheme.secondaryText)
+                        .labelsHidden().scaleEffect(0.25)
+                } else {
+                    FridaySymbolImage(systemName: "circle.dotted").font(.system(size: 14))
+                }
+            }.frame(width: 28, height: 28).accessibilityHidden(true)
         }.buttonStyle(FridaySymbolButtonStyle())
             .help(Text(friday: "上下文窗口"))
             .accessibilityLabel(Text(friday: "上下文窗口"))

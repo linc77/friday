@@ -445,23 +445,30 @@ private struct FridayButtonBody: View {
     @State private var hovering = false
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         configuration.label
             .font(.system(compact ? .caption : .callout, weight: .medium))
             .padding(.horizontal, compact ? 11 : 15)
             .padding(.vertical, compact ? 7 : 10)
+            #if os(macOS)
+            .foregroundStyle(configuration.role == .destructive ? .red : FridayTheme.foreground)
+            .background {
+                RoundedRectangle(cornerRadius: compact ? 10 : 12)
+                    .fill(FridayTheme.sidebarBackground)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: compact ? 10 : 12)
+                            .fill(FridayTheme.foreground.opacity(configuration.isPressed ? 0.14 : hovering && isEnabled ? 0.09 : prominent ? 0.05 : 0))
+                    }
+            }
+            #else
             .foregroundStyle(prominent ? FridayTheme.onAccent : configuration.role == .destructive ? .red : FridayTheme.foreground)
             .background {
                 RoundedRectangle(cornerRadius: compact ? 10 : 12)
                     .fill(prominent ? FridayTheme.accent : Color.primary.opacity(hovering ? 0.085 : 0.045))
             }
-            .overlay {
-                RoundedRectangle(cornerRadius: compact ? 10 : 12)
-                    .strokeBorder(Color.primary.opacity(contrast == .increased ? 0.3 : 0.04))
-            }
             .brightness(prominent && hovering && isEnabled ? 0.035 : 0)
+            #endif
             .opacity(isEnabled ? 1 : 0.4)
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)

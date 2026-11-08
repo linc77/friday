@@ -44,7 +44,46 @@ struct TaskGitActionsControl: View {
     private var quick: TaskGitQuickAction { TaskGitPresentation.quick(status, busy: busy) }
     private var canPush: Bool { !busy && store.connected && status?.branch != nil && status?.remote != nil && status?.behind == 0 && (status?.ahead ?? 0) > 0 }
     private var canPR: Bool { !busy && store.connected && status?.branch != nil && status?.canCreatePR == true && status?.behind == 0 }
-    private var symbol: String { quick.action == "publish_repository" ? "arrow.up.right.square" : quick.openPR || quick.action == "create_pr" ? "arrow.up.right.square" : quick.action == "pull" ? "arrow.down.circle" : "checkmark.circle" }
+
+    private var actionTitle: String {
+        task.gitBusy ? TaskGitPresentation.phase(task.gitOperation?.phase ?? "queued", provider: task.gitOperation?.changeRequestProvider) : quick.title
+    }
+
+    private func performQuickAction() {
+        guard quick.enabled, store.connected else { return }
+        if quick.openPR { openCurrentPullRequest() }
+        else if let action = quick.action, let status { prepare(TaskGitSubmission(review: status, action: action)) }
+    }
+
+    @ViewBuilder private var menuActions: some View {
+        if let status {
+            if status.remote == nil, status.status == "repository" {
+                Button(friday: "发布新仓库", systemImage: "arrow.up.right.square") { prepare(TaskGitSubmission(review: status, action: "publish_repository")) }
+                    .disabled(busy || !store.connected || status.branch == nil)
+            }
+            Button(friday: "提交", systemImage: "checkmark.circle") { sheet = TaskGitSheet(kind: .commit, submission: TaskGitSubmission(review: status, action: "commit")) }
+                .disabled(busy || !store.connected || status.files.isEmpty)
+            Button(friday: "推送", systemImage: "arrow.up.circle") { prepare(TaskGitSubmission(review: status, action: "push")) }.disabled(!canPush)
+            if status.pullRequest?.state == "open" {
+                Button(friday: status.sourceControl?.provider == "gitlab" ? "查看 MR" : "查看 PR", systemImage: "arrow.up.right.square", action: openCurrentPullRequest)
+            } else {
+                Button(friday: status.sourceControl?.provider == "gitlab" ? "创建 MR" : "创建 PR", systemImage: "arrow.up.right.square") { prepare(TaskGitSubmission(review: status, action: "create_pr")) }.disabled(!canPR)
+            }
+            Button(friday: "拉取", systemImage: "arrow.down.circle") { prepare(TaskGitSubmission(review: status, action: "pull")) }
+                .disabled(busy || !store.connected || status.upstream == nil || !status.files.isEmpty || status.ahead > 0 && status.behind > 0)
+            Divider()
+        }
+        Button(friday: "刷新 Git 状态", systemImage: "arrow.clockwise") { Task { await load(refresh: true) } }.disabled(fetching || !store.connected)
+        Button(friday: "管理关联的 PR／MR") { showLinks = true }.disabled(!store.connected)
+        if let linked = task.pullRequests, !linked.isEmpty {
+            Menu {
+                ForEach(linked, id: \.url) { pr in Button("#\(pr.number) · \(pr.title)") { openReview(pr.url) } }
+            } label: { Text(friday: "关联的 PR／MR") }
+        }
+        if task.gitOperation != nil || error != nil {
+            Button(friday: "查看 Git 操作", systemImage: "list.bullet.rectangle") { showsProgress = true }
+        }
+    }
 
     var body: some View {
         HStack(spacing: 2) {
@@ -57,54 +96,27 @@ struct TaskGitActionsControl: View {
                 }.buttonStyle(FridaySymbolButtonStyle()).foregroundStyle(badge.state == "merged" ? .purple : badge.state == "open" ? .green : .secondary).help(badge.current.title)
             }
             #if os(macOS)
-            Button {
-                if quick.openPR { openCurrentPullRequest() }
-                else if let action = quick.action, let status { prepare(TaskGitSubmission(review: status, action: action)) }
-            } label: {
-                HStack(spacing: 5) {
-                    FridaySymbolImage(systemName: task.gitBusy ? "circle.dashed" : symbol).font(.system(size: 12))
-                        .fridaySymbolFeedback(value: task.gitOperation?.status)
-                    Text(fridayString: task.gitBusy ? TaskGitPresentation.phase(task.gitOperation?.phase ?? "queued", provider: task.gitOperation?.changeRequestProvider) : quick.title)
-                        .font(.caption).lineLimit(1)
-                }.padding(.horizontal, 7).frame(height: 28)
-            }.buttonStyle(FridaySymbolButtonStyle()).disabled(!quick.enabled || !store.connected)
-                .help(Text(fridayString: quick.hint ?? quick.title))
-            #endif
-            Menu {
-                if let status {
-                    if status.remote == nil, status.status == "repository" {
-                        Button(friday: "发布新仓库", systemImage: "arrow.up.right.square") { prepare(TaskGitSubmission(review: status, action: "publish_repository")) }
-                            .disabled(busy || !store.connected || status.branch == nil)
-                    }
-                    Button(friday: "提交", systemImage: "checkmark.circle") { sheet = TaskGitSheet(kind: .commit, submission: TaskGitSubmission(review: status, action: "commit")) }
-                        .disabled(busy || !store.connected || status.files.isEmpty)
-                    Button(friday: "推送", systemImage: "arrow.up.circle") { prepare(TaskGitSubmission(review: status, action: "push")) }.disabled(!canPush)
-                    if status.pullRequest?.state == "open" {
-                        Button(friday: status.sourceControl?.provider == "gitlab" ? "查看 MR" : "查看 PR", systemImage: "arrow.up.right.square", action: openCurrentPullRequest)
-                    } else {
-                        Button(friday: status.sourceControl?.provider == "gitlab" ? "创建 MR" : "创建 PR", systemImage: "arrow.up.right.square") { prepare(TaskGitSubmission(review: status, action: "create_pr")) }.disabled(!canPR)
-                    }
-                    Button(friday: "拉取", systemImage: "arrow.down.circle") { prepare(TaskGitSubmission(review: status, action: "pull")) }
-                        .disabled(busy || !store.connected || status.upstream == nil || !status.files.isEmpty || status.ahead > 0 && status.behind > 0)
-                    Divider()
+            Group {
+                if quick.enabled && store.connected {
+                    Button(action: performQuickAction) { actionIcon }
+                } else {
+                    Menu { menuActions } label: { actionIcon }
                 }
-                Button(friday: "刷新 Git 状态", systemImage: "arrow.clockwise") { Task { await load(refresh: true) } }.disabled(fetching || !store.connected)
-                Button(friday: "管理关联的 PR／MR") { showLinks = true }.disabled(!store.connected)
-                if let linked = task.pullRequests, !linked.isEmpty {
-                    Menu {
-                        ForEach(linked, id: \.url) { pr in Button("#\(pr.number) · \(pr.title)") { openReview(pr.url) } }
-                    } label: { Text(friday: "关联的 PR／MR") }
-                }
-                if task.gitOperation != nil || error != nil {
-                    Button(friday: "查看 Git 操作", systemImage: "list.bullet.rectangle") { showsProgress = true }
-                }
-            } label: {
-                #if os(macOS)
-                FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9)).frame(width: 18, height: 28)
-                #else
+            }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden)
+                .buttonStyle(FridaySymbolButtonStyle())
+                .foregroundStyle(FridayTheme.foreground).tint(FridayTheme.foreground)
+                .fixedSize().fridayInteractiveCursor()
+                .frame(width: 26, height: 26)
+                .background(FridayTheme.sidebarBackground, in: RoundedRectangle(cornerRadius: 6))
+                .accessibilityLabel(Text(fridayString: actionTitle))
+                .help(Text(fridayString: quick.hint ?? actionTitle))
+                .contextMenu { menuActions }
+            #else
+            Menu { menuActions } label: {
                 FridaySymbolImage(systemName: "arrow.triangle.branch").frame(width: 24, height: 28)
-                #endif
             }.menuStyle(.borderlessButton).fixedSize().fridayInteractiveCursor().accessibilityLabel(Text(friday: "Git 操作"))
+            #endif
             if task.gitOperation != nil {
                 Button { showsProgress = true } label: {
                     FridaySymbolImage(systemName: task.gitBusy ? "ellipsis.circle" : task.gitOperation?.status == "completed" ? "checkmark.circle" : "exclamationmark.circle")
@@ -159,6 +171,14 @@ struct TaskGitActionsControl: View {
         }
         .onChange(of: store.connectionIdentity) { _, _ in status = nil; sheet = nil; error = nil; failedRequest = nil; showLinks = false; linkedOpenURL = nil; changeRequestSheet = nil }
     }
+
+    #if os(macOS)
+    private var actionIcon: some View {
+        TaskGitCommitIcon()
+            .opacity(quick.enabled && store.connected ? 1 : 0.45)
+            .frame(width: 26, height: 26)
+    }
+    #endif
     private func load(refresh: Bool = false) async {
         guard !fetching else { return }
         fetching = true; defer { fetching = false }

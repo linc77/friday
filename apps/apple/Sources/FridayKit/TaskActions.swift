@@ -51,6 +51,9 @@ private struct TaskActions: ViewModifier {
                 Menu { menu } label: { content }
                     #if os(macOS)
                     .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .foregroundStyle(FridayTheme.foreground)
+                    .tint(FridayTheme.foreground)
                     #endif
                     .fixedSize(horizontal: false, vertical: true)
                     .fridayInteractiveCursor()

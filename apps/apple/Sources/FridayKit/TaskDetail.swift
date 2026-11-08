@@ -212,9 +212,9 @@ struct TaskDetail: View {
         #if os(iOS)
         .navigationTitle("Friday")
         .navigationBarTitleDisplayMode(.inline)
-        #endif
+        // An empty safeAreaInset on macOS can consume the whole viewport.
+        // Keep the mobile composer inset, including the modifier, iOS-only.
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            #if os(iOS)
             FridayMobileComposerDock(notice: task.localAgent ? nil : store.error) {
                 if task.localAgent && !TaskProviderCatalog.order.contains(task.agent) {
                     Text(friday: "此 Agent 接入已移除，历史任务仍可查看；请使用 Codex、Claude 或 Pi 新建任务。").font(.callout).foregroundStyle(.secondary).padding()
@@ -238,8 +238,8 @@ struct TaskDetail: View {
                     )
                 }
             }
-            #endif
         }
+        #endif
         #if os(macOS)
         .overlay(alignment: .bottom) {
             VStack(spacing: 0) {
