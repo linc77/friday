@@ -1163,7 +1163,7 @@ private struct AgentTaskActionButtonBody: View {
     }
 }
 
-private struct AgentTaskComposerSurface: ViewModifier {
+struct AgentTaskComposerSurface: ViewModifier {
     let embeddedInMobileDock: Bool
     let focused: Bool
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
