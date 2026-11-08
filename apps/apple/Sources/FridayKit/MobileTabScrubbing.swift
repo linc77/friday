@@ -25,14 +25,23 @@ struct FridayMobileTabLayout {
     }
 
     func index(at x: CGFloat) -> Int {
+        Int(position(at: x).rounded())
+    }
+
+    func position(at x: CGFloat) -> CGFloat {
         guard itemWidth > 0 else { return 0 }
-        return Int(((lensCenter(at: x) - center(for: 0)) / (itemWidth + spacing)).rounded())
+        return (lensCenter(at: x) - center(for: 0)) / (itemWidth + spacing)
+    }
+
+    func center(at position: CGFloat) -> CGFloat {
+        guard itemWidth > 0 else { return 0 }
+        return center(for: 0) + min(max(position, 0), CGFloat(count - 1)) * (itemWidth + spacing)
     }
 }
 
 /// Lock to the initial drag direction; cancellation never changes the selected page.
 struct FridayMobileTabDrag {
-    static let minimumDistance: CGFloat = 8
+    static let minimumDistance: CGFloat = 4
     private enum Direction { case undecided, horizontal, vertical }
     private var direction = Direction.undecided
     private(set) var location: CGPoint?
@@ -56,4 +65,32 @@ struct FridayMobileTabDrag {
     }
 
     mutating func cancel() { self = Self() }
+}
+
+/// Share fractional tab positions, not pixels, between differently sized docks.
+/// Only the row owning the gesture can finish/cancel it; hidden retained rows
+/// must not clear another row's touch when their lifecycle changes.
+struct FridayMobileTabScrub {
+    private var owner: UUID?
+    private var drag = FridayMobileTabDrag()
+    private(set) var position: CGFloat?
+    var isHorizontal: Bool { drag.isHorizontal }
+
+    mutating func update(owner: UUID, start: CGPoint, location: CGPoint, layout: FridayMobileTabLayout) {
+        guard self.owner == nil || self.owner == owner else { return }
+        self.owner = owner
+        drag.update(start: start, location: location)
+        if let location = drag.location { position = layout.position(at: location.x) }
+    }
+
+    mutating func finish(owner: UUID, in layout: FridayMobileTabLayout) -> Int? {
+        guard self.owner == owner else { return nil }
+        let destination = drag.finish(in: layout)
+        self = Self()
+        return destination
+    }
+
+    mutating func cancel(owner: UUID) {
+        if self.owner == owner { self = Self() }
+    }
 }

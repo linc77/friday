@@ -126,6 +126,7 @@ public struct FridayRootView: View {
                     .navigationTitle(Text(friday: "我的 Friday"))
                 }.fridayMobilePage(isSelected: mobileTab == 3)
             }
+            .fridayMobileTabPresentation()
             .environment(\.fridayMobileTabSelection, $mobileTab)
             .environment(\.fridayMobileNewConversation, newTask)
             .environment(\.fridayMobileKeyboardVisible, mobileKeyboardVisible)

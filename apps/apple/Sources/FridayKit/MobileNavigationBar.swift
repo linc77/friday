@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import Observation
 
 /// Measured from the user's 1260 × 2736 Safari reference at 3 px/pt.
 enum FridayMobileDockMetrics {
@@ -23,12 +24,8 @@ struct FridayMobileNavigationBar: View {
     @Binding var collapsed: Bool
     var embedded = false
     @Environment(\.fridayMobileTabSelection) private var selection
-    @Environment(\.fridayMobileNewConversation) private var newConversation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.scenePhase) private var scenePhase
-    @GestureState private var trackingDrag = false
-    @State private var tabDrag = FridayMobileTabDrag()
     private let sections: [FridaySection] = [.chat, .inbox, .tasks, .settings]
     private var motion: Animation? {
         reduceMotion || scenePhase != .active ? nil : .smooth(duration: collapsed ? 0.24 : 0.42)
@@ -43,12 +40,7 @@ struct FridayMobileNavigationBar: View {
                     floatingBar(selection: selection)
                 }
             }
-            .onChange(of: trackingDrag) { _, active in
-                if !active { tabDrag.cancel() }
-            }
-            .onChange(of: selection.wrappedValue) { _, _ in tabDrag.cancel(); collapsed = false }
-            .onChange(of: collapsed) { _, _ in tabDrag.cancel() }
-            .onDisappear { tabDrag.cancel() }
+            .onChange(of: selection.wrappedValue) { _, _ in collapsed = false }
         }
     }
 
@@ -93,28 +85,77 @@ struct FridayMobileNavigationBar: View {
     }
 
     private func paddedNavigationRow(selection: Binding<Int>) -> some View {
-        navigationRow(selection: selection)
+        FridayMobileNavigationRow(selection: selection, collapsed: collapsed)
             .padding(4)
             .frame(height: FridayMobileDockMetrics.navigationRowHeight)
     }
 
-    private func navigationRow(selection: Binding<Int>) -> some View {
+}
+
+/// One presentation state across retained pages: the incoming dock must inherit
+/// the outgoing dock's scrub position rather than starting at the destination.
+@Observable
+private final class FridayMobileTabPresentation {
+    var scrub = FridayMobileTabScrub()
+}
+
+private struct FridayMobileTabPresentationKey: EnvironmentKey {
+    static let defaultValue: FridayMobileTabPresentation? = nil
+}
+
+extension View {
+    func fridayMobileTabPresentation() -> some View {
+        modifier(FridayMobileTabPresentationHost())
+    }
+}
+
+private struct FridayMobileTabPresentationHost: ViewModifier {
+    @State private var presentation = FridayMobileTabPresentation()
+
+    func body(content: Content) -> some View {
+        content.environment(\.fridayMobileTabPresentation, presentation)
+    }
+}
+
+private extension EnvironmentValues {
+    var fridayMobileTabPresentation: FridayMobileTabPresentation? {
+        get { self[FridayMobileTabPresentationKey.self] }
+        set { self[FridayMobileTabPresentationKey.self] = newValue }
+    }
+}
+
+/// Only this small row observes touch positions, not the glass/composer dock.
+private struct FridayMobileNavigationRow: View {
+    @Binding var selection: Int
+    let collapsed: Bool
+    @Environment(\.fridayMobileTabPresentation) private var sharedPresentation
+    @Environment(\.fridayMobileNewConversation) private var newConversation
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var fallbackPresentation = FridayMobileTabPresentation()
+    @State private var owner = UUID()
+    @GestureState private var trackingDrag = false
+    private let sections: [FridaySection] = [.chat, .inbox, .tasks, .settings]
+    private var presentation: FridayMobileTabPresentation { sharedPresentation ?? fallbackPresentation }
+
+    var body: some View {
         GeometryReader { geometry in
             let layout = FridayMobileTabLayout(width: geometry.size.width, count: sections.count)
-            let lensCenter = tabDrag.location.map { layout.lensCenter(at: $0.x) } ?? layout.center(for: selection.wrappedValue)
+            let lensCenter = presentation.scrub.position.map { layout.center(at: $0) } ?? layout.center(for: selection)
             ZStack(alignment: .leading) {
                 // A quiet selection tint inside one glass surface, without a second bright rim.
                 Capsule().fill(Color.primary.opacity(contrast == .increased ? 0.18 : 0.065))
                     .frame(width: layout.itemWidth, height: 44)
                     .offset(x: lensCenter - layout.itemWidth / 2)
-                    .animation(tabDrag.isHorizontal || reduceMotion || scenePhase != .active ? nil : FridayTheme.motion, value: lensCenter)
+                    .animation(presentation.scrub.isHorizontal || reduceMotion || scenePhase != .active ? nil : .smooth(duration: 0.18), value: lensCenter)
                     .allowsHitTesting(false)
                 HStack(spacing: 6) {
                     ForEach(sections.indices, id: \.self) { index in
                         let section = sections[index]
                         Button {
-                            guard !tabDrag.isHorizontal else { return }
-                            selection.wrappedValue = index
+                            guard !presentation.scrub.isHorizontal else { return }
+                            selection = index
                         } label: {
                             FridaySymbolImage(systemName: section.icon)
                                 .font(.system(size: 20, weight: .regular))
@@ -124,7 +165,7 @@ struct FridayMobileNavigationBar: View {
                         }
                         .buttonStyle(FridaySymbolButtonStyle())
                         .accessibilityLabel(Text(fridayString: section.rawValue))
-                        .accessibilityAddTraits(selection.wrappedValue == index ? .isSelected : [])
+                        .accessibilityAddTraits(selection == index ? .isSelected : [])
                         .contextMenu { conversationMenu(for: section) }
                     }
                 }
@@ -134,17 +175,31 @@ struct FridayMobileNavigationBar: View {
                 DragGesture(minimumDistance: FridayMobileTabDrag.minimumDistance, coordinateSpace: .local)
                     .updating($trackingDrag) { _, active, _ in active = true }
                     .onChanged { value in
-                        tabDrag.update(start: value.startLocation, location: value.location)
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) {
+                            presentation.scrub.update(owner: owner, start: value.startLocation,
+                                                      location: value.location, layout: layout)
+                        }
                     }
                     .onEnded { value in
-                        tabDrag.update(start: value.startLocation, location: value.location)
-                        guard let destination = tabDrag.finish(in: layout) else { return }
+                        presentation.scrub.update(owner: owner, start: value.startLocation, location: value.location, layout: layout)
+                        guard let destination = presentation.scrub.finish(owner: owner, in: layout) else { return }
                         // Commit on release so the current page stays interactive during scrubbing.
-                        selection.wrappedValue = destination
+                        selection = destination
                     }
             )
         }
         .frame(height: 44)
+        .onChange(of: trackingDrag) { _, active in
+            if !active { presentation.scrub.cancel(owner: owner) }
+        }
+        .onChange(of: selection) { _, _ in presentation.scrub.cancel(owner: owner) }
+        .onChange(of: collapsed) { _, _ in presentation.scrub.cancel(owner: owner) }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { presentation.scrub.cancel(owner: owner) }
+        }
+        .onDisappear { presentation.scrub.cancel(owner: owner) }
     }
 
     @ViewBuilder private func conversationMenu(for section: FridaySection) -> some View {
