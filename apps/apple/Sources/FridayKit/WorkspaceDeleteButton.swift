@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct WorkspaceDeleteButton: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let project: Project
     @Binding var busy: Bool
     @Binding var error: String?

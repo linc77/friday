@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskSettlementSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var scope = ""
     @State private var state = TaskSettlementSettingsState()
     @State private var draft = ""

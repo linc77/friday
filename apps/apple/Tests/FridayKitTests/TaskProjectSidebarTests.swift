@@ -8,11 +8,21 @@ import Foundation
     static func main() throws {
         let fixture = try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1])))
         precondition(fixture.source == "8cd9641f76874f2ce17d6c80acd71fab1f0b99d3")
+        let cache = TaskProjectSidebar.Cache()
         for item in fixture.cases {
             let base = fixture.bases[item.base]
             let result = TaskProjectSidebar.groups(base.projects, tasks: base.tasks, mode: TaskProjectGrouping(rawValue: item.mode)!, overrides: item.overrides, order: TaskProjectSort(rawValue: item.sort)!, preferred: item.preferred)
                 .map { Expected(id: $0.id, name: $0.name, representative: $0.representative.id, members: $0.members.map(\.id), projectIDs: $0.projectIDs.sorted()) }
             precondition(result == item.expected, "T3 grouping mismatch: \(base.name), \(item.mode), \(item.sort), \(item.overrides)\nActual \(result)\nExpected \(item.expected)")
+            // Reuse one cache across data generations and preference changes:
+            // the fast path must not leave the workspace filter/order stale.
+            let input = TaskProjectSidebar.Input(generation: item.base, mode: TaskProjectGrouping(rawValue: item.mode)!, order: TaskProjectSort(rawValue: item.sort)!,
+                overrides: try JSONEncoder().encode(["host": item.overrides]), preferred: try JSONEncoder().encode(["host": item.preferred]), server: "host", context: "host")
+            for _ in 0..<2 {
+                let cached = cache.resolve(input, projects: base.projects, tasks: base.tasks)
+                    .map { Expected(id: $0.id, name: $0.name, representative: $0.representative.id, members: $0.members.map(\.id), projectIDs: $0.projectIDs.sorted()) }
+                precondition(cached == item.expected, "Cached grouping must follow data, sorting and grouping preferences")
+            }
         }
         let tasks = fixture.bases[0].tasks
         for order in fixture.threadSorts { precondition(TaskProjectSidebar.threads(tasks, order: TaskThreadSort(rawValue: order.order)!).map(\.id) == order.expected) }

@@ -38,7 +38,7 @@ import AppKit
 }
 private enum TaskBrowserImportTarget:Hashable {case new,existing(String)}
 struct TaskBrowserImportView:View {
-    @ObservedObject var store:FridayStore
+    @Bindable var store:FridayStore
     @ObservedObject var preferences:TaskBrowserPreferences
     @StateObject private var model=TaskBrowserCookieImportModel()
     let close:()->Void

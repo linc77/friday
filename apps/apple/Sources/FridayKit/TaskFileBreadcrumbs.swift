@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskFileBreadcrumbs: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem; let path: String; let trail: String; let revision: String
     let openFile: (String) -> Void; let navigate: (String, String) -> Void
     @State private var browsing: String?
@@ -39,7 +39,7 @@ struct TaskFileBreadcrumbs: View {
 }
 
 private struct TaskBreadcrumbContents: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String; let project: String; let root: String; let currentFile: String; let revision: String
     let openFile: (String) -> Void
     @State private var directory = ""

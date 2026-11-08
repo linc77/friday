@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct CodexTimeline: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
+    let rows: [CodexTranscriptRow]
     var worktreeSetup: TaskWorktreeSetupSnapshot? = nil
     var canOpenLocalFiles = false
     var openDiff: (TaskDiffSelection) -> Void = { _ in }
@@ -10,7 +11,6 @@ struct CodexTimeline: View {
     var editFromHere: (String) -> Void = { _ in }
     var openTask: (String) -> Void = { _ in }
     var body: some View {
-        let rows = CodexTranscript.rows(task)
         let visibleSetup = worktreeSetup.flatMap { $0.belongs(to: task) ? $0 : nil }
         let currentWorkId = rows.first { row in
             if task.status != "queued" {
@@ -73,7 +73,7 @@ struct CodexTimeline: View {
 }
 
 private struct CodexUserMessage: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String
     let text: String
     let message: ChatMessage?
@@ -127,7 +127,7 @@ private struct CodexUserMessage: View {
 }
 
 private struct CodexReply: View {
-    @ObservedObject var store:FridayStore
+    @Bindable var store:FridayStore
     let task: WorkItem
     let messageID:String
     @Environment(\.taskFileMentionBridge) private var mentionBridge
@@ -191,7 +191,7 @@ private struct CodexMessageActionsVisibility: ViewModifier {
 }
 
 private struct CodexWorkLog: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let events: [TaskEvent]
     let task: WorkItem
     let canOpenLocalFiles: Bool
@@ -237,7 +237,7 @@ private struct CodexWorkLog: View {
 }
 
 private struct CodexToolRow: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let event: TaskEvent
     var showReasoning = false
@@ -287,7 +287,7 @@ private struct CodexToolRow: View {
         VStack(alignment: .leading, spacing: 10) {
             Button { expanded = !open } label: {
                 HStack(spacing: 10) {
-                    FridaySymbolImage(systemName: symbol).frame(width: 16).fridaySymbolFeedback(value: event.status)
+                    FridaySymbolImage(systemName: symbol).frame(width: 16)
                     Text(fridayString: title).font(event.kind == "command" ? .system(.callout, design: .monospaced) : .callout)
                         .lineLimit(1).truncationMode(.middle)
                     Spacer(minLength: 4)

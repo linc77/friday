@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SourceControlMergeSettings: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var scope: String
     @State private var state = ScopedSettingsState<SourceControlPreferencesSnapshot>()
     @State private var error: String?

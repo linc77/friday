@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ModelSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var state: ModelConnectionState?
     @State private var name = "DeepSeek"
     @State private var baseUrl = "https://api.deepseek.com"
@@ -24,7 +24,7 @@ struct ModelSettingsView: View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 6) {
                 FridaySymbolLabel("Friday", systemImage: "sparkles")
-                    .font(.system(size: 14, weight: .medium)).fridaySymbolFeedback()
+                    .font(.system(size: 14, weight: .medium))
                 Text(friday: "主会话 · API").font(.system(size: 12)).foregroundStyle(.secondary)
             }
             SettingsGroup("当前连接") {
@@ -32,7 +32,6 @@ struct ModelSettingsView: View {
                     if let state {
                         FridaySymbolLabel(friday: state.connected ? "已配置" : "未配置", systemImage: state.connected ? "checkmark.circle" : "key")
                             .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize()
-                            .fridaySymbolFeedback(value: state.connected)
                     } else {
                         Text(fridayString: store.connected ? "正在读取…" : "等待主机连接")
                             .font(.system(size: 12)).foregroundStyle(.secondary)

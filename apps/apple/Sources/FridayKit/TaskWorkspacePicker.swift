@@ -74,7 +74,7 @@ struct TaskExecutionLocationPicker: View {
 }
 
 struct NewTaskBranchControl: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @ObservedObject var state: TaskWorkspaceState
     let projectId: String
     @Binding var selection: TaskWorkspaceSelection
@@ -94,7 +94,7 @@ struct NewTaskBranchControl: View {
 }
 
 struct ExistingTaskBranchControl: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     @Binding var submitting: Bool
     @StateObject private var state = TaskWorkspaceState()

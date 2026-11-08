@@ -4,7 +4,8 @@ import SwiftUI
 /// Building them inline in GeometryReader/ScrollView multiplies temporary value
 /// storage and can exhaust the iPhone main-thread stack in unoptimized builds.
 struct TaskTranscriptContent: View {
-    @ObservedObject var store: FridayStore
+    let rows: [CodexTranscriptRow]
+    @Bindable var store: FridayStore
     let task: WorkItem
     let header: () -> TaskDetailHeader
     let hasEarlierHistory: Bool
@@ -29,7 +30,7 @@ struct TaskTranscriptContent: View {
             header()
             #endif
             TaskTranscriptMessages(
-                store: store, task: task, hasEarlierHistory: hasEarlierHistory,
+                rows: rows, store: store, task: task, hasEarlierHistory: hasEarlierHistory,
                 historyLoading: historyLoading, historyError: historyError, loadEarlier: loadEarlier,
                 worktreeSetup: worktreeSetup, canEditMessages: canEditMessages,
                 openDiff: openDiff, editFromHere: editFromHere, openTask: openTask,
@@ -52,15 +53,20 @@ struct TaskTranscriptContent: View {
         #endif
         .frame(maxWidth: FridayTheme.contentWidth + 48).frame(maxWidth: .infinity)
         .background(GeometryReader { geometry in
-            let frame = geometry.frame(in: .named("task-transcript"))
-            Color.clear.preference(key: TranscriptScrollKey.self, value: TranscriptScrollMetrics(top: frame.minY, bottom: frame.maxY, viewportHeight: viewportHeight))
+            if #available(macOS 15.0, iOS 18.0, *) {
+                Color.clear
+            } else {
+                let frame = geometry.frame(in: .named("task-transcript"))
+                Color.clear.preference(key: TranscriptScrollKey.self, value: TranscriptScrollMetrics(top: frame.minY, bottom: frame.maxY, viewportHeight: viewportHeight))
+            }
         })
     }
 
 }
 
 private struct TaskTranscriptMessages: View {
-    @ObservedObject var store: FridayStore
+    let rows: [CodexTranscriptRow]
+    @Bindable var store: FridayStore
     let task: WorkItem
     let hasEarlierHistory: Bool
     let historyLoading: Bool
@@ -85,7 +91,7 @@ private struct TaskTranscriptMessages: View {
             }
             TaskForkStatusView(store: store, task: task, openTask: openTask)
                 .id(store.connection.server + ":fork:" + task.id)
-            CodexTimeline(store: store, task: task, worktreeSetup: worktreeSetup, canOpenLocalFiles: store.deviceId == "owner", openDiff: openDiff, canEditMessages: canEditMessages, editFromHere: editFromHere, openTask: openTask)
+            CodexTimeline(store: store, task: task, rows: rows, worktreeSetup: worktreeSetup, canOpenLocalFiles: store.deviceId == "owner", openDiff: openDiff, canEditMessages: canEditMessages, editFromHere: editFromHere, openTask: openTask)
             TaskRewindStatusView(store: store, task: task, hasOriginalDraft: hasOriginalDraft,
                 restoreOriginalDraft: restoreOriginalDraft, openChanges: { openDiff(TaskDiffSelection(path: $0)) })
                 .id("rewind-status-" + task.id + ":" + (task.rewindOperation?.id ?? ""))
@@ -254,7 +260,7 @@ private struct AssistantRecordDisclosureStyle: DisclosureGroupStyle {
 }
 
 private struct TaskTranscriptFooter: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let openTask: (String) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -268,7 +274,6 @@ private struct TaskTranscriptFooter: View {
         }
         if let error = task.error, task.preparationFailure == nil {
             FridaySymbolLabel(friday: error, systemImage: "exclamationmark.circle")
-                .fridaySymbolFeedback()
                 .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
                 .padding(18).frame(maxWidth: .infinity, alignment: .leading).fridayCard()
         }
@@ -278,14 +283,14 @@ private struct TaskTranscriptFooter: View {
         ForEach(store.tasks.filter { $0.parentId == task.id }) { child in
             Button { openTask(child.id) } label: {
                 HStack(spacing: 12) {
-                    FridaySymbolImage(systemName: "terminal").fridaySymbolFeedback()
+                    FridaySymbolImage(systemName: "terminal")
                     VStack(alignment: .leading, spacing: 4) {
                         Text(child.title).lineLimit(2)
                         Text(child.agentName).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                     StatusBadge(task: child)
-                    FridaySymbolImage(systemName: "chevron.right").fridaySymbolFeedback()
+                    FridaySymbolImage(systemName: "chevron.right")
                 }.padding(16)
             }.buttonStyle(FridayButtonStyle()).accessibilityLabel(Text(friday: "打开任务"))
         }

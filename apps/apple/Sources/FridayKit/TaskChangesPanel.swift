@@ -1,12 +1,12 @@
 import SwiftUI
 
 struct TaskChangesPanel: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     @Binding var selection: TaskDiffSelection
     let close: () -> Void
-    @AppStorage("friday.taskDiff.split") private var split = false
-    @AppStorage("friday.taskDiff.scope") private var scope = "all"
+    @FridayPreference("friday.taskDiff.split") private var split = false
+    @FridayPreference("friday.taskDiff.scope") private var scope = "all"
     @State private var snapshot: TaskChangesSnapshot?
     @State private var diff: TaskFileDiff?
     @State private var collapsed: Set<String> = []

@@ -4,7 +4,7 @@ import AppKit
 #endif
 
 struct CodexSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     var provider = "codex"
     var instanceId: String? = nil
     @ObservedObject private var modelPreferences = ProviderModelPreferences.shared
@@ -65,7 +65,7 @@ struct CodexSettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 FridaySymbolLabel(friday: "当前主机 · 全部项目", systemImage: "laptopcomputer")
-                    .font(.system(size: 12)).foregroundStyle(.secondary).fridaySymbolFeedback()
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
                 Spacer()
                 if let checkedTime { Text(checkedTime).font(.system(size: 11)).foregroundStyle(.tertiary) }
                 Button { Task { await refresh(force: true) } } label: {
@@ -90,7 +90,6 @@ struct CodexSettingsView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 6) {
                     FridaySymbolLabel(providerName, systemImage: "cpu").font(.system(size: 14, weight: .medium))
-                        .fridaySymbolFeedback(value: state?.connected)
                     Text(fridayString: accountLabel).font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer()

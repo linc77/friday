@@ -1,6 +1,6 @@
 import SwiftUI
 struct TaskReviewGuideNotices: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
             ForEach(Array(store.reviewGuideNotices.suffix(3))) { notice in

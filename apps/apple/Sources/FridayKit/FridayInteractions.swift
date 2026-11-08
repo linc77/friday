@@ -8,16 +8,25 @@ extension View {
     public func fridayInteractiveCursor() -> some View {
         modifier(FridayInteractiveCursor())
     }
+
+    /// Use for fixed controls outside replaceable native content hosts.
+    func fridayInteractiveCursor(nativeRegion: Bool) -> some View {
+        modifier(FridayInteractiveCursor(nativeRegion: nativeRegion))
+    }
 }
 
 private struct FridayInteractiveCursor: ViewModifier {
+    var nativeRegion = false
     @Environment(\.isEnabled) private var isEnabled
 
     @ViewBuilder func body(content: Content) -> some View {
         #if os(macOS)
-        if #available(macOS 15.0, *) {
+        if #available(macOS 15.0, *), !nativeRegion {
             content.pointerStyle(isEnabled ? .link : nil)
         } else {
+            // The fixed navigation rail outlives its native module hosts.
+            // Register it in AppKit's cursor-rectangle lifecycle so a stationary
+            // pointer does not depend on another SwiftUI hover update.
             content.background(FridayCursorRegion(enabled: isEnabled))
         }
         #else
@@ -36,7 +45,8 @@ struct FridayDefaultButtonStyle: PrimitiveButtonStyle {
     }
 }
 
-/// AppKit owns cursor lifetime on macOS 14, including scrolling and view removal.
+/// AppKit owns cursor lifetime, including scrolling and view removal. Keep this
+/// region attached to the control rather than restoring a global cursor on hover.
 private struct FridayCursorRegion: NSViewRepresentable {
     let enabled: Bool
 
@@ -44,18 +54,22 @@ private struct FridayCursorRegion: NSViewRepresentable {
 
     func updateNSView(_ view: FridayCursorView, context: Context) {
         view.enabled = enabled
-        view.window?.invalidateCursorRects(for: view)
     }
 }
 
 private final class FridayCursorView: NSView {
-    var enabled = true
+    var enabled = true {
+        didSet {
+            guard enabled != oldValue else { return }
+            window?.invalidateCursorRects(for: self)
+        }
+    }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     override func resetCursorRects() {
         super.resetCursorRects()
-        if enabled { addCursorRect(visibleRect, cursor: .pointingHand) }
+        if enabled, !visibleRect.isEmpty { addCursorRect(visibleRect, cursor: .pointingHand) }
     }
 
     override func viewDidMoveToWindow() {

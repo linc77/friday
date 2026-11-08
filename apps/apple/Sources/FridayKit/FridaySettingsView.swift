@@ -44,7 +44,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
 }
 
 struct FridaySettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @Binding var selection: FridaySettingsSection
     @State private var search = ""
 
@@ -87,7 +87,7 @@ struct FridaySettingsView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .padding(.horizontal, 8)
             HStack(spacing: 7) {
-                FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(.secondary).fridaySymbolFeedback()
+                FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField(friday: "搜索设置", text: $search)
                     .textFieldStyle(.plain)
                     .accessibilityLabel(Text(friday: "搜索设置"))
@@ -162,7 +162,6 @@ private struct SettingsNavigationStyle: ButtonStyle {
             .foregroundStyle(.primary)
             .background(.primary.opacity(selected ? 0.065 : configuration.isPressed ? 0.035 : 0),
                         in: RoundedRectangle(cornerRadius: 7))
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
     }
 }

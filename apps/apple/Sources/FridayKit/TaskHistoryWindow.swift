@@ -8,6 +8,7 @@ struct TaskHistoryRange: Equatable {
 // Retain expanded history independently from the live tail. Projection epochs
 // prevent a late page from resurrecting entries removed by rewind or fork.
 struct TaskHistoryWindow {
+    private(set) var presentationRevision = 0
     private(set) var scope = ""
     private(set) var epoch = ""
     private(set) var count = 0
@@ -29,6 +30,8 @@ struct TaskHistoryWindow {
         return missing(lower: liveBaseline, upper: count)
     }
     mutating func accept(_ task: WorkItem, scope: String) {
+        let nextRevision = presentationRevision &+ 1
+        defer { presentationRevision = nextRevision }
         guard let info = task.history else { return }
         if self.scope != scope || epoch != info.epoch {
             self = TaskHistoryWindow(); self.scope = scope; epoch = info.epoch; liveBaseline = info.count
@@ -51,6 +54,8 @@ struct TaskHistoryWindow {
         }
     }
     @discardableResult mutating func apply(_ page: TaskHistoryPage, live task: WorkItem, scope: String) -> Bool {
+        let nextRevision = presentationRevision &+ 1
+        defer { presentationRevision = max(presentationRevision, nextRevision) &+ 1 }
         guard self.scope == scope, self.epoch == page.epoch, let info = task.history, page.taskId == task.id, page.epoch == info.epoch,
               page.from >= 0, page.to >= page.from, page.to <= info.count, page.events.count == page.to - page.from else { return false }
         accept(task, scope: scope)

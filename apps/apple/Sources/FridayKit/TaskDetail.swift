@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskDetail: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let id: String
     var onOpenTask: ((String) -> Void)? = nil
     @State private var message = ""
@@ -18,7 +18,7 @@ struct TaskDetail: View {
     @State private var queueEdit: QueuedMessageEditDraft?
     @State private var resumeRequestId = UUID().uuidString
     @State private var followingEnd = true
-    @State private var previousScrollTop: CGFloat?
+    @State private var scrollTracking = TranscriptScrollTracking()
     @State private var scrollRequest = 0
     @State private var diffSelection: TaskDiffSelection?
     @State private var diffWidth: Double = 460
@@ -31,13 +31,15 @@ struct TaskDetail: View {
     @State private var rewindTarget: TaskRewindTarget?
     @State private var rewindDraft: TaskRewindDraft?
     @State private var draftContext = ""
+    @State private var transcriptProjection = TaskTranscriptProjection()
+    @State private var acceptedHistoryScope = ""
+    @State private var acceptedHistoryRevision = -1
     @State private var historyWindow = TaskHistoryWindow()
     @State private var conversationWindow = TaskConversationWindow()
     @State private var historyRetryGeneration = 0
     @State private var historyLoading = false
     @State private var historyError: String?
     @State private var historyRequest = UUID()
-    @State private var historyAnchor: String?
     #if os(iOS)
     @Environment(\.fridayMobileNavigationInComposer) private var mobileHomeNavigation
     @Environment(\.fridayMobileKeyboardVisible) private var mobileKeyboardVisible
@@ -75,7 +77,15 @@ struct TaskDetail: View {
 
     private var historyScope: String { store.connectionIdentity + "\n" + id + ":" + String(store.taskHistoryGeneration) }
     private var rawTask: WorkItem? { store.snapshotIdentity == store.connectionIdentity ? store.taskDetail(id) : nil }
-    private var task: WorkItem? { rawTask.map { $0.conversationHistory == nil ? historyWindow.presenting($0, scope: historyScope) : conversationWindow.presenting($0, scope: historyScope) } }
+    private var projectionKey: TaskTranscriptProjection.Key {
+        .init(scope: historyScope, revision: store.taskRevision(id),
+              history: historyWindow.presentationRevision, conversation: conversationWindow.presentationRevision)
+    }
+    private var presentation: TaskTranscriptProjection.Value? {
+        guard rawTask != nil else { return nil }
+        return transcriptProjection.presentation(in: historyScope)
+    }
+    private var task: WorkItem? { presentation?.task ?? rawTask }
     private var hasEarlierHistory: Bool { rawTask?.conversationHistory == nil ? historyWindow.hasEarlier : conversationWindow.hasEarlier }
     private var historyAutomaticKey: String {
         let state = rawTask?.conversationHistory.map { $0.epoch + ":" + String(conversationWindow.needsAutomaticLoading) + ":" + String(historyRetryGeneration) }
@@ -83,12 +93,28 @@ struct TaskDetail: View {
         return historyScope + ":" + state + ":" + String(store.connected) + ":" + (diffSelection?.eventID ?? "")
     }
     private func acceptHistory(_ task: WorkItem) {
+        let revision = store.taskRevision(id)
+        guard acceptedHistoryScope != historyScope || acceptedHistoryRevision != revision else { return }
+        acceptedHistoryScope = historyScope; acceptedHistoryRevision = revision
         if task.conversationHistory == nil { historyWindow.accept(task, scope: historyScope) }
         else { conversationWindow.accept(task, scope: historyScope) }
     }
 
     var body: some View {
-        detailContent.task(id: store.connectionIdentity + ":" + id) { await store.followTask(id) }
+        let _ = TaskPresentationTiming.changes(Self.self)
+        detailContent
+            .task(id: store.connectionIdentity + ":" + id) { await store.followTask(id) }
+            .task(id: projectionKey) {
+                let key = projectionKey
+                let input = rawTask.map { TaskTranscriptProjection.Input(task: $0, history: historyWindow,
+                    conversation: conversationWindow, scope: historyScope) }
+                transcriptProjection.update(key, input: input)
+                if !Task.isCancelled, presentation != nil { TaskPresentationTiming.contentReady(id) }
+            }
+            .onChange(of: transcriptProjection.generation) { _, _ in
+                if presentation != nil { TaskPresentationTiming.contentReady(id) }
+            }
+            .onDisappear { transcriptProjection.cancelPending() }
     }
     @ViewBuilder private var detailContent: some View {
         if let task {
@@ -112,7 +138,7 @@ struct TaskDetail: View {
                 conversationWindow = TaskConversationWindow(); historyRetryGeneration = 0
                 restorePanels()
                 applyRewindEditor()
-                followingEnd = true; previousScrollTop = nil
+                followingEnd = true; scrollTracking.previousTop = nil
                 #if os(macOS)
                 composerNeedsRestore = false
                 composerAtBottom = true
@@ -167,6 +193,7 @@ struct TaskDetail: View {
         .onChange(of: contexts) { _, _ in saveDraft() }
         .onChange(of: contextInsertion) { _, _ in saveDraft() }
         .onAppear {
+            if presentation != nil { TaskPresentationTiming.contentReady(id) }
             restoreDraft(); restorePanels(); consumeGuideHandoff()
             if let saved = store.taskViewHistory(id, scope: historyScope) { historyWindow = saved.history; conversationWindow = saved.conversation }
             if let rawTask { acceptHistory(rawTask) }
@@ -176,8 +203,7 @@ struct TaskDetail: View {
 
     private func taskHistoryLifecycle(_ task: WorkItem) -> some View {
         taskDraftLifecycle(task)
-        .onChange(of: store.revision) { _, _ in if let rawTask { acceptHistory(rawTask) } }
-        .onChange(of: store.taskContentRevision) { _, _ in if let rawTask { acceptHistory(rawTask) } }
+        .onChange(of: store.taskRevision(id)) { _, _ in if let rawTask { acceptHistory(rawTask) } }
         .task(id: historyAutomaticKey) {
             if let rawTask { acceptHistory(rawTask) }
             while historyLoading {
@@ -268,29 +294,27 @@ struct TaskDetail: View {
                     }
                 }
                     .frame(maxWidth: FridayTheme.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
-                    .background(GeometryReader { geometry in
-                        Color.clear.preference(key: TaskComposerHeightKey.self, value: geometry.size.height)
-                    })
+                    .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { height in
+                        guard height > 0, abs(height - composerHeight) > 0.5 else { return }
+                        composerHeight = height
+                        if followingEnd { scrollRequest += 1 }
+                    }
             }
-        }
-        .onPreferenceChange(TaskComposerHeightKey.self) { height in
-            guard height > 0, abs(height - composerHeight) > 0.5 else { return }
-            composerHeight = height
-            if followingEnd { scrollRequest += 1 }
         }
         #endif
     }
 
     private func transcriptScroll(_ task: WorkItem) -> some View {
         ScrollViewReader { proxy in
-            GeometryReader { viewport in
+            TranscriptViewport { viewport in
                 ScrollView {
                     TaskTranscriptContent(
+                        rows: presentation?.rows ?? [],
                         store: store, task: task, header: { header(task) },
                         hasEarlierHistory: hasEarlierHistory, historyLoading: historyLoading,
                         historyError: historyError,
                         loadEarlier: {
-                            let anchor = historyAnchor ?? CodexTranscript.rows(task).first?.id
+                            let anchor = scrollTracking.anchor ?? presentation?.rows.first?.id
                             followingEnd = false
                             Task { @MainActor in
                                 await loadHistory(automatic: false)
@@ -307,7 +331,7 @@ struct TaskDetail: View {
                         openTask: { onOpenTask?($0) },
                         hasOriginalDraft: rewindDraft?.applied == true,
                         restoreOriginalDraft: restoreRewindOriginalDraft,
-                        topInset: viewport.safeAreaInsets.top, viewportHeight: viewport.size.height,
+                        topInset: viewport.topInset, viewportHeight: viewport.height,
                         endSpacing: transcriptEndSpacing(task)
                     )
                     #if os(macOS)
@@ -328,7 +352,7 @@ struct TaskDetail: View {
                     #endif
                 }
                 .coordinateSpace(name: "task-transcript")
-                .scrollPosition(id: $historyAnchor, anchor: .top)
+                .scrollPosition(id: Binding(get: { scrollTracking.anchor }, set: { scrollTracking.anchor = $0 }), anchor: .top)
                 #if os(iOS)
                 .fridayMobileHomeScroll()
                 .scrollDismissesKeyboard(.interactively)
@@ -338,25 +362,25 @@ struct TaskDetail: View {
                     guard metrics.bottom > 0 else { return }
                     // Also cover scrollbar/keyboard movement and older systems
                     // where the native gesture bridge may not receive input.
-                    if let previousScrollTop, metrics.top > previousScrollTop + 3 { followingEnd = false }
+                    let movement = scrollTracking.update(metrics)
+                    if movement.up && followingEnd { followingEnd = false }
                     #if os(macOS)
                     // Wait for downward movement to the actual bottom. Shrinking
                     // the composer also changes the bottom inset; that alone
                     // must not immediately undo the user's upward-scroll fold.
-                    composerAtBottom = metrics.bottom <= metrics.viewportHeight + 2
+                    if composerAtBottom != movement.atBottom { composerAtBottom = movement.atBottom }
                     if task.localAgent, composerNeedsRestore,
-                       let previousScrollTop, metrics.top < previousScrollTop,
+                       movement.down,
                        composerAtBottom {
                         restoreComposer()
                     }
                     #endif
                     let atEnd = metrics.bottom <= metrics.viewportHeight + 48
                     #if os(macOS)
-                    if atEnd, let previousScrollTop, metrics.top < previousScrollTop { followingEnd = true }
+                    if atEnd, movement.down, !followingEnd { followingEnd = true }
                     #else
-                    if atEnd { followingEnd = true }
+                    if atEnd, !followingEnd { followingEnd = true }
                     #endif
-                    previousScrollTop = metrics.top
                 })
                 .task(id: id) {
                     await Task.yield()
@@ -399,7 +423,7 @@ struct TaskDetail: View {
     @MainActor private func loadHistory(automatic: Bool, throughEventID: String? = nil) async {
         guard !historyLoading, store.connected, let raw = rawTask, raw.localAgent else { return }
         if raw.conversationHistory != nil { await loadConversationHistory(automatic: automatic, throughEventID: throughEventID); return }
-        historyWindow.accept(raw, scope: historyScope)
+        acceptHistory(raw)
         let seeking = throughEventID.map { !historyWindow.contains($0, live: raw, scope: historyScope) } ?? false
         guard (seeking ? historyWindow.nextEarlier : automatic ? historyWindow.nextAutomatic : historyWindow.nextEarlier) != nil else { return }
         let scope = historyScope; let token = store.connection.token; let server = store.connection.server
@@ -424,7 +448,7 @@ struct TaskDetail: View {
 
     @MainActor private func loadConversationHistory(automatic: Bool, throughEventID: String?) async {
         guard !historyLoading, store.connected, let raw = rawTask else { return }
-        conversationWindow.accept(raw, scope: historyScope)
+        acceptHistory(raw)
         let seeking = throughEventID.map { !conversationWindow.contains($0) } ?? false
         guard seeking && conversationWindow.hasEarlier || (automatic ? conversationWindow.needsAutomaticLoading : conversationWindow.hasEarlier || conversationWindow.needsAutomaticLoading) else { return }
         if !automatic { historyRetryGeneration += 1 }
@@ -434,7 +458,7 @@ struct TaskDetail: View {
         do {
             while !Task.isCancelled {
                 guard historyRequest == request, historyScope == scope, let live = rawTask, live.conversationHistory?.epoch == epoch else { return }
-                conversationWindow.accept(live, scope: scope)
+                acceptHistory(live)
                 let rangeKind = live.conversationHistory?.kind
                 let seeking = throughEventID.map { !conversationWindow.contains($0) } ?? false
                 let gap = automatic && !seeking && conversationWindow.gapCursor != nil
@@ -442,7 +466,7 @@ struct TaskDetail: View {
                 if let cursor {
                     let page = try await store.taskConversationHistory(id, cursor: cursor, through: seeking ? throughEventID : nil)
                     guard !Task.isCancelled, historyRequest == request, historyScope == scope, let latest = rawTask, latest.conversationHistory?.epoch == epoch else { return }
-                    if latest.conversationHistory?.kind != rangeKind { conversationWindow.accept(latest, scope: scope); continue }
+                    if latest.conversationHistory?.kind != rangeKind { acceptHistory(latest); continue }
                     if !conversationWindow.apply(page, live: latest, scope: scope, cursor: cursor, gap: gap) {
                         if gap && conversationWindow.gapCursor != cursor { continue }
                         throw ConnectionError.message("对话历史已改变，请重新加载记录")
@@ -704,13 +728,6 @@ struct TaskDetail: View {
     }
 }
 
-#if os(macOS)
-private struct TaskComposerHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
-#endif
-
 struct TranscriptScrollMetrics: Equatable { var top: CGFloat = 0; var bottom: CGFloat = 0; var viewportHeight: CGFloat = 0 }
 struct TranscriptScrollKey: PreferenceKey {
     static let defaultValue = TranscriptScrollMetrics()
@@ -773,7 +790,7 @@ private struct FloatingComposer: View {
 }
 
 struct ApprovalCard: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskId: String
     let approval: Approval
     @State private var answers: [String: String] = [:]
@@ -784,7 +801,6 @@ struct ApprovalCard: View {
             HStack(spacing: 10) {
                 FridaySymbolImage(systemName: "hand.raised.fill").foregroundStyle(.orange)
                     .frame(width: 34, height: 34).background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-                    .fridaySymbolFeedback()
                 Text(approval.title).font(.headline)
             }
             Text(approval.detail).font(.callout).lineSpacing(4).textSelection(.enabled)

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskArchivedTasks: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var scope: String?
     @State private var busy: Set<String> = []
     @State private var deletion: WorkItem?

@@ -24,14 +24,31 @@ enum TaskProjectSidebar {
         let projects: [[String]]; let tasks: [[String]]; let mode: TaskProjectGrouping; let order: TaskProjectSort
         let overrides: [String: String]; let preferred: [String]; let context: String
     }
+    struct Input: Equatable {
+        let generation: Int
+        let mode: TaskProjectGrouping
+        let order: TaskProjectSort
+        let overrides: Data
+        let preferred: Data
+        let server: String
+        let context: String
+    }
     final class Cache {
+        private var input: Input?
         private var version: Version?
         private var value: [Group] = []
-        func resolve(_ next: Version, projects: [Project], tasks: [WorkItem]) -> [Group] {
+        func resolve(_ input: Input, projects: [Project], tasks: [WorkItem]) -> [Group] {
+            // Rows ask for the selected group repeatedly. Do not build the
+            // O(tasks + projects) version (including dates) on every lookup.
+            if self.input == input { return value }
+            let next = TaskProjectSidebar.version(projects, tasks: tasks, mode: input.mode,
+                overrides: TaskProjectSidebar.dictionaries(input.overrides)[input.server] ?? [:],
+                order: input.order, preferred: TaskProjectSidebar.orders(input.preferred)[input.server] ?? [], context: input.context)
             if version != next {
                 value = TaskProjectSidebar.groups(projects, tasks: tasks, mode: next.mode, overrides: next.overrides, order: next.order, preferred: next.preferred)
                 version = next
             }
+            self.input = input
             return value
         }
     }

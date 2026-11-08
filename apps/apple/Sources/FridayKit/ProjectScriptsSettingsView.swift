@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ProjectScriptsSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var scope: String
     @State private var snapshot: ProjectScriptSettingsSnapshot?
     @State private var scripts: [ProjectScript] = []

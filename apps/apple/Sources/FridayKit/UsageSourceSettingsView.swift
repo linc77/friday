@@ -5,7 +5,7 @@ private struct UsageSourceSettings: Decodable {
     let version: Int; let sources: [Source]
 }
 struct UsageSourceSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var settings: UsageSourceSettings?
     @State private var selection: String?
     @State private var editing = false

@@ -77,6 +77,9 @@ struct AgentMarkdown: View {
             if !Task.isCancelled { scrollTo?(target) }
         }
         .task(id: text) {
+            // A retained module restarts its view tasks when reattached. Reuse
+            // the completed parse when the message itself has not changed.
+            guard parsed == nil || parsedSource != text else { return }
             let source = text
             let parsing = Task.detached(priority: .userInitiated) { MarkdownBlocks.parse(source) }
             let blocks = await withTaskCancellationHandler(operation: { await parsing.value }, onCancel: { parsing.cancel() })

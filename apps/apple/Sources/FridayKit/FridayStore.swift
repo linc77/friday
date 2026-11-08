@@ -1,19 +1,24 @@
 import Foundation
 import SwiftUI
+import Observation
 
 @MainActor
-final class FridayStore: ObservableObject {
-    @Published var ideas: [Idea] = []
-    @Published var projects: [Project] = []
-    @Published var tasks: [WorkItem] = [] { didSet { observeGuideRuns() } }
-    @Published var reviewGuideNotices: [TaskGuideNotice] = []
-    @Published var changeRequestDraftHandoff: TaskChangeRequestDraftHandoff?
-    @Published var reviewGuideComposerHandoff: TaskGuideComposerHandoff?
-    @Published var reviewGuideHandoffOutcome: TaskGuideHandoffOutcome?
-    @Published var reviewGuideOpenRequest: TaskGuideOpenRequest?
-    var presentedReviewGuideURL: String?
-    private var guideNoticeTracker = TaskGuideNoticeTracker()
-    private var guideNoticeScope = ""
+@Observable
+final class FridayStore {
+    var ideas: [Idea] = []
+    var projects: [Project] = [] { didSet { sidebarDataGeneration += 1 } }
+    var tasks: [WorkItem] = [] { didSet { sidebarDataGeneration += 1; taskSummaryIndex = Dictionary(tasks.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last }); observeGuideRuns() } }
+    // Separate from the server revision: a snapshot or local replacement can
+    // change sidebar inputs without advancing the remote sequence.
+    private(set) var sidebarDataGeneration = 0
+    var reviewGuideNotices: [TaskGuideNotice] = []
+    var changeRequestDraftHandoff: TaskChangeRequestDraftHandoff?
+    var reviewGuideComposerHandoff: TaskGuideComposerHandoff?
+    var reviewGuideHandoffOutcome: TaskGuideHandoffOutcome?
+    var reviewGuideOpenRequest: TaskGuideOpenRequest?
+    @ObservationIgnored var presentedReviewGuideURL: String?
+    @ObservationIgnored private var guideNoticeTracker = TaskGuideNoticeTracker()
+    @ObservationIgnored private var guideNoticeScope = ""
     private func observeGuideRuns() {
         let scope = connectionIdentity
         if guideNoticeScope != scope { guideNoticeScope = scope; reviewGuideNotices = []; reviewGuideOpenRequest = nil; presentedReviewGuideURL = nil; reviewGuideComposerHandoff = nil; reviewGuideHandoffOutcome = nil }
@@ -25,80 +30,83 @@ final class FridayStore: ObservableObject {
         reviewGuideNotices.append(contentsOf: notices.filter { $0.url != presentedReviewGuideURL })
         if reviewGuideNotices.count > 10 { reviewGuideNotices.removeFirst(reviewGuideNotices.count - 10) }
     }
-    @Published var revision = 0
-    @Published private(set) var textGenerationSettingsVersion: Int?
-    @Published private(set) var taskSidebarOrderingSupported = false
-    @Published private(set) var taskExistingWorkspaceSupported = false
-    @Published private(set) var taskComposerCommandsSupported = false
-    @Published private(set) var taskArchiveLifecycleSupported = false
-    @Published private(set) var providerResetCreditsSupported = false
-    @Published private(set) var providerInstances: [ProviderInstanceInfo] = ProviderInstanceInfo.defaults
-    @Published private(set) var providerConfigurationVersions: [String: Int] = [:]
-    @Published private(set) var providerUsageSnapshots: [String: TaskProviderUsageLimits] = [:]
-    @Published private(set) var usageLimitSources: [TaskUsageSourceSnapshot] = []
-    @Published private(set) var usageLimitSourcesSupported = false
-    @Published private(set) var taskSidebarWorkingSupported = false
-    @Published private(set) var taskSidebarProjectScopesSupported = false
-    @Published private(set) var taskScratchWorkspaceSupported = false
-    @Published private(set) var scratchWorkspaceRoot: String?
-    @Published private(set) var namedProjectCreationSupported = false
-    @Published private(set) var newProjectsRoot: String?
-    @Published private(set) var projectRepositoryOperationsSupported = false
-    @Published private(set) var projectRepositoryOperations: [ProjectRepositoryOperation] = []
-    @Published private(set) var taskAutoSettlementSupported = false
-    @Published private(set) var taskBackgroundCommandsSupported = false
-    @Published private(set) var taskNativeBackgroundSupported = false
-    @Published private(set) var taskBackgroundSettlementSupported = false
-    @Published private(set) var taskSettlementSettingsVersion: Int?
-    @Published private(set) var sourceControlPreferencesVersion: Int?
-    @Published var sidebarWorkingShelfEnabled = false {
+    var revision = 0
+    private(set) var textGenerationSettingsVersion: Int?
+    private(set) var taskSidebarOrderingSupported = false
+    private(set) var taskExistingWorkspaceSupported = false
+    private(set) var taskComposerCommandsSupported = false
+    private(set) var taskArchiveLifecycleSupported = false
+    private(set) var providerResetCreditsSupported = false
+    private(set) var providerInstances: [ProviderInstanceInfo] = ProviderInstanceInfo.defaults
+    private(set) var providerConfigurationVersions: [String: Int] = [:]
+    private(set) var providerUsageSnapshots: [String: TaskProviderUsageLimits] = [:]
+    private(set) var usageLimitSources: [TaskUsageSourceSnapshot] = []
+    private(set) var usageLimitSourcesSupported = false
+    private(set) var taskSidebarWorkingSupported = false
+    private(set) var taskSidebarProjectScopesSupported = false
+    private(set) var taskScratchWorkspaceSupported = false
+    private(set) var scratchWorkspaceRoot: String?
+    private(set) var namedProjectCreationSupported = false
+    private(set) var newProjectsRoot: String?
+    private(set) var projectRepositoryOperationsSupported = false
+    private(set) var projectRepositoryOperations: [ProjectRepositoryOperation] = []
+    private(set) var taskAutoSettlementSupported = false
+    private(set) var taskBackgroundCommandsSupported = false
+    private(set) var taskNativeBackgroundSupported = false
+    private(set) var taskBackgroundSettlementSupported = false
+    private(set) var taskSettlementSettingsVersion: Int?
+    private(set) var sourceControlPreferencesVersion: Int?
+    var sidebarWorkingShelfEnabled = false {
         didSet {
             guard oldValue != sidebarWorkingShelfEnabled else { return }
             UserDefaults.standard.set(sidebarWorkingShelfEnabled, forKey: FridayPreferenceKeys.workingShelfEnabled)
             observeSidebarActivity()
         }
     }
-    @Published private(set) var sidebarInboxReturns = TaskInboxReturnTracker()
-    private var sidebarPreferenceObserver: NSObjectProtocol?
-    @Published private(set) var snapshotIdentity = ""
+    private(set) var sidebarInboxReturns = TaskInboxReturnTracker()
+    @ObservationIgnored private var sidebarPreferenceObserver: NSObjectProtocol?
+    private(set) var snapshotIdentity = ""
     var connectionIdentity: String { connection.server + "\n" + String(connection.token.hashValue) }
-    @Published private var serviceIdentity = TaskServiceIdentity()
-    @Published var assistantCitationNavigation: TaskCitationNavigationRequest?
+    private var serviceIdentity = TaskServiceIdentity()
+    var assistantCitationNavigation: TaskCitationNavigationRequest?
     var serviceId: String? { serviceIdentity.value(for: connectionIdentity) }
-    @Published var memories: [MemoryItem] = []
-    @Published var agents: [AgentInfo] = []
-    @Published var devices: [Device] = []
-    @Published var deviceId = ""
-    @Published var connected = false
-    @Published var notesSupported = false
-    @Published private(set) var taskContentRevision = 0
-    @Published private(set) var taskHistoryGeneration = 0
-    @Published private(set) var taskStreamErrors: [String: String] = [:]
-    @Published var error: String?
-    @Published var outbox: [OutboxIdea] = []
-    @Published var delegatingIdeas: Set<String> = []
+    var memories: [MemoryItem] = []
+    var agents: [AgentInfo] = []
+    var devices: [Device] = []
+    var deviceId = ""
+    var connected = false
+    var notesSupported = false
+    private(set) var taskHistoryGeneration = 0
+    private(set) var taskStreamErrors: [String: String] = [:]
+    var error: String?
+    var outbox: [OutboxIdea] = []
+    var delegatingIdeas: Set<String> = []
     let connection = Connection()
     let taskUndo = TaskActionUndo()
     let terminalSessions = TaskTerminalSessions()
     let browserClientID=UUID()
-    private var streamTask: Task<Void, Never>?
+    @ObservationIgnored private var streamTask: Task<Void, Never>?
     private let snapshotDecoding = TaskStreamDecoding()
-    private var taskStreamState = TaskStreamState()
-    var taskStreamSession: String? { taskStreamState.session }
-    private var taskViewHistories = TaskViewHistoryCache()
-    private var taskLeases: [String: Set<UUID>] = [:]
-    private var taskStreams: [String: (token: UUID, task: Task<Void, Never>)] = [:]
-    private var noteSyncTask: Task<Void, Never>?
-    private var flushing = false
-    private var noteStorageReady = false
-    private var noteStorageLoadFailed = false
-    private var retryNoteImageUploads: Set<String> = []
+    @ObservationIgnored private var taskStreamState = TaskStreamState()
+    @ObservationIgnored private var taskSummaryIndex: [String: WorkItem] = [:]
+    @ObservationIgnored private let taskChanges = TaskObservation()
+    @ObservationIgnored private var streamIdentity: String?
+    private(set) var taskStreamSession: String?
+    @ObservationIgnored private var taskViewHistories = TaskViewHistoryCache()
+    @ObservationIgnored private var taskLeases: [String: Set<UUID>] = [:]
+    @ObservationIgnored private var taskStreams: [String: (token: UUID, task: Task<Void, Never>)] = [:]
+    @ObservationIgnored private var noteSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var flushing = false
+    @ObservationIgnored private var noteStorageReady = false
+    @ObservationIgnored private var noteStorageLoadFailed = false
+    @ObservationIgnored private var retryNoteImageUploads: Set<String> = []
     var notes: [Idea] {
         let pendingIDs = Set(outbox.map(\.id))
         return (outbox.map(\.note) + ideas.filter { !pendingIDs.contains($0.id) })
             .sorted { ($0.updatedAt ?? $0.createdAt) > ($1.updatedAt ?? $1.createdAt) }
     }
-    init() {
+    init(loadLocalState: Bool = true) {
+        guard loadLocalState else { noteStorageReady = true; return }
         do {
             let database = try ClientNoteDatabase.shared.get()
             if let data = try database.outbox() {
@@ -154,6 +162,8 @@ final class FridayStore: ObservableObject {
         if snapshotIdentity != identity || previousHistoryGeneration != taskStreamState.historyGeneration { taskViewHistories = TaskViewHistoryCache() }
         snapshotIdentity = identity
         ideas = state.ideas; tasks = state.tasks; projects = state.projects; memories = state.memories
+        taskStreamSession = taskStreamState.session
+        taskChanges.invalidateAll()
         if !noteStorageReady, !noteStorageLoadFailed, persistOutbox(outbox) {
             UserDefaults.standard.removeObject(forKey: "friday.outbox")
         }
@@ -195,7 +205,8 @@ final class FridayStore: ObservableObject {
         taskStreamState.limitDetails(keeping: Set(taskLeases.keys))
         reconcileTaskStreams()
     }
-    func connect() async {
+    func connect(force: Bool = false) async {
+        guard force || streamTask == nil || streamTask?.isCancelled == true || streamIdentity != connectionIdentity else { return }
         TaskBrowserSessions.shared.reconcile(owner:browserClientID,connection:connectionIdentity)
         streamTask?.cancel(); stopTaskStreams(); connected = false; notesSupported = false
         #if os(macOS)
@@ -203,6 +214,7 @@ final class FridayStore: ObservableObject {
             let fresh = Connection(); if fresh.server == connection.server { connection.token = fresh.token }
         }
         #endif
+        streamIdentity = connectionIdentity
         streamTask = Task {
             while !Task.isCancelled {
                 #if os(macOS)
@@ -232,8 +244,7 @@ final class FridayStore: ObservableObject {
                             switch update {
                             case .snapshot(let state): apply(state, sourceSession: snapshot.taskStreamSession)
                             case .summaries(let patch):
-                                if let changed = taskStreamState.apply(patch, to: tasks, scope: identity) { tasks = changed; revision = patch.sequence; observeSidebarActivity(); taskViewHistories.retain(Set(tasks.map(\.id))); reconcileTaskStreams() }
-                                else { throw ConnectionError.message("任务列表已改变，正在重新加载。") }
+                                if !applyTaskSummaryPatch(patch, scope: identity) { throw ConnectionError.message("任务列表已改变，正在重新加载。") }
                             }
                         }
                     }
@@ -262,7 +273,29 @@ final class FridayStore: ObservableObject {
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw ConnectionError.message((try? JSONDecoder().decode(APIError.self, from: data).error) ?? "服务暂时无法响应") }
         return try await snapshotDecoding.decode(Snapshot.self, from: data)
     }
-    func taskDetail(_ id: String) -> WorkItem? { taskStreamState.task(id, summaries: tasks, scope: connectionIdentity) }
+    @discardableResult
+    func applyTaskSummaryPatch(_ patch: TaskSummaryPatch, scope: String) -> Bool {
+        guard let changed = taskStreamState.apply(patch, to: tasks, scope: scope) else { return false }
+        tasks = changed
+        taskChanges.invalidate(Set(patch.tasks.map(\.id) + patch.removed))
+        revision = patch.sequence
+        observeSidebarActivity()
+        taskViewHistories.retain(Set(tasks.map(\.id)))
+        reconcileTaskStreams()
+        return true
+    }
+    @discardableResult
+    func applyTaskDetail(_ frame: TaskDetailSnapshot, for id: String, scope: String) -> Bool {
+        guard taskStreamState.accept(frame, for: id, summaries: tasks, scope: scope) else { return false }
+        taskStreamState.limitDetails(keeping: Set(taskLeases.keys))
+        taskChanges.invalidate([id])
+        return true
+    }
+    func taskRevision(_ id: String) -> Int { taskChanges.revision(id) }
+    func taskDetail(_ id: String) -> WorkItem? {
+        _ = taskChanges.revision(id)
+        return taskStreamState.task(id, summary: taskSummaryIndex[id], scope: connectionIdentity)
+    }
     func taskViewHistory(_ id: String, scope: String) -> TaskViewHistoryCache.Entry? {
         guard let task = taskDetail(id) else { return nil }; return taskViewHistories.load(task: task, scope: scope)
     }
@@ -309,12 +342,13 @@ final class FridayStore: ObservableObject {
                 if status == 404 {
                     let removal = try? await decoder.decode(TaskDetailRemoval.self, from: data)
                     guard current() else { return }
-                    if let removal, taskStreamState.accept(removal, for: id, scope: identity) { taskStreamErrors.removeValue(forKey: id); taskContentRevision += 1; return }
+                    if let removal, taskStreamState.accept(removal, for: id, scope: identity) { taskStreamErrors.removeValue(forKey: id); taskChanges.invalidate([id]); return }
                 }
                 guard status == 200 else { throw ConnectionError.message((try? JSONDecoder().decode(APIError.self, from: data).error) ?? "任务进展暂时无法加载") }
                 let frame = try await decoder.decode(TaskDetailSnapshot.self, from: data)
                 guard current() else { return }
-                if taskStreamState.accept(frame, for: id, summaries: tasks, scope: identity) { taskStreamState.limitDetails(keeping: Set(taskLeases.keys)); taskContentRevision += 1; taskStreamErrors.removeValue(forKey: id) }
+                _ = applyTaskDetail(frame, for: id, scope: identity)
+                if taskStreamErrors[id] != nil { taskStreamErrors.removeValue(forKey: id) }
                 var query = URLComponents(); query.queryItems = [URLQueryItem(name: "session", value: session), URLQueryItem(name: "itemHistory", value: "1")]
                 if let version = taskStreamState.version(id) { query.queryItems?.append(URLQueryItem(name: "version", value: version)) }
                 var request = try connection.request(route + "/events?" + (query.percentEncodedQuery ?? "")); request.timeoutInterval = 30
@@ -326,8 +360,10 @@ final class FridayStore: ObservableObject {
                     if let update = try await decoder.readDetail(line) {
                         guard current() else { return }
                         switch update {
-                        case .snapshot(let frame): if taskStreamState.accept(frame, for: id, summaries: tasks, scope: identity) { taskStreamState.limitDetails(keeping: Set(taskLeases.keys)); taskContentRevision += 1; taskStreamErrors.removeValue(forKey: id) }
-                        case .removed(let removal): if taskStreamState.accept(removal, for: id, scope: identity) { taskStreamErrors.removeValue(forKey: id); taskContentRevision += 1; return }
+                        case .snapshot(let frame):
+                            _ = applyTaskDetail(frame, for: id, scope: identity)
+                            if taskStreamErrors[id] != nil { taskStreamErrors.removeValue(forKey: id) }
+                        case .removed(let removal): if taskStreamState.accept(removal, for: id, scope: identity) { taskStreamErrors.removeValue(forKey: id); taskChanges.invalidate([id]); return }
                         }
                     }
                 }

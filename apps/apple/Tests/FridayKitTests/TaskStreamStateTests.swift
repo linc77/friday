@@ -23,6 +23,7 @@ import Foundation
         let first = try frame(10, 1)
         precondition(state.accept(first, for: "a", summaries: tasks, scope: scope))
         precondition(state.task("a", summaries: tasks, scope: scope)?.result == "full body")
+        precondition(!state.accept(first, for: "a", summaries: tasks, scope: scope), "An identical HTTP/SSE snapshot must not publish another task content revision")
         var projectionCache = TaskStreamState(); _ = projectionCache.accept(initial, scope: scope)
         _ = projectionCache.accept(first, for: "a", summaries: initial.tasks, scope: scope)
         var rewoundSummary = initial.tasks[0]

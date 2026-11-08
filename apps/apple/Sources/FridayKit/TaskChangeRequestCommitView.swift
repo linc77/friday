@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskChangeRequestCommitView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String; let url: String; let commit: TaskChangeRequestCommit
     @Environment(\.dismiss) private var dismiss
     @State private var response: TaskChangeRequestCommitResponse?

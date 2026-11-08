@@ -2,7 +2,7 @@
 import SwiftUI
 
 struct MobileTaskList: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @StateObject private var bulk = TaskBulkActions()
     @State private var selecting = false
     private var tasks: [WorkItem] {

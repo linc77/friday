@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskBrowserPreferencesView:View {
-    @ObservedObject var store:FridayStore
+    @Bindable var store:FridayStore
     @ObservedObject var preferences:TaskBrowserPreferences
     var close:(()->Void)?=nil
     @State private var pending:TaskBrowserProfile?
@@ -10,7 +10,7 @@ struct TaskBrowserPreferencesView:View {
     #if os(macOS)
     @State private var importingCookies=false
     #endif
-    @AppStorage("friday.browser.autoFloat") private var autoFloat=true
+    @FridayPreference("friday.browser.autoFloat") private var autoFloat=true
     private func change(_ update:(inout TaskBrowserDefaults)->Void) {var value=preferences.defaults;update(&value);preferences.update(value)}
     var body:some View {
         VStack(spacing:0) {

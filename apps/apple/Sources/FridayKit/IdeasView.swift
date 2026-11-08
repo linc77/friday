@@ -6,7 +6,7 @@ import UIKit
 #endif
 
 struct InboxView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let delegate: (Idea) -> Void
     @State private var selected: Idea?
     @State private var creating = false
@@ -15,8 +15,8 @@ struct InboxView: View {
     @State private var pullDistance: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-    @AppStorage("friday.ideaDraft") private var legacyDraft = ""
-    @AppStorage("friday.noteDraft.new") private var newDraft = Data()
+    @FridayPreference("friday.ideaDraft") private var legacyDraft = ""
+    @FridayPreference("friday.noteDraft.new") private var newDraft = Data()
     #if os(macOS)
     @StateObject private var composer = NoteComposerWindow()
     #else
@@ -156,7 +156,6 @@ struct InboxView: View {
                               ? (hasDraft ? "松开继续草稿" : "松开新建笔记")
                               : (hasDraft ? "下拉继续草稿" : "下拉新建笔记"), systemImage: "square.and.pencil")
                 .font(.callout.weight(.medium))
-                .fridaySymbolFeedback(value: pullReady)
             if !reduceMotion {
                 Capsule().fill(.primary.opacity(0.08)).frame(width: 96, height: 2)
                     .overlay(alignment: .leading) {
@@ -176,7 +175,7 @@ struct InboxView: View {
 }
 
 private struct IdeaCardView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let idea: Idea
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -221,7 +220,7 @@ private struct IdeaDraft: Codable, Equatable {
 }
 
 struct IdeaDetailView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let initial: Idea?
     let delegate: (Idea) -> Void
     let close: () -> Void

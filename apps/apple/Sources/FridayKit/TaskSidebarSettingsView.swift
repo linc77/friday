@@ -1,11 +1,11 @@
 import SwiftUI
 
 struct TaskSidebarSettingsRows: View {
-    @AppStorage(FridayPreferenceKeys.legacySidebar) private var legacySidebar = false
-    @AppStorage(FridayPreferenceKeys.projectGrouping) private var grouping: TaskProjectGrouping = .repository
-    @AppStorage(FridayPreferenceKeys.projectSort) private var projectSort: TaskProjectSort = .updated
-    @AppStorage(FridayPreferenceKeys.threadSort) private var threadSort: TaskThreadSort = .updated
-    @AppStorage(FridayPreferenceKeys.threadPreviewCount) private var count = 6
+    @FridayPreference(FridayPreferenceKeys.legacySidebar) private var legacySidebar = false
+    @FridayPreference(FridayPreferenceKeys.projectGrouping) private var grouping: TaskProjectGrouping = .repository
+    @FridayPreference(FridayPreferenceKeys.projectSort) private var projectSort: TaskProjectSort = .updated
+    @FridayPreference(FridayPreferenceKeys.threadSort) private var threadSort: TaskThreadSort = .updated
+    @FridayPreference(FridayPreferenceKeys.threadPreviewCount) private var count = 6
     var body: some View {
         SettingsRow("项目分组", detail: "将同一仓库的 Workspace 合并；可在 Workspace 设置中单独覆盖。") {
             Picker(selection: $grouping) { ForEach(TaskProjectGrouping.allCases) { Text(fridayString: $0.title).tag($0) } } label: { Text(friday: "项目分组") }
@@ -36,7 +36,7 @@ struct TaskSidebarSettingsRows: View {
 struct TaskProjectGroupingControl: View {
     let project: Project
     let server: String
-    @AppStorage(FridayPreferenceKeys.projectGroupingOverrides) private var overrides = Data()
+    @FridayPreference(FridayPreferenceKeys.projectGroupingOverrides) private var overrides = Data()
     private var selection: Binding<String> {
         Binding(get: { TaskProjectSidebar.dictionaries(overrides)[server]?[TaskProjectSidebar.normalize(project.path)] ?? "inherit" }, set: { value in
             var stored = TaskProjectSidebar.dictionaries(overrides), host = stored[server] ?? [:]

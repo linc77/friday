@@ -21,7 +21,7 @@ extension View {
 
 private struct TaskActions: ViewModifier {
     private struct TaskActionRequest: Codable { let requestID: String }
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let opensMenu: Bool
     let onRename: (() -> Void)?
@@ -41,7 +41,7 @@ private struct TaskActions: ViewModifier {
     @State private var operation = UUID()
     @Environment(\.fridayNewTaskOnBranch) private var newTaskOnBranch
     @Environment(\.fridayTaskLifecycleNavigation) private var lifecycle
-    @AppStorage("friday.tasks.confirmArchive") private var confirmArchive = false
+    @FridayPreference("friday.tasks.confirmArchive") private var confirmArchive = false
     @State private var confirmingArchive = false
     private var mergeRun: TaskRun? { task.runs?.last { $0.status == "completed" && $0.inheritedFrom == nil && $0.revertedAt == nil && $0.executionExcludedAt == nil } }
 

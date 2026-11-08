@@ -8,7 +8,7 @@ import AppKit
 #endif
 
 struct NewAgentTaskView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     var project: Project? = nil
     var onSelectProject: (Project) -> Void = { _ in }
     let onCreated: (String) -> Void
@@ -269,7 +269,6 @@ private struct NewTaskWorkspaceCardBody: View {
             .fridayCard(radius: 14, highlighted: hovering && isEnabled && scenePhase == .active)
             .opacity(configuration.isPressed ? 0.8 : 1)
             .contentShape(RoundedRectangle(cornerRadius: 14))
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
             .onHover { hovering = $0 }
             .onChange(of: scenePhase) { _, phase in if phase != .active { hovering = false } }
@@ -287,7 +286,7 @@ struct AgentTaskDraft: Codable, Equatable {
 }
 
 struct AgentTaskComposer: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     var task: WorkItem? = nil
     var projectPath: String? = nil
     var projectId: String? = nil
@@ -311,7 +310,7 @@ struct AgentTaskComposer: View {
     @Binding var contextInsertion: TaskContextInsertion?
     let sending: Bool
     let send: (TaskComposerSubmission) -> Void
-    @AppStorage("friday.tasks.followUpBehavior") private var followUpBehavior = "queue"
+    @FridayPreference("friday.tasks.followUpBehavior") private var followUpBehavior = "queue"
     @State private var alternateDown = false
     @State private var beforeQueueEdit: (String, String)?
     @State private var states: [String: CodexConnectionState] = [:]
@@ -351,7 +350,7 @@ struct AgentTaskComposer: View {
     @State private var fullHistoryScopes: Set<String> = []
     @State private var resumeCompactionDismissed = false
     @State private var compactionPreferenceIdentity = ""
-    @AppStorage("friday.composer.showSkillsInSlashMenu") private var showSkillsInSlashMenu = true
+    @FridayPreference("friday.composer.showSkillsInSlashMenu") private var showSkillsInSlashMenu = true
     @State private var capturingContext = false
     @State private var fileMentionOwner = UUID()
     @State private var fileMentionRequest: UUID?
@@ -569,6 +568,7 @@ struct AgentTaskComposer: View {
     private var providerStatusKey: String { store.connectionIdentity + ":" + (store.taskStreamSession ?? "") + ":" + String(store.connected) + ":" + TaskProviderCatalog.order.map { $0 + ":" + String(store.providerConfigurationVersions[$0] ?? 0) }.joined(separator: "|") + ":" + (task?.resolvedProviderInstance ?? "new") + ":" + store.agents.filter(\.executableSupported).map(\.id).joined(separator: "|") }
 
     var body: some View {
+        let _ = TaskPresentationTiming.changes(Self.self)
         interactionObservers
         .task(id: providerStatusKey) {
             states = [:]
@@ -1156,7 +1156,6 @@ private struct AgentTaskActionButtonBody: View {
             .shadow(color: background.opacity(isEnabled && !configuration.isPressed ? 0.24 : 0), radius: 1, y: 1)
             .opacity(isEnabled ? 1 : 0.64)
             .contentShape(Circle())
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
             .onHover { hovering = $0 }
     }

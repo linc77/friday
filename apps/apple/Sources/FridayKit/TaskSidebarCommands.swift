@@ -41,8 +41,16 @@ extension FocusedValues {
 }
 
 struct FridayTaskCommands: Commands {
-    @FocusedValue(\.fridayTaskNavigation) private var navigation
-    @AppStorage(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
+    @ObservedObject var workspaceNavigation: FridayNavigation
+    @FocusedValue(\.fridayTaskNavigation) private var focusedNavigation
+    @FridayPreference(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
+
+    // A retained hosting graph can keep its scene values while detached.
+    // Hidden task pages must not receive the visible module's shortcuts.
+    private var navigation: TaskNavigationActions? {
+        workspaceNavigation.section == .tasks ? focusedNavigation : nil
+    }
+
     var body: some Commands {
         CommandMenu(String(localized: "任务", bundle: .module, locale: language.locale)) {
             Button(friday: "搜索任务…") { navigation?.search?() }.disabled(navigation?.search == nil).environment(\.locale, language.locale)

@@ -18,7 +18,7 @@ private struct TerminalAction: Identifiable {
 }
 
 struct TaskTerminalPanel: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let close: () -> Void
     var showsCloseButton = true
@@ -36,7 +36,7 @@ struct TaskTerminalPanel: View {
     @State private var query = ""
     @State private var match = ""
     @FocusState private var searchFocused: Bool
-    @AppStorage("friday.terminal.fontSize") private var fontSize = 13.0
+    @FridayPreference("friday.terminal.fontSize") private var fontSize = 13.0
     private var terminals: [TaskTerminalSummary] { (task.terminals ?? []).filter { $0.status != "closed" } }
     private var selected: TerminalGroup? { layout.groups.first { $0.id == layout.selected } ?? layout.groups.first }
     private var active: TaskTerminalSummary? { terminals.first { $0.id == layout.active && selected?.terminals.contains($0.id) == true } ?? terminals.first { selected?.terminals.contains($0.id) == true } }
@@ -243,12 +243,12 @@ private struct TaskTerminalPane: View {
 }
 
 struct TaskTerminalPanelLayout: ViewModifier {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     @Binding var shown: Bool
     var canAddContext = false
     var addContext: (TaskTerminalSelection) async -> Bool = { _ in false }
-    @AppStorage("friday.terminal.height") private var height = 300.0
+    @FridayPreference("friday.terminal.height") private var height = 300.0
     @State private var dragHeight: Double?
     func body(content: Content) -> some View {
         #if os(macOS)

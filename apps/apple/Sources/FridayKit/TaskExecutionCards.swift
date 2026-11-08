@@ -164,7 +164,6 @@ struct TaskPlanProgress: View {
                 HStack(alignment: .top, spacing: 9) {
                     FridaySymbolImage(systemName: step.status == "completed" ? "checkmark.circle.fill" : step.status == "inProgress" ? "circle.dashed" : "circle")
                         .foregroundStyle(step.status == "completed" ? .green : step.status == "inProgress" ? FridayTheme.accent : .secondary)
-                        .fridaySymbolFeedback(value: step.status)
                     Text(verbatim: step.step).foregroundStyle(step.status == "pending" ? .secondary : .primary).textSelection(.enabled)
                 }.font(.callout).accessibilityElement(children: .combine)
                     .accessibilityValue(Text(fridayString: step.status == "completed" ? "已完成" : step.status == "inProgress" ? "进行中" : "待处理"))

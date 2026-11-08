@@ -13,9 +13,9 @@ process.chdir(root);
 const config = JSON.parse(await readFile('release/macos.json', 'utf8'));
 const releaseNotes = await loadReleaseNotes(root, config);
 const standalone = process.argv.includes('--standalone');
-// Reuse the incremental Debug build used by directed native tests. Only the
-// self-contained release needs whole-module Release optimization.
-const configuration = standalone ? 'release' : 'debug';
+// Optimized workspace previews keep their separate identity and local service.
+// Use the same compiler optimization as releases for interactive performance checks.
+const configuration = standalone || process.argv.includes('--optimized') ? 'release' : 'debug';
 const identity = macAppIdentity(root, { standalone });
 const run = (command, args, options = {}) => execFileSync(command, args, { stdio: 'inherit', ...options });
 const output = (command, args) => execFileSync(command, args, { encoding: 'utf8' }).trim();

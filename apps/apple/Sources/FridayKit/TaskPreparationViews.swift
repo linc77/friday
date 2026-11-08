@@ -4,7 +4,7 @@ import CryptoKit
 private struct TaskPreparationRequest: Codable { let requestID: String }
 
 struct TaskWorkspacePreparationFailure: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let run: TaskRun
     var compact = false

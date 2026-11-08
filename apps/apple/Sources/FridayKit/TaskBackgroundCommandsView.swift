@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskBackgroundCommandsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     private var commands: [TaskBackgroundCommand] { TaskWorkspaces.isWorking(task) ? [] : (task.backgroundCommands ?? []).filter { $0.status == "running" || $0.status == "unknown" || $0.stop?.status == "pending" } }
     private var native: [TaskNativeBackgroundWork] {
@@ -53,7 +53,7 @@ struct TaskBackgroundCommandsView: View {
 }
 
 private struct TaskNativeBackgroundRow: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let work: TaskNativeBackgroundWork
     @State private var expanded = false
@@ -73,7 +73,7 @@ private struct TaskNativeBackgroundRow: View {
                         FridaySymbolImage(systemName: work.symbol).accessibilityHidden(true)
                         Text(verbatim: work.description).lineLimit(expanded ? nil : 2).frame(maxWidth: .infinity, alignment: .leading)
                     }.contentShape(Rectangle())
-                }.buttonStyle(FridaySymbolButtonStyle()).font(.caption).fridaySymbolFeedback(value: expanded)
+                }.buttonStyle(FridaySymbolButtonStyle()).font(.caption)
                     .accessibilityLabel(Text(fridayString: work.label)).accessibilityValue(Text(work.description))
                 if work.stop?.status == "pending" {
                     Text(friday: "正在停止…").font(.caption).foregroundStyle(.secondary)
@@ -107,7 +107,7 @@ private struct TaskNativeBackgroundRow: View {
 }
 
 private struct TaskBackgroundCommandRow: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let command: TaskBackgroundCommand
     @State private var pending: UUID?

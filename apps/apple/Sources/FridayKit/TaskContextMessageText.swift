@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskContextMessageText: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let text: String
     let contexts: [TaskContextReference]
     let taskID: String

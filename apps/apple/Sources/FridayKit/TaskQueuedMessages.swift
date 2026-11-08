@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct TaskQueuedMessages: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     var editingId: String? = nil
     let edit: (QueuedTaskMessage) -> Void

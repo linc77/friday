@@ -13,7 +13,7 @@ try {
 } catch {
   execFileSync(process.execPath, [join(root, 'scripts/build-mac.mjs'), ...(standalone ? ['--standalone'] : [])], { stdio: 'inherit' });
 }
-const environment = standalone ? [] : ['FRIDAY_SERVER_URL', 'FRIDAY_DATA_DIR']
+const environment = standalone ? [] : ['FRIDAY_SERVER_URL', 'FRIDAY_DATA_DIR', 'FRIDAY_PERFORMANCE']
   .filter(key => process.env[key] !== undefined)
   .flatMap(key => ['--env', `${key}=${process.env[key]}`]);
 // LaunchServices does not propagate the caller's environment by itself.

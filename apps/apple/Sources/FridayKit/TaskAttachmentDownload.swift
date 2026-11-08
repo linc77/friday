@@ -10,7 +10,7 @@ private struct TaskAttachmentDocument: FileDocument {
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: bytes) }
 }
 struct TaskAttachmentDownload: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let reference: TaskContextReference
     let scope: TaskContextScope
     @State private var downloading = false

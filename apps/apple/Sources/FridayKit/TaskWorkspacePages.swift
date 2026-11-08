@@ -106,9 +106,10 @@ final class WorkspacePageViewport: NSView {
         if changed { reset(); gesture.updateIdentity(next.identity + "\n\(size.width)x\(size.height)") }
         host.rootView = content
         positionPages()
-        // Prepare the adjacent pages before the first drag sample and finish a
-        // selection handoff in the same transaction as resetting its transform.
-        host.layoutSubtreeIfNeeded()
+        // Only a page/size handoff needs synchronous layout. Selection, hover,
+        // and task updates should coalesce in AppKit's normal layout pass,
+        // rather than recursively laying out every adjacent list here.
+        if changed { host.layoutSubtreeIfNeeded() }
         CATransaction.commit()
     }
 

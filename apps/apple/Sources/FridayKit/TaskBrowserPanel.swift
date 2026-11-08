@@ -28,7 +28,7 @@ private struct TaskBrowserHistoryDocument:Codable {var projects:[String:[TaskBro
 }
 
 struct TaskBrowserPanel:View {
-    @ObservedObject var store:FridayStore
+    @Bindable var store:FridayStore
     let task:WorkItem
     @Binding var state:TaskBrowserPanelState
     @ObservedObject private var history=TaskBrowserHistory.shared
@@ -168,7 +168,7 @@ struct TaskBrowserPanel:View {
 }
 
 private struct TaskBrowserPage:View {
-    @ObservedObject var store:FridayStore
+    @Bindable var store:FridayStore
     @Binding var tab:TaskBrowserTab
     @ObservedObject var controller:TaskBrowserController
     @Environment(\.taskFileMentionBridge) private var mentionBridge
@@ -312,7 +312,7 @@ private struct TaskBrowserPage:View {
 }
 
 private struct TaskBrowserMiniPreference:View {
-    @AppStorage("friday.browser.autoFloat") private var enabled=true
+    @FridayPreference("friday.browser.autoFloat") private var enabled=true
     var body:some View {Toggle(isOn:$enabled) {Text(friday:"关闭侧栏时浮动预览")}.fridayInteractiveCursor()}
 }
 

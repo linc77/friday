@@ -11,11 +11,11 @@ extension FridayAppearance {
 }
 
 struct AppearanceSettingsView: View {
-    @ObservedObject var store: FridayStore
-    @AppStorage(FridayPreferenceKeys.appearance) private var appearance: FridayAppearance = .system
-    @AppStorage(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
-    @AppStorage("friday.composer.showSkillsInSlashMenu") private var showSkillsInSlashMenu = true
-    @AppStorage("friday.tasks.confirmArchive") private var confirmArchive = false
+    @Bindable var store: FridayStore
+    @FridayPreference(FridayPreferenceKeys.appearance) private var appearance: FridayAppearance = .system
+    @FridayPreference(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
+    @FridayPreference("friday.composer.showSkillsInSlashMenu") private var showSkillsInSlashMenu = true
+    @FridayPreference("friday.tasks.confirmArchive") private var confirmArchive = false
 
     var body: some View {
         SettingsPage(title: "外观", subtitle: "让 Friday 更合你的习惯。") {

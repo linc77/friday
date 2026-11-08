@@ -17,7 +17,7 @@ import UIKit
 }
 
 struct TaskToolOutputView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let event: TaskEvent
     @State private var loaded: TaskEvent?
@@ -55,7 +55,7 @@ struct TaskToolOutputView: View {
 }
 
 struct TaskCommandOutputView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let event: TaskEvent
     var nativeWork: TaskNativeBackgroundWork? = nil
