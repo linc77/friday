@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ProjectCloneControl: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let project: Project
     @State private var busy = false
     @State private var requestID = UUID().uuidString
@@ -47,7 +47,7 @@ struct ProjectCloneControl: View {
 }
 
 struct ProjectPublicationNotices: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @Environment(\.openURL) private var openURL
     @State private var dismissed: Set<String> = []
     var body: some View {

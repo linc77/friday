@@ -232,7 +232,7 @@ struct TaskContextWindowControl: View {
                     } else { Text(friday: "Provider 尚未报告上下文占用").foregroundStyle(.secondary) }
                     if let failure { Text(failure).font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true) }
                     if showResumePreference {
-                        Toggle(isOn: Binding(get: { resumeSuggestionsEnabled }, set: { _ in toggleResumeSuggestions() })) { Text(friday: "建议恢复前压缩过期历史") }
+                        FridayToggle(isOn: Binding(get: { resumeSuggestionsEnabled }, set: { _ in toggleResumeSuggestions() })) { Text(friday: "建议恢复前压缩过期历史") }
                             .fridayInteractiveCursor()
                     }
                     HStack {

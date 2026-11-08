@@ -4,10 +4,10 @@ import SwiftUI
 /// All pages share the main window's client connection and navigation state.
 @MainActor
 public struct FridayDesktopScene: Scene {
-    @StateObject private var store = FridayStore()
+    @State private var store = FridayStore()
     @StateObject private var navigation = FridayNavigation()
     @Environment(\.openWindow) private var openWindow
-    @AppStorage(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
+    @FridayPreference(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
 
     public init() {}
 
@@ -20,7 +20,7 @@ public struct FridayDesktopScene: Scene {
         .windowToolbarStyle(.unifiedCompact)
         .commands {
             FridayConversationCommands()
-            FridayTaskCommands()
+            FridayTaskCommands(workspaceNavigation: navigation)
             CommandGroup(replacing: .appSettings) {
                 Button(friday: "设置…") {
                     navigation.section = .settings
@@ -46,7 +46,7 @@ extension FocusedValues {
 
 private struct FridayConversationCommands: Commands {
     @FocusedValue(\.newFridayConversation) private var newConversation
-    @AppStorage(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
+    @FridayPreference(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {

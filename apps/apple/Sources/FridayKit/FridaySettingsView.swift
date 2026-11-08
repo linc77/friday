@@ -53,7 +53,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
 }
 
 struct FridaySettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @Binding var selection: FridaySettingsSection
     @State private var search = ""
 
@@ -66,7 +66,7 @@ struct FridaySettingsView: View {
 
     var body: some View {
         HStack(spacing: FridayTheme.paneSpacing) {
-            sidebar.fridayPaneSurface(FridayTheme.surface)
+            sidebar.fridayPaneSurface()
             Group {
                 switch selection {
                 case .general: GeneralSettingsView()
@@ -85,7 +85,7 @@ struct FridaySettingsView: View {
             }
             .id(selection)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .fridayPaneSurface(FridayTheme.surface)
+            .fridayPaneSurface()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .tint(FridayTheme.accent)
@@ -98,7 +98,7 @@ struct FridaySettingsView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .padding(.horizontal, 8)
             HStack(spacing: 7) {
-                FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(FridayTheme.secondaryText).fridaySymbolFeedback()
+                FridaySymbolImage(systemName: "magnifyingglass").foregroundStyle(FridayTheme.secondaryText)
                 TextField(friday: "搜索设置", text: $search)
                     .textFieldStyle(.plain)
                     .accessibilityLabel(Text(friday: "搜索设置"))
@@ -135,7 +135,7 @@ struct FridaySettingsView: View {
         .padding(.bottom, 16)
         .frame(width: 220)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(FridayTheme.surface)
+        .background(FridayTheme.canvas)
     }
 
     @ViewBuilder private func navigationGroup(_ title: String, sections: [FridaySettingsSection]) -> some View {
@@ -174,7 +174,6 @@ private struct SettingsNavigationStyle: ButtonStyle {
             .foregroundStyle(FridayTheme.foreground)
             .background(.primary.opacity(selected ? 0.065 : configuration.isPressed ? 0.035 : 0),
                         in: RoundedRectangle(cornerRadius: 7))
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
     }
 }

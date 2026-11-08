@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskPendingAction: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let approval: Approval
     let stop: () -> Void

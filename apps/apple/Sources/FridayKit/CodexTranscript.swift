@@ -29,15 +29,20 @@ enum CodexTranscript {
     static func isProposal(_ event: TaskEvent) -> Bool {
         event.kind == "proposal" || (event.kind == "plan" && event.plan == nil && event.itemId != nil && event.itemId != "plan")
     }
-    private static let fractionalDate: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-    private static let plainDate = ISO8601DateFormatter()
+    private final class DateParsers {
+        let fractional = ISO8601DateFormatter()
+        let plain = ISO8601DateFormatter()
+        init() { fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds] }
+    }
     static func date(_ value: String?) -> Date? {
         guard let value else { return nil }
-        return fractionalDate.date(from: value) ?? plainDate.date(from: value)
+        // Row projection runs on a background actor while labels may parse on
+        // main. Each thread owns its formatters; no mutable formatter is shared.
+        let key = "Friday.CodexTranscript.DateParsers"
+        let parsers: DateParsers
+        if let existing = Thread.current.threadDictionary[key] as? DateParsers { parsers = existing }
+        else { parsers = DateParsers(); Thread.current.threadDictionary[key] = parsers }
+        return parsers.fractional.date(from: value) ?? parsers.plain.date(from: value)
     }
 
     static func rows(_ task: WorkItem) -> [CodexTranscriptRow] {

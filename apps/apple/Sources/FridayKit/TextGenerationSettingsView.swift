@@ -7,7 +7,7 @@ private enum TextGenerationField: String, Identifiable {
 }
 
 struct TextGenerationSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var scope: String
     @State private var state = TextGenerationSettingsState()
     @State private var states: [String: CodexConnectionState] = [:]
@@ -32,11 +32,9 @@ struct TextGenerationSettingsView: View {
         SettingsPage(title: "文字生成", subtitle: "用于任务标题和其他自动生成的文字；提交与 PR 说明可单独选择模型。") {
             SettingsGroup("设置范围") {
                 SettingsRow("应用到") {
-                    Picker(selection: $scope) {
-                        Text(friday: "此主机").tag("")
-                        ForEach(store.projects) { project in Text(project.name).tag(project.id) }
-                    } label: { Text(friday: "设置范围") }
-                    .labelsHidden().fridayInteractiveCursor()
+                    SettingsSelect(title: "设置范围", selection: $scope,
+                        options: [SettingsChoice("此主机", "")]
+                            + store.projects.map { SettingsChoice($0.name, $0.id) })
                 }
             }
             if let snapshot = state.snapshot {
@@ -64,21 +62,26 @@ struct TextGenerationSettingsView: View {
             if old != value, state.shouldReload(value) { Task { await load() } }
         }
         .onChange(of: store.projects.map(\.id)) { _, ids in if !scope.isEmpty && !ids.contains(scope) { scope = "" } }
-        .popover(item: $picking) { field in
-            if let snapshot = state.snapshot {
-                let pickerToken = state.token
-                let selection = selected(field, snapshot)
-                TaskModelPicker(server: store.connection.server, scope: context, states: states, lockedProvider: nil, provider: selection.agent, model: selection.model, instances: store.providerInstances.filter { states[$0.id]?.supportsTextGeneration != false && (field.rawValue != "reviewGuideModelSelection" || ["codex", "claude"].contains($0.driver)) }, instanceId: selection.providerInstanceId ?? selection.agent) { choice in
-                    guard state.current(pickerToken, identity: identity, projectID: projectID), !state.busy else { return }
-                    picking = nil
-                    let selected = TextGenerationModelSelection(providerInstanceId: choice.selectionId, agent: choice.provider, model: choice.model.id, reasoningEffort: choice.model.defaultReasoningEffort)
-                    save(changes: [field.rawValue: selected.body], ownerToken: pickerToken)
-                }.presentationCompactAdaptation(.sheet)
-            }
-        }
         #if os(macOS)
         .focusedSceneValue(\.fridayTaskNavigation, picking == nil ? nil : TaskNavigationActions(rows: [], selected: nil, model: modelJump.wrappedValue, editingTitle: false, open: { _ in }))
         #endif
+    }
+
+    @ViewBuilder private func modelPicker(_ field: TextGenerationField) -> some View {
+        if let snapshot = state.snapshot {
+            let pickerToken = state.token
+            let selection = selected(field, snapshot)
+            TaskModelPicker(server: store.connection.server, scope: context, states: states, lockedProvider: nil, provider: selection.agent, model: selection.model, instances: store.providerInstances.filter { states[$0.id]?.supportsTextGeneration != false && (field.rawValue != "reviewGuideModelSelection" || ["codex", "claude"].contains($0.driver)) }, instanceId: selection.providerInstanceId ?? selection.agent, flexibleHeight: true) { choice in
+                guard state.current(pickerToken, identity: identity, projectID: projectID), !state.busy else { return }
+                picking = nil
+                let selected = TextGenerationModelSelection(providerInstanceId: choice.selectionId, agent: choice.provider, model: choice.model.id, reasoningEffort: choice.model.defaultReasoningEffort)
+                save(changes: [field.rawValue: selected.body], ownerToken: pickerToken)
+            }
+            #if os(macOS)
+            .environment(\.fridayModelJump, modelJump)
+            #endif
+            .onChange(of: context) { _, _ in picking = nil }
+        }
     }
 
     private func selected(_ field: TextGenerationField, _ value: TextGenerationSettingsSnapshot) -> TextGenerationModelSelection {
@@ -103,21 +106,27 @@ struct TextGenerationSettingsView: View {
             VStack(alignment: .trailing, spacing: 10) {
                 HStack(spacing: 8) {
                     Button { picking = field } label: {
-                        HStack(spacing: 7) {
-                            AgentProviderIcon(provider: selection.agent, size: 16)
-                            Text(model?.selectionName ?? selection.model).lineLimit(2)
-                            FridaySymbolImage(systemName: "chevron.down").font(.system(size: 9))
-                        }
-                    }.buttonStyle(FridayButtonStyle(compact: true)).accessibilityLabel(Text(fridayString: field.title))
+                        SettingsMenuLabel(value: model?.selectionName ?? selection.model, width: 240)
+                    }
+                    .buttonStyle(.plain).fridayInteractiveCursor()
+                    .accessibilityLabel(Text(fridayString: field.title))
+                    #if os(macOS)
+                    .fridayDropdown(isPresented: Binding(get: { picking == field }, set: { if !$0 { picking = nil } }), width: 460, height: 380) {
+                        modelPicker(field)
+                    }
+                    #else
+                    .popover(isPresented: Binding(get: { picking == field }, set: { if !$0 { picking = nil } })) {
+                        modelPicker(field).presentationCompactAdaptation(.sheet)
+                    }
+                    #endif
                     if !efforts.isEmpty {
-                        Picker(selection: Binding(get: { selection.reasoningEffort }, set: { effort in
+                        SettingsSelect(title: "推理强度", selection: Binding(get: { selection.reasoningEffort }, set: { effort in
                             guard effort != selection.reasoningEffort else { return }
                             var next = selection; next.reasoningEffort = effort; save(changes: [field.rawValue: next.body], ownerToken: owner)
-                        })) {
-                            Text(friday: "模型默认").tag("")
-                            ForEach(efforts, id: \.self) { effort in Text(effort.capitalized).tag(effort) }
-                            if !selection.reasoningEffort.isEmpty && !efforts.contains(selection.reasoningEffort) { Text(selection.reasoningEffort).tag(selection.reasoningEffort) }
-                        } label: { Text(friday: "推理强度") }.labelsHidden().fridayInteractiveCursor()
+                        }), options: [SettingsChoice("模型默认", "")]
+                            + efforts.map { SettingsChoice($0.capitalized, $0) }
+                            + (!selection.reasoningEffort.isEmpty && !efforts.contains(selection.reasoningEffort)
+                                ? [SettingsChoice(selection.reasoningEffort, selection.reasoningEffort)] : []), width: 150)
                     }
                 }
                 HStack(spacing: 12) {
@@ -141,7 +150,7 @@ struct TextGenerationSettingsView: View {
         return SettingsGroup("审查 Guide") {
             if projectID == nil {
                 SettingsRow("启用审查 Guide", detail: "让模型只读调查 PR／MR，并生成按阅读顺序组织的代码导览。") {
-                    Toggle(isOn: Binding(get: { snapshot.effective.reviewGuidesEnabled ?? false }, set: { save(changes: ["reviewGuidesEnabled": $0], ownerToken: owner) })) { Text(friday: "启用审查 Guide") }.labelsHidden().toggleStyle(.switch).fridayInteractiveCursor()
+                    FridayToggle(isOn: Binding(get: { snapshot.effective.reviewGuidesEnabled ?? false }, set: { save(changes: ["reviewGuidesEnabled": $0], ownerToken: owner) })) { Text(friday: "启用审查 Guide") }.labelsHidden().fridayInteractiveCursor()
                 }
                 SettingsDivider()
             }
@@ -168,11 +177,11 @@ struct TextGenerationSettingsView: View {
         return SettingsGroup("Source Control 写作") {
             SettingsRow("写作风格", detail: detail) {
                 VStack(alignment: .trailing, spacing: 10) {
-                    Picker(selection: Binding(get: { style.mode }, set: { mode in save(changes: [key: ["mode": mode]], ownerToken: owner) })) {
-                        Text(friday: "仓库惯例").tag("repo_conventions")
-                        Text("Conventional Commits").tag("conventional_commits")
-                        Text(friday: "自定义说明").tag("custom")
-                    } label: { Text(friday: "写作风格") }.labelsHidden().fridayInteractiveCursor()
+                    SettingsSelect(title: "写作风格",
+                        selection: Binding(get: { style.mode }, set: { mode in save(changes: [key: ["mode": mode]], ownerToken: owner) }),
+                        options: [SettingsChoice("仓库惯例", "repo_conventions"),
+                                  SettingsChoice("Conventional Commits", "conventional_commits"),
+                                  SettingsChoice("自定义说明", "custom")], width: 220)
                     Text(fridayString: source(snapshot.sources[key])).font(.caption).foregroundStyle(.secondary)
                     if projectID != nil {
                         if snapshot.overrides.sourceControlWritingStyle != nil {
@@ -201,8 +210,8 @@ struct TextGenerationSettingsView: View {
             }
             SettingsDivider()
             SettingsRow("遵循 PR 模板", detail: "使用目标分支中的仓库 PR 模板填写说明。") {
-                Toggle(isOn: Binding(get: { style.followChangeRequestTemplates }, set: { value in save(changes: [key: ["followChangeRequestTemplates": value]], ownerToken: owner) })) { Text(friday: "遵循 PR 模板") }
-                    .labelsHidden().toggleStyle(.switch).fridayInteractiveCursor()
+                FridayToggle(isOn: Binding(get: { style.followChangeRequestTemplates }, set: { value in save(changes: [key: ["followChangeRequestTemplates": value]], ownerToken: owner) })) { Text(friday: "遵循 PR 模板") }
+                    .labelsHidden().fridayInteractiveCursor()
             }
         }
     }

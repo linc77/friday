@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskProjectScriptsControl: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     var showsControls = true
     var updateSetup: (TaskWorktreeSetupSnapshot?) -> Void = { _ in }
@@ -116,7 +116,7 @@ struct TaskProjectScriptsControl: View {
 }
 
 struct ProjectScriptRunView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let id: String
     var autoPreview = false
     @Environment(\.dismiss) private var dismiss
@@ -194,7 +194,7 @@ struct ProjectScriptRunView: View {
 private struct ProjectScriptTerminal: View {
     @StateObject private var session: TaskTerminalSession
     let metadata: TaskTerminalSummary
-    @AppStorage("friday.terminal.fontSize") private var fontSize = 13.0
+    @FridayPreference("friday.terminal.fontSize") private var fontSize = 13.0
     init(connection: Connection, metadata: TaskTerminalSummary) {
         self.metadata = metadata; _session = StateObject(wrappedValue: TaskTerminalSession(connection: connection, terminal: metadata))
     }

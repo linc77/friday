@@ -3,7 +3,7 @@ import SwiftUI
 private struct TaskForkRequest: Codable { let requestID: String }
 
 struct TaskForkButton: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let runID: String
     let openTask: (String) -> Void
@@ -55,7 +55,7 @@ struct TaskForkButton: View {
 }
 
 struct TaskForkStatusView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let openTask: (String) -> Void
     @State private var busy = false

@@ -423,7 +423,6 @@ private struct FridayToolbarButtonBody: View {
             }
             .contentShape(RoundedRectangle(cornerRadius: 6))
             .onHover { hovering = $0 }
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
     }
 }
@@ -473,7 +472,6 @@ private struct FridayButtonBody: View {
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)
             .onHover { hovering = $0 }
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
     }
 }
@@ -490,7 +488,6 @@ struct EmptyPanel: View {
                 .frame(width: 64, height: 64)
                 .background(FridayTheme.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 22))
                 .padding(.bottom, 4)
-                .fridaySymbolFeedback()
                 .accessibilityHidden(true)
             Text(fridayString: title).font(.title3.weight(.semibold))
             Text(fridayString: subtitle).font(.callout).foregroundStyle(.secondary)

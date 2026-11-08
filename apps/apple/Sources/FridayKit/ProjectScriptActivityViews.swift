@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PreparedProjectScriptControl: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let projectID: String; let preparationID: String
     @State private var runID: String?
     @State private var error: String?
@@ -31,7 +31,7 @@ struct PreparedProjectScriptControl: View {
 }
 
 struct ProjectScriptActivityGroup: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let projectID: String?
     @State private var runs: [ProjectScriptRun] = []
     @State private var selected: ProjectScriptIdentifier?

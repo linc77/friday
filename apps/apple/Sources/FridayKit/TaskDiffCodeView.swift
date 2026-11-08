@@ -67,6 +67,7 @@ struct TaskDiffNativeInput {
         }
     }
     static func pair(_ layouts: [TaskSourceAnnotations], documents: [TaskDiffRenderedDocument]) {
+        guard layouts.contains(where: { !$0.reservedHeights.isEmpty }) else { layouts.forEach { $0.reserve([:]) }; return }
         var heights: [Int: CGFloat] = [:]
         for (index, document) in documents.enumerated() {
             for row in document.rows { heights[row.slot] = max(heights[row.slot] ?? 0, layouts[index].reservedHeights[row.displayLine] ?? 0) }
@@ -197,9 +198,10 @@ private final class TaskDiffTextView: NSTextView {
             signature = next; patch = value.patch
         }
         for text in views {
+            let redraw = changed || text.canComment != value.canComment || text.contrast != value.contrast
             text.canComment = value.canComment; text.contrast = value.contrast; text.begin = value.begin
             text.hit = { [weak self] point in self?.point(point) }; text.highlight = { [weak self] selection in self?.highlight(selection) }
-            text.needsDisplay = true; text.window?.invalidateCursorRects(for:text)
+            if redraw { text.needsDisplay = true; text.window?.invalidateCursorRects(for:text) }
         }
         refreshAnnotations(); resize()
         if changed { for (index,scroll) in scrolls.enumerated() where index < origins.count { scroll.contentView.scroll(to:origins[index]); scroll.reflectScrolledClipView(scroll.contentView) } }

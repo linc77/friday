@@ -71,7 +71,7 @@ enum IdeaImageCache {
 }
 
 struct IdeaImageView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let image: IdeaImage
     var thumbnail = false
     var thumbnailHeight: CGFloat = 120

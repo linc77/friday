@@ -104,11 +104,11 @@ private final class NoteComposerNativeWindow: NSWindow {
 }
 
 private struct NoteComposerContent: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @ObservedObject var composer: NoteComposerWindow
     let delegate: (Idea) -> Void
-    @AppStorage(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
-    @AppStorage(FridayPreferenceKeys.appearance) private var appearance: FridayAppearance = .system
+    @FridayPreference(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
+    @FridayPreference(FridayPreferenceKeys.appearance) private var appearance: FridayAppearance = .system
 
     var body: some View {
         IdeaDetailView(store: store, initial: nil, isFullScreen: composer.isFullScreen,

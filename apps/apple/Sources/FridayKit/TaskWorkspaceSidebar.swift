@@ -4,7 +4,7 @@ import AppKit
 #endif
 
 struct TaskWorkspaceSidebar: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @Binding var scope: String?
     @Binding var draftProjectId: String?
     @Binding var selectedTask: String?
@@ -20,16 +20,16 @@ struct TaskWorkspaceSidebar: View {
     @State private var sidebarDragToken = UUID()
     @State private var sidebarMove: UUID?
     @StateObject private var bulk = TaskBulkActions()
-    @AppStorage("friday.tasks.expandedShelves") private var expandedShelfData = Data()
-    @AppStorage(FridayPreferenceKeys.legacySidebar) private var legacySidebar = false
-    @AppStorage(FridayPreferenceKeys.projectGrouping) private var grouping: TaskProjectGrouping = .repository
-    @AppStorage(FridayPreferenceKeys.projectSort) private var projectSort: TaskProjectSort = .updated
-    @AppStorage(FridayPreferenceKeys.threadSort) private var threadSort: TaskThreadSort = .updated
-    @AppStorage(FridayPreferenceKeys.threadPreviewCount) private var threadPreviewCount = 6
-    @AppStorage(FridayPreferenceKeys.projectGroupingOverrides) private var groupingOverrides = Data()
-    @AppStorage(FridayPreferenceKeys.projectOrder) private var projectOrder = Data()
-    @AppStorage(FridayPreferenceKeys.projectScope) private var savedScopes = Data()
-    @AppStorage("friday.tasks.collapsedProjectTrees") private var collapsedProjectTrees = Data()
+    @FridayPreference("friday.tasks.expandedShelves") private var expandedShelfData = Data()
+    @FridayPreference(FridayPreferenceKeys.legacySidebar) private var legacySidebar = false
+    @FridayPreference(FridayPreferenceKeys.projectGrouping) private var grouping: TaskProjectGrouping = .repository
+    @FridayPreference(FridayPreferenceKeys.projectSort) private var projectSort: TaskProjectSort = .updated
+    @FridayPreference(FridayPreferenceKeys.threadSort) private var threadSort: TaskThreadSort = .updated
+    @FridayPreference(FridayPreferenceKeys.threadPreviewCount) private var threadPreviewCount = 6
+    @FridayPreference(FridayPreferenceKeys.projectGroupingOverrides) private var groupingOverrides = Data()
+    @FridayPreference(FridayPreferenceKeys.projectOrder) private var projectOrder = Data()
+    @FridayPreference(FridayPreferenceKeys.projectScope) private var savedScopes = Data()
+    @FridayPreference("friday.tasks.collapsedProjectTrees") private var collapsedProjectTrees = Data()
     @State private var expandedProjectThreads: Set<String> = []
     @State private var projectGroupCache = TaskProjectSidebar.Cache()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -45,14 +45,12 @@ struct TaskWorkspaceSidebar: View {
     }
     #endif
 
-    private var groupVersion: TaskProjectSidebar.Version {
-        TaskProjectSidebar.version(store.projects, tasks: store.tasks, mode: grouping,
-            overrides: TaskProjectSidebar.dictionaries(groupingOverrides)[store.connection.server] ?? [:],
-            order: projectSort, preferred: TaskProjectSidebar.orders(projectOrder)[store.connection.server] ?? [], context: store.connectionIdentity + "\n" + store.snapshotIdentity)
-    }
     private var projectGroups: [TaskProjectSidebar.Group] {
         guard store.snapshotIdentity == store.connectionIdentity else { return [] }
-        return projectGroupCache.resolve(groupVersion, projects: store.projects, tasks: store.tasks)
+        let input = TaskProjectSidebar.Input(generation: store.sidebarDataGeneration, mode: grouping, order: projectSort,
+            overrides: groupingOverrides, preferred: projectOrder, server: store.connection.server,
+            context: store.connectionIdentity + "\n" + store.snapshotIdentity)
+        return projectGroupCache.resolve(input, projects: store.projects, tasks: store.tasks)
     }
     private var selectedGroup: TaskProjectSidebar.Group? { projectGroups.first { $0.id == scope } }
     private var scopedGroups: [TaskProjectSidebar.Group] { selectedGroup.map { [$0] } ?? projectGroups }
@@ -98,6 +96,7 @@ struct TaskWorkspaceSidebar: View {
     private var canMove: Bool { !legacySidebar && store.connected && store.snapshotIdentity == store.connectionIdentity && store.taskSidebarOrderingSupported && (selectedGroup == nil || selectedGroup?.projectIDs.count == 1 || store.taskSidebarProjectScopesSupported) && (!store.sidebarWorkingShelfEnabled || store.taskSidebarWorkingSupported) && sidebarMove == nil && !bulk.selection.hasSelection && !bulk.busy }
 
     var body: some View {
+        let _ = TaskPresentationTiming.changes(Self.self)
         TaskSidebarSearchShell(store: store, projectIDs: selectedGroup?.projectIDs, includeUnassociated: selectedGroup?.scratch == true, focus: $showingSearch, select: selectTask) {
             header
         } content: {
@@ -450,6 +449,7 @@ struct TaskWorkspaceSidebar: View {
 
     private func selectTask(_ id: String) {
         guard store.snapshotIdentity == store.connectionIdentity, let task = store.tasks.first(where: { $0.id == id && $0.localAgent }) else { return }
+        if selectedTask != id { TaskPresentationTiming.selected(id) }
         selectedTask = id; showingHistory = false
         bulk.selection.activate(id)
         Task { await store.markTaskRead(task) }

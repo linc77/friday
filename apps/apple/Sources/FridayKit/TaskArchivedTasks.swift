@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskArchivedTasks: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var scope: String?
     @State private var busy: Set<String> = []
     @State private var deletion: WorkItem?
@@ -20,10 +20,13 @@ struct TaskArchivedTasks: View {
                     Button { Task { await store.refresh() } } label: { FridaySymbolImage(systemName: "arrow.clockwise").frame(width: 28, height: 28) }
                         .buttonStyle(FridaySymbolButtonStyle()).disabled(!store.connected).accessibilityLabel(Text(friday: "刷新"))
                 }
-                Picker(selection: $scope) {
-                    Text(friday: "全部 Workspace").tag(Optional<String>.none)
-                    ForEach(store.projects) { project in Text(verbatim: project.name).tag(Optional(project.id)) }
-                } label: { Text(friday: "Workspace") }.fridayInteractiveCursor()
+                HStack {
+                    Text(friday: "Workspace")
+                    Spacer()
+                    SettingsSelect(title: "Workspace", selection: $scope,
+                        options: [SettingsChoice("全部 Workspace", String?.none)]
+                            + store.projects.map { SettingsChoice($0.name, Optional($0.id)) })
+                }
                 TaskUndoNotice(store: store, state: store.taskUndo)
                 if let error { Text(error).font(.callout).foregroundStyle(.orange).textSelection(.enabled) }
                 if groups.isEmpty {

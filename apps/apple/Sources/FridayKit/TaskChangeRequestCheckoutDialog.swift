@@ -40,7 +40,7 @@ struct TaskChangeRequestDraftHandoff: Identifiable {
 }
 
 struct TaskChangeRequestCheckoutDialog: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let project: Project
     var initialReference = ""
     let prepared: (TaskChangeRequestCheckoutReceipt) -> Void
@@ -51,7 +51,7 @@ struct TaskChangeRequestCheckoutDialog: View {
     }
 }
 private struct TaskChangeRequestCheckoutContent: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let project: Project; let prepared: (TaskChangeRequestCheckoutReceipt) -> Void
     @ObservedObject fileprivate var session: ChangeRequestCheckoutSession
     @Environment(\.dismiss) private var dismiss
@@ -76,7 +76,7 @@ private struct TaskChangeRequestCheckoutContent: View {
                 Text(session.mode == "checkout" ? preview.localBranch : preview.worktreeBranch).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
                 if session.mode == "checkout" {
                     if preview.dirty { Text(friday: "当前目录有未提交改动，使用 Worktree 可以保留这些改动。").font(.caption).foregroundStyle(.orange) }
-                    Toggle(isOn: $session.force) { Text(friday: "允许丢弃当前目录和所选本地分支的改动，重置到 PR／MR 提交") }.font(.caption).disabled(locked)
+                    FridayToggle(isOn: $session.force) { Text(friday: "允许丢弃当前目录和所选本地分支的改动，重置到 PR／MR 提交") }.font(.caption).disabled(locked)
                 }
             }
             if session.loading || session.sending || session.operation?.active == true {

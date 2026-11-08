@@ -32,7 +32,12 @@ enum TaskCitationTextBoundary {
     func linkRectangles() -> [CGRect]
 }
 extension TaskCitationNativePart { func linkRectangles() -> [CGRect] { [] } }
-private final class CitationWeakPart { weak var value: (any TaskCitationNativePart)?; init(_ value: any TaskCitationNativePart) { self.value=value } }
+@MainActor private final class CitationWeakPart {
+    weak var value: (any TaskCitationNativePart)?
+    let text: String
+    let group: [Int]
+    init(_ value: any TaskCitationNativePart) { self.value = value; text = value.citationText; group = value.citationGroup }
+}
 
 @MainActor final class TaskCitationSelectionModel: ObservableObject {
     struct Entry { let part: any TaskCitationNativePart; let range: NSRange }
@@ -55,6 +60,8 @@ private final class CitationWeakPart { weak var value: (any TaskCitationNativePa
     init(source:TaskCitationSourceIdentity) { self.source=source }
     func register(_ part:any TaskCitationNativePart) {
         let key=part.citationKey.map(String.init).joined(separator:":")
+        if let old = parts[key], old.value === part, old.group == part.citationGroup,
+           old.text.utf16.elementsEqual(part.citationText.utf16) { return }
         parts[key]=CitationWeakPart(part); schedule()
     }
     func unregister(_ part:any TaskCitationNativePart) {
@@ -80,24 +87,34 @@ private final class CitationWeakPart { weak var value: (any TaskCitationNativePa
         if changed {
             revision += 1
             if let previous {select(previous.rawRange(in:text),showAction:actionVisible)}
-        } else { repaint() }
+        }
+        // The native parts may have been replaced even when the selection did not change.
+        repaint()
     }
     func select(_ range:NSRange?,showAction:Bool=false) {
         settle?.cancel()
         let bounded=range.map {TaskSourceEditorPosition.selection($0,length:text.utf16.count)}
-        selected=bounded?.length == 0 ? nil : bounded;actionVisible=showAction && selected != nil
-        repaint();didSelect?()
+        let next=bounded?.length == 0 ? nil : bounded
+        let visible=showAction && next != nil
+        let selectionChanged=selected != next
+        if selectionChanged { selected=next }
+        if actionVisible != visible { actionVisible=visible }
+        if selectionChanged { repaint();didSelect?() }
     }
     func finish(at point:CGPoint,clicks:Int=1) {
-        actionPoint=point;settle?.cancel()
+        settle?.cancel()
+        guard selected != nil else { return }
+        if actionPoint != point { actionPoint=point }
         settle=Task { @MainActor [weak self] in
             if clicks>=2 {try? await Task.sleep(for:.milliseconds(500))}
-            guard !Task.isCancelled,let self else{return};self.actionVisible=self.selected != nil
+            guard !Task.isCancelled,let self else{return}
+            let visible=self.selected != nil
+            if self.actionVisible != visible { self.actionVisible=visible }
         }
     }
-    func dismiss() {settle?.cancel();select(nil);actionVisible=false}
+    func dismiss() {select(nil)}
     var citation:TaskAssistantCitation? {selected.flatMap {TaskAssistantCitation.make(environment:source.environment,task:source.task,message:source.message,source:text,range:$0)}}
-    func quote() {guard canCite,citation?.valid == true else{return};actionVisible=false;cite?()}
+    func quote() {guard canCite,citation?.valid == true else{return};if actionVisible { actionVisible=false };cite?()}
     func repaint() {
         for entry in entries {
             let overlap=selected.map {NSIntersectionRange($0,entry.range)}

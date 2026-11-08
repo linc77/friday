@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskChangeRequestCommitView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String; let url: String; let commit: TaskChangeRequestCommit
     @Environment(\.dismiss) private var dismiss
     @State private var response: TaskChangeRequestCommitResponse?
@@ -45,7 +45,7 @@ struct TaskChangeRequestCommitView: View {
                 Divider()
                 VStack(spacing: 0) {
                     if let file = selectedFile {
-                        HStack { Text(file.path).font(.system(.caption, design: .monospaced)).textSelection(.enabled); Spacer(); Toggle(isOn: $split) { Text(friday: "并排") }.toggleStyle(.switch).controlSize(.mini).fixedSize().fridayInteractiveCursor() }.padding(8)
+                        HStack { Text(file.path).font(.system(.caption, design: .monospaced)).textSelection(.enabled); Spacer(); FridayToggle(isOn: $split) { Text(friday: "并排") }.controlSize(.mini).fixedSize().fridayInteractiveCursor() }.padding(8)
                         Divider()
                         if file.unavailable { Spacer(); Text(friday: "此文件的 Diff 不可用，请在平台查看").font(.caption).foregroundStyle(.secondary).padding(); Spacer() }
                         else { TaskDiffCodeView(patch: file.patch, split: split, identity: "commit:" + commit.oid + ":" + file.path) }

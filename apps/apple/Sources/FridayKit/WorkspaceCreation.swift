@@ -11,7 +11,7 @@ struct NamedProjectCreationResult: Decodable {
 
 
 struct WorkspaceAddView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     var onAdded: (Project) -> Void = { _ in }
     @Environment(\.dismiss) private var dismiss
     private enum Mode: Hashable { case new, existing, clone }
@@ -79,10 +79,11 @@ struct WorkspaceAddView: View {
                     Text(verbatim: preview).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
                     Text(friday: "在主机创建独立目录和 Git 仓库，包含 README、项目图标及首次提交。").font(.callout).foregroundStyle(.secondary)
                     if canClone {
-                        Picker(selection: $publishID) {
-                            Text(friday: "不发布到远端").tag("")
-                            ForEach(privateTargets) { provider in Text(verbatim: provider.label + " · " + provider.host + " · " + (provider.account ?? "")).tag(provider.id) }
-                        } label: { Text(friday: "创建后发布为私有仓库") }.fridayInteractiveCursor().disabled(busy || requestID != nil)
+                        LabeledContent {
+                            SettingsSelect(title: "创建后发布为私有仓库", selection: $publishID,
+                                options: [SettingsChoice("不发布到远端", "")]
+                                    + privateTargets.map { SettingsChoice($0.label + " · " + $0.host + " · " + ($0.account ?? ""), $0.id) })
+                        } label: { Text(friday: "创建后发布为私有仓库") }.disabled(busy || requestID != nil)
                     }
                 }
                 if mode == .clone { Text(friday: "克隆开始后可关闭面板；进度、取消和重试会显示在项目中。").font(.caption).foregroundStyle(.secondary) }
@@ -110,13 +111,11 @@ struct WorkspaceAddView: View {
     }
     private var cloneFields: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Picker(selection: $cloneSource) {
-                Text(verbatim: "Git URL").tag("url")
-                ForEach(providers) { provider in
-                    Text(verbatim: provider.label + " · " + provider.host).tag(provider.id).disabled(!provider.ready)
-                        .accessibilityHint(Text(fridayString: provider.hint ?? ""))
-                }
-            } label: { Text(friday: "仓库来源") }.fridayInteractiveCursor()
+            LabeledContent {
+                SettingsSelect(title: "仓库来源", selection: $cloneSource,
+                    options: [SettingsChoice("Git URL", "url")]
+                        + providers.map { SettingsChoice($0.label + " · " + $0.host, $0.id, isEnabled: $0.ready, hint: $0.hint) })
+            } label: { Text(friday: "仓库来源") }
             HStack {
                 TextField(friday: cloneSource == "url" ? "Git 仓库地址" : "所有者／仓库名称", text: $repositoryInput).textFieldStyle(.roundedBorder)
                 if cloneSource != "url" {

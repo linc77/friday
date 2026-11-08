@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskReviewGuideView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String; let url: String; let detail: TaskChangeRequestDetail
     let canComment: Bool; let pendingComments: [TaskRemoteReviewDraft]; let removeComment: (UUID) -> Void
     let comment: (String, TaskGuideExcerptSnapshot, TaskGuideExcerptSnapshot.Line, String) -> Void

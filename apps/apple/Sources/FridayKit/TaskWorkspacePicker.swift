@@ -40,9 +40,9 @@ struct TaskExecutionLocationPicker: View {
                 choice("worktree", title: "New Worktree")
             }
             if selection.mode == "worktree" {
-                Toggle(isOn: Binding(get: { selection.startFromOrigin ?? options?.preparationDefaults?.newWorktreesStartFromOrigin ?? true }, set: { selection.startFromOrigin = $0 })) {
+                FridayToggle(isOn: Binding(get: { selection.startFromOrigin ?? options?.preparationDefaults?.newWorktreesStartFromOrigin ?? true }, set: { selection.startFromOrigin = $0 })) {
                     Text(friday: "从 origin 最新提交开始").font(.caption)
-                }.toggleStyle(.switch).controlSize(.small).padding(.horizontal, 10).padding(.bottom, 6).fridayInteractiveCursor()
+                }.controlSize(.small).padding(.horizontal, 10).padding(.bottom, 6).fridayInteractiveCursor()
             }
         }
         .padding(5).background(FridayTheme.surface, in: RoundedRectangle(cornerRadius: 14))
@@ -74,7 +74,7 @@ struct TaskExecutionLocationPicker: View {
 }
 
 struct NewTaskBranchControl: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @ObservedObject var state: TaskWorkspaceState
     let projectId: String
     @Binding var selection: TaskWorkspaceSelection
@@ -94,7 +94,7 @@ struct NewTaskBranchControl: View {
 }
 
 struct ExistingTaskBranchControl: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     @Binding var submitting: Bool
     @StateObject private var state = TaskWorkspaceState()

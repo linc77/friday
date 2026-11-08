@@ -8,9 +8,9 @@ import AppKit
 struct FridayMark: View {
     var size: CGFloat = 40
     var interactive = false
-    @AppStorage(FridayPreferenceKeys.avatarBodyColor) private var bodyColorHex = FridayAvatarColor.bodyDefault
-    @AppStorage(FridayPreferenceKeys.avatarEyeColor) private var eyeColorHex = FridayAvatarColor.eyeDefault
-    @AppStorage(FridayPreferenceKeys.avatarBowTieColor) private var bowTieColorHex = FridayAvatarColor.bowTieDefault
+    @FridayPreference(FridayPreferenceKeys.avatarBodyColor) private var bodyColorHex = FridayAvatarColor.bodyDefault
+    @FridayPreference(FridayPreferenceKeys.avatarEyeColor) private var eyeColorHex = FridayAvatarColor.eyeDefault
+    @FridayPreference(FridayPreferenceKeys.avatarBowTieColor) private var bowTieColorHex = FridayAvatarColor.bowTieDefault
     @State private var gaze = CGPoint.zero
     @State private var eyesClosed = false
     @State private var visible = false

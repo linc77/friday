@@ -6,7 +6,7 @@ extension FridayStore {
     }
 }
 struct TaskChangeRequestCreationDialog: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String; let review: TaskGitStatus; let submitting: Bool; let submissionError: String?
     var initialNewBranch = false
     var initialName = ""
@@ -35,15 +35,16 @@ struct TaskChangeRequestCreationDialog: View {
                     Text(review.branch ?? "HEAD").font(.system(.caption, design: .monospaced)).textSelection(.enabled)
                     Text(friday: "源仓库与分支").font(.caption).foregroundStyle(.secondary)
                     Text("\(context.source.path):\(newBranch ? name.isEmpty ? "…" : name : context.sourceBranch)").font(.system(.callout, design: .monospaced)).textSelection(.enabled)
-                    Picker(selection: Binding(get: { target ?? "" }, set: { target = $0.isEmpty ? nil : $0; base = nil })) {
-                        Text(friday: "跟随仓库默认目标").tag("")
-                        ForEach(context.choices, id: \.name) { choice in Text("\(choice.name) · \(choice.repository)").tag(choice.name) }
-                    } label: { Text(friday: "目标仓库") }.fridayInteractiveCursor()
+                    LabeledContent {
+                        SettingsSelect(title: "目标仓库", selection: Binding(get: { target ?? "" }, set: { target = $0.isEmpty ? nil : $0; base = nil }),
+                            options: [SettingsChoice("跟随仓库默认目标", "")]
+                                + context.choices.map { SettingsChoice("\($0.name) · \($0.repository)", $0.name) })
+                    } label: { Text(friday: "目标仓库") }
                     Text(context.target.path).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary).textSelection(.enabled)
                     TextField(friday: "目标分支", text: Binding(get: { base ?? context.baseBranch }, set: { base = $0 })).textFieldStyle(.roundedBorder)
                     if context.isCrossRepository { Text(friday: "将源分支推送到 Fork，再向所选目标仓库创建合并请求。").font(.caption).foregroundStyle(.secondary) }
                 }
-                Toggle(isOn: Binding(get: { newBranch }, set: { branchEdited = true; newBranch = $0 })) { Text(friday: "先新建功能分支") }.fridayInteractiveCursor()
+                FridayToggle(isOn: Binding(get: { newBranch }, set: { branchEdited = true; newBranch = $0 })) { Text(friday: "先新建功能分支") }.fridayInteractiveCursor()
                 if newBranch { TextField(friday: "新分支名称（可选）", text: $name).textFieldStyle(.roundedBorder) }
                 if needsFeatureBranch, !newBranch { Text(friday: "向同一仓库创建 PR／MR 前，需要先创建功能分支。").font(.caption).foregroundStyle(.secondary) }
             } else { Text(friday: "正在读取 PR／MR 源与目标…").foregroundStyle(.secondary) }

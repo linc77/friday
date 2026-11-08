@@ -3,7 +3,7 @@ import SwiftUI
 // A concrete view boundary keeps the toolbar's large generic body out of the
 // transcript builder, which is re-evaluated when iOS switches retained tabs.
 struct TaskDetailHeader: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     var onOpenTask: ((String) -> Void)?
     @Binding var worktreeSetup: TaskWorktreeSetupSnapshot?

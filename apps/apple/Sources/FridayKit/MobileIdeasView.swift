@@ -10,7 +10,7 @@ private enum MobileIdeasLayout: String, CaseIterable, Identifiable {
 }
 
 struct MobileIdeasView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let ideas: [Idea]
     @Binding var search: String
     let hasDraft: Bool
@@ -18,7 +18,7 @@ struct MobileIdeasView: View {
     let open: (Idea) -> Void
     let create: () -> Void
     let delete: (Idea) -> Void
-    @AppStorage("friday.mobileIdeasLayout") private var layout: MobileIdeasLayout = .list
+    @FridayPreference("friday.mobileIdeasLayout") private var layout: MobileIdeasLayout = .list
     @Environment(\.locale) private var locale
     @FocusState private var searching: Bool
 
@@ -296,7 +296,7 @@ struct MobileIdeaZoomDestination: ViewModifier {
 }
 
 private struct MobileIdeaCollage: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let images: [IdeaImage]
     let text: String
     @State private var availableWidth: CGFloat = 320

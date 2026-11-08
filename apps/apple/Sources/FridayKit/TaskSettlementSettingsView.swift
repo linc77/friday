@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskSettlementSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var scope = ""
     @State private var state = TaskSettlementSettingsState()
     @State private var draft = ""
@@ -15,24 +15,28 @@ struct TaskSettlementSettingsView: View {
     var body: some View {
         SettingsGroup("自动结束跟进") {
             SettingsRow("应用到") {
-                Picker(selection: $scope) {
-                    Text(friday: "此主机").tag("")
-                    ForEach(store.projects) { project in Text(project.name).tag(project.id) }
-                } label: { Text(friday: "设置范围") }.labelsHidden().fridayInteractiveCursor()
+                SettingsSelect(title: "设置范围", selection: $scope,
+                    options: [SettingsChoice("此主机", "")]
+                        + store.projects.map { SettingsChoice($0.name, $0.id) })
             }
             if let snapshot = state.snapshot {
                 let owner = state.token
                 let days = snapshot.effective.sidebarAutoSettleAfterDays
                 SettingsDivider()
                 SettingsRow("自动结束不活跃任务", detail: "由主机服务处理；关闭窗口后继续生效。") {
-                    Toggle(isOn: Binding(get: { days != nil }, set: { value in save(days: value ? 3 : nil, owner: owner) })) { Text(friday: "自动结束不活跃任务") }
-                        .labelsHidden().toggleStyle(.switch).fridayInteractiveCursor()
+                    FridayToggle(isOn: Binding(get: { days != nil }, set: { value in save(days: value ? 3 : nil, owner: owner) })) { Text(friday: "自动结束不活跃任务") }
+                        .labelsHidden().fridayInteractiveCursor()
                 }.disabled(state.busy || !store.connected)
                 if days != nil {
                     SettingsDivider()
                     SettingsRow("无活动天数", detail: "输入 1–90 天，回车或结束编辑时保存；新活动会恢复自动判断。") {
                         HStack(spacing: 8) {
-                            TextField(friday: "天数", text: $draft).frame(width: 72).textFieldStyle(.roundedBorder)
+                            TextField(friday: "天数", text: $draft)
+                                #if os(macOS)
+                                .textFieldStyle(.plain).modifier(SettingsFieldChrome(width: 72))
+                                #else
+                                .frame(width: 72).textFieldStyle(.roundedBorder)
+                                #endif
                                 .focused($editingDays).onSubmit { editingDays = false; commitDays(owner: owner) }
                                 .onChange(of: editingDays) { _, value in if !value { commitDays(owner: owner) } }
                             Text(friday: "天").foregroundStyle(.secondary)
@@ -42,14 +46,14 @@ struct TaskSettlementSettingsView: View {
                 SettingsDivider()
                 SettingsRow("PR 合并后自动结束", detail: "所有有效关联均已合并或关闭，且没有更新的用户要求时结束；关闭不活跃计时后仍可生效。") {
                     HStack {
-                        Toggle(isOn: Binding(get: { snapshot.effective.sidebarAutoSettleOnMerge ?? true }, set: { save(changes: ["sidebarAutoSettleOnMerge": $0], owner: owner) })) { Text(friday: "PR 合并后自动结束") }.labelsHidden().toggleStyle(.switch).fridayInteractiveCursor()
+                        FridayToggle(isOn: Binding(get: { snapshot.effective.sidebarAutoSettleOnMerge ?? true }, set: { save(changes: ["sidebarAutoSettleOnMerge": $0], owner: owner) })) { Text(friday: "PR 合并后自动结束") }.labelsHidden().fridayInteractiveCursor()
                         resetButton("sidebarAutoSettleOnMerge", overridden: snapshot.overrides.sidebarAutoSettleOnMerge != nil, nondefault: snapshot.defaults.sidebarAutoSettleOnMerge == false, owner: owner)
                     }
                 }.disabled(state.busy || !store.connected)
                 SettingsDivider()
                 SettingsRow("保留关联 PR 的不活跃任务", detail: "有关联 PR／MR 的任务不因时间经过而结束；已确认的合并或关闭仍按终态规则处理。") {
                     HStack {
-                        Toggle(isOn: Binding(get: { snapshot.effective.sidebarAutoSettleKeepPullRequests ?? false }, set: { save(changes: ["sidebarAutoSettleKeepPullRequests": $0], owner: owner) })) { Text(friday: "保留关联 PR 的不活跃任务") }.labelsHidden().toggleStyle(.switch).fridayInteractiveCursor()
+                        FridayToggle(isOn: Binding(get: { snapshot.effective.sidebarAutoSettleKeepPullRequests ?? false }, set: { save(changes: ["sidebarAutoSettleKeepPullRequests": $0], owner: owner) })) { Text(friday: "保留关联 PR 的不活跃任务") }.labelsHidden().fridayInteractiveCursor()
                         resetButton("sidebarAutoSettleKeepPullRequests", overridden: snapshot.overrides.sidebarAutoSettleKeepPullRequests != nil, nondefault: snapshot.defaults.sidebarAutoSettleKeepPullRequests == true, owner: owner)
                     }
                 }.disabled(state.busy || !store.connected)

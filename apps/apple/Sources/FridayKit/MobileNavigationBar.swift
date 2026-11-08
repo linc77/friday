@@ -109,7 +109,7 @@ struct FridayMobileNavigationBar: View {
                             guard !tabDrag.isHorizontal else { return }
                             selection.wrappedValue = index
                         } label: {
-                            FridaySymbolImage(systemName: section.icon, motion: section == .settings ? .rotate : .drawOn)
+                            FridaySymbolImage(systemName: section.icon)
                                 .font(.system(size: 20, weight: .regular))
                                 .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -186,7 +186,7 @@ struct FridayMobileCompactNavigationButton: View {
 
     var body: some View {
         Button(action: expand) {
-            FridaySymbolImage(systemName: section.icon, motion: section == .settings ? .rotate : .drawOn)
+            FridaySymbolImage(systemName: section.icon)
                 .font(.system(size: 18, weight: .regular))
                 .foregroundStyle(.primary)
                 .frame(width: width, height: FridayMobileDockMetrics.compactHeight)

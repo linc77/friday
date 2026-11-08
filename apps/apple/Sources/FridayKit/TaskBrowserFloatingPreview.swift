@@ -2,7 +2,7 @@ import SwiftUI
 import WebKit
 
 struct TaskBrowserFloatingPreview:ViewModifier {
-    @ObservedObject var store:FridayStore
+    @Bindable var store:FridayStore
     let task:WorkItem
     @Binding var browser:TaskBrowserPanelState
     @Binding var activePanel:String

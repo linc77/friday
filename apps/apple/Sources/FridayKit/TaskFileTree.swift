@@ -44,7 +44,7 @@ struct TaskFileBrowserTree: View {
     }
 }
 private struct FileTreeCell: View {
-    let item: TaskFileTreeItem; var depth = 0; var expanded = false; var mobile = false; var activation = 0
+    let item: TaskFileTreeItem; var depth = 0; var expanded = false; var mobile = false
     var body: some View {
         HStack(spacing: 7) {
             if mobile { FridaySymbolImage(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 9)).frame(width: 10).opacity(item.directory ? 1 : 0) }
@@ -52,7 +52,6 @@ private struct FileTreeCell: View {
             Text(verbatim: item.title).lineLimit(1).truncationMode(.middle).foregroundStyle(item.entry.ignored == true ? Color.secondary : Color.primary)
             Spacer(minLength: 0)
         }.font(.caption).padding(.leading, mobile ? CGFloat(depth) * 14 + 6 : 2).padding(.trailing, 7).padding(.vertical, 5)
-            .fridaySymbolFeedback(value: activation)
     }
 }
 
@@ -92,9 +91,8 @@ private struct TaskFileTreeNative: NSViewRepresentable {
         scroll.documentView = outline; scroll.hasVerticalScroller = true; scroll.hasHorizontalScroller = false; scroll.drawsBackground = false
         let coordinator = context.coordinator
         outline.mouseBegan = { [weak coordinator] in guard let coordinator else { return }; coordinator.revealState.interacted(coordinator.parent.reveal); coordinator.interaction.beginMouse() }
-        outline.mouseEnded = { [weak coordinator, weak outline] in
+        outline.mouseEnded = { [weak coordinator] in
             guard let coordinator else { return }; if let path = coordinator.interaction.endMouse() { coordinator.parent.open(path) }
-            if let outline { coordinator.animateSelection(outline) }
         }
         outline.keyboardBegan = { [weak coordinator] in guard let coordinator else { return }; coordinator.revealState.interacted(coordinator.parent.reveal); coordinator.interaction.beginKeyboard() }
         outline.copySelection = { [weak coordinator] in guard let coordinator else { return }; coordinator.parent.copyMentions(coordinator.interaction.selected) }
@@ -126,7 +124,7 @@ private struct TaskFileTreeNative: NSViewRepresentable {
     }
     final class Coordinator: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
         var parent: TaskFileTreeNative; var roots: [OutlineFileNode] = []; var updating = false, loaded = false; var revealState = TaskFileTreeReveal()
-        var interaction = TaskFileTreeInteraction(), pulses: [String: Int] = [:], menuActions: [Int: () -> Void] = [:]
+        var interaction = TaskFileTreeInteraction(), menuActions: [Int: () -> Void] = [:]
         init(_ parent: TaskFileTreeNative) { self.parent = parent; roots = parent.projection.roots.map(OutlineFileNode.init) }
         func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int { (item as? OutlineFileNode)?.children.count ?? roots.count }
         func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any { ((item as? OutlineFileNode)?.children ?? roots)[index] }
@@ -134,18 +132,12 @@ private struct TaskFileTreeNative: NSViewRepresentable {
         func outlineView(_ outlineView: NSOutlineView, objectValueFor tableColumn: NSTableColumn?, byItem item: Any?) -> Any? { (item as? OutlineFileNode)?.item.title }
         func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
             guard let node = item as? OutlineFileNode else { return nil }
-            let host = NSHostingView(rootView: FileTreeCell(item: node.item, activation: pulses[node.item.path] ?? 0)); host.setAccessibilityElement(false); return host
+            let host = NSHostingView(rootView: FileTreeCell(item: node.item)); host.setAccessibilityElement(false); return host
         }
         func selectedEntries(_ outline: NSOutlineView) -> [TaskFileEntry] { outline.selectedRowIndexes.compactMap { (outline.item(atRow: $0) as? OutlineFileNode)?.item.entry } }
         func outlineViewSelectionDidChange(_ notification: Notification) {
             guard !updating, let outline = notification.object as? NSOutlineView else { return }
             if let path = interaction.select(selectedEntries(outline)) { parent.open(path) }
-        }
-        func animateSelection(_ outline: NSOutlineView) {
-            for row in outline.selectedRowIndexes {
-                guard let node = outline.item(atRow: row) as? OutlineFileNode else { continue }; pulses[node.item.path, default: 0] += 1
-                if let host = outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? NSHostingView<FileTreeCell> { host.rootView = FileTreeCell(item: node.item, activation: pulses[node.item.path] ?? 0) }
-            }
         }
         func outlineViewItemWillExpand(_ notification: Notification) { expansion(notification, true) }
         func outlineViewItemDidCollapse(_ notification: Notification) { expansion(notification, false) }
@@ -208,13 +200,12 @@ private struct TaskFileTreeNative: UIViewRepresentable {
     }
     final class Coordinator: NSObject, UITableViewDataSource, UITableViewDelegate, UITableViewDragDelegate {
         var parent: TaskFileTreeNative, rows: [(item: TaskFileTreeItem, depth: Int)] = []
-        var revealState = TaskFileTreeReveal(), dragging = false, loaded = false, pulses: [String: Int] = [:]
+        var revealState = TaskFileTreeReveal(), dragging = false, loaded = false
         init(_ parent: TaskFileTreeNative) { self.parent = parent; rows = parent.projection.visible(expanded: parent.expanded) }
         func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { rows.count }
         func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
             let cell = tableView.dequeueReusableCell(withIdentifier: "file") ?? UITableViewCell(style: .default, reuseIdentifier: "file"), row = rows[indexPath.row]
-            let pulse = pulses[row.item.path] ?? 0
-            cell.backgroundColor = .clear; cell.contentConfiguration = UIHostingConfiguration { FileTreeCell(item: row.item, depth: row.depth, expanded: row.item.expanded(in: self.parent.expanded), mobile: true, activation: pulse) }.margins(.all, 0)
+            cell.backgroundColor = .clear; cell.contentConfiguration = UIHostingConfiguration { FileTreeCell(item: row.item, depth: row.depth, expanded: row.item.expanded(in: self.parent.expanded), mobile: true) }.margins(.all, 0)
             return cell
         }
         func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -227,11 +218,6 @@ private struct TaskFileTreeNative: UIViewRepresentable {
             guard !dragging, rows.indices.contains(indexPath.row) else { return }; let item = rows[indexPath.row].item
             revealState.interacted(parent.reveal)
             if !tableView.isEditing { for other in tableView.indexPathsForSelectedRows ?? [] where other != indexPath { tableView.deselectRow(at: other, animated: false) } }
-            pulses[item.path, default: 0] += 1
-            if let cell = tableView.cellForRow(at: indexPath) {
-                let row = rows[indexPath.row], pulse = pulses[item.path] ?? 0
-                cell.contentConfiguration = UIHostingConfiguration { FileTreeCell(item: row.item, depth: row.depth, expanded: row.item.expanded(in: self.parent.expanded), mobile: true, activation: pulse) }.margins(.all, 0)
-            }
             if item.directory { parent.toggle(item, !item.expanded(in: parent.expanded)) } else if parent.selected != item.path { parent.open(item.path) }
         }
         func tableView(_ tableView: UITableView, shouldBeginMultipleSelectionInteractionAt indexPath: IndexPath) -> Bool { true }

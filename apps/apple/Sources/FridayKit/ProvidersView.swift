@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ProvidersView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var selection = "friday"
     @State private var editingInstance: ProviderInstanceInfo?
     @State private var addingInstance = false
@@ -91,7 +91,6 @@ struct ProvidersView: View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 6) {
                 FridaySymbolLabel(agent.name, systemImage: "terminal").font(.system(size: 14, weight: .medium))
-                    .fridaySymbolFeedback(value: agent.installed)
                 Text(friday: "任务 · 本地").font(.system(size: 12)).foregroundStyle(.secondary)
             }
             SettingsGroup("本地连接") {
@@ -124,7 +123,6 @@ private struct ProviderRowStyle: ButtonStyle {
         configuration.label.foregroundStyle(.primary)
             .background(.primary.opacity(selected ? 0.055 : configuration.isPressed ? 0.03 : 0),
                         in: RoundedRectangle(cornerRadius: 9))
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
     }
 }

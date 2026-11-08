@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskDelegatedBar: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let openTask: (String) -> Void
     @State private var stopping = false

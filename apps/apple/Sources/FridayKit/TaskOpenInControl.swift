@@ -1,15 +1,15 @@
 import SwiftUI
 
 struct TaskOpenInControl: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     var path = ""
     var line: Int? = nil
     var enableShortcut = false
     var menuOnly = false
     @StateObject private var model = TaskHostEditorModel()
-    @AppStorage("friday.tasks.preferredEditor") private var preferredID = ""
-    @AppStorage("friday.tasks.remoteEditorRevision") private var remoteRevision = 0
+    @FridayPreference("friday.tasks.preferredEditor") private var preferredID = ""
+    @FridayPreference("friday.tasks.remoteEditorRevision") private var remoteRevision = 0
     @State private var refresh = 0
     @State private var showingError = false
     @State private var configuringRemote = false

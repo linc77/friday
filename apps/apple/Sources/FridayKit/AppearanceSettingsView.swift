@@ -11,7 +11,7 @@ extension FridayAppearance {
 }
 
 struct AppearanceSettingsView: View {
-    @AppStorage(FridayPreferenceKeys.appearance) private var appearance: FridayAppearance = .system
+    @FridayPreference(FridayPreferenceKeys.appearance) private var appearance: FridayAppearance = .system
 
     var body: some View {
         SettingsPage(title: "外观", subtitle: "调整主题、Friday 形象、字体、内容宽度和代码配色。") {
@@ -52,9 +52,9 @@ struct AppearanceSettingsView: View {
 }
 
 private struct FridayAvatarSettings: View {
-    @AppStorage(FridayPreferenceKeys.avatarBodyColor) private var bodyColor = FridayAvatarColor.bodyDefault
-    @AppStorage(FridayPreferenceKeys.avatarEyeColor) private var eyeColor = FridayAvatarColor.eyeDefault
-    @AppStorage(FridayPreferenceKeys.avatarBowTieColor) private var bowTieColor = FridayAvatarColor.bowTieDefault
+    @FridayPreference(FridayPreferenceKeys.avatarBodyColor) private var bodyColor = FridayAvatarColor.bodyDefault
+    @FridayPreference(FridayPreferenceKeys.avatarEyeColor) private var eyeColor = FridayAvatarColor.eyeDefault
+    @FridayPreference(FridayPreferenceKeys.avatarBowTieColor) private var bowTieColor = FridayAvatarColor.bowTieDefault
 
     var body: some View {
         SettingsGroup("Friday 形象") {

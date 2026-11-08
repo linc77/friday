@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskChangeRequestStackView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String; let url: String; let detail: TaskChangeRequestDetail; let refreshID: UUID
     let busy: Bool; let draft: TaskChangeRequestDraft
     let navigate: (String) -> Void; let submit: (TaskChangeRequestSubmission) -> Void
@@ -57,9 +57,10 @@ struct TaskChangeRequestStackView: View {
                 Text("Stack #\(plan.stackNumber) → \(plan.base)").font(.system(.caption, design: .monospaced))
                 ScrollView { VStack(alignment: .leading, spacing: 7) { ForEach(plan.layers) { layer in Text("#\(layer.number) \(layer.title ?? layer.headBranch)").frame(maxWidth: .infinity, alignment: .leading) } } }.frame(maxHeight: 180)
                 if plan.action == "merge" {
-                    Picker(selection: Binding(get: { confirmation?.mergeMethod ?? plan.mergeMethod }, set: { confirmation?.mergeMethod = $0 })) {
-                        ForEach(detail.mergeMethods, id: \.self) { method in Text(friday: method == "squash" ? "压缩合并" : method == "rebase" ? "变基合并" : "合并").tag(method) }
-                    } label: { Text(friday: "合并方式") }.fridayInteractiveCursor()
+                    LabeledContent {
+                        SettingsSelect(title: "合并方式", selection: Binding(get: { confirmation?.mergeMethod ?? plan.mergeMethod }, set: { confirmation?.mergeMethod = $0 }),
+                            options: detail.mergeMethods.map { SettingsChoice($0 == "squash" ? "压缩合并" : $0 == "rebase" ? "变基合并" : "合并", $0) })
+                    } label: { Text(friday: "合并方式") }
                 }
                 HStack {
                     Button(friday: "取消") { confirmation = nil }.buttonStyle(FridayButtonStyle(compact: true))

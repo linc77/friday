@@ -2,7 +2,7 @@ import SwiftUI
 import WebKit
 
 struct TaskChangeRequestFileView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String; let url: String; let target: TaskChangeRequestFileTarget
     @State private var side = "new"
     @State private var contents: TaskChangeRequestFileContents?
@@ -22,7 +22,7 @@ struct TaskChangeRequestFileView: View {
                     Text(contents?.revision ?? target.commit ?? target.head).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary).textSelection(.enabled)
                 }
                 Spacer()
-                Toggle(isOn: $wrapping) { Text(friday: "自动换行") }.toggleStyle(.switch).controlSize(.mini).fixedSize().fridayInteractiveCursor()
+                FridayToggle(isOn: $wrapping) { Text(friday: "自动换行") }.controlSize(.mini).fixedSize().fridayInteractiveCursor()
                 Button { Task { await load() } } label: { FridaySymbolImage(systemName: "arrow.clockwise").frame(width: 26, height: 26) }.buttonStyle(FridaySymbolButtonStyle()).disabled(loading || !store.connected).help(Text(friday: "刷新"))
                 Button { dismiss() } label: { FridaySymbolImage(systemName: "xmark").frame(width: 26, height: 26) }.buttonStyle(FridaySymbolButtonStyle()).help(Text(friday: "关闭"))
             }.padding(12)

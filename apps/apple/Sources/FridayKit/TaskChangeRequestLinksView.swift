@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskChangeRequestLinksView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let taskID: String
     var open: (String) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -87,7 +87,8 @@ struct TaskChangeRequestLinksView: View {
         }.padding(20).frame(minWidth: 360, idealWidth: 620, minHeight: 380, idealHeight: 560)
         .interactiveDismissDisabled(sending)
         .task(id: identity) { scope = identity; response = nil; pending = nil; await load() }
-        .onReceive(store.$tasks) { tasks in
+        .onChange(of: store.taskRevision(taskID), initial: true) { _, _ in
+            let tasks = store.tasks
             guard current, !busy, store.snapshotIdentity == store.connectionIdentity, let task = tasks.first(where: { $0.id == taskID }), let links = task.pullRequests else { return }
             response = TaskChangeRequestLinksResponse(revision: task.changeRequestLinksRevision ?? 0, links: links, branch: task.branchPullRequest)
         }

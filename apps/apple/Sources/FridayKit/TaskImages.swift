@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 /// Bounded thumbnails shared by the composer and persisted user messages.
 struct TaskImageRail: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let images: [IdeaImage]
     var remove: ((String) -> Void)? = nil
     var disabled = false
@@ -54,7 +54,7 @@ struct TaskImageRail: View {
 }
 
 private struct TaskImagePreview: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let images: [IdeaImage]
     @State var selected: String
     @State private var zoom: CGFloat = 1

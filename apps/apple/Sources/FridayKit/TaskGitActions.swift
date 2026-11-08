@@ -27,7 +27,7 @@ private struct TaskGitSheet {
 private struct TaskChangeRequestSheet: Identifiable { let id: String }
 
 struct TaskGitActionsControl: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     @State private var status: TaskGitStatus?
     @State private var sheet: TaskGitSheet?
@@ -321,7 +321,6 @@ private struct TaskGitProgress: View {
             if let operation {
                 HStack(spacing: 9) {
                     FridaySymbolImage(systemName: operation.active ? "circle.dashed" : operation.status == "completed" ? "checkmark.circle" : "exclamationmark.circle")
-                        .fridaySymbolFeedback(value: operation.status)
                     Text(fridayString: operation.active ? TaskGitPresentation.phase(operation.phase, provider: operation.changeRequestProvider) : operation.status == "completed" ? "Git 操作已完成" : "Git 操作未完成").font(.callout.weight(.medium))
                     Spacer()
                     if operation.active, let start = CodexTranscript.date(operation.phaseStartedAt ?? operation.createdAt) {

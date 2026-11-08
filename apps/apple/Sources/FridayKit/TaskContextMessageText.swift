@@ -2,7 +2,7 @@ import SwiftUI
 
 struct TaskContextMessageText: View {
     @ReadingPreferences private var reading: ReadingStyle
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let text: String
     let contexts: [TaskContextReference]
     let taskID: String

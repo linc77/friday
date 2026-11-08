@@ -123,7 +123,7 @@ struct TaskTitleEditor: NSViewRepresentable {
 }
 
 struct TaskSidebarTaskButton: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     let selected: Bool
     let showsWorkspace: Bool
@@ -167,7 +167,7 @@ struct TaskSidebarTaskButton: View {
 }
 
 struct TaskHeaderTitle: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let task: WorkItem
     @StateObject private var rename = TaskTitleRenaming()
     var body: some View {

@@ -32,9 +32,9 @@ private extension EnvironmentValues {
 
 /// Draw On is an insertion effect. Replace only the image when an interaction
 /// triggers it, preserving the surrounding button's identity and focus.
-struct FridaySymbolImage: View {
+struct FridaySidebarSymbolImage: View {
     let systemName: String
-    var motion: FridaySymbolMotion = .drawOn
+    let motion: FridaySymbolMotion
     @Environment(\.fridaySymbolDrawTrigger) private var drawTrigger
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -85,33 +85,35 @@ struct FridaySymbolImage: View {
     }
 }
 
-/// Keep the native Label layout and accessibility while allowing its image to redraw.
+/// Ordinary product icons stay static and do not subscribe to animation triggers.
+struct FridaySymbolImage: View {
+    let systemName: String
+
+    var body: some View { Image(systemName: systemName) }
+}
+
+/// Keep the native Label layout and accessibility with a static symbol.
 struct FridaySymbolLabel: View {
     let title: Text
     let systemImage: String
-    let motion: FridaySymbolMotion
 
-    init(_ title: String, systemImage: String, motion: FridaySymbolMotion = .drawOn) {
+    init(_ title: String, systemImage: String) {
         self.title = Text(title)
         self.systemImage = systemImage
-        self.motion = motion
     }
 
-    init(friday title: String, systemImage: String, motion: FridaySymbolMotion = .drawOn) {
+    init(friday title: String, systemImage: String) {
         self.title = Text(fridayString: title)
         self.systemImage = systemImage
-        self.motion = motion
     }
 
     var body: some View {
-        Label { title } icon: { FridaySymbolImage(systemName: systemImage, motion: motion) }
+        Label { title } icon: { FridaySymbolImage(systemName: systemImage) }
     }
 }
 
-/// Native symbol feedback shared by navigation, controls, and standalone icons.
-/// Only activation or live state changes redraw; hovering and rebuilding stay still.
-private struct FridaySymbolFeedback<Value: Equatable>: ViewModifier {
-    let active: Bool
+/// Only the macOS Ideas and Settings sidebar buttons install this trigger.
+private struct FridaySidebarSymbolFeedback<Value: Equatable>: ViewModifier {
     let value: Value
     @State private var trigger = 0
     @Environment(\.isEnabled) private var isEnabled
@@ -124,31 +126,23 @@ private struct FridaySymbolFeedback<Value: Equatable>: ViewModifier {
         content
             .environment(\.fridaySymbolDrawTrigger, trigger)
             .symbolEffectsRemoved(!canAnimate)
-            .onChange(of: active) { _, active in
-                if active && canAnimate { trigger += 1 }
-            }
             .onChange(of: value) { _, _ in
                 if canAnimate { trigger += 1 }
             }
     }
 }
 
-/// Plain controls still provide symbol feedback on each press, including reselecting.
+/// Plain controls retain the shared cursor without animation state or observers.
 struct FridaySymbolButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .fridaySymbolFeedback(active: configuration.isPressed)
             .fridayInteractiveCursor()
     }
 }
 
 extension View {
-    func fridaySymbolFeedback(active: Bool = false) -> some View {
-        fridaySymbolFeedback(active: active, value: 0)
-    }
-
-    func fridaySymbolFeedback<Value: Equatable>(active: Bool = false, value: Value) -> some View {
-        modifier(FridaySymbolFeedback(active: active, value: value))
+    func fridaySidebarSymbolFeedback<Value: Equatable>(value: Value) -> some View {
+        modifier(FridaySidebarSymbolFeedback(value: value))
     }
 }
 
@@ -173,8 +167,6 @@ struct FridayTaskStatusIcon: View {
     var body: some View {
         FridaySymbolImage(systemName: symbol)
             .symbolRenderingMode(.monochrome)
-            // Only a live status change redraws; initial/history snapshots stay still.
-            .fridaySymbolFeedback(value: status)
             .accessibilityHidden(true)
     }
 }

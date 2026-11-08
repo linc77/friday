@@ -79,7 +79,7 @@ struct WorkspaceAppearancePicker: View {
 }
 
 struct WorkspaceIdentityEditor: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let project: Project
     @Environment(\.dismiss) private var dismiss
     @State private var name: String

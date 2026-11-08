@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HealthSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     @State private var settings = HealthShareSettings.initial
     @State private var state: HealthStatus?
     @State private var busy = false
@@ -21,7 +21,7 @@ struct HealthSettingsView: View {
                 Text(friday: "让 Friday 持续关注你的作息与活动，在约定时间主动与你分享。")
                     .foregroundStyle(.secondary)
                 #if os(iOS)
-                Toggle(isOn: Binding(get: { sync.enabled }, set: { value in action { try await sync.setEnabled(value); await load() } })) {
+                FridayToggle(isOn: Binding(get: { sync.enabled }, set: { value in action { try await sync.setEnabled(value); await load() } })) {
                     Text(friday: "同步这台 iPhone 的健康摘要")
                 }.disabled(busy || !store.connected).fridayInteractiveCursor()
                 Text(fridayString: sync.status).font(.caption).foregroundStyle(.secondary)
@@ -36,7 +36,7 @@ struct HealthSettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             } header: { Text(friday: "健康数据") }
             Section {
-                Toggle(isOn: $settings.enabled) { Text(friday: "每天主动分享") }.fridayInteractiveCursor()
+                FridayToggle(isOn: $settings.enabled) { Text(friday: "每天主动分享") }.fridayInteractiveCursor()
                 DatePicker(selection: time, displayedComponents: .hourAndMinute) { Text(friday: "每日时间") }.fridayInteractiveCursor()
                 TextField(friday: "时区", text: $settings.timezone)
                 TextField(friday: "关注内容", text: Binding(get: { settings.focus ?? "" }, set: { settings.focus = $0 }))
@@ -45,15 +45,18 @@ struct HealthSettingsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if let sources = state?.sources, !sources.isEmpty {
-                    Picker(selection: $settings.sourceDeviceId) {
-                        Text(friday: "选择健康来源").tag(String?.none)
-                        ForEach(sources.filter(\.enabled)) { source in
-                            Text(store.devices.first { $0.id == source.deviceId }?.name ?? "iPhone").tag(Optional(source.deviceId))
-                        }
-                    } label: { Text(friday: "健康来源") }
-                    .disabled(store.deviceId != "owner").fridayInteractiveCursor()
+                    HStack {
+                        Text(friday: "健康来源")
+                        Spacer()
+                        SettingsSelect(title: "健康来源", selection: $settings.sourceDeviceId,
+                            options: [SettingsChoice("选择健康来源", String?.none)]
+                                + sources.filter(\.enabled).map { source in
+                                    SettingsChoice(store.devices.first { $0.id == source.deviceId }?.name ?? "iPhone", Optional(source.deviceId))
+                                })
+                            .disabled(store.deviceId != "owner")
+                    }
                 }
-                Toggle(isOn: $settings.modelConsent) { Text(friday: "允许当前模型分析健康摘要") }.fridayInteractiveCursor()
+                FridayToggle(isOn: $settings.modelConsent) { Text(friday: "允许当前模型分析健康摘要") }.fridayInteractiveCursor()
                 Text(friday: "关闭时由本机整理数字。开启后，每日健康对话及你主动询问健康时读取的摘要会发送给当前模型服务（默认 DeepSeek），用于趋势分享和交流。停止同步会清除主机上的该设备摘要，已有对话仍保留。")
                     .font(.caption).foregroundStyle(.secondary)
                 Button(friday: "保存分享设置") { action { try await save() } }
@@ -113,6 +116,10 @@ struct HealthSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        #if os(macOS)
+        .scrollContentBackground(.hidden)
+        .background(FridayTheme.canvas)
+        #endif
         .navigationTitle(Text(friday: "健康与主动分享"))
         .task { await load() }
     }

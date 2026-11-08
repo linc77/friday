@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskContextPreview: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let reference: TaskContextReference
     let scope: TaskContextScope
     @State private var snapshot: TaskContextSnapshot?
@@ -72,7 +72,7 @@ struct TaskContextSuggestionList: View {
 }
 
 struct TaskFileReferencePicker: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     let scope: TaskContextScope
     let add: (TaskContextReference) -> Void
     @Environment(\.dismiss) private var dismiss

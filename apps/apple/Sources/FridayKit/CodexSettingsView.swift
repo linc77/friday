@@ -4,7 +4,7 @@ import AppKit
 #endif
 
 struct CodexSettingsView: View {
-    @ObservedObject var store: FridayStore
+    @Bindable var store: FridayStore
     var provider = "codex"
     var instanceId: String? = nil
     @ObservedObject private var modelPreferences = ProviderModelPreferences.shared
@@ -65,7 +65,7 @@ struct CodexSettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 FridaySymbolLabel(friday: "当前主机 · 全部项目", systemImage: "laptopcomputer")
-                    .font(.system(size: 12)).foregroundStyle(.secondary).fridaySymbolFeedback()
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
                 Spacer()
                 if let checkedTime { Text(checkedTime).font(.system(size: 11)).foregroundStyle(.tertiary) }
                 Button { Task { await refresh(force: true) } } label: {
@@ -90,13 +90,12 @@ struct CodexSettingsView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 6) {
                     FridaySymbolLabel(providerName, systemImage: "cpu").font(.system(size: 14, weight: .medium))
-                        .fridaySymbolFeedback(value: state?.connected)
                     Text(fridayString: accountLabel).font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 if let version = state?.version { Text("v\(version)").font(.system(size: 11, design: .monospaced)).foregroundStyle(.tertiary) }
                 if owner {
-                    Toggle(isOn: $draft.enabled) { Text(providerName) }.labelsHidden().toggleStyle(.switch).controlSize(.mini)
+                    FridayToggle(isOn: $draft.enabled) { Text(providerName) }.labelsHidden().controlSize(.mini)
                         .fridayInteractiveCursor()
                         .disabled(busy || !store.connected)
                 }
@@ -143,14 +142,11 @@ struct CodexSettingsView: View {
             if owner {
                 SettingsGroup("权限") {
                     SettingsRow("权限模式", detail: "新任务和续聊使用此设置；正在执行的任务不受影响。") {
-                        Picker(selection: $draft.permissionMode) {
-                            Text(friday: provider == "pi" ? "完全访问" : "Auto").tag("auto")
-                            Text(friday: "手动确认").tag("default")
-                            if provider == "claude" || provider == "pi" {
-                                Text(friday: "自动接受编辑").tag("acceptEdits")
-                            }
-                        } label: { Text(friday: "权限模式") }
-                            .labelsHidden().frame(maxWidth: 210).fridayInteractiveCursor().disabled(busy)
+                        SettingsSelect(title: "权限模式", selection: $draft.permissionMode,
+                            options: [SettingsChoice(provider == "pi" ? "完全访问" : "Auto", "auto"),
+                                      SettingsChoice("手动确认", "default")]
+                                + (provider == "claude" || provider == "pi" ? [SettingsChoice("自动接受编辑", "acceptEdits")] : []))
+                            .disabled(busy)
                     }
                     SettingsDivider()
                     Text(fridayString: permissionHelp)
@@ -159,18 +155,20 @@ struct CodexSettingsView: View {
             }
             SettingsGroup("模型") {
                 SettingsRow("默认模型", detail: "保存在当前主机。") {
-                    Picker(selection: Binding(get: { draft.model }, set: { draft.model = $0; draft.reasoningEffort = "" })) {
-                        Text(friday: "工具默认").tag("")
-                        ForEach(preferences.sorted(models, includeHidden: false)) { model in Text(model.selectionName).tag(model.id) }
-                        if !draft.model.isEmpty && !(preferences.sorted(models, includeHidden: false).contains { $0.id == draft.model }) { Text(selectedModel?.selectionName ?? draft.model).tag(draft.model) }
-                    } label: { Text(friday: "默认模型") }.labelsHidden().frame(maxWidth: 210).fridayInteractiveCursor().disabled(!owner || busy)
+                    SettingsSelect(title: "默认模型",
+                        selection: Binding(get: { draft.model }, set: { draft.model = $0; draft.reasoningEffort = "" }),
+                        options: [SettingsChoice("工具默认", "")]
+                            + preferences.sorted(models, includeHidden: false).map { SettingsChoice($0.selectionName, $0.id) }
+                            + (!draft.model.isEmpty && !(preferences.sorted(models, includeHidden: false).contains { $0.id == draft.model })
+                                ? [SettingsChoice(selectedModel?.selectionName ?? draft.model, draft.model)] : []))
+                        .disabled(!owner || busy)
                 }
                 SettingsDivider()
                 SettingsRow("推理强度", detail: "按当前模型提供的选项设置。") {
-                    Picker(selection: $draft.reasoningEffort) {
-                        Text(friday: "模型默认").tag("")
-                        ForEach(selectedModel?.reasoningEfforts ?? [], id: \.self) { Text($0.capitalized).tag($0) }
-                    } label: { Text(friday: "推理强度") }.labelsHidden().frame(maxWidth: 210).fridayInteractiveCursor().disabled(!owner || busy)
+                    SettingsSelect(title: "推理强度", selection: $draft.reasoningEffort,
+                        options: [SettingsChoice("模型默认", "")]
+                            + (selectedModel?.reasoningEfforts ?? []).map { SettingsChoice($0.capitalized, $0) })
+                        .disabled(!owner || busy)
                 }
             }
             modelCatalog
@@ -279,12 +277,12 @@ struct CodexSettingsView: View {
                 } label: { FridaySymbolImage(systemName: "minus.circle") }
                     .buttonStyle(FridaySymbolButtonStyle()).disabled(busy).accessibilityLabel(Text(friday: "移除模型"))
             }
-            Toggle(isOn: Binding(get: { !preferences.hidden.contains(model.id) }, set: { visible in
+            FridayToggle(isOn: Binding(get: { !preferences.hidden.contains(model.id) }, set: { visible in
                 updatePreferences { value in
                     value.hidden.removeAll { $0 == model.id }
                     if !visible { value.hidden.append(model.id) }
                 }
-            })) { Text(friday: "显示模型") }.labelsHidden().toggleStyle(.switch).controlSize(.mini)
+            })) { Text(friday: "显示模型") }.labelsHidden().controlSize(.mini)
                 .fridayInteractiveCursor()
                 .accessibilityLabel(Text(friday: "显示模型") + Text(" " + model.name))
         }.padding(14)
