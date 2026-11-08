@@ -8,6 +8,7 @@ import SwiftUI
 struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
     @Binding var width: Double
     let visible: Bool
+    var panelOnLeadingEdge = false
     let main: Main
     let panel: () -> Panel
 
@@ -16,7 +17,7 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
         FridayViewportSizing.size(proposal, current: nsView.bounds.size)
     }
     func updateNSView(_ view: TaskPanelSplitHost, context: Context) {
-        view.update(width: width, visible: visible,
+        view.update(width: width, visible: visible, panelOnLeadingEdge: panelOnLeadingEdge,
                     main: AnyView(main.environment(\.self, context.environment)),
                     panel: visible ? AnyView(panel().environment(\.self, context.environment)) : AnyView(EmptyView()),
                     commit: { width = $0 })
@@ -27,6 +28,7 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
     private let mainHost = FridayPaneHostingView(rootView: AnyView(EmptyView()))
     private let panelHost = FridayPaneHostingView(rootView: AnyView(EmptyView()))
     private let divider = TaskPanelDivider()
+    private var panelOnLeadingEdge = false
     private var visible = false
     private var preferredWidth: CGFloat = 460
     private var dragStart: (x: CGFloat, width: CGFloat)?
@@ -45,8 +47,9 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func update(width: Double, visible: Bool, main: AnyView, panel: AnyView, commit: @escaping (Double) -> Void) {
+    func update(width: Double, visible: Bool, panelOnLeadingEdge: Bool = false, main: AnyView, panel: AnyView, commit: @escaping (Double) -> Void) {
         if dragStart != nil { dragRootUpdates += 1 }
+        self.panelOnLeadingEdge = panelOnLeadingEdge
         self.commit = commit
         preferredWidth = width.isFinite ? width : 460
         if !visible { dragStart = nil }
@@ -65,15 +68,24 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
         let lower = min(320, usable / 2), upper = max(lower, usable - min(380, usable / 2))
         return min(upper, max(lower, width.isFinite ? width : 460))
     }
+    private func clampedWidth(_ width: CGFloat) -> CGFloat {
+        guard panelOnLeadingEdge else { return Self.clamped(width, total: bounds.width) }
+        let usable = max(0, bounds.width - Self.dividerWidth)
+        let lower = min(200, usable / 2)
+        let upper = max(lower, min(480, usable - min(420, usable / 2)))
+        return min(upper, max(lower, width.isFinite ? width : 250))
+    }
+
     override func layout() {
         super.layout()
         if dragStart != nil { dragLayouts += 1 }
         guard visible else { setFrame(mainHost, bounds); return }
-        displayedWidth = Self.clamped(dragStart == nil ? preferredWidth : displayedWidth, total: bounds.width)
+        displayedWidth = clampedWidth(dragStart == nil ? preferredWidth : displayedWidth)
         let mainWidth = max(0, bounds.width - displayedWidth - Self.dividerWidth)
-        setFrame(mainHost, NSRect(x: 0, y: 0, width: mainWidth, height: bounds.height))
-        setFrame(divider, NSRect(x: mainWidth, y: 0, width: Self.dividerWidth, height: bounds.height))
-        setFrame(panelHost, NSRect(x: mainWidth + Self.dividerWidth, y: 0, width: displayedWidth, height: bounds.height))
+        let dividerX = panelOnLeadingEdge ? displayedWidth : mainWidth
+        setFrame(mainHost, NSRect(x: panelOnLeadingEdge ? displayedWidth + Self.dividerWidth : 0, y: 0, width: mainWidth, height: bounds.height))
+        setFrame(divider, NSRect(x: dividerX, y: 0, width: Self.dividerWidth, height: bounds.height))
+        setFrame(panelHost, NSRect(x: panelOnLeadingEdge ? 0 : mainWidth + Self.dividerWidth, y: 0, width: displayedWidth, height: bounds.height))
     }
     private func setFrame(_ view: NSView, _ frame: NSRect) {
         guard view.frame != frame else { return }
@@ -90,7 +102,7 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
     }
     func resize(to x: CGFloat) {
         guard let start = dragStart else { return }
-        displayedWidth = Self.clamped(start.width + start.x - x, total: bounds.width)
+        displayedWidth = clampedWidth(start.width + (panelOnLeadingEdge ? x - start.x : start.x - x))
         needsLayout = true
     }
     func finishResize(cancelled: Bool = false) {
@@ -102,7 +114,7 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
         needsLayout = true
     }
     func adjust(by delta: CGFloat) {
-        beginResize(at: 0); resize(to: -delta); finishResize()
+        beginResize(at: 0); resize(to: panelOnLeadingEdge ? delta : -delta); finishResize()
     }
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -113,6 +125,9 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
 @MainActor private final class TaskPanelDivider: NSView {
     weak var owner: TaskPanelSplitHost?
     override var acceptsFirstResponder: Bool { true }
+    // Transparent gutters are controls, not draggable window background.
+    override var mouseDownCanMoveWindow: Bool { false }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override init(frame: NSRect) {
         super.init(frame: frame)
         setAccessibilityElement(true)
@@ -127,10 +142,15 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
     override func mouseUp(with event: NSEvent) { owner?.finishResize() }
     override func accessibilityPerformIncrement() -> Bool { owner?.adjust(by: 40); return owner != nil }
     override func accessibilityPerformDecrement() -> Bool { owner?.adjust(by: -40); return owner != nil }
+    private func moveDivider(by delta: CGFloat) {
+        owner?.beginResize(at: 0)
+        owner?.resize(to: delta)
+        owner?.finishResize()
+    }
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 123: owner?.adjust(by: 40)
-        case 124: owner?.adjust(by: -40)
+        case 123: moveDivider(by: -40)
+        case 124: moveDivider(by: 40)
         case 53: owner?.finishResize(cancelled: true)
         default: super.keyDown(with: event)
         }
