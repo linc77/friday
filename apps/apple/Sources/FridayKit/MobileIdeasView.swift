@@ -121,7 +121,7 @@ struct MobileIdeasView: View {
                 .accessibilityLabel(Text(friday: "布局与更多操作"))
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+        .fridayMobileBottomBar { bottomBar }
         .fridayMobileHomeNavigation()
     }
 

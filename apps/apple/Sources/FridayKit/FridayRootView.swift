@@ -43,6 +43,7 @@ public struct FridayRootView: View {
     @FridayPreference(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
+    @State private var mobileKeyboardVisible = false
     @State private var mobileModelChoice: TaskModelChoice?
     #endif
     #if os(macOS)
@@ -92,13 +93,14 @@ public struct FridayRootView: View {
                                 Button(friday: "新对话", systemImage: "square.and.pencil", action: newTask)
                             }
                         }
-                        .overlay(alignment: .top) { FridayMobileTopFade() }
                 }.tabItem { Label(friday: "对话", systemImage: "ellipsis.message") }.tag(0)
+
                 NavigationStack { inbox.fridayMobilePageTitle("想法") }
                     .tabItem { Label(friday: "想法", systemImage: "scribble") }.tag(1)
+
                 NavigationStack(path: $mobileTaskPath) {
                     tasksList.fridayMobilePageTitle("任务")
-                        .safeAreaInset(edge: .bottom, spacing: 0) { mobileTaskDock }
+                        .fridayMobileBottomBar { mobileTaskDock }
                         .fridayMobileHomeNavigation()
                         .navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id, onOpenTask: openLocalTask).toolbar(.hidden, for: .tabBar) }
                         .toolbar {
@@ -108,6 +110,7 @@ public struct FridayRootView: View {
                         }
                         .sheet(isPresented: $choosingMobileWorkspace) { mobileNewTaskSheet }
                 }.tabItem { Label(friday: "任务", systemImage: "checklist") }.tag(2)
+
                 NavigationStack {
                     List {
                         connectionStatus
@@ -127,11 +130,21 @@ public struct FridayRootView: View {
                         NavigationLink(friday: "健康与主动分享") { HealthSettingsView(store: store).toolbar(.hidden, for: .tabBar) }
                     }
 
-                    .fridayMobileHomeNavigation()
+                    .fridayMobileHomeNavigation(hasComposer: false)
                     .navigationTitle(Text(friday: "我的 Friday"))
                 }.tabItem { Label(friday: "设置", systemImage: "gear") }.tag(3)
+
             }
-            .modifier(FridayNativeTabBarBehavior())
+            .toolbar(.hidden, for: .tabBar)
+            .modifier(FridayNavigationMotionHost(selection: mobileTab))
+            .environment(\.fridayMobileTabSelection, $mobileTab)
+            .environment(\.fridayMobileKeyboardVisible, mobileKeyboardVisible)
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                mobileKeyboardVisible = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
+                mobileKeyboardVisible = false
+            }
             .onChange(of: mobileTab) { _, _ in
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
@@ -188,6 +201,9 @@ public struct FridayRootView: View {
         .onAppear {
             if let id = UserDefaults.standard.string(forKey: "friday.openConversation") { UserDefaults.standard.removeObject(forKey: "friday.openConversation"); openConversation(id) }
         }
+        #if os(iOS)
+        .modifier(FridayMobileSoftTopEdge())
+        #endif
         #if os(macOS)
         .onChange(of: store.connectionIdentity) { _, _ in taskModelJump = nil; taskTitleEditors = [] }
         #endif

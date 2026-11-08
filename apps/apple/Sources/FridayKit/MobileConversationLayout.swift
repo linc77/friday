@@ -27,10 +27,13 @@ private struct FridayMobileTitleSurface: ViewModifier {
     }
 }
 
-/// The composer sits above the native tab bar in the page's safe area.
-/// It no longer contains navigation buttons, a moving lens or collapse animation.
+/// One glass surface wraps both rows. The upper input uses only a subtle fill,
+/// not another glass layer. Detail composers never include module navigation.
 struct FridayMobileComposerDock<Composer: View>: View {
     var notice: String? = nil
+    var showsComposer = true
+    @Environment(\.fridayMobileHome) private var home
+    @Environment(\.fridayMobileKeyboardVisible) private var keyboardVisible
     @ViewBuilder let composer: () -> Composer
 
     var body: some View {
@@ -42,12 +45,18 @@ struct FridayMobileComposerDock<Composer: View>: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 8)
             }
-            VStack(spacing: 8) { composer() }
-                .padding(8)
-                .modifier(FridayMobileDockSurface(cornerRadius: 28))
+            VStack(spacing: home ? 8 : 0) {
+                if showsComposer { composer() }
+                if home, !keyboardVisible { FridayMobileNavigationRow() }
+            }
+            .padding(home ? 12 : 8)
+            .modifier(FridayMobileDockSurface(cornerRadius: home ? 36 : 28))
         }
+        .frame(maxWidth: home ? 600 : .infinity)
         .padding(.horizontal, FridayMobileDockMetrics.horizontalInset)
-        .padding(.vertical, 6)
+        .padding(.top, 6)
+        .padding(.bottom, home && !keyboardVisible ? 14 : 6)
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -113,25 +122,15 @@ struct FridayMobileInputSurface: ViewModifier {
     }
 }
 
-struct FridayMobileTopFade: View {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        Group {
-            if reduceTransparency {
-                FridayTheme.conversationCanvas.ignoresSafeArea(.container, edges: .top).allowsHitTesting(false)
-            } else {
-                Rectangle().fill(.regularMaterial)
-                    .mask {
-                        LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.5), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)
-                    }
-                    .ignoresSafeArea(.container, edges: .top)
-                    .allowsHitTesting(false)
-            }
+/// Apply above the entire navigation/presentation hierarchy so Lists, Forms,
+/// ScrollViews and pushed pages use the same native gradual top transition.
+struct FridayMobileSoftTopEdge: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectStyle(.soft, for: .top)
+        } else {
+            content
         }
-        .frame(height: 24)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 }
 #endif
