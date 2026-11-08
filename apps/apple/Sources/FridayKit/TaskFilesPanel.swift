@@ -71,7 +71,7 @@ struct TaskFilesPanel: View {
     private var playbackURL: URL? { browserLoadedKey == editorKey ? browserURL : nil }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: FridayTheme.paneSpacing) {
             if let tab, !tab.path.isEmpty || tab.trail != nil {
                 HStack(spacing: 10) {
                     TaskFileBreadcrumbs(store: store, task: task, path: tab.path, trail: TaskFileBreadcrumb.retained(tab.trail, at: tab.path), revision: revision + ":\(refresh)", openFile: { state.open($0) }, navigate: { path, trail in state.navigate(path, trail: trail, keepSource: !folderView) })
@@ -91,8 +91,10 @@ struct TaskFilesPanel: View {
                     }
                     if !folderView { Button { state.explorerShown.toggle() } label: { FridaySymbolImage(systemName: "sidebar.left") }.foregroundStyle(state.explorerShown ? FridayTheme.accent : .secondary).accessibilityLabel(Text(friday: "显示文件树")) }
                     Button { reload() } label: { FridaySymbolImage(systemName: "arrow.clockwise") }.disabled(!store.connected).accessibilityLabel(Text(friday: "刷新文件"))
-                }.buttonStyle(FridaySymbolButtonStyle()).padding(12)
+                }.buttonStyle(FridaySymbolButtonStyle()).padding(12).fridayPaneSurface()
+                #if os(iOS)
                 Divider()
+                #endif
             }
             if folderView {
                 if let documentError {
@@ -101,12 +103,17 @@ struct TaskFilesPanel: View {
                         if let editor, editor.isDirty { Button(friday: "复制编辑内容") { copy(editor.contents) }.buttonStyle(FridayButtonStyle(compact: true)) }
                     }.padding(10)
                 }
-                explorer
+                explorer.fridayPaneSurface()
             }
             else {
-                HStack(spacing: 0) {
-                    if state.explorerShown { explorer.frame(minWidth: 130, idealWidth: 170, maxWidth: 210); Divider() }
-                    fileContent.frame(maxWidth: .infinity, maxHeight: .infinity)
+                HStack(spacing: FridayTheme.paneSpacing) {
+                    if state.explorerShown {
+                        explorer.frame(minWidth: 130, idealWidth: 170, maxWidth: 210).fridayPaneSurface()
+                        #if os(iOS)
+                        Divider()
+                        #endif
+                    }
+                    fileContent.frame(maxWidth: .infinity, maxHeight: .infinity).fridayPaneSurface()
                 }
             }
         }

@@ -14,7 +14,7 @@ struct CodeHighlight: Decodable, Sendable {
 /// Pierre themes as T3. Source strings are arguments, never evaluated scripts.
 final class CodeHighlighter: @unchecked Sendable {
     static let shared = CodeHighlighter()
-    private struct Key: Hashable { let text: String; let language: String; let dark: Bool }
+    private struct Key: Hashable { let text: String; let language: String; let dark: Bool; let theme: String }
     private struct Cached { let value: CodeHighlight; let bytes: Int }
     private let queue = DispatchQueue(label: "Friday.code-highlighting", qos: .userInitiated)
     private var context: JSContext?
@@ -24,9 +24,9 @@ final class CodeHighlighter: @unchecked Sendable {
     private var bytes = 0
     private var pending: [Key: [CheckedContinuation<CodeHighlight?, Never>]] = [:]
 
-    func highlight(_ text: String, language: String, dark: Bool) async -> CodeHighlight? {
+    func highlight(_ text: String, language: String, dark: Bool, theme: String = "pierre") async -> CodeHighlight? {
         guard !Task.isCancelled, text.utf8.count <= 1_048_576 else { return nil }
-        let key = Key(text: text, language: language, dark: dark)
+        let key = Key(text: text, language: language, dark: dark, theme: theme)
         return await withCheckedContinuation { continuation in
             queue.async { [self] in
                 if let saved = cache[key] {
@@ -40,7 +40,7 @@ final class CodeHighlighter: @unchecked Sendable {
                 }
                 context.exception = nil
                 guard let callback = JSValue(object: complete, in: context) else { finish(key, raw: ""); return }
-                context.objectForKeyedSubscript("fridayHighlight")?.call(withArguments: [text, language, dark, callback])
+                context.objectForKeyedSubscript("fridayHighlight")?.call(withArguments: [text, language, dark, callback, theme])
                 if context.exception != nil { finish(key, raw: "") }
                 queue.asyncAfter(deadline: .now() + 5) { [weak self] in self?.finish(key, raw: "") }
             }

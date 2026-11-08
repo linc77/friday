@@ -34,6 +34,7 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
     private var dragLayouts = 0
     private var commit: (Double) -> Void = { _ in }
     private(set) var displayedWidth: CGFloat = 460
+    private static var dividerWidth: CGFloat { FridayTheme.paneSpacing }
     override var isFlipped: Bool { true }
 
     init() {
@@ -60,7 +61,7 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
     }
 
     static func clamped(_ width: CGFloat, total: CGFloat) -> CGFloat {
-        let usable = max(0, total - 5)
+        let usable = max(0, total - dividerWidth)
         let lower = min(320, usable / 2), upper = max(lower, usable - min(380, usable / 2))
         return min(upper, max(lower, width.isFinite ? width : 460))
     }
@@ -69,10 +70,10 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
         if dragStart != nil { dragLayouts += 1 }
         guard visible else { setFrame(mainHost, bounds); return }
         displayedWidth = Self.clamped(dragStart == nil ? preferredWidth : displayedWidth, total: bounds.width)
-        let mainWidth = max(0, bounds.width - displayedWidth - 5)
+        let mainWidth = max(0, bounds.width - displayedWidth - Self.dividerWidth)
         setFrame(mainHost, NSRect(x: 0, y: 0, width: mainWidth, height: bounds.height))
-        setFrame(divider, NSRect(x: mainWidth, y: 0, width: 5, height: bounds.height))
-        setFrame(panelHost, NSRect(x: mainWidth + 5, y: 0, width: displayedWidth, height: bounds.height))
+        setFrame(divider, NSRect(x: mainWidth, y: 0, width: Self.dividerWidth, height: bounds.height))
+        setFrame(panelHost, NSRect(x: mainWidth + Self.dividerWidth, y: 0, width: displayedWidth, height: bounds.height))
     }
     private func setFrame(_ view: NSView, _ frame: NSRect) { if view.frame != frame { view.frame = frame } }
 
@@ -111,7 +112,7 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
         setAccessibilityLabel(String(localized: "调整侧栏宽度", bundle: .module))
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    override func draw(_ dirtyRect: NSRect) { NSColor.separatorColor.setFill(); dirtyRect.fill() }
+    // Keep main's transparent pane gutter; this view only owns its hit area.
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
     override func mouseDown(with event: NSEvent) { owner?.beginResize(at: owner?.convert(event.locationInWindow, from: nil).x ?? 0) }
     override func mouseDragged(with event: NSEvent) { owner?.resize(to: owner?.convert(event.locationInWindow, from: nil).x ?? 0) }

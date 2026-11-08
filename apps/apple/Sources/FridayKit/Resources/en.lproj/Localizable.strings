@@ -31,6 +31,7 @@
 "保存项目" = "Save project";
 "停止" = "Stop";
 "正在停止" = "Stopping";
+"思考" = "Thinking";
 "补充任务要求" = "Steer message";
 "允许本次" = "Allow once";
 "先关联一个项目" = "Connect a project first";
@@ -2672,3 +2673,47 @@
 "更早" = "Earlier";
 "日期未知" = "Unknown date";
 "无更多文本" = "No additional text";
+
+/* Settings categories */
+"任务设置" = "Task settings";
+"任务与项目" = "Tasks and projects";
+"选择 Friday 的界面主题。" = "Choose Friday’s interface theme.";
+"设置界面语言和输入习惯。" = "Set your interface language and input preferences.";
+"管理任务归档确认和自动结束跟进规则。" = "Manage archive confirmation and automatic task settlement.";
+"调整项目分组、任务排序和侧栏列表。" = "Adjust project grouping, task order, and sidebar lists.";
+
+/* Reading appearance */
+"调整主题、字体、内容宽度和代码配色。" = "Customize the theme, fonts, content width, and code colors.";
+"调整主题、Friday 形象、字体、内容宽度和代码配色。" = "Customize the theme, Friday's appearance, fonts, content width, and code colors.";
+"Friday 形象" = "Friday avatar";
+"当前形象" = "Current avatar";
+"颜色会立即应用到对话中的 Friday。" = "Colors apply to Friday in conversations immediately.";
+"恢复形象默认颜色" = "Reset avatar colors";
+"球体" = "Body";
+"眼睛" = "Eyes";
+"领结" = "Bow tie";
+"自定义颜色" = "Custom color";
+"白色" = "White";
+"黑色" = "Black";
+"红色" = "Red";
+"正文字体" = "Text font";
+"用于对话正文、Markdown 和消息输入；中文使用所选字体或系统回退字体。" = "Used for conversations, Markdown, and message input. Missing characters use system fallback fonts.";
+"正文字号" = "Text size";
+"代码字体" = "Code font";
+"用于代码块和源码预览，建议选择等宽字体。" = "Used for code blocks and source previews. A monospaced font is recommended.";
+"代码字号" = "Code size";
+"内容布局" = "Content layout";
+"使用全宽" = "Use full width";
+"让对话内容与输入框填满可用宽度，并保留两侧边距。" = "Let conversations and the composer fill the available width, keeping side margins.";
+"内容最大宽度" = "Maximum content width";
+"窄窗口会自动收缩，不影响设置页和工具面板。" = "Adapts to narrow windows. Settings and tool panels keep their own width.";
+"代码主题配色" = "Code colors";
+"语法高亮主题" = "Syntax theme";
+"用于代码块和源码预览，自动匹配界面的浅色或深色模式。" = "Used for code blocks and source previews, following the light or dark interface mode.";
+"实时预览" = "Live preview";
+"Friday 帮你把想法变成行动。The quick brown fox jumps over the lazy dog." = "Friday turns your ideas into action. The quick brown fox jumps over the lazy dog.";
+"更改立即生效，并保存在这台设备上。" = "Changes apply immediately and are saved on this device.";
+"恢复阅读外观默认值" = "Reset reading appearance";
+"系统默认" = "System default";
+
+"Midnight" = "Midnight";

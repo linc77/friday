@@ -1,13 +1,14 @@
 import Foundation
 
 enum FridayAppearance: String, CaseIterable, Identifiable {
-    case system, light, dark
+    case system, light, dark, midnight
     var id: String { rawValue }
     var title: String {
         switch self {
         case .system: "系统"
         case .light: "浅色"
         case .dark: "深色"
+        case .midnight: "Midnight"
         }
     }
 }
@@ -22,6 +23,9 @@ enum FridayLanguage: String, CaseIterable, Identifiable {
 
 enum FridayPreferenceKeys {
     static let appearance = "friday.appearance"
+    static let avatarBodyColor = "friday.avatar.bodyColor"
+    static let avatarEyeColor = "friday.avatar.eyeColor"
+    static let avatarBowTieColor = "friday.avatar.bowTieColor"
     static let language = "friday.language"
     static let workingShelfEnabled = "friday.tasks.workingShelfEnabled"
     static let legacySidebar = "friday.tasks.legacySidebar"

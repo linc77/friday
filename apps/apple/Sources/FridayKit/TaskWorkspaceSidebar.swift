@@ -244,7 +244,7 @@ struct TaskWorkspaceSidebar: View {
                                 WorkspaceIcon(name: group.name, icon: group.representative.icon, color: group.representative.color, size: 13)
                                 Group { if group.scratch { Text(friday: "无项目") } else { Text(verbatim: group.name) } }.lineLimit(1)
                                 Spacer(minLength: 0)
-                                Text("\(rows.count)").font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                                Text("\(rows.count)").font(.caption2.monospacedDigit()).foregroundStyle(FridayTheme.secondaryText)
                             }.frame(maxWidth: .infinity, minHeight: 28).contentShape(Rectangle())
                         }.buttonStyle(FridaySymbolButtonStyle()).accessibilityValue(Text(friday: expanded ? "已展开" : "已收起"))
                         if !group.scratch {
@@ -298,7 +298,7 @@ struct TaskWorkspaceSidebar: View {
                         Text(friday: "这个 Workspace 还没有任务")
                             .font(.callout.weight(.medium))
                         Text(friday: "点击上方新任务按钮开始。")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(FridayTheme.secondaryText)
                     }.multilineTextAlignment(.center).padding(.horizontal, 20).padding(.top, 44)
                 }
                 #if os(macOS)
@@ -306,7 +306,7 @@ struct TaskWorkspaceSidebar: View {
                     let rows = TaskProjectSidebar.conversationRows(tasks, pinned: pinned)
                     if !rows.isEmpty {
                         Text(friday: pinned ? "置顶" : "最近")
-                            .font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                            .font(.system(size: 12, weight: .medium)).foregroundStyle(FridayTheme.secondaryText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, TaskSidebarLayout.rowInset).padding(.top, 8).padding(.bottom, 2)
                             .accessibilityAddTraits(.isHeader)
@@ -356,7 +356,7 @@ struct TaskWorkspaceSidebar: View {
                 Text("\(count)").monospacedDigit()
                 Spacer(minLength: 0)
             }
-            .font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+            .font(.system(size: 12, weight: .medium)).foregroundStyle(FridayTheme.secondaryText)
             .frame(minHeight: 24).padding(.horizontal, TaskSidebarLayout.rowInset).contentShape(Rectangle())
         }
         .buttonStyle(WorkspaceTitleButtonStyle())
@@ -398,7 +398,7 @@ struct TaskWorkspaceSidebar: View {
         } label: {
             TaskRow(task: task, workspaceName: TaskWorkspaces.name(for: task, in: store.projects), workspace: TaskWorkspaces.project(for: task, in: store.projects), selected: selectedTask == task.id, showsWorkspace: !legacySidebar && (selectedGroup == nil || (selectedGroup?.members.count ?? 0) > 1),
                 acknowledgeWake: { Task { await store.acknowledgeTaskWake(task) } })
-                .padding(.horizontal, TaskSidebarLayout.rowInset).foregroundStyle(.primary)
+                .padding(.horizontal, TaskSidebarLayout.rowInset).foregroundStyle(FridayTheme.foreground)
         }.buttonStyle(TaskRowButtonStyle(selected: selectedTask == task.id))
             .accessibilityAddTraits(selectedTask == task.id ? .isSelected : [])
             .help("\(task.title)\n\(task.cwd)")
@@ -505,7 +505,7 @@ struct TaskWorkspaceSidebar: View {
                 .buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: "历史任务")).help(Text(friday: "历史任务"))
                 .popover(isPresented: $showingHistory, arrowEdge: .bottom) { historyPanel.environment(\.locale, locale) }
             Spacer(minLength: 0)
-            if let group = selectedGroup { Group { if group.scratch { Text(friday: "无项目") } else { Text(verbatim: group.name) } }.font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+            if let group = selectedGroup { Group { if group.scratch { Text(friday: "无项目") } else { Text(verbatim: group.name) } }.font(.caption).foregroundStyle(FridayTheme.secondaryText).lineLimit(1) }
         }.padding(.horizontal, 10).padding(.bottom, 8)
         #endif
     }
@@ -528,13 +528,13 @@ struct TaskWorkspaceSidebar: View {
             HStack {
                 Text(friday: "历史任务").font(.headline)
                 Spacer()
-                Text("\(historyTasks.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Text("\(historyTasks.count)").font(.caption.monospacedDigit()).foregroundStyle(FridayTheme.secondaryText)
             }
             Button(friday: "已归档任务", systemImage: "archivebox") { showingHistory = false; showingArchives = true }
                 .buttonStyle(FridayButtonStyle(compact: true))
             if historyTasks.isEmpty {
                 Text(friday: "还没有历史任务")
-                    .font(.callout).foregroundStyle(.secondary)
+                    .font(.callout).foregroundStyle(FridayTheme.secondaryText)
                     .frame(maxWidth: .infinity, minHeight: 64)
             } else {
                 ScrollView {

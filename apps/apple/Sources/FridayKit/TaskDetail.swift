@@ -1,6 +1,10 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 struct TaskDetail: View {
+    @ReadingPreferences private var reading: ReadingStyle
     @Bindable var store: FridayStore
     let id: String
     var onOpenTask: ((String) -> Void)? = nil
@@ -168,6 +172,7 @@ struct TaskDetail: View {
             }
         } else {
             EmptyPanel(icon: "checklist", title: store.taskWasRemoved(id) ? "任务不存在" : "正在加载任务", subtitle: store.taskStreamErrors[id] ?? "连接主机后会显示最新进展。")
+                .fridayPaneSurface()
                 #if os(iOS)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     // The home must remain navigable before its composer is available.
@@ -259,26 +264,12 @@ struct TaskDetail: View {
                     )
                 }
             }
-            #else
-            if !task.localAgent {
-                FloatingComposer(
-                    message: $message,
-                    active: task.active,
-                    sending: sending,
-                    disabled: sending || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task.status == "queued",
-                    error: store.error,
-                    send: sendMessage
-                )
-                .frame(maxWidth: FridayTheme.contentWidth)
-                .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
-                .frame(maxWidth: .infinity)
-            }
             #endif
         }
         #if os(macOS)
         .overlay(alignment: .bottom) {
-            if task.localAgent {
-                VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                if task.localAgent {
                     if !TaskProviderCatalog.order.contains(task.agent) {
                         Text(friday: "此 Agent 接入已移除，历史任务仍可查看；请使用 Codex、Claude 或 Pi 新建任务。").font(.callout).foregroundStyle(.secondary).padding()
                     } else if task.subagentOrigin != nil {
@@ -292,13 +283,25 @@ struct TaskDetail: View {
                             editingQueuedMessageId: queueEdit?.id, editQueuedMessage: editQueuedMessage, cancelQueueEdit: cancelQueueEdit, resumeTask: resumeTask, discardDraft: discardDraft,
                             message: draftMessage, images: draftImages, contexts: draftContexts, contextInsertion: $contextInsertion, sending: sending, send: sendAgentMessage)
                     }
+                } else {
+                    FloatingComposer(
+                        conversationID: id,
+                        message: $message,
+                        active: task.active,
+                        sending: sending,
+                        disabled: sending || !store.connected || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || task.status == "queued",
+                        error: store.error,
+                        collapseRequest: composerCollapseRequest,
+                        expandRequest: composerExpandRequest,
+                        send: sendMessage
+                    )
                 }
-                    .frame(maxWidth: FridayTheme.contentWidth).padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
-                    .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { height in
-                        guard height > 0, abs(height - composerHeight) > 0.5 else { return }
-                        composerHeight = height
-                        if followingEnd { scrollRequest += 1 }
-                    }
+            }
+            .frame(maxWidth: reading.contentWidth).padding(.horizontal, task.localAgent ? 24 : 44).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
+            .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { height in
+                guard height > 0, abs(height - composerHeight) > 0.5 else { return }
+                composerHeight = height
+                if followingEnd { scrollRequest += 1 }
             }
         }
         #endif
@@ -336,16 +339,14 @@ struct TaskDetail: View {
                     )
                     #if os(macOS)
                     .background {
-                        TranscriptHistoryScrollGesture(composerHeight: task.localAgent ? composerHeight : 0) {
+                        TranscriptHistoryScrollGesture(composerHeight: composerHeight, horizontalInset: task.localAgent ? 24 : 44) {
                             followingEnd = false
-                            if task.localAgent {
-                                composerNeedsRestore = true
-                                composerCollapseRequest += 1
-                            }
+                            composerNeedsRestore = true
+                            composerCollapseRequest += 1
                         } scrolledDown: {
                             if composerAtBottom {
                                 followingEnd = true
-                                if task.localAgent { restoreComposer() }
+                                restoreComposer()
                             }
                         }
                     }
@@ -369,7 +370,7 @@ struct TaskDetail: View {
                     // the composer also changes the bottom inset; that alone
                     // must not immediately undo the user's upward-scroll fold.
                     if composerAtBottom != movement.atBottom { composerAtBottom = movement.atBottom }
-                    if task.localAgent, composerNeedsRestore,
+                    if composerNeedsRestore,
                        movement.down,
                        composerAtBottom {
                         restoreComposer()
@@ -414,7 +415,7 @@ struct TaskDetail: View {
 
     private func transcriptEndSpacing(_ task: WorkItem) -> CGFloat {
         #if os(macOS)
-        task.localAgent ? composerHeight + 24 : 1
+        composerHeight + 24
         #else
         1
         #endif
@@ -753,19 +754,72 @@ private struct TranscriptScrollObserver: ViewModifier {
     }
 }
 
+#if os(macOS)
 private struct FloatingComposer: View {
+    @ReadingPreferences private var reading: ReadingStyle
+    let conversationID: String
     @Binding var message: String
     let active: Bool
     let sending: Bool
     let disabled: Bool
     let error: String?
+    let collapseRequest: Int
+    let expandRequest: Int
     let send: () -> Void
     @FocusState private var focused: Bool
+    @State private var expanded = true
+    @State private var focusRequest = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var composerAnimation: Animation? {
+        reduceMotion || !NSApp.isActive ? nil : .smooth(duration: 0.36)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        TaskComposerLayout(expansion: expanded ? 1 : 0) {
+            expandedContent.padding(16).fixedSize(horizontal: false, vertical: true)
+        }
+        .clipped().opacity(expanded ? 1 : 0)
+        .disabled(!expanded).allowsHitTesting(expanded).accessibilityHidden(!expanded)
+        .background {
+            FridayWindowBackground(configuresWindow: false)
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+        }
+        .overlay {
+            if !expanded {
+                Button { setExpanded(true); focusRequest += 1 } label: {
+                    Color.clear.frame(height: 44).frame(maxWidth: .infinity).contentShape(Rectangle())
+                }
+                .buttonStyle(FridaySymbolButtonStyle())
+                .accessibilityLabel(Text(friday: "补充要求"))
+                .accessibilityValue(Text(friday: "已收起"))
+            }
+        }
+        .animation(composerAnimation, value: expanded)
+        .task(id: focusRequest) {
+            guard focusRequest > 0, expanded else { return }
+            await Task.yield()
+            guard expanded, !Task.isCancelled else { return }
+            focused = true
+        }
+        .onChange(of: focused) { _, value in if value { setExpanded(true) } }
+        .onChange(of: collapseRequest) { _, _ in setExpanded(false) }
+        .onChange(of: expandRequest) { _, _ in setExpanded(true) }
+        .onChange(of: conversationID) { _, _ in
+            focused = false; expanded = true; focusRequest = 0
+        }
+    }
+
+    private func setExpanded(_ value: Bool) {
+        guard expanded != value else { return }
+        if !value { focused = false }
+        withAnimation(composerAnimation) { expanded = value }
+    }
+
+    private var expandedContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
             TextField(friday: active ? "补充要求，或告诉 Friday 更多背景…" : "基于这个结果，接着做什么？", text: $message, axis: .vertical)
-                .font(FridayTheme.conversationFont).lineLimit(2...5).textFieldStyle(.plain)
+                .font(reading.bodyFont).lineLimit(2...5).textFieldStyle(.plain)
                 .focused($focused).accessibilityLabel(Text(friday: "补充要求"))
                 .onChatSubmit { if !disabled { send() } }
             HStack(spacing: 12) {
@@ -774,20 +828,17 @@ private struct FloatingComposer: View {
                 }
                 Spacer(minLength: 0)
                 Button(action: send) {
-                    FridaySymbolLabel(friday: sending ? "发送中" : "发送", systemImage: "arrow.up")
+                    FridaySymbolImage(systemName: "arrow.up").font(.system(size: 14, weight: .semibold))
                 }
-                .buttonStyle(FridayButtonStyle(prominent: true, compact: true))
-                .keyboardShortcut(.return, modifiers: .command).disabled(disabled)
+                .buttonStyle(AgentTaskActionButtonStyle())
+                .accessibilityLabel(Text(friday: sending ? "发送中" : "发送"))
+                .help(Text(friday: sending ? "发送中" : "发送"))
+                .keyboardShortcut(.return, modifiers: .command).disabled(disabled || !expanded)
             }
-        }
-        .padding(18).fridayFloatingSurface()
-        .overlay {
-            RoundedRectangle(cornerRadius: FridayTheme.cornerRadius)
-                .strokeBorder(FridayTheme.accent.opacity(focused ? 0.35 : 0), lineWidth: 1)
-                .allowsHitTesting(false)
         }
     }
 }
+#endif
 
 struct ApprovalCard: View {
     @Bindable var store: FridayStore

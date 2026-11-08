@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TaskContextMessageText: View {
+    @ReadingPreferences private var reading: ReadingStyle
     @Bindable var store: FridayStore
     let text: String
     let contexts: [TaskContextReference]
@@ -9,7 +10,7 @@ struct TaskContextMessageText: View {
     @State private var citation:TaskCitationNavigationRequest?
     var body: some View {
         if TaskContextDocument.occurrences(text).isEmpty && TaskAssistantCitation.occurrences(text).isEmpty {
-            Text(verbatim: text).font(.body).lineSpacing(5).textSelection(.enabled)
+            Text(verbatim: text).font(reading.bodyFont).foregroundStyle(FridayTheme.foreground).lineSpacing(reading.lineSpacing).textSelection(.enabled)
         } else {
             TaskPromptEditor(text: .constant(text), placeholder: "", enabled: false, focused: false, minimumHeight: 22,
                 focusChanged: { _ in }, submit: {}, importProviders: { _ in },
@@ -22,10 +23,10 @@ struct TaskContextMessageText: View {
     }
     private var idealWidth: CGFloat {
         #if os(macOS)
-        let document = TaskContextText.document(text, records: contexts, font: .systemFont(ofSize: 14))
+        let document = TaskContextText.document(text, records: contexts, font: reading.nativeFont())
         let width = document.boundingRect(with: CGSize(width: 624, height: CGFloat.greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading]).width
         #else
-        let document = TaskContextText.document(text, records: contexts, font: .preferredFont(forTextStyle: .body))
+        let document = TaskContextText.document(text, records: contexts, font: reading.nativeFont())
         let width = document.boundingRect(with: CGSize(width: 624, height: CGFloat.greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil).width
         #endif
         return min(630, max(100, ceil(width) + 6))

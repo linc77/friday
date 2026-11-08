@@ -18,7 +18,7 @@ struct SettingsPage<Content: View>: View {
             VStack(alignment: .leading, spacing: 32) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(fridayString: title).font(.system(size: 26, weight: .semibold))
-                    Text(fridayString: subtitle).font(.system(size: 13)).foregroundStyle(.secondary)
+                    Text(fridayString: subtitle).font(.system(size: 13)).foregroundStyle(FridayTheme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.bottom, 8)
@@ -35,6 +35,7 @@ struct SettingsPage<Content: View>: View {
             .padding(.bottom, 48)
             .frame(maxWidth: .infinity, alignment: .top)
         }
+        .foregroundStyle(FridayTheme.foreground)
         .background(FridayTheme.surface)
     }
 }
@@ -58,7 +59,7 @@ struct SettingsGroup<Content: View>: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay {
                     RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(.primary.opacity(contrast == .increased ? 0.25 : 0.075))
+                        .strokeBorder(contrast == .increased ? FridayTheme.foreground.opacity(0.3) : FridayTheme.separator)
                         .allowsHitTesting(false)
                 }
         }
@@ -93,9 +94,9 @@ struct SettingsRow<Control: View>: View {
     var body: some View {
         layout {
             VStack(alignment: .leading, spacing: 4) {
-                title.font(.system(size: 13, weight: .medium))
+                title.font(FridayTheme.interfaceFont)
                 if let detail {
-                    Text(fridayString: detail).font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text(fridayString: detail).font(.system(size: 12)).foregroundStyle(FridayTheme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

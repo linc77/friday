@@ -27,13 +27,14 @@ struct TaskWorkspacePanelLayout: ViewModifier {
     private var browserDragScope:String {SHA256.hash(data:Data(browserScope.utf8)).map {String(format:"%02x",$0)}.joined()}
     func body(content: Content) -> some View {
         #if os(macOS)
-        TaskPanelSplitView(width: $width, visible: visible, main: content, panel: { panel })
+        TaskPanelSplitView(width: $width, visible: visible,
+            main: content.frame(maxWidth: .infinity, maxHeight: .infinity).fridayPaneSurface(), panel: { panel })
         #else
         content.sheet(isPresented: Binding(get: { visible }, set: { if !$0 { close() } })) { panel }
         #endif
     }
     private var panel: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: FridayTheme.paneSpacing) {
             HStack(spacing: 8) {
                 ScrollView(.horizontal) {
                     HStack(spacing: 6) {
@@ -84,16 +85,26 @@ struct TaskWorkspacePanelLayout: ViewModifier {
                     Button(friday:"重新打开已关闭的标签页") {browser.reopen();active="browser"}.disabled(browser.closed?.isEmpty != false)
                 } label: {FridaySymbolImage(systemName:"plus")}.fridayInteractiveCursor().accessibilityLabel(Text(friday:"添加侧栏标签页"))
                 Button { close() } label: { FridaySymbolImage(systemName: "xmark") }.accessibilityLabel(Text(friday: "关闭侧栏"))
-            }.buttonStyle(FridaySymbolButtonStyle()).font(.caption).padding(8)
+            }.buttonStyle(FridaySymbolButtonStyle()).font(.caption).padding(8).fridayPaneSurface()
+            #if os(iOS)
             Divider()
-            if showingTerminal {
-                TaskTerminalPanel(store: store, task: task, close: close, showsCloseButton: false, canAddContext: canAddContext, addContext: addContext)
-                    .id(store.connection.server + "|" + task.id)
-            }
-            else if showingBrowser {TaskBrowserPanel(store:store,task:task,state:$browser).id(browserScope)}
-            else if showingFiles { TaskFilesPanel(store: store, task: task, state: $files).id(store.connectionIdentity + ":" + task.id + ":" + task.cwd) }
-            else if let value = diff { TaskChangesPanel(store: store, task: task, selection: Binding(get: { diff ?? value }, set: { diff = $0 }), close: close) }
-        }.background(FridayTheme.canvas)
+            #endif
+            Group {
+                if showingTerminal {
+                    TaskTerminalPanel(store: store, task: task, close: close, showsCloseButton: false, canAddContext: canAddContext, addContext: addContext)
+                        .id(store.connection.server + "|" + task.id)
+                }
+                else if showingBrowser {TaskBrowserPanel(store:store,task:task,state:$browser).id(browserScope)}
+                else if showingFiles { TaskFilesPanel(store: store, task: task, state: $files).id(store.connectionIdentity + ":" + task.id + ":" + task.cwd) }
+                else if let value = diff { TaskChangesPanel(store: store, task: task, selection: Binding(get: { diff ?? value }, set: { diff = $0 }), close: close) }
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                .fridayPaneSurface(isContainer: showingFiles)
+        }
+        .background {
+            #if os(iOS)
+            FridayTheme.canvas
+            #endif
+        }
     }
     private func sectionButton(_ title: String, symbol: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
