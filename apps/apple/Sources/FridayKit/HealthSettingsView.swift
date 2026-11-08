@@ -23,11 +23,11 @@ struct HealthSettingsView: View {
                 #if os(iOS)
                 FridayToggle(isOn: Binding(get: { sync.enabled }, set: { value in action { try await sync.setEnabled(value); await load() } })) {
                     Text(friday: "同步这台 iPhone 的健康摘要")
-                }.disabled(busy || !store.connected).fridayInteractiveCursor()
+                }.fridayInteractiveCursor().disabled(busy || !store.connected)
                 Text(fridayString: sync.status).font(.caption).foregroundStyle(.secondary)
                 if let issue = sync.backgroundStatus { Text(fridayString: issue).font(.caption).foregroundStyle(.orange) }
                 Button(friday: "立即同步") { action { await sync.sync(); await load() } }
-                    .disabled(busy || !sync.enabled).fridayInteractiveCursor()
+                    .fridayInteractiveCursor().disabled(busy || !sync.enabled)
                 #else
                 Text(friday: "在已配对 iPhone 的「健康与主动分享」中开启健康同步。手机解锁并连通主机后会补同步，系统后台运行不保证准点。")
                     .font(.caption).foregroundStyle(.secondary)
@@ -60,7 +60,7 @@ struct HealthSettingsView: View {
                 Text(friday: "关闭时由本机整理数字。开启后，每日健康对话及你主动询问健康时读取的摘要会发送给当前模型服务（默认 DeepSeek），用于趋势分享和交流。停止同步会清除主机上的该设备摘要，已有对话仍保留。")
                     .font(.caption).foregroundStyle(.secondary)
                 Button(friday: "保存分享设置") { action { try await save() } }
-                    .disabled(busy || !store.connected).fridayInteractiveCursor()
+                    .fridayInteractiveCursor().disabled(busy || !store.connected)
                 if let next = state?.settings.nextRunAt {
                     LabeledContent { Text(Date(timeIntervalSince1970: next / 1000), style: .date); Text(Date(timeIntervalSince1970: next / 1000), style: .time) } label: { Text(friday: "下次分享") }
                 }
@@ -71,7 +71,7 @@ struct HealthSettingsView: View {
                         NotificationCenter.default.post(name: .fridayOpenConversation, object: response.id)
                         await load()
                     }
-                }.disabled(busy || state?.settings.enabled != true || !store.connected).fridayInteractiveCursor()
+                }.fridayInteractiveCursor().disabled(busy || state?.settings.enabled != true || !store.connected)
                 if let message = state?.lastError { Text(fridayString: message).font(.caption).foregroundStyle(.orange) }
                 Text(friday: "主机需要保持运行。休眠恢复后补处理四小时内的分享，过期内容留待下次，避免连续打扰。")
                     .font(.caption).foregroundStyle(.secondary)
@@ -82,7 +82,7 @@ struct HealthSettingsView: View {
                 #endif
                 #if os(iOS)
                 Button(friday: "允许手机通知") { action { try await sync.enableNotifications(); await sync.registerSavedPushToken(); await load() } }
-                    .disabled(busy || !sync.pushSupported).fridayInteractiveCursor()
+                    .fridayInteractiveCursor().disabled(busy || !sync.pushSupported)
                 if !sync.pushSupported {
                     Text(friday: "当前个人签名版本支持健康同步。Friday 原生推送需要付费开发者团队签名，并在主机配置 APNs。")
                         .font(.caption).foregroundStyle(.secondary)
@@ -112,7 +112,7 @@ struct HealthSettingsView: View {
             Section {
                 if busy { ProgressView().controlSize(.small) }
                 if let error { Text(fridayString: error).font(.caption).foregroundStyle(.orange) }
-                Button(friday: "刷新") { action { await load() } }.disabled(busy).fridayInteractiveCursor()
+                Button(friday: "刷新") { action { await load() } }.fridayInteractiveCursor().disabled(busy)
             }
         }
         .formStyle(.grouped)

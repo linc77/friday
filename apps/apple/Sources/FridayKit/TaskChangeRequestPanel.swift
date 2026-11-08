@@ -402,13 +402,13 @@ private struct TaskChangeRequestContent: View {
                                 customComment: { id in guard let thread = activity?.threads?.first(where: { $0.id == id }) else { return AnyView(EmptyView()) }; return AnyView(threadCard(thread)) })
                         }
                         if !unplacedThreads(file).isEmpty {
-                            DisclosureGroup { ScrollView { LazyVStack(spacing: 8) { ForEach(unplacedThreads(file)) { threadCard($0) } }.padding(6) }.frame(maxHeight: 220) } label: { Text(friday: "未定位的审查线程") }.padding(8).fridayInteractiveCursor()
+                            DisclosureGroup { ScrollView { LazyVStack(spacing: 8) { ForEach(unplacedThreads(file)) { threadCard($0) } }.padding(6) }.frame(maxHeight: 220) } label: { Text(friday: "未定位的审查线程") }.padding(8).fridayDisclosureCursor()
                         }
                     }
                 } else { Spacer(); if fileRevealTarget != nil { Text(friday: "正在查找所选文件…").foregroundStyle(.secondary) } else if !loadingResource { Text(friday: files?.nextCursor != nil || files?.truncated == true ? "当前切片没有可显示的文件" : "暂无文件改动").foregroundStyle(.secondary) }; Spacer() }
             }
             if !orphanFileThreads.isEmpty {
-                DisclosureGroup { ScrollView { LazyVStack(spacing: 8) { ForEach(orphanFileThreads) { threadCard($0) } }.padding(6) }.frame(maxHeight: 220) } label: { Text(friday: "其他文件的审查线程") }.padding(8).fridayInteractiveCursor()
+                DisclosureGroup { ScrollView { LazyVStack(spacing: 8) { ForEach(orphanFileThreads) { threadCard($0) } }.padding(6) }.frame(maxHeight: 220) } label: { Text(friday: "其他文件的审查线程") }.padding(8).fridayDisclosureCursor()
             }
         }
     }

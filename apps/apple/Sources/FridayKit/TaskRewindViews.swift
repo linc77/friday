@@ -33,18 +33,18 @@ struct TaskRewindDialog: View {
                     .buttonStyle(.bordered).fridayInteractiveCursor().disabled(sending)
             }
             HStack(spacing: 12) {
-                Button(friday: "取消", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction).disabled(sending)
+                Button(friday: "取消", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction).fridayInteractiveCursor().disabled(sending)
                 Spacer(minLength: 4)
                 if let submitted, let options {
-                    Button(friday: "重试请求") { submit(options, restore: submitted.restore, fresh: submitted.fresh) }.buttonStyle(.borderedProminent).disabled(sending)
+                    Button(friday: "重试请求") { submit(options, restore: submitted.restore, fresh: submitted.fresh) }.buttonStyle(.borderedProminent).fridayInteractiveCursor().disabled(sending)
                 } else if let options {
                     Button(friday: "同时恢复文件", role: .destructive) { submit(options, restore: true, fresh: false) }
-                        .buttonStyle(.bordered).disabled(sending || !options.canRestore || options.nativeReason != nil)
+                        .buttonStyle(.bordered).fridayInteractiveCursor().disabled(sending || !options.canRestore || options.nativeReason != nil)
                     Button(friday: "回退并保留改动") { submit(options, restore: false, fresh: false) }
-                        .buttonStyle(.borderedProminent).disabled(sending || options.nativeReason != nil)
-                } else if error != nil { Button(friday: "重试") { Task { await load() } }.buttonStyle(.bordered) }
+                        .buttonStyle(.borderedProminent).fridayInteractiveCursor().disabled(sending || options.nativeReason != nil)
+                } else if error != nil { Button(friday: "重试") { Task { await load() } }.buttonStyle(.bordered).fridayInteractiveCursor() }
                 if sending { ProgressView().controlSize(.small) }
-            }.fridayInteractiveCursor()
+            }
         }.padding(24)
             #if os(macOS)
             .frame(width: 530)
@@ -159,12 +159,12 @@ private struct TaskRewindFileReview: View {
             } else if error == nil { ProgressView().controlSize(.small) }
             if let error { Text(verbatim: error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
             HStack {
-                Button(friday: "取消", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction).disabled(sending)
+                Button(friday: "取消", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction).fridayInteractiveCursor().disabled(sending)
                 Spacer()
                 if sending { ProgressView().controlSize(.small) }
-                Button(friday: "刷新") { Task { await load() } }.disabled(sending)
-                Button(friday: "恢复文件", role: .destructive) { submit() }.buttonStyle(.borderedProminent).disabled(sending || review == nil)
-            }.fridayInteractiveCursor()
+                Button(friday: "刷新") { Task { await load() } }.fridayInteractiveCursor().disabled(sending)
+                Button(friday: "恢复文件", role: .destructive) { submit() }.buttonStyle(.borderedProminent).fridayInteractiveCursor().disabled(sending || review == nil)
+            }
         }.padding(24)
             #if os(macOS)
             .frame(width: 500)

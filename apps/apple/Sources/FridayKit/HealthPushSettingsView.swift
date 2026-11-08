@@ -25,16 +25,16 @@ struct HealthPushSettingsView: View {
                     let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
                     panel.allowedContentTypes = [UTType(filenameExtension: "p8") ?? .data]
                     if panel.runModal() == .OK { selectedKey = panel.url }
-                }.disabled(busy).fridayInteractiveCursor()
+                }.fridayInteractiveCursor().disabled(busy)
                 if let selectedKey { Text(selectedKey.lastPathComponent).font(.caption).foregroundStyle(.secondary) }
                 else if provider?.source == "file" { Text(friday: "主机已保存密钥").font(.caption).foregroundStyle(.secondary) }
             }
             Text(friday: "选择 Apple 开发者后台创建的 APNs .p8 密钥，并填写对应的 Key ID、Team ID 和签名 App 的 Bundle Identifier。密钥仅保存到 Friday 主机的私有文件中，不发送给手机或模型。")
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
-                Button(friday: "保存推送配置") { save() }.disabled(!canSave).fridayInteractiveCursor()
+                Button(friday: "保存推送配置") { save() }.fridayInteractiveCursor().disabled(!canSave)
                 if provider?.source == "file" {
-                    Button(friday: "移除推送配置") { remove() }.disabled(busy || !store.connected).fridayInteractiveCursor()
+                    Button(friday: "移除推送配置") { remove() }.fridayInteractiveCursor().disabled(busy || !store.connected)
                 }
                 if busy { ProgressView().controlSize(.small) }
             }

@@ -170,10 +170,28 @@ private struct SettingsNavigationStyle: ButtonStyle {
     let selected: Bool
 
     func makeBody(configuration: Configuration) -> some View {
+        SettingsNavigationBody(configuration: configuration, selected: selected)
+    }
+}
+
+private struct SettingsNavigationBody: View {
+    let configuration: ButtonStyleConfiguration
+    let selected: Bool
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var hovering = false
+
+    private var backgroundOpacity: Double {
+        if isEnabled && configuration.isPressed { return 0.10 }
+        if selected { return 0.065 }
+        return isEnabled && hovering ? 0.045 : 0
+    }
+
+    var body: some View {
         configuration.label
             .foregroundStyle(FridayTheme.foreground)
-            .background(.primary.opacity(selected ? 0.065 : configuration.isPressed ? 0.035 : 0),
+            .background(.primary.opacity(backgroundOpacity),
                         in: RoundedRectangle(cornerRadius: 7))
+            .onHover { hovering = $0 }
             .fridayInteractiveCursor()
     }
 }

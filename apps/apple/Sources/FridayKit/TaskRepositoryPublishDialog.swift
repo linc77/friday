@@ -90,7 +90,7 @@ struct TaskRepositoryPublishDialog: View {
             Picker(selection: $draft.visibility) {
                 Text(friday: "私有仓库").tag("private")
                 Text(friday: "公开仓库").tag("public")
-            } label: { Text(friday: "可见性") }.pickerStyle(.segmented).disabled(locked).fridayInteractiveCursor()
+            } label: { Text(friday: "可见性") }.pickerStyle(.segmented).fridayInteractiveCursor().disabled(locked)
             Text(friday: draft.visibility == "public" ? "任何人都可以查看已推送的提交历史和文件。" : "仅你和获授权的人可以访问。").font(.caption).foregroundStyle(.secondary)
             }
             DisclosureGroup {
@@ -101,7 +101,7 @@ struct TaskRepositoryPublishDialog: View {
                         Text(verbatim: "HTTPS").tag("https")
                     } label: { Text(friday: "传输协议") }.pickerStyle(.segmented).fridayInteractiveCursor()
                 }.padding(.top, 8).disabled(locked)
-            } label: { Text(friday: "高级选项") }.font(.callout).fridayInteractiveCursor()
+            } label: { Text(friday: "高级选项") }.font(.callout).fridayDisclosureCursor()
             Divider()
             Text(verbatim: review.root ?? review.cwd).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary).textSelection(.enabled)
             Text(verbatim: review.branch ?? "HEAD").font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)

@@ -514,7 +514,7 @@ private struct FridaySidebarButtonBody: View {
             }
             .contentShape(RoundedRectangle(cornerRadius: FridayTheme.sidebarCornerRadius))
             .onHover { hovering = $0 }
-            .fridayInteractiveCursor(nativeRegion: true)
+            .fridayInteractiveCursor()
     }
 }
 #endif

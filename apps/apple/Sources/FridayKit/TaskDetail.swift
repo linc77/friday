@@ -744,7 +744,7 @@ private struct FloatingComposer: View {
 
     var body: some View {
         TaskComposerLayout(expansion: expanded ? 1 : 0) {
-            expandedContent.padding(16).fixedSize(horizontal: false, vertical: true)
+            expandedContent.fixedSize(horizontal: false, vertical: true)
                 .modifier(TaskComposerMeasurement())
         }
         .clipped().opacity(expanded ? 1 : 0)
@@ -791,6 +791,10 @@ private struct FloatingComposer: View {
                 .font(reading.bodyFont).lineLimit(2...5).textFieldStyle(.plain)
                 .focused($focused).accessibilityLabel(Text(friday: "补充要求"))
                 .onChatSubmit { if !disabled { send() } }
+                .padding(.horizontal, 16).padding(.top, 16)
+                .contentShape(Rectangle())
+                .fridayTextEntryCursor()
+                .simultaneousGesture(TapGesture().onEnded { focused = true })
             HStack(spacing: 12) {
                 if let error {
                     Text(fridayString: error).font(.caption).foregroundStyle(.orange).lineLimit(2)
@@ -804,6 +808,7 @@ private struct FloatingComposer: View {
                 .help(Text(friday: sending ? "发送中" : "发送"))
                 .keyboardShortcut(.return, modifiers: .command).disabled(disabled || !expanded)
             }
+            .padding(.horizontal, 16).padding(.bottom, 16)
         }
     }
 }

@@ -85,7 +85,7 @@ struct TaskPooledUsagePanel: View {
                     if window.resets.count > 1 {
                         DisclosureGroup { ForEach(Array(window.resets.enumerated()), id: \.offset) { _, reset in
                             if let date = CodexTranscript.date(reset.at) { HStack { Text(verbatim: pool.accounts.first(where: { $0.key == reset.accountKey })?.displayName ?? "").lineLimit(1); Spacer(); Text(date, style: .relative); Text(verbatim: "+\(reset.restoresPercent)%") }.font(.caption2).foregroundStyle(.secondary) }
-                        } } label: { Text(friday: "重置时间") }.fridayInteractiveCursor()
+                        } } label: { Text(friday: "重置时间") }.fridayDisclosureCursor()
                     }
                 }
             }
@@ -101,7 +101,7 @@ struct TaskPooledUsagePanel: View {
                         if let expiry = credits.nextExpiresAt, let date = CodexTranscript.date(expiry) { HStack { Text(friday: "下一个到期时间"); Text(date, style: .relative) }.font(.caption2).foregroundStyle(.secondary) }
                     }
                 } label: { HStack { Text(verbatim: account.email ?? account.displayName).lineLimit(1); if let plan = account.plan { Text(verbatim: plan).foregroundStyle(.secondary) }; Spacer(); if let source = account.sourceLabel { Text(verbatim: source).foregroundStyle(.secondary) } } }
-                .fridayInteractiveCursor()
+                .fridayDisclosureCursor()
             }
         }
     }

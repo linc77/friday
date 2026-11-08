@@ -202,7 +202,7 @@ struct SourceControlSettingsView: View {
                 Text(verbatim: host).font(.system(.callout, design: .monospaced))
                 Spacer()
                 FridayToggle(isOn: Binding(get: { enabled }, set: { value in save(["githubHost": ["host": host, "enabled": value]], owner: owner) })) { Text(friday: "启用主机") }
-                    .labelsHidden().disabled(locked).fridayInteractiveCursor().accessibilityLabel(Text(verbatim: host))
+                    .labelsHidden().fridayInteractiveCursor().disabled(locked).accessibilityLabel(Text(verbatim: host))
             }
             if !accounts.isEmpty {
                 SettingsSelect(title: "使用账号", selection: Binding(get: { selected }, set: { account in

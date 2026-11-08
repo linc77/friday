@@ -64,7 +64,7 @@ struct AgentTaskSidebarActivity: View {
         } else if TaskSnooze.unseenWake(task) != nil {
             if let acknowledgeWake {
                 Button(action: acknowledgeWake) { wokeLabel }
-                    .buttonStyle(TaskWakeButtonStyle()).fridayInteractiveCursor()
+                    .buttonStyle(TaskWakeButtonStyle())
                     .help(Text(friday: "确认唤醒提醒"))
                     .accessibilityLabel(Text(friday: "确认唤醒提醒"))
             } else {
@@ -89,6 +89,7 @@ private struct TaskWakeButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .opacity(configuration.isPressed ? 0.65 : 1)
+            .fridayInteractiveCursor()
     }
 }
 
