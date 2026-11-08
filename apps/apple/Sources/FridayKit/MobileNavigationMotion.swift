@@ -48,6 +48,7 @@ final class FridayNavigationMotion {
     @ObservationIgnored private var transition: FridayNavigationTransition?
     @ObservationIgnored private var displayLink: CADisplayLink?
     @ObservationIgnored private var dragOwner: UUID?
+    @ObservationIgnored private var awaitingStart = false
 
     func move(to index: Int, animated: Bool) {
         let destination = CGFloat(index)
@@ -58,6 +59,7 @@ final class FridayNavigationMotion {
         target = destination
         guard abs(position - destination) > 0.001 else { position = destination; return }
         transition = .init(from: position, to: destination, start: CACurrentMediaTime())
+        awaitingStart = true
         let proxy = FridayNavigationFrameTarget(owner: self)
         let link = CADisplayLink(target: proxy, selector: #selector(FridayNavigationFrameTarget.tick(_:)))
         link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)
@@ -78,8 +80,13 @@ final class FridayNavigationMotion {
     }
 
     fileprivate func tick(_ link: CADisplayLink) {
-        guard let transition else { stop(); return }
+        guard var transition else { stop(); return }
         let now = CACurrentMediaTime()
+        if awaitingStart {
+            transition = .init(from: transition.from, to: transition.to, start: now)
+            self.transition = transition
+            awaitingStart = false
+        }
         position = transition.value(at: now)
         if transition.finished(at: now) { stop() }
     }
