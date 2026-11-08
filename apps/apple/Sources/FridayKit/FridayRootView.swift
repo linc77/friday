@@ -46,6 +46,7 @@ public struct FridayRootView: View {
     @State private var mobileKeyboardVisible = false
     #endif
     #if os(macOS)
+    @State private var taskSidebarWidth: Double = 250
     @State private var settingsSection: FridaySettingsSection = .appearance
     @State private var taskModelJump: TaskModelJumpContext?
     @State private var taskTitleEditors: Set<UUID> = []
@@ -252,14 +253,8 @@ public struct FridayRootView: View {
         case .inbox: inbox
         case .tasks:
             #if os(macOS)
-            HStack(spacing: FridayTheme.paneSpacing) {
-                TaskWorkspaceSidebar(store: store, scope: $workspaceScope, draftProjectId: $draftProjectId, selectedTask: $selectedTask) {
-                    selectedTask = nil
-                }
-                .frame(width: 250)
-                .frame(maxHeight: .infinity)
-                .fridayPaneSurface()
-                FridayRetainedPages(selection: selectedTask,
+            TaskPanelSplitView(width: $taskSidebarWidth, visible: true, panelOnLeadingEdge: true,
+                main: FridayRetainedPages(selection: selectedTask,
                     scope: store.connectionIdentity + ":" + String(store.taskHistoryGeneration), capacity: 4,
                     validKeys: Set([nil] + store.tasks.map { Optional($0.id) }), presentationID: selectedTask) {
                     if let selectedTask { TaskDetail(store: store, id: selectedTask, onOpenTask: openLocalTask).id(selectedTask) }
@@ -270,8 +265,14 @@ public struct FridayRootView: View {
                         .fridayPaneSurface()
                     }
                 }
-                .frame(minWidth: 420)
-            }
+                .frame(minWidth: 420),
+                panel: {
+                    TaskWorkspaceSidebar(store: store, scope: $workspaceScope, draftProjectId: $draftProjectId, selectedTask: $selectedTask) {
+                        selectedTask = nil
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .fridayPaneSurface()
+                })
             #else
             tasksList
             #endif
