@@ -133,4 +133,42 @@ struct FridayMobileSoftTopEdge: ViewModifier {
         }
     }
 }
+
+/// A light material veil that softens content under the status bar without erasing it.
+struct FridayMobileTopFade: ViewModifier {
+    let inset: CGFloat
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    private static let ramp: [Gradient.Stop] = (0...10).map { index in
+        let t = Double(index) / 10
+        return .init(color: .black.opacity(1 - t * t * (3 - 2 * t)), location: t)
+    }
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .top) {
+            VStack(spacing: 0) {
+                ZStack {
+                    if !reduceTransparency { Rectangle().fill(.ultraThinMaterial) }
+                    FridayTheme.conversationCanvas.opacity(reduceTransparency ? 0.85 : 0.35)
+                }
+                .mask(LinearGradient(stops: Self.ramp, startPoint: .top, endPoint: .bottom))
+                .frame(height: inset + 8)
+                Spacer(minLength: 0)
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+/// Hide the native top blur on the scroll view itself so a parent soft style cannot win.
+struct FridayHiddenTopScrollEdge: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            content
+        }
+    }
+}
 #endif

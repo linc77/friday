@@ -343,11 +343,15 @@ struct TaskDetail: View {
                     #endif
                 }
                 .coordinateSpace(name: "task-transcript")
+                #if os(iOS)
+                .modifier(FridayHiddenTopScrollEdge())
+                #endif
                 .scrollPosition(id: Binding(get: { scrollTracking.anchor }, set: { scrollTracking.anchor = $0 }), anchor: .top)
                 #if os(iOS)
 
                 .scrollDismissesKeyboard(.interactively)
                 .ignoresSafeArea(.container, edges: task.localAgent ? [] : .top)
+                .modifier(FridayMobileTopFade(inset: viewport.topInset))
                 #endif
                 .modifier(TranscriptScrollObserver(interactionBegan: { followingEnd = false }) { metrics in
                     guard metrics.bottom > 0 else { return }

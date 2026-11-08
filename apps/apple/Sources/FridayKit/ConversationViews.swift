@@ -26,6 +26,8 @@ struct NewConversationView: View {
 
             .scrollDismissesKeyboard(.interactively)
             .ignoresSafeArea(.container, edges: .top)
+            .modifier(FridayHiddenTopScrollEdge())
+            .modifier(FridayMobileTopFade(inset: geometry.safeAreaInsets.top))
         }
         .background(FridayTheme.conversationCanvas)
         .fridayMobileBottomBar {
