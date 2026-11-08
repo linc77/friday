@@ -1,11 +1,11 @@
 import { claudeOptionDescriptors, compileClaudeOptions } from './claude-model-options.js';
 import { selectedProviderOptions, type ProviderModelSelection } from './provider-models.js';
+import type { Query } from '@anthropic-ai/claude-agent-sdk';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { access, readFile, realpath } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
-import { createInterface } from 'node:readline';
 import { findExecutable } from './agents.js';
 import { defaultCodexSettings, expandHome, parseLaunchArgs, saveProviderSettings, validateSettings, type CodexSettings } from './codex-settings.js';
 import { appendCustomModels, type ProviderModel } from './provider-models.js';
@@ -15,21 +15,30 @@ import type { WorkItem } from './types.js';
 import type { ModelStatus } from './codex-provider.js';
 import { claudeUsageLimits, providerDigest, providerUsageIdentity, providerFingerprint, ProviderResetError, type ProviderResetScope, type ProviderResetOutcome, type ProviderUsageLimits } from './provider-usage-limits.js';
 import { readClaudeResetCredits, consumeClaudeResetCredit } from './claude-reset-credits.js';
+import { ClaudePromptQueue } from './claude-inputs.js';
+import { claudeQuery } from './claude-query.js';
 
 export const defaultClaudeSettings: CodexSettings = { ...defaultCodexSettings, displayName: 'Claude', binaryPath: 'claude' };
 
 export function validateClaudeSettings(value: unknown, previous = defaultClaudeSettings): CodexSettings {
   const settings = validateSettings(value, previous, 'Claude');
   if (settings.shadowHomePath) throw new Error('Claude 请通过配置目录管理独立账号。');
+  claudeLaunchFlags(parseLaunchArgs(settings.launchArgs));
+  return settings;
+}
+
+function claudeLaunchFlags(args: string[]) {
   // A health probe must never accept a positional prompt or an execution flag.
-  const args = parseLaunchArgs(settings.launchArgs);
+  const flags: Record<string, string> = {};
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
     const [flag, inline] = arg.split('=', 2);
     if (!['--model', '--effort', '--setting-sources'].includes(flag!)) throw new Error('Claude 启动参数支持 --model、--effort 和 --setting-sources。');
-    if (inline === undefined && (!args[++i] || args[i]!.startsWith('-'))) throw new Error('Claude 启动参数缺少值。');
+    const value = inline ?? args[++i];
+    if (value === undefined || (inline === undefined && (!value || value.startsWith('-')))) throw new Error('Claude 启动参数缺少值。');
+    flags[flag!.slice(2)] = value;
   }
-  return settings;
+  return flags;
 }
 
 export async function loadClaudeSettings(directory: string): Promise<CodexSettings> {
@@ -41,13 +50,18 @@ export async function loadClaudeSettings(directory: string): Promise<CodexSettin
   }
   catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return structuredClone(defaultClaudeSettings); throw error; }
 }
+function claudeLaunchConfiguration(settings: CodexSettings) {
+  const binary = expandHome(settings.binaryPath), command = isAbsolute(binary) ? binary : findExecutable(binary);
+  if (!command) throw new Error('找不到 Claude Code，请检查可执行文件路径。');
+  const home = resolve(expandHome(settings.homePath || process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')));
+  const env: NodeJS.ProcessEnv = { ...process.env, ...Object.fromEntries(settings.environment.map(entry => [entry.name, entry.value])), CLAUDE_CONFIG_DIR: home };
+  return { command, home, env };
+}
 async function claudeAccountRuntime(settings: CodexSettings) {
   if (!settings.enabled) throw new Error('请先启用 Claude 后读取账号配额。');
-  const binary = expandHome(settings.binaryPath), command = isAbsolute(binary) ? binary : findExecutable(binary);
-  if (!command) throw new Error('找不到 Claude，请检查可执行文件路径。');
-  await access(command, constants.X_OK);
-  const home = resolve(expandHome(settings.homePath || process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')));
-  return { command, home, env: { ...Object.fromEntries(settings.environment.map(entry => [entry.name, entry.value])), CLAUDE_CONFIG_DIR: home } as NodeJS.ProcessEnv };
+  const configured = claudeLaunchConfiguration(settings);
+  await access(configured.command, constants.X_OK);
+  return configured;
 }
 
 export class ClaudeConnection {
@@ -71,7 +85,7 @@ export class ClaudeConnection {
     const settings = await loadClaudeSettings(this.directory), configured = await claudeAccountRuntime(settings);
     if (task?.claudeHome && task.claudeHome !== configured.home) throw new Error('请恢复这条会话使用的 Claude 配置目录');
     return this.usageCache.read(JSON.stringify(settings), reload, async () => {
-      const response = await this.initialize(configured.command, parseLaunchArgs(settings.launchArgs), configured.env, this.directory, true);
+      const response = await this.probeCapabilities(configured.command, parseLaunchArgs(settings.launchArgs), configured.env, this.directory, true);
       const version = this.cached?.version ?? (await this.collect(configured.command, ['--version'], configured.env).catch(() => '')).match(/\d+\.\d+\.\d+/)?.[0];
       const credits = await readClaudeResetCredits(configured.home, version);
       if (JSON.stringify(await loadClaudeSettings(this.directory)) !== JSON.stringify(settings)) throw new Error('Claude 配置已经改变，请重新加载');
@@ -103,7 +117,7 @@ export class ClaudeConnection {
     const settings = await loadClaudeSettings(this.directory), configured = await this.runtime();
     if (task?.claudeHome && task.claudeHome !== configured.home) throw new Error('请恢复这条会话使用的 Claude 配置目录');
     return this.workspaceCache.read(JSON.stringify([settings, cwd]), reload, async () => {
-      const initialized = await this.initialize(configured.command, parseLaunchArgs(settings.launchArgs), configured.env, cwd);
+      const initialized = await this.probeCapabilities(configured.command, parseLaunchArgs(settings.launchArgs), configured.env, cwd);
       const skills = await discoverClaudeSkills(configured.home, cwd, configured.env);
       if (JSON.stringify(await loadClaudeSettings(this.directory)) !== JSON.stringify(settings)) throw new Error('Claude 配置已经改变，请重新加载');
       return { provider: 'claude', cwd, checkedAt: new Date().toISOString(), skills, commands: providerCommands(initialized.commands) };
@@ -132,37 +146,28 @@ export class ClaudeConnection {
     });
   }
 
-  private async initialize(command: string, args: string[], env: NodeJS.ProcessEnv, cwd = this.directory, includeUsage = false): Promise<any> {
-    const child = this.child(command, [...args,
-      '--print', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
-      '--no-session-persistence', '--settings', '{"disableAllHooks":true}', '--tools', '',
-      '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
-    ], { ...env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false', CLAUDE_CODE_AUTO_CONNECT_IDE: '0', CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL: '1' }, cwd);
-    const lines = createInterface({ input: child.stdout });
+  private async probeCapabilities(command: string, args: string[], env: NodeJS.ProcessEnv, cwd = this.directory, includeUsage = false) {
+    const controller = new AbortController(), prompts = new ClaudePromptQueue();
+    let q: Query | undefined, closing: Promise<void> | undefined, operation = 'initialize';
+    const close = () => closing ??= (async () => {
+      prompts.close(); q?.close();
+      // Await the SDK's bounded subprocess cleanup even if no output was consumed.
+      try { await q?.return(undefined); } catch {}
+    })();
+    const removeCloseHook = this.onClose(async () => { controller.abort(); await close(); });
+    const timer = setTimeout(() => controller.abort(), 15_000);
     try {
-      return await new Promise((resolve, reject) => {
-        let initialized: any;
-        const timer = setTimeout(() => reject(new Error('timeout')), 15000);
-        const fail = () => { clearTimeout(timer); reject(new Error('initialize')); };
-        child.on('error', fail); child.on('close', fail);
-        lines.on('line', line => {
-          let message: any; try { message = JSON.parse(line); } catch { return; }
-          if (message.type !== 'control_response') return;
-          const id = message.response?.request_id;
-          if (id === 'friday-provider-probe') {
-            if (message.response.subtype !== 'success') { clearTimeout(timer); reject(new Error('initialize')); return; }
-            initialized = message.response.response;
-            if (!includeUsage) { clearTimeout(timer); resolve(initialized); return; }
-            child.stdin.write(JSON.stringify({ type: 'control_request', request_id: 'friday-provider-usage', request: { subtype: 'get_usage', skip_behaviors: true } }) + '\n');
-          } else if (id === 'friday-provider-usage') {
-            clearTimeout(timer);
-            if (message.response.subtype === 'success') resolve({ ...initialized, usage: message.response.response }); else reject(new Error('usage'));
-          }
-        });
-        // Only an initialization request: no user message, generation, or billable test turn.
-        child.stdin.write(JSON.stringify({ type: 'control_request', request_id: 'friday-provider-probe', request: { subtype: 'initialize', hooks: {}, sdkMcpServers: [] } }) + '\n');
+      // Leave the input queue empty: initialization and usage never start a model turn.
+      q = claudeQuery({ command, env: { ...env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false', CLAUDE_CODE_AUTO_CONNECT_IDE: '0', CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL: '1' } }, prompts, {
+        cwd, extraArgs: claudeLaunchFlags(args), abortController: controller, persistSession: false,
+        settings: { disableAllHooks: true }, tools: [], mcpServers: {}, strictMcpConfig: true,
       });
-    } finally { lines.close(); child.stdin.end(); child.kill(); }
+      const initialized = await q.initializationResult(); operation = 'usage';
+      // Pinned SDK API; keep the experimental usage surface confined to this probe.
+      const usage = includeUsage ? await q.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: true }) : undefined;
+      return { ...initialized, usage };
+    } catch { throw new Error(controller.signal.aborted ? 'timeout' : operation); }
+    finally { clearTimeout(timer); await close(); removeCloseHook(); }
   }
 
   private async probe(settings: CodexSettings): Promise<ModelStatus> {
@@ -172,17 +177,13 @@ export class ClaudeConnection {
       checkedAt: new Date().toISOString(), error: null, loginPending: false, settings: null,
     };
     try {
-      const binary = expandHome(settings.binaryPath);
-      const command = isAbsolute(binary) ? binary : findExecutable(binary);
-      if (!command) throw new Error('missing');
+      const { command, env } = claudeLaunchConfiguration(settings);
       await access(command, constants.X_OK); state.installed = true;
-      const env = { ...Object.fromEntries(settings.environment.map(entry => [entry.name, entry.value])),
-        CLAUDE_CONFIG_DIR: resolve(expandHome(settings.homePath || process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'))) };
       const [version, authText] = await Promise.all([this.collect(command, ['--version'], env), this.collect(command, ['auth', 'status', '--json'], env, true)]);
       state.version = version.match(/\d+\.\d+\.\d+/)?.[0] ?? null;
       const auth = JSON.parse(authText);
       if (!auth.loggedIn) { state.error = 'Claude 尚未登录。请在主机运行 claude auth login，或配置 API 环境变量后重新检测。'; return state; }
-      const init = await this.initialize(command, parseLaunchArgs(settings.launchArgs), env);
+      const init = await this.probeCapabilities(command, parseLaunchArgs(settings.launchArgs), env);
       const account = init.account ?? {};
       const tokenSource = account.tokenSource ?? auth.authMethod;
       state.account = { type: /api.?key|anthropic_auth_token/i.test(tokenSource ?? '') ? 'apiKey' : 'subscription', email: account.email ?? null, plan: account.subscriptionType ?? null };
@@ -231,23 +232,16 @@ export class ClaudeConnection {
     if (!state.enabled) throw new Error('请先在「Providers → Claude」中启用 Claude。');
     if (!state.connected) throw new Error(state.error ?? '请先在「Providers → Claude」中连接 Claude。');
     const settings = await loadClaudeSettings(this.directory);
-    const args = parseLaunchArgs(settings.launchArgs); const flags: Record<string, string> = {};
-    for (let i = 0; i < args.length; i++) {
-      const [flag, inline] = args[i]!.split('=', 2); flags[flag!] = inline ?? args[++i]!;
-    }
-    const model = selection?.model || settings.model || flags['--model'] || state.model;
+    const flags = claudeLaunchFlags(parseLaunchArgs(settings.launchArgs));
+    const model = selection?.model || settings.model || flags.model || state.model;
     const selected = state.models.find(value => value.id === model);
     const options = selected ? selectedProviderOptions(selected, selection) : undefined;
-    const effort = options?.effort || (selection?.model ? '' : settings.reasoningEffort || flags['--effort']);
+    const effort = options?.effort || (selection?.model ? '' : settings.reasoningEffort || flags.effort);
     if (!selected) throw new Error('当前 Claude 模型不可用，请重新选择。');
     if (effort && !selected.reasoningEfforts.includes(effort)) throw new Error('当前 Claude 模型不支持所选推理强度，请重新选择。');
-    const binary = expandHome(settings.binaryPath);
-    const command = isAbsolute(binary) ? binary : findExecutable(binary);
-    if (!command) throw new Error('找不到 Claude Code，请检查可执行文件路径。');
-    const home = resolve(expandHome(settings.homePath || process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')));
-    const settingSources = (flags['--setting-sources'] ?? 'user,project,local').split(',').filter(Boolean);
+    const settingSources = (flags['setting-sources'] ?? 'user,project,local').split(',').filter(Boolean);
     if (settingSources.some(value => !['user', 'project', 'local'].includes(value))) throw new Error('Claude 配置来源支持 user、project、local。');
-    return { command, home, env: { ...process.env, ...Object.fromEntries(settings.environment.map(value => [value.name, value.value])), CLAUDE_CONFIG_DIR: home }, ...compileClaudeOptions(selected, { ...selection, reasoningEffort: effort || undefined }), permissionMode: settings.permissionMode as Exclude<CodexSettings['permissionMode'], 'fullAccess'>, settingSources: settingSources as ('user' | 'project' | 'local')[] };
+    return { ...claudeLaunchConfiguration(settings), ...compileClaudeOptions(selected, { ...selection, reasoningEffort: effort || undefined }), permissionMode: settings.permissionMode as Exclude<CodexSettings['permissionMode'], 'fullAccess'>, settingSources: settingSources as ('user' | 'project' | 'local')[] };
   }
 
   async save(value: unknown) {

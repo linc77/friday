@@ -1,8 +1,7 @@
 import { REVIEW_GUIDE_OUTPUT_SCHEMA } from './task-review-guide-types.js';
 import { reviewGuideTool } from './task-review-guide-tools.js';
-import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import { query, type Query, type SDKUserMessage, type PermissionResult, type EffortLevel, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { Query, PermissionResult, SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { claudePermissionResult, permissionDecisions, TaskExecutionCancelled } from './provider-approvals.js';
 import type { ClaudeConnection } from './claude-provider.js';
 import type { Executor, ExecutionRequest, Approval, ExecutionImage, NativeForkRequest, TextGenerationRequest, WorkItem } from './types.js';
@@ -11,30 +10,12 @@ import { ClaudeEvents } from './claude-events.js';
 import { forkClaude } from './claude-fork.js';
 import { claudeTaskOutputRoot, ClaudeTaskOutputReaders } from './claude-task-output.js';
 import { ClaudeLiveSessions } from './claude-live-sessions.js';
+import { ClaudePromptQueue, claudeUserMessage } from './claude-inputs.js';
+import { claudeQuery, claudeTaskOptions } from './claude-query.js';
 import type { NativeBackgroundWork } from './native-runtime-types.js';
 
-class PromptQueue implements AsyncIterable<SDKUserMessage> {
-  private messages: SDKUserMessage[] = [];
-  private wake?: () => void;
-  private ended = false;
-  push(message: SDKUserMessage) { if (this.ended) throw new Error('任务已结束'); this.messages.push(message); this.wake?.(); }
-  close() { this.ended = true; this.wake?.(); }
-  async *[Symbol.asyncIterator]() {
-    while (!this.ended) {
-      if (this.messages.length) yield this.messages.shift()!;
-      else await new Promise<void>(resolve => { this.wake = resolve; });
-    }
-  }
-}
 type PendingApproval = { input: Record<string, unknown>; toolName: string; toolUseID: string; suggestions?: import('@anthropic-ai/claude-agent-sdk').PermissionUpdate[]; questions: Approval['questions']; resolve: (value: PermissionResult) => void };
-type LiveRun = { query?: Query; prompts: PromptQueue; sessionId: string; accepting: boolean; cancelled?: boolean; pendingMessages: Set<string>; approvals: Map<string, PendingApproval> };
-async function userMessage(sessionId: string, text: string, uuid: ReturnType<typeof randomUUID>, images: ExecutionImage[] = []): Promise<SDKUserMessage> {
-  const content: SDKUserMessage['message']['content'] = images.length ? [
-    { type: 'text', text },
-    ...await Promise.all(images.map(async image => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: image.mediaType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp', data: (await readFile(image.path)).toString('base64') } }))),
-  ] : text;
-  return { type: 'user', session_id: sessionId, uuid, parent_tool_use_id: null, message: { role: 'user', content } };
-}
+type LiveRun = { query?: Query; prompts: ClaudePromptQueue; sessionId: string; accepting: boolean; cancelled?: boolean; pendingMessages: Set<string>; approvals: Map<string, PendingApproval> };
 
 export class ClaudeExecutor implements Executor {
   supportsTaskTools() { return true; }
@@ -59,7 +40,7 @@ export class ClaudeExecutor implements Executor {
     // Allocate and persist the external identity BEFORE even starting its process.
     await update({ kind: 'session', threadId: sessionId, claudeHome: configured.home, model: configured.model, reasoningEffort: configured.effort ?? '' });
     if (signal.aborted) throw new Error('任务已中止');
-    const run: LiveRun = { prompts: new PromptQueue(), sessionId, accepting: false, pendingMessages: new Set(), approvals: new Map() };
+    const run: LiveRun = { prompts: new ClaudePromptQueue(), sessionId, accepting: false, pendingMessages: new Set(), approvals: new Map() };
     this.live.set(task.id, run);
     const abortController = new AbortController(); const transcript = new ClaudeEvents(turnId, update); let finished = false;
     const outputs = new ClaudeTaskOutputReaders({ ...(background ? {} : { root: claudeTaskOutputRoot(configured.env, task.cwd) }), sessionId,
@@ -68,17 +49,14 @@ export class ClaudeExecutor implements Executor {
     signal.addEventListener('abort', abort, { once: true });
     try {
       await transcript.start();
-      run.query = query({ prompt: run.prompts, options: {
-        cwd: task.cwd, pathToClaudeCodeExecutable: configured.command, env: configured.env,
-        model: configured.apiModel, effort: configured.apiEffort as EffortLevel | undefined, settings: configured.modelSettings,
-        ...(task.threadId ? { resume: sessionId, ...(task.claudeResumeSessionAt ? { resumeSessionAt: task.claudeResumeSessionAt } : {}) } : { sessionId }),
-        abortController, includePartialMessages: true, permissionMode: investigating ? 'dontAsk' : configured.permissionMode, settingSources: background ? [] : configured.settingSources,
+      run.query = claudeQuery(configured, run.prompts, {
+        ...claudeTaskOptions(configured, task, sessionId),
+        abortController, permissionMode: investigating ? 'dontAsk' : configured.permissionMode, settingSources: background ? [] : configured.settingSources,
         ...(background ? { tools: investigating ? ['Read','Grep','Glob','Bash'] : [], mcpServers: {}, strictMcpConfig: true, plugins: [] } : {}),
         ...(investigating || purpose === 'task_title' ? { outputFormat: { type: 'json_schema', schema: investigating ? REVIEW_GUIDE_OUTPUT_SCHEMA : TASK_TITLE_OUTPUT_SCHEMA } } : {}),
         ...(investigating ? { allowedTools: ['Read','Grep','Glob','Bash(git diff:*)','Bash(git log:*)','Bash(git show:*)'], settings: { ...configured.modelSettings, disableAllHooks: true } } : {}),
         // Independent local tasks do not spawn more agents. Research stays read-only.
         disallowedTools: ['Agent', 'Task', 'EnterPlanMode', 'ExitPlanMode', ...(investigating ? ['Bash(git * --output*)','Bash(git * -o *)'] : []), ...(task.mode === 'research' || !task.projectId ? [...(investigating ? [] : ['Bash']), 'Write', 'Edit', 'NotebookEdit', 'EnterWorktree', 'ExitWorktree'] : [])],
-        systemPrompt: { type: 'preset', preset: 'claude_code', append: 'You are Claude Code executing a specific local task delegated by Friday. Respond naturally in Chinese. Stay within the user request and selected workspace. Friday owns the main conversation. Do not commit, push, deploy, purchase, send messages, or spawn subagents unless explicitly requested. On continuation inspect current results before repeating any external action. Report concrete results and limitations.' },
         canUseTool: async (name, input, options) => {
           if (investigating) return reviewGuideTool(name, input, task.cwd);
           if (background) return { behavior: 'deny', message: 'Tools are unavailable during text generation.' };
@@ -97,13 +75,11 @@ export class ClaudeExecutor implements Executor {
             return await result;
           } finally { options.signal.removeEventListener('abort', cancel); run.approvals.delete(id); }
         },
-        // Errors are surfaced through typed SDK results; stderr may contain credentials.
-        stderr: () => {},
-      } });
+      });
       await run.query.initializationResult();
       if (signal.aborted) throw new Error('任务已中止');
       run.accepting = true;
-      const message = await userMessage(sessionId, configured.promptEffort ? configured.promptEffort + '\n\n' + prompt : prompt, turnId, images);
+      const message = await claudeUserMessage(sessionId, configured.promptEffort ? configured.promptEffort + '\n\n' + prompt : prompt, turnId, images);
       await beforeStart?.();
       await update({ kind: 'turn', turnId });
       run.prompts.push(message);
@@ -164,7 +140,7 @@ export class ClaudeExecutor implements Executor {
     const run = this.live.get(taskId);
     if (!run?.accepting) return this.sessions.steer(taskId, text, images);
     const uuid = randomUUID();
-    const message = await userMessage(run.sessionId, text, uuid, images);
+    const message = await claudeUserMessage(run.sessionId, text, uuid, images);
     run.pendingMessages.add(uuid); run.prompts.push(message);
   }
   hasSession(id: string) { return this.sessions.has(id); }

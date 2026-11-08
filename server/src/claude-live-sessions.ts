@@ -1,6 +1,6 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { TASK_TOOL_INSTRUCTIONS, taskRuntimeToolDefinitions } from './task-runtime-tools.js';
-import { query, type Query, type SDKMessage, type PermissionResult, type EffortLevel } from '@anthropic-ai/claude-agent-sdk';
+import type { Query, SDKMessage, PermissionResult, EffortLevel } from '@anthropic-ai/claude-agent-sdk';
 import type { ClaudeConnection } from './claude-provider.js';
 import type { ExecutionRequest, ExecutionUpdate, ExecutionImage, Approval, WorkItem, TaskMcpConnection } from './types.js';
 import type { NativeBackgroundWork, NativeObservedUpdate } from './native-runtime-types.js';
@@ -9,6 +9,7 @@ import { ClaudeBackground, claudeBackgroundEnded as ended, type ClaudeBackground
 import { ClaudeEvents } from './claude-events.js';
 import { ClaudeSubagents } from './claude-subagents.js';
 import { ClaudePromptQueue, claudeUserMessage } from './claude-inputs.js';
+import { claudeQuery, claudeTaskOptions } from './claude-query.js';
 import { discoverClaudeSkills } from './claude-skills.js';
 import { hasSkillMention, planClaudeSkillDispatch } from './vendor/t3-claude-skill-dispatch.js';
 import { claudeEchoes, claudeForeignResult, claudeGatedFrame, type ClaudeEchoMode } from './claude-frame-ownership.js';
@@ -135,16 +136,14 @@ export class ClaudeLiveSessions {
       if (source.closing || request.signal.aborted) throw new Error('任务已中止');
       if (!source.query) {
         source.configuration = configured; source.task = { ...task };
-        source.query = query({ prompt: source.inputs, options: {
-          cwd: task.cwd, pathToClaudeCodeExecutable: configured.command, env: configured.env, model: configured.apiModel, effort: configured.apiEffort as EffortLevel | undefined, settings: configured.modelSettings,
-          ...(task.threadId ? { resume: source.threadId, ...(task.claudeResumeSessionAt ? { resumeSessionAt: task.claudeResumeSessionAt } : {}) } : { sessionId: source.threadId }),
-          abortController: source.controller, includePartialMessages: true, permissionMode: configured.permissionMode,
+        source.query = claudeQuery(configured, source.inputs, {
+          ...claudeTaskOptions(configured, task, source.threadId, request.taskMcp ? TASK_TOOL_INSTRUCTIONS : ''),
+          abortController: source.controller,
           disallowedTools: ['EnterPlanMode', 'ExitPlanMode'],
-          settingSources: configured.settingSources, ...(task.mode === 'research' ? { tools: ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch'] } : {}),
+          ...(task.mode === 'research' ? { tools: ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch'] } : {}),
           ...(request.taskMcp ? { mcpServers: { friday_tasks: { type: 'http', ...request.taskMcp } } } : {}),
-          systemPrompt: { type: 'preset', preset: 'claude_code', append: 'You are Claude Code executing a specific local task delegated by Friday. Respond naturally in Chinese. Stay within the user request and selected workspace. Friday owns the main conversation. Do not commit, push, deploy, purchase, send messages, or spawn subagents unless explicitly requested. On continuation inspect current results before repeating any external action. Report concrete results and limitations.' + (request.taskMcp ? '\n\n' + TASK_TOOL_INSTRUCTIONS : '') },
-          canUseTool: (name, input, options) => this.permission(source, name, input, options), stderr: () => {},
-        } });
+          canUseTool: (name, input, options) => this.permission(source, name, input, options),
+        });
         source.reader = this.read(source); await source.query.initializationResult();
       } else {
         if (request.taskMcp) {
