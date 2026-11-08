@@ -37,6 +37,12 @@ view-scoped work when detached.
   frames. Mouse-up and accessibility adjustments commit the width once. The parent
   then persists it through the existing panel-preference path. Cancellation does
   not commit. Geometry changes must not recreate either hosting view.
+- A native hosting pane is a drawing boundary as well as a layout boundary.
+  `FridayPaneHostingView` clips native descendants to that pane (AppKit defaults
+  to no clipping on macOS 14 and later). Moving or resizing native frames must
+  invalidate the changed view and the exposed region in its parent. Frame
+  assignment alone is not a redraw contract. Keep the existing SwiftUI surfaces,
+  colors and rounded corners; do not hide damage with extra opaque overlays.
 - History materialization and timeline derivation use explicit data revisions
   (`TaskTranscriptProjection`), including host/task scope and paged history.
   A dedicated actor prepares immutable presentations off the main thread. A running
@@ -49,6 +55,12 @@ view-scoped work when detached.
 - Scroll samples and the current visible anchor belong to `TranscriptScrollTracking`,
   not the whole page's SwiftUI state. Only semantic following/end/collapse changes
   update the page. Modern scroll geometry APIs do not also emit legacy preferences.
+- The floating composer's expanded natural size reserves space in the transcript;
+  its animated visible height only controls its own surface and input footprint.
+  `TaskComposerReservation` keeps that space stable throughout collapse/expansion.
+  Draft growth, attachments and width changes still remeasure the mounted editor.
+  Do not feed animation samples into document height or repeated `scrollTo` calls.
+  Content/viewport size changes are layout events, not user scroll direction.
 - Native text updates distinguish content, annotations, selection and geometry.
   Empty annotation layers do not scan or invalidate the source document. Paired
   diff spacing still builds the line index when it is actually required.
@@ -78,6 +90,10 @@ page tests cover the surrounding correctness contracts.
 `FridayPreferenceTests` verifies unrelated and equal writes, direct writes and
 removal, isolated defaults domains, storage formats, subscription lifetime, and
 the actual body update count of a mounted SwiftUI view.
+`TranscriptInteractionTests` checks 60 collapse progress updates without changing
+the transcript reservation, subsequent editor growth, layout-vs-scroll direction,
+and containment of native descendants while a pane resizes. The containment test
+failed on the original unbounded hosts and passes with the shared pane boundary.
 
 Use `pnpm mac:build -- --optimized` for performance acceptance with the workspace
 app identity and shared development service preserved. It enables Release

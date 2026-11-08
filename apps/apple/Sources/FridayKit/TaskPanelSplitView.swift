@@ -24,8 +24,8 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
 }
 
 @MainActor final class TaskPanelSplitHost: NSView {
-    private let mainHost = NSHostingView(rootView: AnyView(EmptyView()))
-    private let panelHost = NSHostingView(rootView: AnyView(EmptyView()))
+    private let mainHost = FridayPaneHostingView(rootView: AnyView(EmptyView()))
+    private let panelHost = FridayPaneHostingView(rootView: AnyView(EmptyView()))
     private let divider = TaskPanelDivider()
     private var visible = false
     private var preferredWidth: CGFloat = 460
@@ -75,7 +75,15 @@ struct TaskPanelSplitView<Main: View, Panel: View>: NSViewRepresentable {
         setFrame(divider, NSRect(x: mainWidth, y: 0, width: Self.dividerWidth, height: bounds.height))
         setFrame(panelHost, NSRect(x: mainWidth + Self.dividerWidth, y: 0, width: displayedWidth, height: bounds.height))
     }
-    private func setFrame(_ view: NSView, _ frame: NSRect) { if view.frame != frame { view.frame = frame } }
+    private func setFrame(_ view: NSView, _ frame: NSRect) {
+        guard view.frame != frame else { return }
+        let exposed = view.frame.union(frame)
+        view.frame = frame
+        // AppKit frame setters do not invalidate drawing. Moving a transparent
+        // hosting surface without damage notification preserves old edge pixels.
+        view.needsDisplay = true
+        setNeedsDisplay(exposed)
+    }
 
     func beginResize(at x: CGFloat) {
         dragStart = (x, displayedWidth); dragRootUpdates = 0; dragLayouts = 0

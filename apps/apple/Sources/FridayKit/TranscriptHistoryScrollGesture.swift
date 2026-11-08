@@ -5,14 +5,16 @@ import SwiftUI
 /// Observe actual upward wheel/trackpad input in the transcript, rather than
 /// geometry changes caused by streaming, scrollTo, or composer animation.
 struct TranscriptHistoryScrollGesture: NSViewRepresentable {
-    let composerHeight: CGFloat
+    let composer: TaskComposerGeometry
+    let contentWidth: CGFloat
     let horizontalInset: CGFloat
     let scrolledUp: () -> Void
     let scrolledDown: () -> Void
 
     func makeNSView(context: Context) -> TranscriptHistoryScrollView { TranscriptHistoryScrollView() }
     func updateNSView(_ view: TranscriptHistoryScrollView, context: Context) {
-        view.composerHeight = composerHeight
+        view.composer = composer
+        view.contentWidth = contentWidth
         view.horizontalInset = horizontalInset
         view.scrolledUp = scrolledUp
         view.scrolledDown = scrolledDown
@@ -21,7 +23,8 @@ struct TranscriptHistoryScrollGesture: NSViewRepresentable {
 }
 
 final class TranscriptHistoryScrollView: NSView {
-    var composerHeight: CGFloat = 0
+    var composer: TaskComposerGeometry?
+    var contentWidth: CGFloat = 780
     var horizontalInset: CGFloat = 24
     var scrolledUp: (() -> Void)?
     var scrolledDown: (() -> Void)?
@@ -59,8 +62,8 @@ final class TranscriptHistoryScrollView: NSView {
         // Scrolling the editor itself must not dismiss it. The composer floats
         // over this viewport, so exclude its actual bottom-center footprint.
         let distanceFromBottom = viewport.isFlipped ? viewport.bounds.maxY - point.y : point.y - viewport.bounds.minY
-        let composerWidth = min(ReadingStyle.current.contentWidth, max(0, viewport.bounds.width - horizontalInset * 2))
-        if distanceFromBottom <= composerHeight && abs(point.x - viewport.bounds.midX) <= composerWidth / 2 { return }
+        let composerWidth = min(contentWidth, max(0, viewport.bounds.width - horizontalInset * 2))
+        if distanceFromBottom <= (composer?.occlusionHeight ?? 0) && abs(point.x - viewport.bounds.midX) <= composerWidth / 2 { return }
 
         // A bounded mouse-wheel scroll at the bottom may produce no geometry
         // update, but it still means the user has returned to the latest reply.

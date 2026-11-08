@@ -663,6 +663,7 @@ struct AgentTaskComposer: View {
         #if os(macOS)
         TaskComposerLayout(expansion: compact ? 0 : 1) {
             expandedContent.padding(16).fixedSize(horizontal: false, vertical: true)
+                .modifier(TaskComposerMeasurement())
         }
             .clipped().opacity(compact ? 0 : 1)
             .disabled(compact).allowsHitTesting(!compact).accessibilityHidden(compact)
@@ -680,6 +681,7 @@ struct AgentTaskComposer: View {
             }
             .animation(composerAnimation, value: expanded)
             .animation(composerAnimation, value: images.isEmpty)
+            .modifier(TaskComposerReservation(expanded: !compact))
         #else
         expandedContent.modifier(AgentTaskComposerSurface(embeddedInMobileDock: embeddedInMobileDock, focused: focused))
         #endif

@@ -50,6 +50,7 @@ struct TaskDetail: View {
     #endif
     #if os(macOS)
     @State private var composerHeight: CGFloat = 136
+    @State private var composerGeometry = TaskComposerGeometry()
     @State private var composerCollapseRequest = 0
     @State private var composerExpandRequest = 0
     @State private var composerNeedsRestore = false
@@ -238,9 +239,7 @@ struct TaskDetail: View {
         #if os(iOS)
         .navigationTitle("Friday")
         .navigationBarTitleDisplayMode(.inline)
-        #endif
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            #if os(iOS)
             FridayMobileComposerDock(notice: task.localAgent ? nil : store.error) {
                 if task.localAgent && !TaskProviderCatalog.order.contains(task.agent) {
                     Text(friday: "此 Agent 接入已移除，历史任务仍可查看；请使用 Codex、Claude 或 Pi 新建任务。").font(.callout).foregroundStyle(.secondary).padding()
@@ -264,8 +263,8 @@ struct TaskDetail: View {
                     )
                 }
             }
-            #endif
         }
+        #endif
         #if os(macOS)
         .overlay(alignment: .bottom) {
             VStack(spacing: 0) {
@@ -297,9 +296,11 @@ struct TaskDetail: View {
                     )
                 }
             }
+            .environment(\.taskComposerGeometry, composerGeometry)
             .frame(maxWidth: reading.contentWidth).padding(.horizontal, task.localAgent ? 24 : 44).padding(.top, 8).padding(.bottom, 16).frame(maxWidth: .infinity)
             .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { height in
                 guard height > 0, abs(height - composerHeight) > 0.5 else { return }
+                composerGeometry.reservedHeight = height
                 composerHeight = height
                 if followingEnd { scrollRequest += 1 }
             }
@@ -339,8 +340,9 @@ struct TaskDetail: View {
                     )
                     #if os(macOS)
                     .background {
-                        TranscriptHistoryScrollGesture(composerHeight: composerHeight, horizontalInset: task.localAgent ? 24 : 44) {
+                        TranscriptHistoryScrollGesture(composer: composerGeometry, contentWidth: reading.contentWidth, horizontalInset: task.localAgent ? 24 : 44) {
                             followingEnd = false
+                            guard composerGeometry.requestCollapse() else { return }
                             composerNeedsRestore = true
                             composerCollapseRequest += 1
                         } scrolledDown: {
@@ -778,6 +780,7 @@ private struct FloatingComposer: View {
     var body: some View {
         TaskComposerLayout(expansion: expanded ? 1 : 0) {
             expandedContent.padding(16).fixedSize(horizontal: false, vertical: true)
+                .modifier(TaskComposerMeasurement())
         }
         .clipped().opacity(expanded ? 1 : 0)
         .disabled(!expanded).allowsHitTesting(expanded).accessibilityHidden(!expanded)
@@ -796,6 +799,7 @@ private struct FloatingComposer: View {
             }
         }
         .animation(composerAnimation, value: expanded)
+        .modifier(TaskComposerReservation(expanded: expanded))
         .task(id: focusRequest) {
             guard focusRequest > 0, expanded else { return }
             await Task.yield()

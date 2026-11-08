@@ -44,6 +44,18 @@ enum FridayViewportSizing {
     }
 }
 
+/// A hosted pane is also a drawing boundary. NSView no longer clips by default
+/// on macOS 14+, so native text/scroll descendants can otherwise paint outside
+/// their pane while adjacent hosting views move and resize independently.
+class FridayPaneHostingView: NSHostingView<AnyView> {
+    required init(rootView: AnyView) {
+        super.init(rootView: rootView)
+        clipsToBounds = true
+    }
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
 final class FridayRetainedViewport<Key: Hashable>: NSView {
     private var hosts: [Key: FridayPageHostingView] = [:]
     private var recent: [Key] = []
@@ -108,7 +120,7 @@ final class FridayRetainedViewport<Key: Hashable>: NSView {
     }
 }
 
-private final class FridayPageHostingView: NSHostingView<AnyView> {
+private final class FridayPageHostingView: FridayPaneHostingView {
     var presentationID: String?
     override func layout() {
         super.layout()
