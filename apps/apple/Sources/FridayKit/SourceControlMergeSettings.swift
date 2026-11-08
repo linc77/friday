@@ -12,14 +12,16 @@ struct SourceControlMergeSettings: View {
     var body: some View {
         SettingsGroup("仓库与 Worktree") {
             SettingsRow("应用到") {
-                Picker(selection: $scope) { Text(friday: "此主机").tag(""); ForEach(store.projects) { Text($0.name).tag($0.id) } } label: { Text(friday: "设置范围") }
-                    .labelsHidden().fridayInteractiveCursor().disabled(state.busy)
+                SettingsSelect(title: "设置范围", selection: $scope,
+                    options: [SettingsChoice("此主机", "")]
+                        + store.projects.map { SettingsChoice($0.name, $0.id) })
+                    .disabled(state.busy)
             }
             if let snapshot = state.snapshot {
                 SettingsDivider()
                 SettingsRow("合并时移除 Agent 署名", detail: "仅清理 GitHub merge／squash 消息中的已识别 Agent 行，保留真人共同作者。适用于自动合并；不修改合并队列、Stack 或已有提交。") {
-                    Toggle(isOn: Binding(get: { snapshot.effective.removeAgentCreditsOnMerge == true }, set: { value in save(changes: ["removeAgentCreditsOnMerge": value], owner: state.token) })) { Text(friday: "合并时移除 Agent 署名") }
-                        .labelsHidden().toggleStyle(.switch).fridayInteractiveCursor()
+                    FridayToggle(isOn: Binding(get: { snapshot.effective.removeAgentCreditsOnMerge == true }, set: { value in save(changes: ["removeAgentCreditsOnMerge": value], owner: state.token) })) { Text(friday: "合并时移除 Agent 署名") }
+                        .labelsHidden().fridayInteractiveCursor()
                 }.disabled(state.busy || !store.connected)
                 SettingsDivider()
                 SettingsRow("设置来源", detail: snapshot.source == "workspace" ? "此 Workspace" : snapshot.source == "host" ? "主机设置" : "默认设置") {
@@ -32,18 +34,17 @@ struct SourceControlMergeSettings: View {
                 if snapshot.effective.newWorktreesStartFromOrigin != nil {
                     SettingsDivider()
                     SettingsRow("新 Worktree 默认从 origin 开始", detail: "创建前获取基准分支的最新提交，也可在新任务中单独切换。") {
-                        Toggle(isOn: Binding(get: { snapshot.effective.newWorktreesStartFromOrigin == true }, set: { save(changes: ["newWorktreesStartFromOrigin": $0], owner: state.token) })) { Text(friday: "新 Worktree 默认从 origin 开始") }
-                            .labelsHidden().toggleStyle(.switch).fridayInteractiveCursor()
+                        FridayToggle(isOn: Binding(get: { snapshot.effective.newWorktreesStartFromOrigin == true }, set: { save(changes: ["newWorktreesStartFromOrigin": $0], owner: state.token) })) { Text(friday: "新 Worktree 默认从 origin 开始") }
+                            .labelsHidden().fridayInteractiveCursor()
                     }.disabled(state.busy || !store.connected)
                     SettingsDivider()
                     SettingsRow("子模块初始化", detail: "只在创建 Worktree 时执行，已有目录保持原状。初始化失败显示警告，随后继续运行 setup。") {
-                        Picker(selection: Binding(get: { snapshot.effective.worktreeSubmodules ?? "inherit" }, set: { save(changes: ["worktreeSubmodules": $0 == "inherit" ? NSNull() : $0 as Any], owner: state.token) })) {
-                            Text(friday: "跟随 t3.json（默认递归）").tag("inherit")
-                            Text(friday: "递归初始化").tag("recursive")
-                            Text(friday: "仅顶层子模块").tag("top-level")
-                            Text(friday: "不初始化").tag("none")
-                        } label: { Text(friday: "子模块初始化") }
-                            .labelsHidden().fridayInteractiveCursor()
+                        SettingsSelect(title: "子模块初始化",
+                            selection: Binding(get: { snapshot.effective.worktreeSubmodules ?? "inherit" }, set: { save(changes: ["worktreeSubmodules": $0 == "inherit" ? NSNull() : $0 as Any], owner: state.token) }),
+                            options: [SettingsChoice("跟随 t3.json（默认递归）", "inherit"),
+                                      SettingsChoice("递归初始化", "recursive"),
+                                      SettingsChoice("仅顶层子模块", "top-level"),
+                                      SettingsChoice("不初始化", "none")])
                     }.disabled(state.busy || !store.connected)
                     if projectID != nil && (snapshot.sources?["newWorktreesStartFromOrigin"] == "workspace" || snapshot.sources?["worktreeSubmodules"] == "workspace") {
                         SettingsDivider()

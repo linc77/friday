@@ -391,7 +391,7 @@ private struct TaskChangeRequestContent: View {
                 Divider()
                 if let file = selectedFile {
                     VStack(spacing: 0) {
-                        HStack { Text(file.path).font(.system(.caption, design: .monospaced)).textSelection(.enabled); Spacer(); if detail.capabilities?.fileContents != false { Button(friday: "完整文件") { var target = TaskChangeRequestFileTarget(path: file.path, head: detail.headSha, commit: codeScope.commit, initialSide: ["removed", "deleted"].contains(file.status) ? "old" : "new"); target.base = files?.baseSha; target.diffCursor = file.diffCursor; target.usesDiffSlices = true; fileTarget = target }.buttonStyle(FridaySymbolButtonStyle()).disabled(!store.connected) }; Toggle(isOn: $split) { Text(friday: "并排") }.toggleStyle(.switch).controlSize(.mini).fixedSize().fridayInteractiveCursor() }.padding(8)
+                        HStack { Text(file.path).font(.system(.caption, design: .monospaced)).textSelection(.enabled); Spacer(); if detail.capabilities?.fileContents != false { Button(friday: "完整文件") { var target = TaskChangeRequestFileTarget(path: file.path, head: detail.headSha, commit: codeScope.commit, initialSide: ["removed", "deleted"].contains(file.status) ? "old" : "new"); target.base = files?.baseSha; target.diffCursor = file.diffCursor; target.usesDiffSlices = true; fileTarget = target }.buttonStyle(FridaySymbolButtonStyle()).disabled(!store.connected) }; FridayToggle(isOn: $split) { Text(friday: "并排") }.controlSize(.mini).fixedSize().fridayInteractiveCursor() }.padding(8)
                         Divider()
                         if file.unavailable { Spacer(); Text(fridayString: file.omissionReason == "binary" ? "二进制文件没有文本 Diff" : file.omissionReason == "too_large" ? "平台未提供过大文件的行级 Diff" : file.omissionReason == "collapsed" ? "平台折叠了此文件的 Diff" : "平台未提供此文件的行级 Diff").font(.caption).foregroundStyle(.secondary).padding(); if let link = URL(string: url) { Link(destination: link) { Text(friday: "在平台查看") }.fridayInteractiveCursor() }; Spacer() }
                         else if file.noHunks == true { Spacer(); Text(friday: "此变更没有行级 Diff").font(.caption).foregroundStyle(.secondary).padding(); Spacer() }
@@ -424,10 +424,8 @@ private struct TaskChangeRequestContent: View {
             }
             TextEditor(text: $session.draft.summary).font(.body).frame(minHeight: 55, maxHeight: 85).overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary)).accessibilityLabel(Text(friday: "审查意见"))
             HStack {
-                Picker(selection: $session.draft.verdict) {
-                    ForEach(detail.verdicts, id: \.self) { verdict in Text(fridayString: verdict == "approve" ? "批准" : verdict == "request-changes" ? "请求修改" : "评论").tag(verdict) }
-                } label: { Text(friday: "审查结论") }
-                .frame(maxWidth: 180).fridayInteractiveCursor()
+                SettingsSelect(title: "审查结论", selection: $session.draft.verdict,
+                    options: detail.verdicts.map { SettingsChoice($0 == "approve" ? "批准" : $0 == "request-changes" ? "请求修改" : "评论", $0) }, width: 180)
                 Spacer()
                 if let pending = session.pending {
                     Button(friday: "重试发送") { send(pending) }.buttonStyle(FridayButtonStyle(compact: true)).disabled(busy || !store.connected)

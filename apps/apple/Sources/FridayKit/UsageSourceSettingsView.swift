@@ -57,9 +57,9 @@ struct UsageSourceSettingsView: View {
             SettingsRow("地址") { TextField("https://", text: $url).textFieldStyle(.roundedBorder).frame(maxWidth: 320) }
             SettingsDivider()
             SettingsRow("管理密钥", detail: selected?.hasManagementKey == true ? "已保存密钥，留空保留。" : nil) { SecureField(friday: "管理密钥", text: $managementKey).textFieldStyle(.roundedBorder).frame(maxWidth: 320) }
-            if selected?.hasManagementKey == true { SettingsDivider(); SettingsRow("清除已保存密钥") { Toggle("", isOn: $clearKey).labelsHidden().fridayInteractiveCursor() } }
+            if selected?.hasManagementKey == true { SettingsDivider(); SettingsRow("清除已保存密钥") { FridayToggle("", isOn: $clearKey).labelsHidden().fridayInteractiveCursor() } }
             SettingsDivider()
-            SettingsRow("启用") { Toggle("", isOn: $enabled).labelsHidden().fridayInteractiveCursor() }
+            SettingsRow("启用") { FridayToggle("", isOn: $enabled).labelsHidden().fridayInteractiveCursor() }
             SettingsDivider()
             HStack { Spacer(); Button { editing = false; managementKey = "" } label: { Text(friday: "取消") }.buttonStyle(FridayButtonStyle(compact: true)); Button { Task { await save() } } label: { Text(friday: "保存") }.buttonStyle(FridayButtonStyle(compact: true)).disabled(url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }.padding(12)
         }.disabled(busy || !store.connected)

@@ -20,12 +20,14 @@ struct ProjectScriptsSettingsView: View {
         SettingsPage(title: "项目脚本", subtitle: "在任务终端运行常用命令，也可在创建 Worktree 或收起任务时运行。") {
             SettingsGroup("设置范围") {
                 SettingsRow("应用到") {
-                    Picker(selection: $scope) { Text(friday: "此主机").tag(""); ForEach(store.projects) { Text($0.name).tag($0.id) } } label: { Text(friday: "设置范围") }
-                        .labelsHidden().fridayInteractiveCursor().disabled(busy || pending != nil)
+                    SettingsSelect(title: "设置范围", selection: $scope,
+                        options: [SettingsChoice("此主机", "")]
+                            + store.projects.map { SettingsChoice($0.name, $0.id) })
+                        .disabled(busy || pending != nil)
                 }
                 if !scope.isEmpty {
                     SettingsDivider()
-                    SettingsRow("使用主机脚本") { Toggle(isOn: $inherited) { Text(friday: "使用主机脚本") }.labelsHidden().fridayInteractiveCursor() }
+                    SettingsRow("使用主机脚本") { FridayToggle(isOn: $inherited) { Text(friday: "使用主机脚本") }.labelsHidden().fridayInteractiveCursor() }
                         .disabled(!editable)
                 }
             }
@@ -106,17 +108,18 @@ private struct ProjectScriptEditor: View {
         SettingsGroup("脚本") {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Picker(selection: $script.icon) { ForEach(["play","test","lint","configure","build","debug"], id: \.self) { Text($0).tag($0) } } label: { Text(friday: "图标") }.frame(width: 130).fridayInteractiveCursor()
+                    SettingsSelect(title: "图标", selection: $script.icon,
+                        options: ["play", "test", "lint", "configure", "build", "debug"].map { SettingsChoice($0, $0) }, width: 130)
                     TextField(friday: "脚本名称", text: $script.name).textFieldStyle(.roundedBorder)
                     Button(action: remove) { FridaySymbolImage(systemName: "trash") }.buttonStyle(FridaySymbolButtonStyle()).accessibilityLabel(Text(friday: "删除脚本"))
                 }
                 TextEditor(text: $script.command).font(.system(.body, design: .monospaced)).frame(minHeight: 90).padding(6).overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
                 ProjectScriptShortcutField(value: $shortcut)
-                Toggle(isOn: Binding(get: { script.runOnWorktreeCreate }, set: { claim(true, $0) })) { Text(friday: "创建 Worktree 时运行") }.fridayInteractiveCursor()
-                if script.runOnWorktreeCreate { Toggle(isOn: Binding(get: { script.async == false }, set: { script.async = !$0 })) { Text(friday: "等待初始化脚本结束再启动 Agent") }.fridayInteractiveCursor() }
-                Toggle(isOn: Binding(get: { script.runOnSettle == true }, set: { claim(false, $0) })) { Text(friday: "收起 Worktree 任务时运行") }.fridayInteractiveCursor()
+                FridayToggle(isOn: Binding(get: { script.runOnWorktreeCreate }, set: { claim(true, $0) })) { Text(friday: "创建 Worktree 时运行") }.fridayInteractiveCursor()
+                if script.runOnWorktreeCreate { FridayToggle(isOn: Binding(get: { script.async == false }, set: { script.async = !$0 })) { Text(friday: "等待初始化脚本结束再启动 Agent") }.fridayInteractiveCursor() }
+                FridayToggle(isOn: Binding(get: { script.runOnSettle == true }, set: { claim(false, $0) })) { Text(friday: "收起 Worktree 任务时运行") }.fridayInteractiveCursor()
                 TextField(friday: "预览地址（可选）", text: Binding(get: { script.previewUrl ?? "" }, set: { script.previewUrl = $0.isEmpty ? nil : $0 })).textFieldStyle(.roundedBorder)
-                if script.previewUrl?.isEmpty == false { Toggle(isOn: Binding(get: { script.autoOpenPreview == true }, set: { script.autoOpenPreview = $0 })) { Text(friday: "运行后打开网页预览") }.fridayInteractiveCursor() }
+                if script.previewUrl?.isEmpty == false { FridayToggle(isOn: Binding(get: { script.autoOpenPreview == true }, set: { script.autoOpenPreview = $0 })) { Text(friday: "运行后打开网页预览") }.fridayInteractiveCursor() }
             }.padding(16)
         }
     }

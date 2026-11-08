@@ -250,11 +250,8 @@ private struct TaskBulkSnoozeSheet: View {
             } else {
                 HStack {
                     TextField(friday: "时长", text: $amount).textFieldStyle(.roundedBorder)
-                    Picker(selection: $unit) {
-                        Text(friday: "分钟").tag("minutes")
-                        Text(friday: "小时").tag("hours")
-                        Text(friday: "天").tag("days")
-                    } label: { Text(friday: "时长单位") }.labelsHidden().fridayInteractiveCursor()
+                    SettingsSelect(title: "时长单位", selection: $unit,
+                        options: [SettingsChoice("分钟", "minutes"), SettingsChoice("小时", "hours"), SettingsChoice("天", "days")], width: 100)
                 }
             }
             HStack {

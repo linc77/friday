@@ -12,6 +12,20 @@ struct TaskBrowserPreferencesView:View {
     #endif
     @AppStorage("friday.browser.autoFloat") private var autoFloat=true
     private func change(_ update:(inout TaskBrowserDefaults)->Void) {var value=preferences.defaults;update(&value);preferences.update(value)}
+    private var selectedViewport: TaskBrowserViewportPreset? {
+        TaskBrowserViewportPreset.all.first {
+            $0.width == preferences.defaults.width && $0.height == preferences.defaults.height && $0.mobile == preferences.defaults.mobile
+        }
+    }
+    private var viewportTitle: String {
+        if let selectedViewport { return selectedViewport.label }
+        if let width=preferences.defaults.width,let height=preferences.defaults.height { return "\(width) × \(height)" }
+        return "填充面板"
+    }
+    private var viewportSelection: String {
+        if let selectedViewport { return selectedViewport.id }
+        return preferences.defaults.width == nil ? "fill" : "custom"
+    }
     var body:some View {
         VStack(spacing:0) {
             HStack {Text(friday:"浏览器").font(.title2.weight(.semibold));Spacer();if let close {Button(action:close){FridaySymbolImage(systemName:"xmark")}.buttonStyle(FridaySymbolButtonStyle()).help(Text(friday:"关闭"))}}.padding(20)
@@ -19,17 +33,28 @@ struct TaskBrowserPreferencesView:View {
             ScrollView {
                 VStack(alignment:.leading,spacing:18) {
                     Text(friday:"浏览默认值").font(.headline)
-                    Picker(String(localized:"默认浏览配置",bundle:.module),selection:Binding(get:{preferences.defaults.profile},set:{value in change{$0.profile=value}})) {
-                        ForEach(preferences.profiles.filter {$0.id != "incognito"}) {profile in if profile.builtIn {Text(fridayString:profile.name).tag(profile.id)}else{Text(verbatim:profile.name).tag(profile.id)}}
-                    }.fridayInteractiveCursor()
-                    Picker(String(localized:"网页外观",bundle:.module),selection:Binding(get:{preferences.defaults.appearance},set:{value in change{$0.appearance=value}})) {Text(friday:"跟随系统").tag("system");Text(friday:"浅色").tag("light");Text(friday:"深色").tag("dark")}.fridayInteractiveCursor()
-                    Picker(String(localized:"网页缩放",bundle:.module),selection:Binding(get:{preferences.defaults.zoom},set:{value in change{$0.zoom=value}})) {ForEach([0.25,0.33,0.5,0.67,0.75,0.8,0.9,1,1.1,1.25,1.5,1.75,2,2.5,3,4,5],id:\.self) {zoom in Text(verbatim:"\(Int(zoom*100))%").tag(zoom)}}.fridayInteractiveCursor()
+                    LabeledContent {
+                        SettingsSelect(title:"默认浏览配置",selection:Binding(get:{preferences.defaults.profile},set:{value in change{$0.profile=value}}),
+                            options:preferences.profiles.filter {$0.id != "incognito"}.map {SettingsChoice($0.name,$0.id)})
+                    } label: {Text(friday:"默认浏览配置")}
+                    LabeledContent {
+                        SettingsSelect(title:"网页外观",selection:Binding(get:{preferences.defaults.appearance},set:{value in change{$0.appearance=value}}),
+                            options:[SettingsChoice("跟随系统","system"),SettingsChoice("浅色","light"),SettingsChoice("深色","dark")])
+                    } label: {Text(friday:"网页外观")}
+                    LabeledContent {
+                        SettingsSelect(title:"网页缩放",selection:Binding(get:{preferences.defaults.zoom},set:{value in change{$0.zoom=value}}),
+                            options:[0.25,0.33,0.5,0.67,0.75,0.8,0.9,1,1.1,1.25,1.5,1.75,2,2.5,3,4,5].map {SettingsChoice("\(Int($0*100))%",$0)})
+                    } label: {Text(friday:"网页缩放")}
                     HStack {
                         Text(friday:"设备视口");Spacer()
-                        Menu {
-                            Button(friday:"填充面板") {change{$0.width=nil;$0.height=nil;$0.mobile=false}}
-                            ForEach(TaskBrowserViewportPreset.all) {preset in Button(preset.label) {change{$0.width=preset.width;$0.height=preset.height;$0.mobile=preset.mobile}}}
-                        } label:{if let width=preferences.defaults.width,let height=preferences.defaults.height {Text(verbatim:"\(width) × \(height)")}else{Text(friday:"填充面板")}}.fridayInteractiveCursor()
+                        SettingsSelect(title:"设备视口",selection:Binding(get:{viewportSelection},set:{value in
+                            if let preset=TaskBrowserViewportPreset.all.first(where:{$0.id==value}) {
+                                change{$0.width=preset.width;$0.height=preset.height;$0.mobile=preset.mobile}
+                            } else {
+                                change{$0.width=nil;$0.height=nil;$0.mobile=false}
+                            }
+                        }),options:[SettingsChoice("填充面板","fill")]+TaskBrowserViewportPreset.all.map{SettingsChoice($0.label,$0.id)},
+                        displayTitle:viewportTitle)
                     }
                     if let width=preferences.defaults.width,let height=preferences.defaults.height {
                         TaskBrowserDefaultDimensions(width:width,height:height) {w,h in
@@ -37,7 +62,7 @@ struct TaskBrowserPreferencesView:View {
                             change{$0.width=w;$0.height=h}
                         }
                     }
-                    Toggle(isOn:$autoFloat) {Text(friday:"收起网页面板时浮动预览")}.fridayInteractiveCursor()
+                    FridayToggle(isOn:$autoFloat) {Text(friday:"收起网页面板时浮动预览")}.fridayInteractiveCursor()
                     Text(friday:"默认值应用于新标签页，已有页面保持当前设置。").font(.caption).foregroundStyle(.secondary)
                     Divider()
                     HStack {Text(friday:"浏览配置").font(.headline);Spacer();Button(friday:"新增浏览配置") {_=preferences.create(String(localized:"New profile",bundle:.module))}.buttonStyle(FridayButtonStyle(compact:true)).disabled(preferences.userProfiles.count>=24)}
@@ -85,9 +110,28 @@ private struct TaskBrowserDefaultDimensions:View {
     @State private var w=""
     @State private var h=""
     var body:some View {
-        HStack {Text(friday:"尺寸");Spacer();TextField(friday:"宽度",text:$w).frame(width:70);Text(verbatim:"×");TextField(friday:"高度",text:$h).frame(width:70)}.textFieldStyle(.roundedBorder)
+        HStack {
+            Text(friday:"尺寸")
+            Spacer()
+            dimensionField("宽度",text:$w)
+            Text(verbatim:"×")
+            dimensionField("高度",text:$h)
+        }
             .onAppear{w=String(width);h=String(height)}.onChange(of:width){_,value in w=String(value)}.onChange(of:height){_,value in h=String(value)}
             .onSubmit {if let width=Int(w),let height=Int(h) {save(width,height)}}
+    }
+
+    private func dimensionField(_ title:String,text:Binding<String>)->some View {
+        #if os(macOS)
+        TextField(friday:title,text:text)
+            .textFieldStyle(.plain)
+            .multilineTextAlignment(.trailing)
+            .modifier(SettingsFieldChrome(width:70))
+        #else
+        TextField(friday:title,text:text)
+            .frame(width:70)
+            .textFieldStyle(.roundedBorder)
+        #endif
     }
 }
 private struct TaskBrowserProfileNameField:View {

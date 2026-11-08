@@ -118,7 +118,7 @@ struct SourceControlSettingsView: View {
                 .buttonStyle(FridayButtonStyle(prominent: true, compact: true)).disabled(locked || gitlabHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             ForEach(hosts, id: \.self) { host in
                 HStack {
-                    Toggle(isOn: Binding(get: { settings?.gitlabHosts?.first(where: { $0.host == host })?.enabled != false }, set: { value in save(["gitlabHost": ["host": host, "enabled": value]], owner: owner) })) { Text(verbatim: host).font(.system(.caption, design: .monospaced)) }.disabled(locked)
+                    FridayToggle(isOn: Binding(get: { settings?.gitlabHosts?.first(where: { $0.host == host })?.enabled != false }, set: { value in save(["gitlabHost": ["host": host, "enabled": value]], owner: owner) })) { Text(verbatim: host).font(.system(.caption, design: .monospaced)) }.disabled(locked)
                     if host != "gitlab.com", settings?.gitlabHosts?.contains(where: { $0.host == host }) == true {
                         Button(friday: "移除主机") { save(["gitlabHost": ["host": host, "enabled": NSNull()]], owner: owner) }.buttonStyle(FridaySymbolButtonStyle()).disabled(locked)
                     }
@@ -201,18 +201,15 @@ struct SourceControlSettingsView: View {
             HStack {
                 Text(verbatim: host).font(.system(.callout, design: .monospaced))
                 Spacer()
-                Toggle(isOn: Binding(get: { enabled }, set: { value in save(["githubHost": ["host": host, "enabled": value]], owner: owner) })) { Text(friday: "启用主机") }
-                    .labelsHidden().toggleStyle(.switch).disabled(locked).fridayInteractiveCursor().accessibilityLabel(Text(verbatim: host))
+                FridayToggle(isOn: Binding(get: { enabled }, set: { value in save(["githubHost": ["host": host, "enabled": value]], owner: owner) })) { Text(friday: "启用主机") }
+                    .labelsHidden().disabled(locked).fridayInteractiveCursor().accessibilityLabel(Text(verbatim: host))
             }
             if !accounts.isEmpty {
-                Picker(selection: Binding(get: { selected }, set: { account in
+                SettingsSelect(title: "使用账号", selection: Binding(get: { selected }, set: { account in
                     save(["githubHost": ["host": host, "account": account.isEmpty ? NSNull() : account as Any]], owner: owner)
-                })) {
-                    Text(friday: "跟随 gh 当前账号").tag("")
-                    ForEach(accounts, id: \.self) { account in
-                        Text(verbatim: revealsGitHubAccounts ? account : String(repeating: "•", count: max(4, min(account.count, 20)))).tag(account)
-                    }
-                } label: { Text(friday: "使用账号") }.pickerStyle(.menu).disabled(locked || !enabled).fridayInteractiveCursor()
+                }), options: [SettingsChoice("跟随 gh 当前账号", "")]
+                    + accounts.map { SettingsChoice(revealsGitHubAccounts ? $0 : String(repeating: "•", count: max(4, min($0.count, 20))), $0) })
+                    .disabled(locked || !enabled)
             } else if discovery.githubAccountHint == nil {
                 Text(friday: "登录 gh 后重新扫描，可在此选择账号。").font(.caption).foregroundStyle(.secondary)
             }

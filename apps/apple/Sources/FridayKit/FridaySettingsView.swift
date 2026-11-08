@@ -66,7 +66,7 @@ struct FridaySettingsView: View {
 
     var body: some View {
         HStack(spacing: FridayTheme.paneSpacing) {
-            sidebar.fridayPaneSurface(FridayTheme.surface)
+            sidebar.fridayPaneSurface()
             Group {
                 switch selection {
                 case .general: GeneralSettingsView()
@@ -85,7 +85,7 @@ struct FridaySettingsView: View {
             }
             .id(selection)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .fridayPaneSurface(FridayTheme.surface)
+            .fridayPaneSurface()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .tint(FridayTheme.accent)
@@ -135,7 +135,7 @@ struct FridaySettingsView: View {
         .padding(.bottom, 16)
         .frame(width: 220)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(FridayTheme.surface)
+        .background(FridayTheme.canvas)
     }
 
     @ViewBuilder private func navigationGroup(_ title: String, sections: [FridaySettingsSection]) -> some View {

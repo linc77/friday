@@ -49,6 +49,14 @@ extension FridayTheme {
     static var secondaryText: Color { adaptive(light: 0x71717a, dark: 0xa1a1aa, midnight: 0x9a9db0) }
     static var sidebarBackground: Color { isMidnight ? color(0x121420) : canvas }
     static var separator: Color { adaptive(light: 0xe4e4e7, dark: 0x303036, midnight: 0x242636) }
+    // Paseo's Light, Zinc and Midnight selection-control tokens.
+    static var selectionAccent: Color { color(0x3b6fcf) }
+    static var switchTrackOff: Color { adaptive(light: 0xe4e4e7, dark: 0x3f3f46, midnight: 0x3c3e4c) }
+    static var settingsSelectionBorder: Color { adaptive(light: 0xececf1, dark: 0x303036, midnight: 0x2e3040) }
+    static var settingsMenuSurface: Color { adaptive(light: 0xfafafa, dark: 0x1f1f22, midnight: 0x1c1e27) }
+    static var settingsMenuHover: Color { adaptive(light: 0xf4f4f5, dark: 0x27272a, midnight: 0x252731) }
+    static var settingsSelectionForeground: Color { adaptive(light: 0x1a1a1e, dark: 0xfafafa, midnight: 0xfafafa) }
+    static var settingsSelectionMuted: Color { adaptive(light: 0x71717a, dark: 0xa1a1aa, midnight: 0x9a9db0) }
     static var nativeLink: FridayNativeColor { isMidnight ? nativeColor(0x7eaaeb) : nativeColor(0x3563f4) }
     static var link: Color { isMidnight ? color(0x7eaaeb) : conversationUserBackground }
     static var interfaceFont: Font { .system(size: 14, weight: .regular) }

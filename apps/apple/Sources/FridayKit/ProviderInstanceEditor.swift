@@ -21,12 +21,16 @@ struct ProviderInstanceEditor: View {
         VStack(alignment: .leading, spacing: 18) {
             Text(friday: instance == nil ? "添加实例" : "实例设置").font(.headline)
             TextField(friday: "实例 ID", text: $id).disabled(instance != nil)
-            Picker("Provider", selection: $driver) {
-                ForEach(TaskProviderCatalog.order, id: \.self) { Text(TaskProviderCatalog.name($0)).tag($0) }
-            }.disabled(instance != nil).fridayInteractiveCursor()
+            HStack {
+                Text("Provider")
+                Spacer()
+                SettingsSelect(title: "Provider", selection: $driver,
+                    options: TaskProviderCatalog.order.map { SettingsChoice(TaskProviderCatalog.name($0), $0) })
+                    .disabled(instance != nil)
+            }
             TextField(friday: "显示名称", text: $name)
             TextField(friday: "标识颜色（#RRGGBB，可选）", text: $color)
-            Toggle(isOn: $enabled) { Text(friday: "启用实例") }.fridayInteractiveCursor()
+            FridayToggle(isOn: $enabled) { Text(friday: "启用实例") }.fridayInteractiveCursor()
             Text(friday: "每个实例独立保存工具配置。工具原生账号由其配置目录或环境变量决定。")
                 .font(.caption).foregroundStyle(.secondary)
             if let error { Text(error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }

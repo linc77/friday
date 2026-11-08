@@ -54,14 +54,24 @@ struct TaskBrowserImportView:View {
             Text(friday:"导入 Cookie 以复用登录状态。macOS 可能请求钥匙串或完全磁盘访问权限。").font(.callout).foregroundStyle(.secondary)
             if model.loading {Text(friday:"正在读取浏览器配置…").foregroundStyle(.secondary)}
             if available.isEmpty,!model.loading {Text(friday:"未发现可导入的浏览器配置").foregroundStyle(.secondary)}
-            Picker(String(localized:"来源浏览器",bundle:.module),selection:$source) {ForEach(available) {item in Text(verbatim:item.definition.name).tag(item.id)}}.fridayInteractiveCursor().disabled(model.busy || model.loading)
-            Picker(String(localized:"来源配置",bundle:.module),selection:$directory) {ForEach(selected?.profiles ?? []) {profile in Text(verbatim:profile.name+(profile.cookieCount.map {" · \($0) Cookie"} ?? "")).tag(profile.directory)}}.fridayInteractiveCursor().disabled(model.busy || model.loading)
+            LabeledContent {
+                SettingsSelect(title:"来源浏览器",selection:$source,
+                    options:available.map {SettingsChoice($0.definition.name,$0.id)})
+                    .disabled(model.busy || model.loading)
+            } label: {Text(friday:"来源浏览器")}
+            LabeledContent {
+                SettingsSelect(title:"来源配置",selection:$directory,
+                    options:(selected?.profiles ?? []).map {SettingsChoice($0.name+($0.cookieCount.map {" · \($0) Cookie"} ?? ""),$0.directory)})
+                    .disabled(model.busy || model.loading)
+            } label: {Text(friday:"来源配置")}
             if let reason=selected?.unavailable {Text(verbatim:reason.localizedDescription).font(.callout).foregroundStyle(.orange)}
             if let selected,selected.definition.engine != "safari" {Text(friday:"请先退出来源浏览器。").font(.caption).foregroundStyle(.secondary)}
-            Picker(String(localized:"此 Mac 的浏览配置",bundle:.module),selection:$target) {
-                Text(friday:"新建浏览配置").tag(TaskBrowserImportTarget.new)
-                ForEach(preferences.profiles.filter {$0.id != "incognito"}) {profile in Group {if profile.builtIn {Text(fridayString:profile.name)}else{Text(verbatim:profile.name)}}.tag(TaskBrowserImportTarget.existing(profile.id))}
-            }.fridayInteractiveCursor().disabled(model.busy || model.loading)
+            LabeledContent {
+                SettingsSelect(title:"此 Mac 的浏览配置",selection:$target,
+                    options:[SettingsChoice("新建浏览配置",TaskBrowserImportTarget.new)]
+                        + preferences.profiles.filter {$0.id != "incognito"}.map {SettingsChoice($0.name,TaskBrowserImportTarget.existing($0.id))})
+                    .disabled(model.busy || model.loading)
+            } label: {Text(friday:"此 Mac 的浏览配置")}
             Text(friday:"相同域名、路径和名称的 Cookie 将更新为来源值。").font(.caption).foregroundStyle(.secondary)
             if target == .new,preferences.userProfiles.count>=24 {Text(verbatim:TaskBrowserImportFailure.profileLimitReached.localizedDescription).font(.callout).foregroundStyle(.orange)}
             if let result=model.result {

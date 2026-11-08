@@ -20,6 +20,7 @@ struct TaskModelPicker: View {
     var instances: [ProviderInstanceInfo] = ProviderInstanceInfo.defaults
     var instanceId: String? = nil
     var lockedInstance: String? = nil
+    var flexibleHeight = false
     let select: (TaskModelChoice) -> Void
     @ObservedObject private var preferences = ProviderModelPreferences.shared
     @State private var search = ""
@@ -76,7 +77,7 @@ struct TaskModelPicker: View {
             }
         }
         #if os(macOS)
-        .frame(width: 460, height: 380)
+        .frame(width: 460, height: flexibleHeight ? nil : 380)
         #else
         .frame(width: 340, height: 380)
         #endif
