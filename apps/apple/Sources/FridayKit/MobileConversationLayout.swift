@@ -1,6 +1,32 @@
 import SwiftUI
 
 #if os(iOS)
+extension View {
+    func fridayMobilePageTitle(_ title: String) -> some View {
+        navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(fridayString: title)
+                        .font(.body.weight(.semibold))
+                        .padding(.horizontal, 18).frame(height: 44)
+                        .modifier(FridayMobileTitleSurface())
+                        .accessibilityAddTraits(.isHeader)
+                }
+            }
+    }
+}
+
+private struct FridayMobileTitleSurface: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular, in: Capsule())
+        } else {
+            content.background(.regularMaterial, in: Capsule())
+        }
+    }
+}
+
 private struct FridayMobileTabSelectionKey: EnvironmentKey {
     static let defaultValue: Binding<Int>? = nil
 }

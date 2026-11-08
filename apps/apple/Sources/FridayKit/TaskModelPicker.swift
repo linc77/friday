@@ -46,6 +46,10 @@ struct TaskModelPicker: View {
     }
 
     var body: some View {
+        #if os(iOS)
+        mobileContent
+            .onChange(of: scope) { _, _ in dismiss() }
+        #else
         HStack(spacing: 0) {
             VStack(spacing: 8) {
                 filterButton("all", title: "全部模型", symbol: "square.stack")
@@ -91,7 +95,43 @@ struct TaskModelPicker: View {
         .onDisappear { if modelJump.wrappedValue?.owner == jumpOwner { modelJump.wrappedValue = nil } }
         .onExitCommand { dismiss() }
         #endif
+        #endif
     }
+
+    #if os(iOS)
+    private var mobileContent: some View {
+        NavigationStack {
+            List {
+                ForEach(instances.filter { lockedProvider == nil || $0.driver == lockedProvider }) { instance in
+                    let models = choices.filter { $0.selectionId == instance.id }
+                    if !models.isEmpty {
+                        Section {
+                            ForEach(models) { choice in modelRow(choice) }
+                        } header: {
+                            HStack(spacing: 8) {
+                                AgentProviderIcon(provider: instance.driver, size: 18)
+                                Text(instance.name)
+                            }
+                        }
+                    }
+                }
+                if choices.isEmpty {
+                    Text(friday: "没有匹配的模型").foregroundStyle(.secondary)
+                }
+            }
+            .searchable(text: $search, prompt: Text(friday: "搜索模型…"))
+            .navigationTitle(Text(friday: "任务模型"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(friday: "完成") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+    }
+    #endif
 
     #if os(macOS)
     private func installJumpContext() {
@@ -157,3 +197,82 @@ struct TaskModelPicker: View {
             .background(selected ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
     }
 }
+
+#if os(iOS)
+private struct MobileNewTaskModelKey: EnvironmentKey {
+    static let defaultValue: Binding<TaskModelChoice?>? = nil
+}
+
+extension EnvironmentValues {
+    var mobileNewTaskModel: Binding<TaskModelChoice?>? {
+        get { self[MobileNewTaskModelKey.self] }
+        set { self[MobileNewTaskModelKey.self] = newValue }
+    }
+}
+
+struct MobileTaskModelControl: View {
+    @Bindable var store: FridayStore
+    @Binding var selection: TaskModelChoice?
+    @State private var showing = false
+    @State private var states: [String: CodexConnectionState] = [:]
+    @State private var failure: String?
+    @State private var loading = false
+
+    var body: some View {
+        Button { showing = true } label: {
+            HStack(spacing: 6) {
+                AgentProviderIcon(provider: selection?.provider ?? "codex", size: 20)
+                FridaySymbolImage(systemName: "chevron.down").font(.caption2)
+            }
+            .frame(minWidth: 56, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(FridaySymbolButtonStyle())
+        .accessibilityLabel(Text(friday: "任务模型"))
+        .accessibilityValue(Text(selection?.model.selectionName ?? "Codex"))
+        .sheet(isPresented: $showing) {
+            TaskModelPicker(server: store.connection.server, scope: store.connectionIdentity,
+                states: states, lockedProvider: nil, provider: selection?.provider ?? "codex",
+                model: selection?.model.id ?? "", instances: store.providerInstances,
+                instanceId: selection?.selectionId) { choice in
+                    selection = choice
+                    showing = false
+                }
+                .safeAreaInset(edge: .bottom) {
+                    if loading { Text(friday: "正在加载…").font(.caption).padding(8) }
+                    if let failure { Text(verbatim: failure).font(.caption).foregroundStyle(.secondary).padding(8) }
+                }
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
+        .task(id: store.connectionIdentity + ":" + String(store.connected) + ":" + String(showing)) {
+            states = [:]; failure = nil; loading = false
+            guard store.connected else { return }
+            let identity = store.connectionIdentity
+            let connection = store.connection
+            loading = true
+            defer { if store.connectionIdentity == identity { loading = false } }
+            await store.loadProviderInstances()
+            guard !Task.isCancelled, store.connectionIdentity == identity else { return }
+            for instance in store.providerInstances {
+                do {
+                    var state = try await connection.decode(CodexConnectionState.self, TaskProviderCatalog.endpoint(instance.driver, instance: instance.id))
+                    guard !Task.isCancelled, store.connectionIdentity == identity else { return }
+                    if !instance.enabled { state.enabled = false; state.connected = false }
+                    states[instance.id] = state
+                } catch {
+                    guard !Task.isCancelled, store.connectionIdentity == identity else { return }
+                    failure = error.localizedDescription
+                }
+            }
+            if selection == nil,
+               let instance = store.providerInstances.first(where: { $0.enabled && states[$0.id]?.connected == true }),
+               let models = states[instance.id]?.models,
+               let model = models.first(where: { $0.isDefault }) ?? models.first {
+                selection = TaskModelChoice(provider: instance.driver, model: model, instanceId: instance.id, instanceName: instance.name)
+            }
+        }
+        .onChange(of: store.connectionIdentity) { _, _ in selection = nil; showing = false }
+    }
+}
+#endif

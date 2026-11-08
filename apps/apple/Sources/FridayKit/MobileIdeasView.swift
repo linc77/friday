@@ -103,7 +103,7 @@ struct MobileIdeasView: View {
         .scrollDismissesKeyboard(.interactively)
         .fridayMobileHomeScroll()
         .background(Color(uiColor: .systemGroupedBackground))
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {

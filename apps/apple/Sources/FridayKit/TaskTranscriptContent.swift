@@ -29,14 +29,14 @@ struct TaskTranscriptContent: View {
         #if os(macOS)
         task.localAgent ? 24 : 44
         #else
-        24
+        task.localAgent ? 24 : 16
         #endif
     }
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 24) {
             #if os(iOS)
-            header()
+            if task.localAgent { header() }
             #endif
             TaskTranscriptMessages(
                 rows: rows, store: store, task: task, hasEarlierHistory: hasEarlierHistory,
@@ -180,20 +180,40 @@ private struct FridayAssistantMessage: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            FridayMark(size: 32, interactive: latest)
-                #if os(macOS)
-                .offset(y: -FridayTheme.conversationAssistantVerticalPadding)
-                #else
-                .padding(.top, FridayTheme.conversationAssistantVerticalPadding)
-                #endif
-            bubble
+        Group {
+            #if os(iOS)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 12) {
+                    FridayMark(size: 32, interactive: latest)
+                    thinkingRecord
+                        .frame(minHeight: 32, alignment: .leading)
+                }
+                if !message.text.isEmpty || !(message.tools ?? []).isEmpty {
+                    bubble
+                }
+            }
+            #else
+            HStack(alignment: .top, spacing: 12) {
+                FridayMark(size: 32, interactive: latest)
+                    .offset(y: -FridayTheme.conversationAssistantVerticalPadding)
+                bubble
+            }
+            .padding(.leading, -44)
+            #endif
         }
-        #if os(macOS)
-        .padding(.leading, -44)
-        #endif
         .disclosureGroupStyle(AssistantRecordDisclosureStyle())
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder private var thinkingRecord: some View {
+        if let thinking = message.thinking, !thinking.isEmpty {
+            DisclosureGroup(isExpanded: $thinkingExpanded) {
+                Text(verbatim: thinking).font(.callout).foregroundStyle(FridayTheme.secondaryText)
+                    .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+            } label: {
+                Text(friday: "思考记录").font(.callout).foregroundStyle(FridayTheme.secondaryText).fridayInteractiveCursor()
+            }
+        }
     }
 
     private var bubble: some View {
@@ -213,14 +233,9 @@ private struct FridayAssistantMessage: View {
             }
             if message.thinking?.isEmpty == false || !message.text.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    if let thinking = message.thinking, !thinking.isEmpty {
-                        DisclosureGroup(isExpanded: $thinkingExpanded) {
-                            Text(verbatim: thinking).font(.callout).foregroundStyle(FridayTheme.secondaryText)
-                                .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                        } label: {
-                            Text(friday: "思考记录").font(.callout).foregroundStyle(FridayTheme.secondaryText).fridayInteractiveCursor()
-                        }
-                    }
+                    #if os(macOS)
+                    thinkingRecord
+                    #endif
                     if !message.text.isEmpty {
                         AgentMarkdown(text: message.text, isStreaming: message.streaming == true && active,
                             bodyFont: reading.bodyFont, bodyLineSpacing: reading.lineSpacing,
@@ -236,9 +251,7 @@ private struct FridayAssistantMessage: View {
         }
         .padding(.horizontal, FridayTheme.conversationAssistantHorizontalPadding)
         .padding(.vertical, FridayTheme.conversationAssistantVerticalPadding)
-        #if os(macOS)
         .frame(maxWidth: .infinity, alignment: .leading)
-        #endif
         .background(FridayTheme.conversationAssistantBackground, in: RoundedRectangle(cornerRadius: FridayTheme.conversationBubbleRadius))
     }
 

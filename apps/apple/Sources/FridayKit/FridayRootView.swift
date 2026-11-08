@@ -44,6 +44,7 @@ public struct FridayRootView: View {
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
     @State private var mobileKeyboardVisible = false
+    @State private var mobileModelChoice: TaskModelChoice?
     #endif
     #if os(macOS)
     @State private var taskSidebarWidth: Double = 250
@@ -88,10 +89,10 @@ public struct FridayRootView: View {
                         .toolbar(.hidden, for: .navigationBar)
                         .overlay(alignment: .top) { FridayMobileTopFade() }
                 }.fridayMobilePage(isSelected: mobileTab == 0)
-                NavigationStack { inbox.navigationTitle(Text(friday: "想法")) }
+                NavigationStack { inbox.fridayMobilePageTitle("想法") }
                     .fridayMobilePage(isSelected: mobileTab == 1)
                 NavigationStack(path: $mobileTaskPath) {
-                    tasksList.navigationTitle(Text(friday: "任务"))
+                    tasksList.fridayMobilePageTitle("任务")
                         .safeAreaInset(edge: .bottom, spacing: 0) { mobileTaskDock }
                         .fridayMobileHomeNavigation(inComposer: true)
                         .navigationDestination(for: String.self) { id in TaskDetail(store: store, id: id, onOpenTask: openLocalTask) }
@@ -339,14 +340,18 @@ public struct FridayRootView: View {
     #if os(iOS)
     private var mobileTaskDock: some View {
         FridayMobileComposerDock(homeSection: .tasks) {
-            Button { draftProjectId = nil; choosingMobileWorkspace = true } label: {
-                FridaySymbolLabel(friday: "新任务", systemImage: "square.and.pencil")
-                    .font(.body)
-                    .frame(maxWidth: .infinity)
-                    .modifier(FridayMobileInputSurface())
-                    .contentShape(Rectangle())
+            HStack(spacing: 0) {
+                Button { draftProjectId = nil; choosingMobileWorkspace = true } label: {
+                    Text("Let's do it.")
+                        .font(.body).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .padding(.leading, 16)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(FridaySymbolButtonStyle())
+                MobileTaskModelControl(store: store, selection: $mobileModelChoice)
             }
-            .buttonStyle(FridaySymbolButtonStyle())
+            .modifier(FridayMobileInputSurface())
         }
     }
 
@@ -359,6 +364,7 @@ public struct FridayRootView: View {
                 } else { mobileWorkspaceChoices }
             }.toolbar { Button(friday: "取消") { choosingMobileWorkspace = false } }
         }
+        .environment(\.mobileNewTaskModel, $mobileModelChoice)
     }
     private func finishMobileTask(_ id: String) { choosingMobileWorkspace = false; openLocalTask(id) }
     private var mobileWorkspaceChoices: some View {

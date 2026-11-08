@@ -360,6 +360,7 @@ struct AgentTaskComposer: View {
     @State private var editorIdentity = ""
     @State private var restoreContextPickerFocus = false
     #if os(iOS)
+    @Environment(\.mobileNewTaskModel) private var mobileNewTaskModel
     @State private var photoItems: [PhotosPickerItem] = []
     #endif
     #if os(macOS)
@@ -549,6 +550,11 @@ struct AgentTaskComposer: View {
         #endif
         #if os(iOS)
         .onDisappear { focused = false }
+        .onChange(of: mobileNewTaskModel?.wrappedValue?.id) { _, _ in
+            guard task == nil, let choice = mobileNewTaskModel?.wrappedValue else { return }
+            choseProvider = true; provider = choice.provider; instanceId = choice.selectionId; model = choice.model.id
+            effort = ""; modelOptions = []
+        }
         #endif
         .onChange(of: task?.rewindOperation?.projectedAt) { _, value in
             guard value != nil, let editor = task?.rewindOperation?.editor else { return }
@@ -558,6 +564,11 @@ struct AgentTaskComposer: View {
             stoppingTaskId = nil; stoppingRequest = nil; error = nil
             let queued = task?.queue?.messages.first { $0.id == editingQueuedMessageId }
             provider = task?.agent ?? "codex"; instanceId = task?.resolvedProviderInstance ?? "codex"; model = queued?.model ?? task?.model ?? ""; restoreOptions(queued?.modelOptions ?? task?.modelOptions ?? [], effort: queued?.reasoningEffort ?? task?.reasoningEffort ?? "")
+            #if os(iOS)
+            if task == nil, let choice = mobileNewTaskModel?.wrappedValue {
+                choseProvider = true; provider = choice.provider; instanceId = choice.selectionId; model = choice.model.id
+            }
+            #endif
         }
         .onChange(of: task?.providerEpoch) { _, _ in
             guard let task else { return }
@@ -1081,9 +1092,17 @@ struct AgentTaskComposer: View {
                     if selectedInstance != provider { Text(providerName).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                 }
             }.buttonStyle(FridaySymbolButtonStyle()).disabled(sending || switchingProvider).accessibilityLabel(Text(friday: "任务模型"))
+                #if os(iOS)
+                .sheet(isPresented: $showModels) {
+                    TaskModelPicker(server: store.connection.server, scope: store.connectionIdentity, states: states, lockedProvider: canChangeProvider ? nil : task?.agent, provider: provider, model: selectedModel?.id ?? model, instances: store.providerInstances, instanceId: selectedInstance, lockedInstance: canChangeProvider ? nil : task?.resolvedProviderInstance, select: chooseModel).environment(\.locale, locale)
+                        .presentationDetents([.medium])
+                        .presentationDragIndicator(.visible)
+                }
+                #else
                 .popover(isPresented: $showModels) {
                     TaskModelPicker(server: store.connection.server, scope: store.connectionIdentity, states: states, lockedProvider: canChangeProvider ? nil : task?.agent, provider: provider, model: selectedModel?.id ?? model, instances: store.providerInstances, instanceId: selectedInstance, lockedInstance: canChangeProvider ? nil : task?.resolvedProviderInstance, select: chooseModel).environment(\.locale, locale)
                 }
+                #endif
         }
     }
 
@@ -1123,6 +1142,9 @@ struct AgentTaskComposer: View {
             }
         } else {
             choseProvider = true; provider = choice.provider; instanceId = choice.selectionId; model = choice.model.id; effort = ""; modelOptions = []
+            #if os(iOS)
+            if task == nil { mobileNewTaskModel?.wrappedValue = choice }
+            #endif
         }
     }
 

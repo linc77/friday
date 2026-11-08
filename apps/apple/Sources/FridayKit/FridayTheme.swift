@@ -90,7 +90,7 @@ enum FridayTheme {
                 : NSColor(red: 243.0 / 255.0, green: 243.0 / 255.0, blue: 245.0 / 255.0, alpha: 1)
         })
         #else
-        return surface
+        return Color(uiColor: .secondarySystemBackground)
         #endif
     }
 
@@ -137,8 +137,8 @@ enum FridayTheme {
     static let conversationUserLineSpacing: CGFloat = 5
     static let conversationUserBubbleRadius: CGFloat = 16
     static let conversationUserVerticalPadding: CGFloat = 18
-    static let conversationAssistantHorizontalPadding: CGFloat = 24
-    static let conversationAssistantVerticalPadding: CGFloat = 24
+    static let conversationAssistantHorizontalPadding: CGFloat = 16
+    static let conversationAssistantVerticalPadding: CGFloat = 14
     #endif
 
     static var conversationInput: Color {

@@ -10,8 +10,9 @@ enum FridayMobileDockMetrics {
     static let composerInset: CGFloat = 16
     static let composerBottomInset: CGFloat = 12
     static let inputHeight: CGFloat = 48
-    // The settings dock stays one row tall; preserve the full dock's corner proportion.
-    static let singleRowCornerRadius: CGFloat = composerCornerRadius * 52 / 128
+    static let navigationRowHeight: CGFloat = 52
+    // Omit only the input row; keep the same navigation insets and bottom baseline.
+    static let singleRowHeight: CGFloat = composerInset + navigationRowHeight + composerBottomInset
 
     static func compactWidth(availableWidth: CGFloat) -> CGFloat {
         min(availableWidth, (availableWidth + 2 * horizontalInset) * (254.0 / 589.0))
@@ -37,9 +38,7 @@ struct FridayMobileNavigationBar: View {
         if let selection {
             Group {
                 if embedded {
-                    navigationRow(selection: selection)
-                        .padding(4)
-                        .frame(height: 52)
+                    paddedNavigationRow(selection: selection)
                 } else {
                     floatingBar(selection: selection)
                 }
@@ -56,18 +55,20 @@ struct FridayMobileNavigationBar: View {
     private func floatingBar(selection: Binding<Int>) -> some View {
         GeometryReader { geometry in
             let compactWidth = FridayMobileDockMetrics.compactWidth(availableWidth: geometry.size.width)
-            let shape = collapsed ? AnyShape(Capsule()) : AnyShape(RoundedRectangle(cornerRadius: FridayMobileDockMetrics.singleRowCornerRadius, style: .continuous))
+            let shape = collapsed ? AnyShape(Capsule()) : AnyShape(RoundedRectangle(cornerRadius: FridayMobileDockMetrics.composerCornerRadius, style: .continuous))
             ZStack(alignment: .bottom) {
-                navigationRow(selection: selection)
-                    .padding(4)
-                    .frame(width: geometry.size.width, height: 52)
+                paddedNavigationRow(selection: selection)
+                    .padding(.horizontal, FridayMobileDockMetrics.composerInset)
+                    .padding(.top, FridayMobileDockMetrics.composerInset)
+                    .padding(.bottom, FridayMobileDockMetrics.composerBottomInset)
+                    .frame(width: geometry.size.width, height: FridayMobileDockMetrics.singleRowHeight)
                     .opacity(collapsed ? 0 : 1)
                     .allowsHitTesting(!collapsed)
                     .accessibilityHidden(collapsed)
                     .frame(width: collapsed ? compactWidth : geometry.size.width,
-                           height: collapsed ? FridayMobileDockMetrics.compactHeight : 52)
+                           height: collapsed ? FridayMobileDockMetrics.compactHeight : FridayMobileDockMetrics.singleRowHeight)
                     .clipShape(shape)
-                    .modifier(FridayMobileDockSurface(cornerRadius: collapsed ? nil : FridayMobileDockMetrics.singleRowCornerRadius))
+                    .modifier(FridayMobileDockSurface(cornerRadius: collapsed ? nil : FridayMobileDockMetrics.composerCornerRadius))
                 compactButton(selection: selection.wrappedValue, width: compactWidth)
                     .opacity(collapsed ? 1 : 0)
                     .allowsHitTesting(collapsed)
@@ -77,10 +78,10 @@ struct FridayMobileNavigationBar: View {
             .animation(motion, value: collapsed)
         }
         // Keep the scroll viewport fixed while only the floating capsule changes size.
-        .frame(height: 52)
+        .frame(height: FridayMobileDockMetrics.singleRowHeight)
         .frame(maxWidth: 600)
         .padding(.horizontal, FridayMobileDockMetrics.horizontalInset)
-        .padding(.top, 6)
+        .padding(.top, 8)
         .padding(.bottom, FridayMobileDockMetrics.bottomInset)
         .frame(maxWidth: .infinity)
         .modifier(FridayMobileDockBackdrop(collapsed: collapsed))
@@ -89,6 +90,12 @@ struct FridayMobileNavigationBar: View {
     private func compactButton(selection: Int, width: CGFloat) -> some View {
         let section = sections[min(max(selection, 0), sections.count - 1)]
         return FridayMobileCompactNavigationButton(section: section, width: width, expand: { collapsed = false })
+    }
+
+    private func paddedNavigationRow(selection: Binding<Int>) -> some View {
+        navigationRow(selection: selection)
+            .padding(4)
+            .frame(height: FridayMobileDockMetrics.navigationRowHeight)
     }
 
     private func navigationRow(selection: Binding<Int>) -> some View {
