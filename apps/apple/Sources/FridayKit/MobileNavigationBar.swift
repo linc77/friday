@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import UIKit
 
 /// One moving capsule shared across pages, above a static single glass surface.
 struct FridayMobileNavigationRow: View {
@@ -8,48 +9,60 @@ struct FridayMobileNavigationRow: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var drag = FridayNavigationDrag()
     @State private var owner = UUID()
+    @State private var pressed = false
     @GestureState private var tracking = false
     private let sections: [FridaySection] = [.chat, .inbox, .tasks, .settings]
+    private static let height: CGFloat = 44
+
+    /// Switch pages immediately; the capsule slide already runs in Core Animation.
+    private func commit(_ destination: Int, motion: FridayNavigationMotion, selection: Binding<Int>) {
+        selection.wrappedValue = destination
+    }
 
     var body: some View {
         if let selection, let motion {
             GeometryReader { geometry in
                 let layout = FridayNavigationGeometry(width: geometry.size.width, count: sections.count)
                 ZStack(alignment: .leading) {
-                    Capsule().fill(.primary.opacity(0.08))
-                        .frame(width: layout.itemWidth, height: 52)
-                        .offset(x: motion.position * (layout.itemWidth + layout.spacing))
-                        .allowsHitTesting(false)
+                    FridayNavigationCapsule(
+                        motion: motion,
+                        transition: motion.transition,
+                        step: layout.itemWidth + layout.spacing,
+                        size: CGSize(width: layout.itemWidth, height: Self.height)
+                    )
+                    .allowsHitTesting(false)
                     HStack(spacing: layout.spacing) {
                         ForEach(sections.indices, id: \.self) { index in
                             let section = sections[index]
                             Button {
                                 guard !drag.isHorizontal else { return }
                                 motion.move(to: index, animated: !reduceMotion)
-                                selection.wrappedValue = index
+                                commit(index, motion: motion, selection: selection)
                             } label: {
-                                VStack(spacing: 3) {
-                                    FridaySymbolImage(systemName: section.icon)
-                                        .font(.system(size: 22, weight: .regular))
-                                    Text(fridayString: section.rawValue).font(.caption2).lineLimit(1)
-                                }
-                                .foregroundStyle(.primary)
-                                .frame(maxWidth: .infinity, minHeight: 52)
-                                .contentShape(Capsule())
+                                FridaySymbolImage(systemName: section.icon)
+                                    .font(.system(size: 22, weight: .regular))
+                                    .foregroundStyle(.primary)
+                                    .frame(maxWidth: .infinity, minHeight: Self.height)
+                                    .contentShape(Capsule())
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(Text(fridayString: section.rawValue))
                             .accessibilityAddTraits(selection.wrappedValue == index ? .isSelected : [])
                         }
                     }
                 }
-                // Frames come from the shared display-linked position; don't
-                // interpolate them again or animate the surrounding page layout.
+                // The capsule animates in Core Animation; never animate the row layout.
                 .transaction { $0.animation = nil }
                 .contentShape(Rectangle())
                 .highPriorityGesture(
-                    DragGesture(minimumDistance: FridayNavigationDrag.minimumDistance)
+                    // Zero distance: the capsule answers touch-down; the page switches on lift.
+                    DragGesture(minimumDistance: 0)
                         .updating($tracking) { _, active, _ in active = true }
                         .onChanged { value in
+                            if !pressed {
+                                pressed = true
+                                motion.move(to: layout.index(at: value.startLocation.x), animated: !reduceMotion)
+                            }
                             drag.update(start: value.startLocation, location: value.location)
                             if drag.isHorizontal {
                                 motion.drag(to: layout.position(at: value.location.x), owner: owner)
@@ -59,19 +72,21 @@ struct FridayMobileNavigationRow: View {
                             drag.update(start: value.startLocation, location: value.location)
                             if drag.isHorizontal {
                                 motion.drag(to: layout.position(at: value.location.x), owner: owner)
-                                let destination = layout.index(at: value.location.x)
-                                motion.move(to: destination, animated: !reduceMotion)
-                                selection.wrappedValue = destination
                             }
+                            let destination = layout.index(at: value.location.x)
+                            motion.move(to: destination, animated: !reduceMotion)
+                            commit(destination, motion: motion, selection: selection)
                             drag = FridayNavigationDrag()
+                            pressed = false
                         }
                 )
             }
-            .frame(height: 52)
+            .frame(height: Self.height)
             .onChange(of: tracking) { _, active in
                 if !active {
-                    motion.cancelDrag(owner: owner, selection: selection.wrappedValue, animated: !reduceMotion)
+                    motion.move(to: selection.wrappedValue, animated: !reduceMotion)
                     drag = FridayNavigationDrag()
+                    pressed = false
                 }
             }
             .onDisappear {
