@@ -28,10 +28,10 @@ struct FridayNavigationTransition {
     let from: CGFloat
     let to: CGFloat
     let start: TimeInterval
-    static let duration: TimeInterval = 0.18
+    static let duration: TimeInterval = 0.22
     func value(at time: TimeInterval) -> CGFloat {
         let t = min(max((time - start) / Self.duration, 0), 1)
-        return from + (to - from) * CGFloat(1 - pow(1 - t, 3))
+        return from + (to - from) * CGFloat(t)
     }
     func finished(at time: TimeInterval) -> Bool { time >= start + Self.duration }
 }
@@ -41,71 +41,108 @@ import SwiftUI
 import UIKit
 import Observation
 
+/// Slides are pinned to an absolute media time and rendered by Core Animation,
+/// so every page's capsule shows the same frame and main-thread work can't stall it.
 @MainActor @Observable
 final class FridayNavigationMotion {
-    private(set) var position: CGFloat = 0
-    @ObservationIgnored private var target: CGFloat = 0
-    @ObservationIgnored private var transition: FridayNavigationTransition?
-    @ObservationIgnored private var displayLink: CADisplayLink?
+    private(set) var transition = FridayNavigationTransition(from: 0, to: 0, start: 0)
     @ObservationIgnored private var dragOwner: UUID?
-    @ObservationIgnored private var awaitingStart = false
+    @ObservationIgnored private var handles: [FridayCapsuleHandle] = []
+
+    func register(_ handle: FridayCapsuleHandle) {
+        handles.removeAll { $0.layer == nil }
+        if !handles.contains(where: { $0 === handle }) { handles.append(handle) }
+    }
+
+    /// Attach the slide to every live capsule layer in the same call as the touch.
+    private func push() {
+        handles.removeAll { $0.layer == nil }
+        for handle in handles { handle.apply(transition) }
+    }
 
     func move(to index: Int, animated: Bool) {
         let destination = CGFloat(index)
         dragOwner = nil
-        if !animated { stop(); target = destination; position = destination; return }
-        if target == destination, displayLink != nil { return }
-        stop()
-        target = destination
-        guard abs(position - destination) > 0.001 else { position = destination; return }
-        transition = .init(from: position, to: destination, start: CACurrentMediaTime())
-        awaitingStart = true
-        let proxy = FridayNavigationFrameTarget(owner: self)
-        let link = CADisplayLink(target: proxy, selector: #selector(FridayNavigationFrameTarget.tick(_:)))
-        link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)
-        displayLink = link
-        link.add(to: .main, forMode: .common)
+        let now = CACurrentMediaTime()
+        if animated, transition.to == destination { return }
+        let current = transition.value(at: now)
+        transition = animated && abs(current - destination) > 0.001
+            ? .init(from: current, to: destination, start: now)
+            : .init(from: destination, to: destination, start: now)
+        push()
     }
 
     func drag(to position: CGFloat, owner: UUID) {
         guard dragOwner == nil || dragOwner == owner else { return }
-        stop()
         dragOwner = owner
-        self.position = position
+        transition = .init(from: position, to: position, start: CACurrentMediaTime())
+        push()
     }
 
     func cancelDrag(owner: UUID, selection: Int, animated: Bool) {
         guard dragOwner == owner else { return }
         move(to: selection, animated: animated)
     }
-
-    fileprivate func tick(_ link: CADisplayLink) {
-        guard var transition else { stop(); return }
-        let now = CACurrentMediaTime()
-        if awaitingStart {
-            transition = .init(from: transition.from, to: transition.to, start: now)
-            self.transition = transition
-            awaitingStart = false
-        }
-        position = transition.value(at: now)
-        if transition.finished(at: now) { stop() }
-    }
-
-    private func stop() {
-        displayLink?.invalidate()
-        displayLink = nil
-        transition = nil
-    }
-
-    deinit { displayLink?.invalidate() }
 }
 
-@MainActor private final class FridayNavigationFrameTarget: NSObject {
-    weak var owner: FridayNavigationMotion?
-    init(owner: FridayNavigationMotion) { self.owner = owner }
-    @objc func tick(_ link: CADisplayLink) {
-        guard let owner else { link.invalidate(); return }
-        owner.tick(link)
+@MainActor final class FridayCapsuleHandle {
+    weak var layer: CALayer?
+    var step: CGFloat = 0
+    var size: CGSize = .zero
+    private var applied: (CGFloat, CGFloat, TimeInterval, CGFloat, CGFloat)?
+
+    func apply(_ transition: FridayNavigationTransition) {
+        guard let layer, size.width > 0 else { return }
+        let key = (transition.from, transition.to, transition.start, step, size.width)
+        if let applied, applied == key { return }
+        applied = key
+        let x = { (p: CGFloat) in p * self.step + self.size.width / 2 }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.bounds = CGRect(origin: .zero, size: size)
+        layer.cornerRadius = size.height / 2
+        layer.position = CGPoint(x: x(transition.to), y: size.height / 2)
+        layer.removeAnimation(forKey: "slide")
+        if transition.from != transition.to, !transition.finished(at: CACurrentMediaTime()) {
+            let slide = CABasicAnimation(keyPath: "position.x")
+            slide.fromValue = x(transition.from)
+            slide.toValue = x(transition.to)
+            slide.duration = FridayNavigationTransition.duration
+            slide.beginTime = layer.convertTime(transition.start, from: nil)
+            slide.fillMode = .backwards
+            slide.timingFunction = CAMediaTimingFunction(name: .linear)
+            layer.add(slide, forKey: "slide")
+        }
+        CATransaction.commit()
+    }
+}
+
+struct FridayNavigationCapsule: UIViewRepresentable {
+    let motion: FridayNavigationMotion
+    let transition: FridayNavigationTransition
+    let step: CGFloat
+    let size: CGSize
+
+    func makeCoordinator() -> FridayCapsuleHandle { FridayCapsuleHandle() }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isUserInteractionEnabled = false
+        let capsule = UIView()
+        capsule.backgroundColor = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.08) : UIColor(white: 0, alpha: 0.08) }
+        capsule.layer.cornerCurve = .continuous
+        view.addSubview(capsule)
+        return view
+    }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        guard let layer = view.subviews.first?.layer else { return }
+        let handle = context.coordinator
+        handle.layer = layer
+        handle.step = step
+        handle.size = size
+        motion.register(handle)
+        handle.apply(transition)
     }
 }
 
