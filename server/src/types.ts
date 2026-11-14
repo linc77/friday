@@ -270,6 +270,7 @@ export type WorkItem = {
   pullRequests?: TaskPullRequest[]; // Public read-only metadata across Git operations.
 };
 export type Workspace = {
+  personalWorkspace?: import('./personal-workspace.js').PersonalWorkspaceSettings;
   approvalResponses?: Record<string, import('./provider-approvals.js').ApprovalResponseReceipt>;
   usageLimitSourcesSupported?: boolean;
   providerUsageIdentities?: Record<string, import('./provider-usage-limits.js').ProviderUsageIdentity & { fingerprint: string }>;

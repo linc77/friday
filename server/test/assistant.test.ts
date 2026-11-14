@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, symlink, writeFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
+import { homedir } from 'node:os';
 import { createModels, fauxProvider, fauxAssistantMessage, fauxToolCall, type Credential } from '@earendil-works/pi-ai';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import type { ConversationId } from '@earendil-works/pi-durable';
@@ -75,13 +76,13 @@ test('A follow-up awaiting input does not reuse the previous answer as its curre
   } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
-test('Native file tools enforce project boundaries and persist explicit approval before writes', async () => {
+test('Native file tools access outside the project and persist explicit approval before writes', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-files-')); const project = await mkdtemp(join(tmpdir(), 'friday-project-')); const outside = await mkdtemp(join(tmpdir(), 'friday-outside-'));
   await writeFile(join(outside, 'secret.txt'), 'private'); await symlink(outside, join(project, 'escape'));
   const { faux, options } = model();
   faux.setResponses([
     fauxAssistantMessage(fauxToolCall('read_file', { path: 'escape/secret.txt' }), { stopReason: 'toolUse' }),
-    ctx => { const data = JSON.stringify(ctx); assert.match(data, /路径超出关联项目/); assert.ok(!data.includes('private')); return fauxAssistantMessage(fauxToolCall('write_file', { path: 'hello.md', content: 'Hello Friday' }), { stopReason: 'toolUse' }); },
+    ctx => { const data = JSON.stringify(ctx); assert.ok(data.includes('private')); return fauxAssistantMessage(fauxToolCall('write_file', { path: 'hello.md', content: 'Hello Friday' }), { stopReason: 'toolUse' }); },
     fauxAssistantMessage('文件写好了。'),
   ]);
   const engine = await new Engine(directory, noCodex, options).open();
@@ -98,7 +99,7 @@ test('Native file tools enforce project boundaries and persist explicit approval
   } finally { await engine.close(); await Promise.all([directory, project, outside].map(p => rm(p, { recursive: true, force: true }))); }
 });
 
-test('Native continuation retains the chosen directory and file boundaries after Workspace deletion', async () => {
+test('Native continuation retains the chosen base directory and host file access after Workspace deletion', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-native-deleted-')); const project = await mkdtemp(join(tmpdir(), 'friday-retained-project-'));
   const outside = await mkdtemp(join(tmpdir(), 'friday-retained-outside-'));
   await writeFile(join(project, 'keep.txt'), 'Retained content');
@@ -111,8 +112,7 @@ test('Native continuation retains the chosen directory and file boundaries after
       return fauxAssistantMessage(fauxToolCall('read_file', { path: 'escape/secret.txt' }), { stopReason: 'toolUse' });
     },
     ctx => {
-      assert.match(JSON.stringify(ctx), /路径超出关联项目/);
-      assert.ok(!JSON.stringify(ctx).includes('outside-secret'));
+      assert.ok(JSON.stringify(ctx).includes('outside-secret'));
       return fauxAssistantMessage(fauxToolCall('read_file', { path: 'keep.txt' }), { stopReason: 'toolUse' });
     },
     ctx => { assert.match(JSON.stringify(ctx), /Retained content/); return fauxAssistantMessage('Read the original directory.'); },
@@ -130,13 +130,13 @@ test('Native continuation retains the chosen directory and file boundaries after
   } finally { await engine.close(); await Promise.all([directory, project, outside].map(p => rm(p, { recursive: true, force: true }))); }
 });
 
-test('Direct conversation requests a workspace, releases the queue, and resumes the same native conversation after selection', async () => {
+test('Direct conversation can explicitly request a project, release the queue, and resume the same conversation after selection', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'friday-native-workspace-')); const project = await mkdtemp(join(tmpdir(), 'friday-native-project-'));
   const { faux, options } = model(); let codexCalls = 0;
   const executor: Executor = { ...noCodex, run: async () => { codexCalls++; throw new Error('Unexpected delegation'); } };
   faux.setResponses([
     ctx => { assert.match(JSON.stringify(ctx), /explicitly delegated/); return fauxAssistantMessage(fauxToolCall('read_file', { projectId: 'existing', path: 'draft.md' }), { stopReason: 'toolUse' }); },
-    ctx => { assert.match(JSON.stringify(ctx), /等待用户选择工作目录/); return fauxAssistantMessage([{ type: 'text', text: '请选择要保存文件的目录。' }, fauxToolCall('friday_request_workspace', { reason: '需要你选择保存文件的目录' })], { stopReason: 'toolUse' }); },
+    ctx => { assert.match(JSON.stringify(ctx), /ENOENT/); return fauxAssistantMessage([{ type: 'text', text: '请选择要保存文件的目录。' }, fauxToolCall('friday_request_workspace', { reason: '需要你选择保存文件的目录' })], { stopReason: 'toolUse' }); },
     fauxAssistantMessage(fauxToolCall('save_idea', { text: '下周整理笔记，先不执行' }), { stopReason: 'toolUse' }),
     fauxAssistantMessage('记下了。'),
     ctx => { const data = JSON.stringify(ctx); assert.match(data, /请创建 draft.md/); assert.ok(data.includes(project)); return fauxAssistantMessage(fauxToolCall('write_file', { path: 'draft.md', content: 'Friday owns this conversation.' }), { stopReason: 'toolUse' }); },
@@ -307,5 +307,78 @@ test('Bounded Durable views retain the last 100 chat messages across a tool-heav
     assert.equal(done.tasks[0].messages?.[0].text, 'historical-12');
     assert.equal(done.tasks[0].messages?.at(-1)?.text, 'After reopen');
     assert.equal(faux.state.callCount, 2);
+  } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
+
+test('Personal Workspace is configurable and persistent; unassociated conversations access host files immediately', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'friday-personal-workspace-'));
+  const outside = await mkdtemp(join(tmpdir(), 'friday-personal-external-'));
+  const { faux, options } = model();
+  await writeFile(join(outside, '.env'), 'test-fixture-not-a-secret');
+  faux.setResponses([
+    fauxAssistantMessage(fauxToolCall('list_files', {}), { stopReason: 'toolUse' }),
+    fauxAssistantMessage(fauxToolCall('read_file', { path: join(outside, '.env') }), { stopReason: 'toolUse' }),
+    ctx => { assert.match(JSON.stringify(ctx), /test-fixture-not-a-secret/); return fauxAssistantMessage(fauxToolCall('write_file', { path: join(outside, 'written.txt'), content: 'outside write' }), { stopReason: 'toolUse' }); },
+    fauxAssistantMessage(fauxToolCall('save_note', { title: 'Personal note', content: 'In the default workspace' }), { stopReason: 'toolUse' }),
+    fauxAssistantMessage('Default workspace ready.'),
+    fauxAssistantMessage(fauxToolCall('read_file', { path: '.env' }), { stopReason: 'toolUse' }),
+    ctx => { assert.match(JSON.stringify(ctx), /test-fixture-not-a-secret/); return fauxAssistantMessage('Configured workspace ready.'); },
+  ]);
+  let engine = await new Engine(directory, noCodex, options).open();
+  const auth = new Auth(directory);
+  try {
+    const initial = await engine.personalWorkspace.settings();
+    assert.equal(initial.path, join(directory, 'workspace'));
+    const id = await engine.createTask({ ...input('personal-default'), mode: 'auto' });
+    const waiting = await until(engine, s => s.tasks[0]?.status === 'waiting');
+    assert.equal(waiting.tasks[0].projectId, null);
+    assert.equal(waiting.tasks[0].workspaceRequest, null);
+    await assert.rejects(readFile(join(outside, 'written.txt')), /ENOENT/);
+    await engine.answer(id, waiting.tasks[0].approvals.find(a => a.state === 'pending')!.id, 'accept', {});
+    const complete = await until(engine, s => s.tasks[0]?.status === 'completed');
+    assert.equal(await readFile(join(outside, 'written.txt'), 'utf8'), 'outside write');
+    const { readdir, realpath } = await import('node:fs/promises');
+    const originalCwd = complete.tasks[0].cwd;
+    assert.equal(originalCwd, await realpath(initial.path));
+    const note = (await readdir(originalCwd)).find(name => name.startsWith('note-'))!;
+    assert.match(await readFile(join(originalCwd, note), 'utf8'), /In the default workspace/);
+    const app = createAPI(engine, auth, () => []);
+    const paired = auth.pair(auth.createPairing().code, 'phone', 'test-workspace');
+    const put = (token: string, body: unknown) => app.request('/api/personal-workspace', { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    assert.equal((await put(paired.token, { path: outside, expectedVersion: 0 })).status, 403);
+    await assert.rejects(engine.personalWorkspace.save({ path: 'relative-path', expectedVersion: 0 }), /绝对路径/);
+    await assert.rejects(engine.personalWorkspace.save({ path: join(outside, '.env'), expectedVersion: 0 }), /目录/);
+    const response = await put(auth.token, { path: outside, expectedVersion: 0 });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).path, await realpath(outside));
+    await assert.rejects(engine.personalWorkspace.save({ path: directory, expectedVersion: 0 }), /重新加载/);
+    assert.equal((await engine.snapshot()).tasks[0].cwd, originalCwd, 'Changing settings must not retarget an existing turn');
+    await engine.close(); engine = await new Engine(directory, noCodex, options).open();
+    assert.equal((await engine.personalWorkspace.settings()).path, await realpath(outside));
+    await engine.createTask({ ...input('personal-followup'), mode: 'auto', continueId: id });
+    const continued = await until(engine, s => s.tasks[0]?.result === 'Configured workspace ready.');
+    assert.equal(continued.tasks[0].cwd, await realpath(outside));
+    assert.equal(continued.tasks[0].conversationId, complete.tasks[0].conversationId);
+    assert.match(await readFile(join(originalCwd, note), 'utf8'), /In the default workspace/);
+  } finally { await engine.close(); auth.close(); await Promise.all([directory, outside].map(path => rm(path, { recursive: true, force: true }))); }
+});
+
+test('Personal file path resolution accepts home and parent traversal', async () => {
+  const { expandHome } = await import('../src/personal-workspace.js');
+  assert.equal(expandHome('~/Documents'), join(homedir(), 'Documents'));
+  assert.equal(expandHome('~'), homedir());
+  const directory = await mkdtemp(join(tmpdir(), 'friday-personal-relative-'));
+  const { faux, options } = model();
+  await writeFile(join(directory, 'outside.txt'), 'parent directory content');
+  faux.setResponses([
+    fauxAssistantMessage(fauxToolCall('read_file', { path: '../outside.txt' }), { stopReason: 'toolUse' }),
+    ctx => { assert.match(JSON.stringify(ctx), /parent directory content/); return fauxAssistantMessage(fauxToolCall('read_file', { path: '~/' + relative(homedir(), join(directory, 'outside.txt')) }), { stopReason: 'toolUse' }); },
+    ctx => { assert.match(JSON.stringify(ctx), /parent directory content/); return fauxAssistantMessage('Read host files.'); },
+  ]);
+  const engine = await new Engine(directory, noCodex, options).open();
+  try {
+    await engine.createTask({ ...input('relative-files'), mode: 'auto' });
+    await until(engine, s => s.tasks[0]?.result === 'Read host files.');
   } finally { await engine.close(); await rm(directory, { recursive: true, force: true }); }
 });

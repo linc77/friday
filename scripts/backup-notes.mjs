@@ -1,4 +1,4 @@
-import { homedir } from 'node:os';
+import { existingFridayData } from '../server/src/friday-paths.mjs';
 import { join, resolve } from 'node:path';
 import { backupNoteDatabase } from '../server/src/image-backup.ts';
 
@@ -8,7 +8,7 @@ if (!destination || extra.length) {
   process.exitCode = 1;
 } else {
   try {
-    const directory = process.env.FRIDAY_DATA_DIR ?? join(homedir(), 'Library', 'Application Support', 'Friday');
+    const directory = existingFridayData();
     const result = await backupNoteDatabase(join(directory, 'friday.sqlite'), resolve(destination));
     console.log(`已导出正文与 ${result.images} 张图片，图片共 ${result.bytes} 字节：${resolve(destination)}`);
   } catch (error) { console.error(error instanceof Error ? error.message : error); process.exitCode = 1; }

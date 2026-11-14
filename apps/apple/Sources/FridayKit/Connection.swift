@@ -44,7 +44,8 @@ final class Connection {
             // Save the preview address in this workspace's own preferences.
             if development {
                 defaults.set(server, forKey: "friday.server")
-                if let directory = environment["FRIDAY_DATA_DIR"] {
+                if environment["FRIDAY_DATA_DIR"] != nil || environment["FRIDAY_HOME"] != nil {
+                    let directory = FridayHome.dataDirectory(environment: environment)
                     defaults.set(["server": server, "directory": directory], forKey: "friday.developmentConnection")
                 }
             }
@@ -52,7 +53,7 @@ final class Connection {
         if token.isEmpty && ["127.0.0.1", "localhost"].contains(URL(string: server)?.host ?? "") {
             let saved = development ? defaults.dictionary(forKey: "friday.developmentConnection") : nil
             let savedDirectory = saved?["server"] as? String == server ? saved?["directory"] as? String : nil
-            let directory = environment["FRIDAY_DATA_DIR"] ?? savedDirectory ?? NSHomeDirectory() + "/Library/Application Support/Friday"
+            let directory = environment["FRIDAY_DATA_DIR"] ?? (environment["FRIDAY_HOME"] != nil ? FridayHome.dataDirectory(environment: environment) : savedDirectory) ?? FridayHome.dataDirectory(environment: environment)
             token = (try? String(contentsOfFile: directory + "/owner-token", encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)) ?? ""
         }
         #endif

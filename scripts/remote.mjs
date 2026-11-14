@@ -1,3 +1,4 @@
+import { existingFridayData } from '../server/src/friday-paths.mjs';
 import { constants } from 'node:fs';
 import { access, chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -94,7 +95,7 @@ async function main() {
   if (process.platform !== 'darwin') throw new Error('此入口使用 macOS launchd；其他平台请按 Cloudflare 官方说明管理 cloudflared。');
   process.umask(0o077);
   const home = homedir();
-  const data = resolve(process.env.FRIDAY_DATA_DIR ?? join(home, 'Library/Application Support/Friday'));
+  const data = existingFridayData();
   const [action = 'status', url, tokenFile, ...extra] = process.argv.slice(2);
   if (extra.length || !['install', 'stop', 'status'].includes(action) || (action !== 'install' && url)) {
     throw new Error('Usage: pnpm remote:install <https://host> <token-file> | pnpm remote:status | pnpm remote:stop');

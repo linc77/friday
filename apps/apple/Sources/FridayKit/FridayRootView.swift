@@ -121,7 +121,7 @@ public struct FridayRootView: View {
                         NavigationLink(friday: "文字生成") { TextGenerationSettingsView(store: store).toolbar(.hidden, for: .tabBar) }
                         NavigationLink(friday: "Source Control") { SourceControlSettingsView(store: store).toolbar(.hidden, for: .tabBar) }
                         NavigationLink(friday: "项目脚本") { ProjectScriptsSettingsView(store: store).toolbar(.hidden, for: .tabBar) }
-                        NavigationLink(friday: "通用") { GeneralSettingsView().toolbar(.hidden, for: .tabBar) }
+                        NavigationLink(friday: "通用") { GeneralSettingsView(store: store).toolbar(.hidden, for: .tabBar) }
                         NavigationLink(friday: "外观") { AppearanceSettingsView().toolbar(.hidden, for: .tabBar) }
                         NavigationLink(friday: "任务侧栏") { TaskSidebarSettingsView(store: store).toolbar(.hidden, for: .tabBar) }
                         NavigationLink(friday: "任务设置") { TaskBehaviorSettingsView(store: store).toolbar(.hidden, for: .tabBar) }

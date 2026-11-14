@@ -1,11 +1,13 @@
 import SwiftUI
 
 struct GeneralSettingsView: View {
+    @Bindable var store: FridayStore
     @FridayPreference(FridayPreferenceKeys.language) private var language: FridayLanguage = .chinese
     @FridayPreference("friday.composer.showSkillsInSlashMenu") private var showSkillsInSlashMenu = true
 
     var body: some View {
-        SettingsPage(title: "通用", subtitle: "设置界面语言和输入习惯。") {
+        SettingsPage(title: "通用", subtitle: "设置 Friday 默认 Workspace、界面语言和输入习惯。") {
+            PersonalWorkspaceSettings(store: store)
             SettingsGroup("语言") {
                 SettingsRow("界面语言", detail: "立即生效，并在下次打开时保留。") {
                     SettingsSelect(title: "界面语言", selection: $language,

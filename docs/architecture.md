@@ -27,7 +27,7 @@ Pi Durable 不是 CLI 外部副作用的事务管理器。Friday 在启动外部
 
 Friday 现在自己运行模型决策循环。每个会话在提交前原子保存 conversation ID，输入用 request ID 去重；模型消息和工具结果进入同一 SQLite。动态 prompt section 读取当前显式记忆、项目背景和 Skill。普通请求不依赖 Codex 安装。
 
-新对话沿用直接输入的交互，内部采用 `auto` 模式。`friday_request_workspace` 把必要的目录选择交给界面，持久化为 `needs_project` 后释放执行队列；选择目录后复用原 Friday conversation。`save_idea` 仅用于明确的记录请求，不自动交办。旧任务继续兼容。
+新对话沿用直接输入的交互，内部采用 `auto` 模式。个人助手拥有独立默认 Workspace，初始为 `~/.friday/workspace/`（显式 `FRIDAY_DATA_DIR` 隔离环境使用其下的 `workspace/`）；主机可通过设置中的“通用 → Friday Workspace”修改，路径和版本持久化在 WorkspaceDoc。未关联项目的会话在每轮提交时确定工作目录，配置变化从下一轮生效，正在执行的工具和待审批写入不被重新定向。该目录只提供相对路径起点，不构成文件访问边界；个人助手支持主机绝对路径、`~/`、父目录和符号链接，实际访问遵循操作系统权限。保存笔记写入当前 Workspace；对话成果归档仍写入私有 artifacts。`friday_request_workspace` 仅用于用户想关联项目而位置不明的情况，持久化为 `needs_project` 后释放执行队列；选择目录后复用原 Friday conversation。`save_idea` 仅用于明确的记录请求，不自动交办。旧任务继续兼容。
 
 自有工具包括 workspace、friday_request_workspace、save_idea、remember、list_files、read_file、save_note、write_file、ask_user；delegate_codex 仅在选定项目的编码请求获批后执行，research 模式保持只读。项目路径经 realpath 校验，拒绝越界和部分明确的凭据文件；这是一组受限文件工具，不是通用 OS 沙箱。写项目文件展示全文并等待授权，无通用 shell 工具。
 

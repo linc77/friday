@@ -1,3 +1,4 @@
+import { prepareFridayPaths } from '../server/src/friday-paths.mjs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,10 +13,10 @@ const plist = join(homedir(), 'Library/LaunchAgents', label + '.plist');
 const action = process.argv[2] ?? 'status';
 const call = (...args) => spawnSync('/bin/launchctl', args, { encoding: 'utf8' });
 if (action === 'install') {
-  const data = process.env.FRIDAY_DATA_DIR ?? join(homedir(), 'Library/Application Support/Friday');
+  const { data, logs } = await prepareFridayPaths();
   await mkdir(dirname(plist), { recursive: true });
   await mkdir(data, { recursive: true, mode: 0o700 });
-  // Run the installed service from Application Support, outside macOS's protected Documents folder.
+  // Run the installed service from Friday home, outside macOS's protected Documents folder.
   // It must not need Documents permission just to boot or serve the personal inbox.
   const runtime = join(data, 'runtime');
   call('bootout', `${domain}/${label}`);
@@ -31,12 +32,14 @@ if (action === 'install') {
     WorkingDirectory: runtime, RunAtLoad: true, KeepAlive: true, ThrottleInterval: 10,
     EnvironmentVariables: {
       PATH: `/opt/homebrew/bin:/usr/local/bin:${homedir()}/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin`,
-      FRIDAY_DATA_DIR: data, FRIDAY_HOST: '127.0.0.1', FRIDAY_PORT: process.env.FRIDAY_PORT ?? '4317',
+      ...(process.env.FRIDAY_DATA_DIR ? { FRIDAY_DATA_DIR: data } : {}),
+      ...(process.env.FRIDAY_HOME ? { FRIDAY_HOME: process.env.FRIDAY_HOME } : {}),
+      FRIDAY_HOST: '127.0.0.1', FRIDAY_PORT: process.env.FRIDAY_PORT ?? '4317',
       ...(process.env.FRIDAY_MODEL_ID ? { FRIDAY_MODEL_ID: process.env.FRIDAY_MODEL_ID } : {}),
       ...Object.fromEntries(['FRIDAY_APNS_KEY_PATH', 'FRIDAY_APNS_KEY_ID', 'FRIDAY_APNS_TEAM_ID', 'FRIDAY_APNS_TOPIC'].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]])),
       ...Object.fromEntries(['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy'].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]])),
     },
-    StandardOutPath: join(data, 'service.log'), StandardErrorPath: join(data, 'service-error.log'),
+    StandardOutPath: join(logs, 'service.log'), StandardErrorPath: join(logs, 'service-error.log'),
   };
   const temporary = plist + '.json';
   await writeFile(temporary, JSON.stringify(config), { mode: 0o600 });

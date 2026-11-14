@@ -36,7 +36,7 @@ enum FridaySettingsSection: String, CaseIterable, Identifiable {
 
     var searchTerms: String {
         switch self {
-        case .general: "通用 语言 中文 英文 输入框 斜杠 菜单 Skill 技能 General Language Chinese English Composer Input Slash Menu"
+        case .general: "通用 Friday Workspace 默认 工作目录 文件 路径 语言 中文 英文 输入框 斜杠 菜单 Skill 技能 General Language Chinese English Composer Input Slash Menu"
         case .appearance: "外观 主题 系统 浅色 深色 Friday 形象 球体 眼睛 领结 颜色 字体 字号 正文 代码 布局 内容 宽度 全宽 配色 高亮 Appearance Theme Avatar Color Eyes Bow Tie System Light Dark Font Size Typography Layout Width Syntax Highlight Midnight 午夜 深蓝 Pierre GitHub Visual Studio Code Catppuccin"
         case .taskSidebar: "任务 侧栏 项目 分组 仓库 排序 顺序 最近 活动 发送 手动 旧版 项目树 默认 显示 数量 恢复 Working Inbox Beta Sidebar Project Group Sort Order Preview"
         case .taskBehavior: "任务 设置 操作 归档 确认 自动 结束 跟进 不活跃 天数 主机 Workspace PR 合并 Task Settings Archive Confirmation Auto Settle Inactivity Merge"
@@ -69,7 +69,7 @@ struct FridaySettingsView: View {
             sidebar.fridayPaneSurface()
             Group {
                 switch selection {
-                case .general: GeneralSettingsView()
+                case .general: GeneralSettingsView(store: store)
                 case .appearance: AppearanceSettingsView()
                 case .taskSidebar: TaskSidebarSettingsView(store: store)
                 case .taskBehavior: TaskBehaviorSettingsView(store: store)

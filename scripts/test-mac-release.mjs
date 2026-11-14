@@ -21,7 +21,7 @@ async function start() {
     env: { HOME: process.env.HOME, PATH: '/usr/bin:/bin', FRIDAY_DATA_DIR: directory, FRIDAY_PORT: String(port) }, stdio: 'ignore',
   });
   for (let i = 0; i < 100; i++) {
-    if (child.exitCode !== null) throw new Error(await readFile(join(directory, 'service-error.log'), 'utf8'));
+    if (child.exitCode !== null) throw new Error(await readFile(join(directory, 'logs/service-error.log'), 'utf8'));
     try {
       const response = await fetch(base + '/health');
       if (response.ok) {

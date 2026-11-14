@@ -160,6 +160,11 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     if (c.get('device') !== 'owner') return c.json({ error: '只有主机可以取消更新' }, 403);
     maintenance.cancel(); return c.json({ ok: true });
   });
+  app.get('/api/personal-workspace', async c => c.json(await engine.personalWorkspace.settings()));
+  app.put('/api/personal-workspace', async c => {
+    if (c.get('device') !== 'owner') return c.json({ error: '请在主机上设置 Friday Workspace' }, 403);
+    return c.json(await engine.personalWorkspace.save(await c.req.json()));
+  });
   app.get('/api/model', async c => c.json(await engine.modelConnection.status(c.get('device') === 'owner')));
   app.use('/api/model/*', async (c, next) => {
     if (c.get('device') !== 'owner') return c.json({ error: '请在主机的 Providers 中配置 Friday' }, 403);

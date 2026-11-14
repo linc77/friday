@@ -5,6 +5,11 @@ cd "$(dirname "$0")/.."
 FRIDAY_CHECK_DIR="$(mktemp -d -t friday-swift-check)"
 trap 'rm -rf "$FRIDAY_CHECK_DIR"' EXIT
 swiftc -parse-as-library \
+  apps/apple/Sources/FridayKit/FridayHome.swift \
+  apps/apple/Tests/FridayKitTests/FridayHomeTests.swift \
+  -o "$FRIDAY_CHECK_DIR/home-check"
+"$FRIDAY_CHECK_DIR/home-check"
+swiftc -parse-as-library \
   apps/apple/Sources/FridayKit/Models.swift \
   apps/apple/Sources/FridayKit/CodexTranscript.swift \
   apps/apple/Sources/FridayKit/SnapshotStream.swift \

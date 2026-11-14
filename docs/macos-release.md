@@ -22,7 +22,7 @@ DMG 的 Finder 窗口使用普通白色背景，只提供安装器入口。双�
 
 服务使用 `Interactive` 调度：客户端的 HTTP 请求依赖它即时响应，HTTP 连接不能为 `Adaptive` 服务传递 XPC 优先级；`Background` 类别可能让冷启动受到严重限流。服务仍由 LaunchAgent 独立管理，关闭窗口不停止执行。
 
-数据沿用 `~/Library/Application Support/Friday`。首次安装会检测旧 `dev.friday.server` 服务，在没有活动任务时停止旧服务、保存原 LaunchAgent 配置并备份数据库，再启用内置服务。旧 `runtime` 目录保留，不随 App 更新覆盖。
+默认主目录为 `~/.friday`，数据位于 `data/`，新服务日志位于 `logs/`。已有 `~/Library/Application Support/Friday` 时，`data/` 使用兼容链接接入原目录，保留旧绝对路径和服务锁，不在线复制或移动数据库。首次安装会检测旧 `dev.friday.server` 服务，在没有活动任务时停止旧服务、保存原 LaunchAgent 配置并备份数据库，再启用内置服务。旧 `runtime` 目录保留，不随 App 更新覆盖。
 
 开发时继续使用 `pnpm dev` 和 `pnpm mac:build`。要与安装版并行，设置独立的 `FRIDAY_DATA_DIR`、`FRIDAY_PORT` 和客户端 `FRIDAY_SERVER_URL`。指定开发连接的客户端不会接管后台服务。
 

@@ -27,7 +27,7 @@ Mac 客户端 ──────────────────────
    pnpm remote:status
    ```
 
-安装脚本将 token 复制到 `~/Library/Application Support/Friday/remote/tunnel-token`（目录 0700，文件 0600），launchd 参数只包含文件路径。`FRIDAY_DATA_DIR` 可以指定数据目录；`FRIDAY_CLOUDFLARED` 可以指定连接器绝对路径。安装脚本管理本机连接器，不会创建云端隧道或修改 DNS。首次设置后，登录 macOS 会自动启动；退出 Friday 窗口不影响连接器。
+安装脚本将 token 复制到 `~/.friday/data/remote/tunnel-token`（升级前尚未接入新主目录时沿用原 Application Support 路径）（目录 0700，文件 0600），launchd 参数只包含文件路径。`FRIDAY_DATA_DIR` 可以指定数据目录；`FRIDAY_CLOUDFLARED` 可以指定连接器绝对路径。安装脚本管理本机连接器，不会创建云端隧道或修改 DNS。首次设置后，登录 macOS 会自动启动；退出 Friday 窗口不影响连接器。
 
 使用固定隧道，不使用临时 `trycloudflare.com` 地址：[Quick Tunnel 不支持 SSE，且每次启动地址会变化](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/#limitations)。
 

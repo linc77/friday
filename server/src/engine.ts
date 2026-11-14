@@ -1,3 +1,4 @@
+import { PersonalWorkspace } from './personal-workspace.js';
 import { assertCurrentTaskMode } from './legacy-task-mode.js';
 import { providerOptionSelections } from './provider-models.js';
 import { ProviderInstances, providerDrivers, taskProviderInstance, assertProviderAvailable, isProviderDriver } from './provider-instances.js';
@@ -189,6 +190,7 @@ export class Engine extends EventEmitter {
   readonly executor: Executor;
   readonly modelConnection: ModelConnection;
   readonly assistant: FridayAssistant;
+  readonly personalWorkspace: PersonalWorkspace;
   readonly providerInstances: ProviderInstances;
   readonly codexConnection: CodexConnection;
   readonly claudeConnection: ClaudeConnection;
@@ -197,6 +199,7 @@ export class Engine extends EventEmitter {
   private readonly personalClock?: () => number;
   constructor(readonly directory: string, executor?: Executor, readonly agentOptions?: { models: Models; model: ModelRef }, sourceControlOptions?: SourceControlConnectionOptions, personalOptions?: { push?: PushSender; now?: () => number; pollMs?: number }) {
     super();
+    this.personalWorkspace = new PersonalWorkspace(this);
     this.sourceControl = new SourceControlConnections(new SourceControlCredentials(directory), sourceControlOptions);
     this.changeRequestSync = new TaskChangeRequestSync(this, sourceControlOptions?.changeRequestSyncIntervalMs);
     this.changeRequestLinks = new TaskChangeRequestLinks(this);
@@ -808,8 +811,9 @@ export class Engine extends EventEmitter {
     const retained = previous;
     const retainedWorkspace = retained !== undefined && retained.projectId !== null && retained.projectId === input.projectId;
     if (input.projectId && !project && !retainedWorkspace) throw new Error('项目不存在');
-    if (input.mode === 'code' && !project && !retainedWorkspace) throw new Error('代码任务需要先选择一个项目目录');
+    if (!native && input.mode === 'code' && !project && !retainedWorkspace) throw new Error('代码任务需要先选择一个项目目录');
     if (input.workspace && (native || input.continueId || !project)) throw new Error('执行位置只能用于已选择 Workspace 的新本地任务');
+    const personalCwd = native && !input.projectId ? await this.personalWorkspace.ensure() : undefined;
     const taskId = delegation?.childTaskId ?? randomUUID();
     const scratchProject = !native && isScratchProjectPath(project?.path ?? '', await this.getScratchWorkspaceRoot());
     if (scratchProject && input.workspace && (input.workspace.mode !== 'checkout' || input.workspace.branch || input.workspace.preparationId || input.workspace.startFromOrigin !== undefined) && !input.workspace.reuseTaskId) throw new Error('无项目任务使用独立临时目录，请清除 Git 执行位置选择');
@@ -868,6 +872,7 @@ export class Engine extends EventEmitter {
         if (work.status !== 'needs_project') throw new Error('当前对话没有等待选择工作目录');
         work.projectId = project!.id; work.cwd = project!.path;
       }
+      if (work && personalCwd) work.cwd = personalCwd;
       const parent = input.parentId ? workspace.tasks.find(t => t.id === input.parentId && t.agent === 'friday') : undefined;
       if (input.parentId && !parent) throw new Error('Friday 主会话不存在');
       // Local threads run independently. Only turns in the same conversation
@@ -879,7 +884,7 @@ export class Engine extends EventEmitter {
       const references = native ? [] : await this.contexts.references(input.prompt, input.contextIds, { task: work, project, inheritedTask: reuseSource, preparationId: prepared?.saved.id }, images);
       const task: WorkItem = work ?? {
         id: taskId, title: input.title?.slice(0, 200).replace(/[\uD800-\uDBFF]$/, '') ?? (displayContextText(input.prompt).trim().slice(0, 64).replace(/[\uD800-\uDBFF]$/, '') || '图片任务'), prompt: input.prompt, projectId: input.projectId,
-        cwd: executionWorkspace?.cwd ?? project?.path ?? join(this.directory, 'artifacts'), mode: input.mode, agent, ...(!native ? { providerInstanceId } : {}),
+        cwd: executionWorkspace?.cwd ?? project?.path ?? personalCwd ?? join(this.directory, 'artifacts'), mode: input.mode, agent, ...(!native ? { providerInstanceId } : {}),
         status: 'queued', createdAt: stamp, updatedAt: stamp, durableId: null, threadId: null, turnId: null,
         result: '', error: null, events: [], approvals: [], artifact: null, lastRequestId: input.requestId,
         messages: [], workspaceRequest: null,

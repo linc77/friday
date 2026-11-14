@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import FridayKit
 import ServiceManagement
 
 @MainActor
@@ -12,11 +13,11 @@ final class ServiceController: ObservableObject {
     private var stoppedForUpdate = false
     private var barrierHeld = false
     private var directory: URL {
-        URL(fileURLWithPath: NSHomeDirectory() + "/Library/Application Support/Friday", isDirectory: true)
+        URL(fileURLWithPath: FridayHome.dataDirectory(), isDirectory: true)
     }
     var isDevelopment: Bool {
         let env = ProcessInfo.processInfo.environment
-        return env["FRIDAY_SERVER_URL"] != nil || env["FRIDAY_DATA_DIR"] != nil || !files.fileExists(atPath: Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/node").path)
+        return env["FRIDAY_SERVER_URL"] != nil || env["FRIDAY_DATA_DIR"] != nil || env["FRIDAY_HOME"] != nil || !files.fileExists(atPath: Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/node").path)
     }
     private var installed: Bool {
         let parent = Bundle.main.bundleURL.deletingLastPathComponent().standardizedFileURL.path
@@ -168,7 +169,7 @@ final class ServiceController: ObservableObject {
         if stoppedForUpdate { stoppedForUpdate = false; try? service.register() }
     }
     func openLoginSettings() { SMAppService.openSystemSettingsLoginItems() }
-    func openLogs() { NSWorkspace.shared.open(directory) }
+    func openLogs() { NSWorkspace.shared.open(URL(fileURLWithPath: FridayHome.logs(), isDirectory: true)) }
     private nonisolated static func launchctl(_ arguments: [String]) async -> Int32 {
         await run("/bin/launchctl", arguments)
     }

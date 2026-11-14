@@ -1,6 +1,5 @@
 import { serve } from '@hono/node-server';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { prepareFridayPaths } from './friday-paths.mjs';
 import { Engine } from './engine.js';
 import { Auth } from './auth.js';
 import { createAPI } from './api.js';
@@ -8,7 +7,7 @@ import { configureNetwork } from './network.js';
 
 process.umask(0o077);
 const network = configureNetwork();
-const directory = process.env.FRIDAY_DATA_DIR ?? join(homedir(), 'Library/Application Support/Friday');
+const { data: directory } = await prepareFridayPaths();
 const port = Number(process.env.FRIDAY_PORT ?? 4317);
 const hostname = process.env.FRIDAY_HOST ?? '127.0.0.1';
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('FRIDAY_PORT 无效');
