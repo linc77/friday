@@ -254,12 +254,23 @@ struct IdeaBodyEditor: NSViewRepresentable {
     }
 }
 #else
+@MainActor
+final class IdeaBodyImageInsertion {
+    var handler: (([IdeaImage]) throws -> Void)?
+
+    func insert(_ images: [IdeaImage]) throws {
+        guard let handler else { throw ConnectionError.message("无法插入图片，请重新打开笔记后重试。") }
+        try handler(images)
+    }
+}
+
 struct IdeaBodyEditor: UIViewRepresentable {
     let text: String
     let images: [IdeaImage]
     let imageData: (String) async throws -> Data
     let onChange: (String, [IdeaImage]) -> Void
     let onError: (String) -> Void
+    var imageInsertion: IdeaBodyImageInsertion? = nil
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeUIView(context: Context) -> UITextView {
         let view = UITextView(usingTextLayoutManager: false)
@@ -278,6 +289,17 @@ struct IdeaBodyEditor: UIViewRepresentable {
         var appliedText: String?
         init(_ parent: IdeaBodyEditor) { self.parent = parent }
         func install(_ view: UITextView) {
+            parent.imageInsertion?.handler = { [weak self, weak view] images in
+                guard let self, let view else { throw ConnectionError.message("无法插入图片，请重新打开笔记后重试。") }
+                let content = NSMutableAttributedString(string: "")
+                for image in images {
+                    content.append(NSAttributedString(attachment: IdeaTextAttachment(image)))
+                    content.append(NSAttributedString(string: "\n", attributes: IdeaBodyDocument.attributes))
+                }
+                let imported = try IdeaBodyDocument.imported(content, existing: IdeaBodyDocument.capture(view.attributedText).images)
+                self.replace(in: view, range: view.selectedRange, with: imported)
+                view.scrollRangeToVisible(view.selectedRange)
+            }
             guard appliedText != parent.text, view.markedTextRange == nil else { return }
             appliedText = parent.text
             view.attributedText = IdeaBodyDocument.render(parent.text, images: parent.images)

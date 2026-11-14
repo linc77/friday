@@ -1,6 +1,6 @@
 /* Friday interface strings. User content is never translated. */
 "%lld 个进行中的任务" = "%lld active tasks";
-"%lld 条想法待同步" = "%lld ideas to sync";
+"%lld 条笔记待同步" = "%lld notes to sync";
 "5 分钟内有效，只能使用一次。" = "Valid for 5 minutes. Can be used only once.";
 "6 位配对码" = "6-digit pairing code";
 "Friday 处理日常对话，需要独立编码时，经你确认后调用本机工具。" = "Friday handles everyday conversations and asks before using local coding tools.";
@@ -74,7 +74,7 @@
 "待同步" = "Pending sync";
 "待恢复" = "Needs recovery";
 "想到什么，直接说。" = "What is on your mind?";
-"想法" = "Ideas";
+"笔记" = "Notes";
 "想法太长，请缩短到 12,000 字以内再保存。" = "This idea is too long. Keep it under 12,000 characters before saving.";
 "想研究的项目、突然出现的点子、要处理的小事，都可以从这里开始。" = "A project to explore, a new idea, or a small task. Start here.";
 "我的 Friday" = "My Friday";
@@ -87,7 +87,7 @@
 "执行工具：%@" = "Execution tool: %@";
 "执行详情" = "Execution details";
 "把主机目录和项目背景放在一起。" = "Keep the host directory and project context together.";
-"把想法放在这里" = "Keep your ideas here";
+"把笔记放在这里" = "Keep your notes here";
 "拒绝" = "Decline";
 "排队中" = "Queued";
 "提交回答" = "Submit answer";
@@ -2673,3 +2673,7 @@
 "运行常用命令并查看日志，也可在创建 Worktree 或收起任务时运行。" = "Run common commands and view logs, on worktree creation, or when settling a task.";
 "脚本执行结果未确认，请检查日志后明确重试；不会自动重放" = "The script result is unconfirmed. Check the logs and retry explicitly; it will not run again automatically.";
 "脚本未成功完成，请查看日志" = "The script did not finish successfully. Check the logs.";
+
+"正在导入图片…" = "Importing images…";
+"无法插入图片，请重新打开笔记后重试。" = "Unable to insert the image. Reopen the note and try again.";
+"保存笔记" = "Save note";

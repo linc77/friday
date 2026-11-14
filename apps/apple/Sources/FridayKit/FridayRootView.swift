@@ -6,7 +6,7 @@ import UIKit
 #endif
 
 enum FridaySection: String, CaseIterable, Identifiable {
-    case chat = "对话", inbox = "想法", tasks = "任务", projects = "Workspace", memory = "记忆", settings = "设置"
+    case chat = "对话", inbox = "笔记", tasks = "任务", projects = "Workspace", memory = "记忆", settings = "设置"
     var id: String { rawValue }
     var icon: String {
         switch self {
@@ -95,8 +95,8 @@ public struct FridayRootView: View {
                         }
                 }.tabItem { Label(friday: "对话", systemImage: "ellipsis.message") }.tag(0)
 
-                NavigationStack { inbox.fridayMobilePageTitle("想法") }
-                    .tabItem { Label(friday: "想法", systemImage: "scribble") }.tag(1)
+                NavigationStack { inbox.fridayMobilePageTitle("笔记") }
+                    .tabItem { Label(friday: "笔记", systemImage: "scribble") }.tag(1)
 
                 NavigationStack(path: $mobileTaskPath) {
                     tasksList.fridayMobilePageTitle("任务")
@@ -227,7 +227,7 @@ public struct FridayRootView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(fridayString: store.connected ? "主机已连接" : "等待连接主机").font(.caption.weight(.medium))
-                if !store.outbox.isEmpty { Text(friday: "\(store.outbox.count) 条想法待同步").font(.caption2).foregroundStyle(FridayTheme.secondaryText) }
+                if !store.outbox.isEmpty { Text(friday: "\(store.outbox.count) 条笔记待同步").font(.caption2).foregroundStyle(FridayTheme.secondaryText) }
             }
         }.accessibilityElement(children: .combine)
     }

@@ -155,7 +155,7 @@ private func assistantToolName(_ name: String) -> String {
     switch name {
     case "workspace": "查看个人工作区"
     case "friday_request_workspace": "选择工作目录"
-    case "save_idea": "保存想法"
+    case "save_idea": "保存笔记"
     case "remember": "保存记忆"
     case "list_files": "列出文件"
     case "read_file": "读取文件"

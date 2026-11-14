@@ -3,6 +3,8 @@ import SwiftUI
 import AppKit
 #else
 import UIKit
+import PhotosUI
+import UniformTypeIdentifiers
 #endif
 
 struct InboxView: View {
@@ -78,7 +80,7 @@ struct InboxView: View {
     private var gallery: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
-                PageHeading(title: "把想法放在这里", subtitle: "想法、日记和资料，都有一个自己的位置。")
+                PageHeading(title: "把笔记放在这里", subtitle: "想法、日记和资料，都有一个自己的位置。")
                 HStack(spacing: 16) {
                     Button(action: newNote) { FridaySymbolLabel(friday: hasDraft ? "继续草稿" : "新建笔记", systemImage: "square.and.pencil") }
                         .buttonStyle(FridayButtonStyle(prominent: true)).fixedSize()
@@ -234,6 +236,14 @@ struct IdeaDetailView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var localError: String?
     @FocusState private var titleFocused: Bool
+    #if os(iOS)
+    @State private var imageInsertion = IdeaBodyImageInsertion()
+    @State private var photoItems: [PhotosPickerItem] = []
+    @State private var showPhotoPicker = false
+    @State private var showImageImporter = false
+    @State private var importingImages = false
+    @State private var imageImportTask: Task<Void, Never>?
+    #endif
     private var draftKey: String { "friday.noteDraft." + (initial?.id ?? "new") }
     private var current: Idea? { store.notes.first { $0.id == (savedID ?? initial?.id) } ?? initial }
     private var hasContent: Bool { !draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.images.isEmpty }
@@ -264,6 +274,11 @@ struct IdeaDetailView: View {
         VStack(spacing: 0) {
             toolbar.padding(.horizontal, 24).padding(.vertical, 16)
             Divider().opacity(0.5)
+            #if os(iOS)
+            if importingImages {
+                Text(friday: "正在导入图片…").font(.caption).foregroundStyle(.secondary).padding(12)
+            }
+            #endif
             if conflicted {
                 HStack {
                     Text(friday: "另一台设备已修改这篇笔记，你的版本已保留。").font(.caption)
@@ -286,6 +301,31 @@ struct IdeaDetailView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             _ = autosave(immediately: true)
         }
+        #else
+        .photosPicker(isPresented: $showPhotoPicker, selection: $photoItems,
+                      maxSelectionCount: max(1, 20 - draft.images.count), selectionBehavior: .ordered, matching: .images)
+        .onChange(of: photoItems) { _, items in
+            guard !items.isEmpty else { return }
+            importImages(count: items.count) { index in
+                guard let data = try await items[index].loadTransferable(type: Data.self) else {
+                    throw ConnectionError.message("无法读取这张图片。")
+                }
+                let suffix = items[index].supportedContentTypes.first?.preferredFilenameExtension ?? "png"
+                return (data, "照片.\(suffix)")
+            }
+            photoItems = []
+        }
+        .fileImporter(isPresented: $showImageImporter, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
+            switch result {
+            case .success(let urls):
+                importImages(count: urls.count) { index in
+                    let input = try await Task.detached(priority: .userInitiated) { try TaskAttachmentImport.read(urls[index]) }.value
+                    return (input.data, input.name)
+                }
+            case .failure(let error): localError = error.localizedDescription
+            }
+        }
+        .onDisappear { imageImportTask?.cancel() }
         #endif
     }
 
@@ -298,6 +338,22 @@ struct IdeaDetailView: View {
                 Button { _ = autosave(immediately: true); close() } label: { FridaySymbolLabel(friday: "所有笔记", systemImage: "chevron.left") }
                     .buttonStyle(FridayButtonStyle(compact: true))
             }
+            #endif
+            #if os(iOS)
+            Menu {
+                Button { titleFocused = false; showPhotoPicker = true } label: {
+                    FridaySymbolLabel(friday: "照片图库", systemImage: "photo")
+                }
+                Button { titleFocused = false; showImageImporter = true } label: {
+                    FridaySymbolLabel(friday: "选择文件", systemImage: "folder")
+                }
+            } label: {
+                FridaySymbolImage(systemName: "photo.badge.plus")
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
+            }
+            .buttonStyle(FridaySymbolButtonStyle())
+            .accessibilityLabel(Text(friday: "添加图片"))
+            .disabled(importingImages || draft.images.count >= 20)
             #endif
             Spacer()
             if let current {
@@ -351,10 +407,7 @@ struct IdeaDetailView: View {
                 if pending { FridaySymbolLabel(friday: "待同步", systemImage: "clock").foregroundStyle(.secondary) }
             }.font(.caption)
             Divider()
-            IdeaBodyEditor(text: draft.text, images: draft.images, imageData: { try await store.imageData($0) }, onChange: { text, images in
-                draft.text = text; draft.images = images; localError = nil
-                _ = autosave()
-            }, onError: { localError = $0 })
+            bodyEditor
                 .frame(maxWidth: .infinity, maxHeight: .infinity).accessibilityLabel(Text(friday: "笔记正文"))
                 .overlay(alignment: .topLeading) {
                     if draft.text.isEmpty { Text(friday: "记下一个念头，或写写今天发生的事……").foregroundStyle(.tertiary).padding(.top, 8).padding(.leading, 5).allowsHitTesting(false) }
@@ -362,6 +415,46 @@ struct IdeaDetailView: View {
         }
         .padding(28).frame(maxWidth: 840).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    private var bodyEditor: IdeaBodyEditor {
+        var editor = IdeaBodyEditor(text: draft.text, images: draft.images, imageData: { try await store.imageData($0) }, onChange: { text, images in
+            draft.text = text; draft.images = images; localError = nil
+            _ = autosave()
+        }, onError: { localError = $0 })
+        #if os(iOS)
+        editor.imageInsertion = imageInsertion
+        #endif
+        return editor
+    }
+
+    #if os(iOS)
+    private func importImages(count: Int, load: @escaping (Int) async throws -> (Data, String)) {
+        guard !importingImages, count > 0 else { return }
+        guard count <= 20 - draft.images.count else {
+            localError = "一篇笔记最多添加 20 张图片。"
+            return
+        }
+        importingImages = true
+        localError = nil
+        imageImportTask = Task { @MainActor in
+            defer { importingImages = false; imageImportTask = nil }
+            var failure: String?
+            for index in 0..<count {
+                do {
+                    try Task.checkCancellation()
+                    let (data, name) = try await load(index)
+                    try Task.checkCancellation()
+                    let image = try IdeaImageCache.importImage(data, name: name)
+                    try imageInsertion.insert([image])
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    failure = failure ?? error.localizedDescription
+                }
+            }
+            if let failure { localError = failure }
+        }
+    }
+    #endif
 
     private func persistDraft() {
         guard hasChanges else { UserDefaults.standard.removeObject(forKey: draftKey); return }
