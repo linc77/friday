@@ -75,6 +75,16 @@ public struct FridayRootView: View {
                 .modifier(FridayReadingSurface(isContainer: navigation.section == .tasks || navigation.section == .settings))
                 .padding([.top, .trailing, .bottom], FridayTheme.windowEdgeInset)
             }
+            .overlay(alignment: .top) {
+                if #available(macOS 15.0, *) {
+                    // The material is hit-test transparent; give its top gutter
+                    // a native drag target without covering the pane controls.
+                    FridayWindowDragRegion()
+                        .frame(height: FridayTheme.windowEdgeInset)
+                        .padding(.leading, FridayTheme.sidebarWidth)
+                        .accessibilityHidden(true)
+                }
+            }
             // The traffic lights sit over the rail; content reaches the top window edge.
             .ignoresSafeArea(.container, edges: .top)
             .background { FridayWindowBackground().ignoresSafeArea() }

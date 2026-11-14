@@ -2,6 +2,21 @@
 import AppKit
 import SwiftUI
 
+/// An explicit drag target for the top gutter of the borderless main window.
+struct FridayWindowDragRegion: NSViewRepresentable {
+    func makeNSView(context: Context) -> FridayWindowDragView { FridayWindowDragView() }
+    func updateNSView(_ view: FridayWindowDragView, context: Context) {}
+}
+
+final class FridayWindowDragView: NSView {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window, !window.styleMask.contains(.fullScreen) else { return }
+        window.performDrag(with: event)
+    }
+}
+
 /// AppKit's standard controls, hosted in the rail of the plain main window.
 struct FridayWindowControls: NSViewRepresentable {
     func makeNSView(context: Context) -> FridayWindowControlsView { FridayWindowControlsView() }
