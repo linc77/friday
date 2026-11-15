@@ -243,6 +243,7 @@ struct IdeaDetailView: View {
     @State private var showImageImporter = false
     @State private var importingImages = false
     @State private var imageImportTask: Task<Void, Never>?
+    @State private var showingNoteInfo = false
     #endif
     private var draftKey: String { "friday.noteDraft." + (initial?.id ?? "new") }
     private var current: Idea? { store.notes.first { $0.id == (savedID ?? initial?.id) } ?? initial }
@@ -272,8 +273,10 @@ struct IdeaDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            #if os(macOS)
             toolbar.padding(.horizontal, 24).padding(.vertical, 16)
             Divider().opacity(0.5)
+            #endif
             #if os(iOS)
             if importingImages {
                 Text(friday: "正在导入图片…").font(.caption).foregroundStyle(.secondary).padding(12)
@@ -289,6 +292,12 @@ struct IdeaDetailView: View {
             if let localError { Text(localError).font(.caption).foregroundStyle(.orange).padding(12).textSelection(.enabled) }
             editor
         }
+        #if os(iOS)
+        // Respect the keyboard safe area so the same bar sits at the bottom
+        // while reading and directly above the keyboard while editing.
+        .safeAreaInset(edge: .bottom, spacing: 0) { mobileToolbar }
+        .sheet(isPresented: $showingNoteInfo) { mobileNoteInfo }
+        #endif
         .onAppear {
             _ = autosave()
             if initial == nil { titleFocused = true }
@@ -329,41 +338,20 @@ struct IdeaDetailView: View {
         #endif
     }
 
+    #if os(macOS)
     private var toolbar: some View {
         HStack(spacing: 12) {
-            #if os(macOS)
             if toggleFullScreen != nil {
                 Text(friday: "新建笔记").font(.headline)
             } else {
                 Button { _ = autosave(immediately: true); close() } label: { FridaySymbolLabel(friday: "所有笔记", systemImage: "chevron.left") }
                     .buttonStyle(FridayButtonStyle(compact: true))
             }
-            #endif
-            #if os(iOS)
-            Menu {
-                Button { titleFocused = false; showPhotoPicker = true } label: {
-                    FridaySymbolLabel(friday: "照片图库", systemImage: "photo")
-                }
-                Button { titleFocused = false; showImageImporter = true } label: {
-                    FridaySymbolLabel(friday: "选择文件", systemImage: "folder")
-                }
-            } label: {
-                FridaySymbolImage(systemName: "photo.badge.plus")
-                    .frame(width: 44, height: 44).contentShape(Rectangle())
-            }
-            .buttonStyle(FridaySymbolButtonStyle())
-            .accessibilityLabel(Text(friday: "添加图片"))
-            .disabled(importingImages || draft.images.count >= 20)
-            #endif
             Spacer()
             if let current {
-                Button {
-                    Task {
-                        guard autosave(immediately: true) else { return }
-                        await store.flushOutbox()
-                        if let note = self.current, !store.outbox.contains(where: { $0.id == note.id }) { delegate(note) }
-                    }
-                } label: { FridaySymbolLabel(friday: current.taskId == nil ? "交给 Friday" : "打开对话", systemImage: current.taskId == nil ? "arrow.up.right" : FridaySymbols.chat) }
+                Button(action: delegateCurrentNote) {
+                    FridaySymbolLabel(friday: current.taskId == nil ? "交给 Friday" : "打开对话", systemImage: current.taskId == nil ? "arrow.up.right" : FridaySymbols.chat)
+                }
                     .buttonStyle(FridayButtonStyle(compact: true)).disabled(pending || (!store.connected && current.taskId == nil) || store.delegatingIdeas.contains(current.id))
             }
             if hasChanges || pending {
@@ -387,12 +375,125 @@ struct IdeaDetailView: View {
             }
         }
     }
+    #endif
+
+    private func delegateCurrentNote() {
+        Task {
+            guard autosave(immediately: true) else { return }
+            await store.flushOutbox()
+            if let note = current, !store.outbox.contains(where: { $0.id == note.id }) { delegate(note) }
+        }
+    }
+
+    #if os(iOS)
+    private var canDelegateNote: Bool {
+        guard let current else { return false }
+        return !pending && (store.connected || current.taskId != nil) && !store.delegatingIdeas.contains(current.id)
+    }
+    private var noteSyncDescription: String {
+        if hasChanges || current == nil { return "尚未保存" }
+        return pending ? "已保存在本机，待同步" : "已同步"
+    }
+
+    private var mobileToolbar: some View {
+        HStack(spacing: 0) {
+            Menu {
+                Button { titleFocused = false; showPhotoPicker = true } label: {
+                    FridaySymbolLabel(friday: "照片图库", systemImage: "photo")
+                }
+                Button { titleFocused = false; showImageImporter = true } label: {
+                    FridaySymbolLabel(friday: "选择文件", systemImage: "folder")
+                }
+            } label: { mobileToolbarIcon("photo.badge.plus", enabled: !importingImages && draft.images.count < 20) }
+                .buttonStyle(FridaySymbolButtonStyle())
+                .accessibilityLabel(Text(friday: "添加图片"))
+                .disabled(importingImages || draft.images.count >= 20)
+
+            Button(action: delegateCurrentNote) {
+                mobileToolbarIcon(current?.taskId == nil ? "arrow.up.right" : FridaySymbols.chat, enabled: canDelegateNote)
+            }
+            .buttonStyle(FridaySymbolButtonStyle())
+            .accessibilityLabel(Text(fridayString: current?.taskId == nil ? "交给 Friday" : "打开对话"))
+            .disabled(!canDelegateNote)
+
+            Button { showingNoteInfo = true } label: { mobileToolbarIcon("info.circle") }
+                .buttonStyle(FridaySymbolButtonStyle())
+                .accessibilityLabel(Text(friday: "笔记信息"))
+                .accessibilityValue(Text(fridayString: noteSyncDescription))
+        }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 12).padding(.vertical, 5)
+        .modifier(FridayMobileDockSurface())
+        .frame(maxWidth: 480)
+        .padding(.horizontal, 28).padding(.top, 6).padding(.bottom, 8)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func mobileToolbarIcon(_ symbol: String, enabled: Bool = true) -> some View {
+        FridaySymbolImage(systemName: symbol)
+            .font(.system(size: 22, weight: .regular))
+            .frame(maxWidth: .infinity).frame(height: 44)
+            .contentShape(Rectangle())
+            .opacity(enabled ? 1 : 0.35)
+    }
+
+    private var mobileNoteInfo: some View {
+        NavigationStack {
+            Form {
+                LabeledContent {
+                    Text(noteDate(draft.createdAt, time: true))
+                } label: { Text(friday: "创建时间") }
+                if let modified = current?.updatedAt {
+                    LabeledContent {
+                        Text(noteDate(modified, time: true))
+                    } label: { Text(friday: "修改时间") }
+                }
+                LabeledContent {
+                    Text(fridayString: noteSyncDescription)
+                        .foregroundStyle(.secondary)
+                } label: { Text(friday: "同步状态") }
+            }
+            .navigationTitle(Text(friday: "笔记信息"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(friday: "完成") { showingNoteInfo = false }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+    #endif
+
+    private var editorSpacing: CGFloat {
+        #if os(iOS)
+        10
+        #else
+        16
+        #endif
+    }
+    private var titleFont: Font {
+        #if os(iOS)
+        .title2.weight(.semibold)
+        #else
+        .largeTitle.weight(.semibold)
+        #endif
+    }
+    private var editorInsets: EdgeInsets {
+        #if os(iOS)
+        EdgeInsets(top: 12, leading: 24, bottom: 8, trailing: 24)
+        #else
+        EdgeInsets(top: 28, leading: 28, bottom: 28, trailing: 28)
+        #endif
+    }
 
     private var editor: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            TextField(friday: "标题", text: draftBinding(\.title), axis: .vertical).textFieldStyle(.plain).font(.largeTitle.weight(.semibold))
+        VStack(alignment: .leading, spacing: editorSpacing) {
+            TextField(friday: "标题", text: draftBinding(\.title), axis: .vertical).textFieldStyle(.plain).font(titleFont)
                 .accessibilityLabel(Text(friday: "笔记标题"))
                 .focused($titleFocused)
+            #if os(macOS)
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(friday: "创建时间").foregroundStyle(.tertiary)
@@ -406,6 +507,7 @@ struct IdeaDetailView: View {
                 }
                 if pending { FridaySymbolLabel(friday: "待同步", systemImage: "clock").foregroundStyle(.secondary) }
             }.font(.caption)
+            #endif
             Divider()
             bodyEditor
                 .frame(maxWidth: .infinity, maxHeight: .infinity).accessibilityLabel(Text(friday: "笔记正文"))
@@ -413,7 +515,7 @@ struct IdeaDetailView: View {
                     if draft.text.isEmpty { Text(friday: "记下一个念头，或写写今天发生的事……").foregroundStyle(.tertiary).padding(.top, 8).padding(.leading, 5).allowsHitTesting(false) }
                 }
         }
-        .padding(28).frame(maxWidth: 840).frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(editorInsets).frame(maxWidth: 840).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var bodyEditor: IdeaBodyEditor {

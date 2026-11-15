@@ -275,6 +275,9 @@ struct IdeaBodyEditor: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextView {
         let view = UITextView(usingTextLayoutManager: false)
         view.backgroundColor = .clear; view.allowsEditingTextAttributes = true
+        view.showsVerticalScrollIndicator = false
+        view.showsHorizontalScrollIndicator = false
+        view.keyboardDismissMode = .interactive
         view.adjustsFontForContentSizeCategory = true
         view.textContainerInset = UIEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
         view.pasteConfiguration = UIPasteConfiguration(acceptableTypeIdentifiers: [UTType.text.identifier, UTType.rtf.identifier, UTType.rtfd.identifier, UTType.html.identifier, UTType.image.identifier, UTType.url.identifier])

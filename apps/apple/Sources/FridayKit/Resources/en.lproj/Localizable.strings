@@ -2677,3 +2677,7 @@
 "正在导入图片…" = "Importing images…";
 "无法插入图片，请重新打开笔记后重试。" = "Unable to insert the image. Reopen the note and try again.";
 "保存笔记" = "Save note";
+"笔记信息" = "Note info";
+"同步状态" = "Sync status";
+"已同步" = "Synced";
+"尚未保存" = "Not saved yet";

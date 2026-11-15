@@ -101,6 +101,7 @@ struct MobileIdeasView: View {
             .padding(.bottom, 20)
         }
         .scrollDismissesKeyboard(.interactively)
+        .scrollIndicators(.hidden)
 
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationBarTitleDisplayMode(.inline)
