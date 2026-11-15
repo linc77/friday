@@ -99,6 +99,7 @@ final class FridayStore {
     @ObservationIgnored private var noteStorageReady = false
     @ObservationIgnored private var noteStorageLoadFailed = false
     @ObservationIgnored private var retryNoteImageUploads: Set<String> = []
+    @ObservationIgnored private var noteSyncState = NoteSyncState()
     var notes: [Idea] {
         let pendingIDs = Set(outbox.map(\.id))
         return (outbox.map(\.note) + ideas.filter { !pendingIDs.contains($0.id) })
@@ -386,9 +387,9 @@ final class FridayStore {
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty else { return false }
         guard title.utf16.count <= 200, text.utf16.count <= 100_000, images.count <= 20 else { error = "标题最多 200 字，笔记最多 100,000 字和 20 张图片。"; return false }
         let previous = outbox.first { $0.id == id }
-        // Preserve the server version on which an unsent offline edit was based.
-        let version = previous != nil ? previous?.expectedUpdatedAt : expectedUpdatedAt
-        let note = OutboxIdea(id: id, text: text, title: title, createdAt: createdAt, images: images, expectedUpdatedAt: version, editId: UUID().uuidString, taskId: taskId)
+        noteSyncState.useScope(connectionIdentity)
+        let draft = OutboxIdea(id: id, text: text, title: title, createdAt: createdAt, images: images, expectedUpdatedAt: expectedUpdatedAt, editId: UUID().uuidString, taskId: taskId)
+        let note = noteSyncState.enqueue(draft, replacing: previous)
         var pending = outbox
         if let index = pending.firstIndex(where: { $0.id == id }) { pending[index] = note } else { pending.append(note) }
         // Capture edits before any asynchronous work so leaving the editor or
@@ -412,7 +413,7 @@ final class FridayStore {
         guard !noteStorageLoadFailed else { return false }
         do {
             let database = try ClientNoteDatabase.shared.get()
-            let ids = Set(pending.flatMap { ($0.images ?? []).map(\.id) })
+            let ids = NoteSyncState.imageIDs(in: pending)
             for id in ids { _ = try IdeaImageCache.prepareLocalData(id) }
             let remote = Set(ideas.flatMap { ($0.images ?? []).map(\.id) })
             try database.replaceOutbox(JSONEncoder().encode(pending), imageIDs: ids, knownRemoteIDs: remote)
@@ -428,8 +429,22 @@ final class FridayStore {
             return
         }
         flushing = true; defer { flushing = false }
+        let identity = connectionIdentity
+        noteSyncState.useScope(identity)
+        var pass = NoteSyncPass()
         var syncError: String?
-        while let idea = outbox.first {
+        while let draft = pass.next(in: outbox) {
+            guard connectionIdentity == identity, !Task.isCancelled else { return }
+            // Commit the request before sending it. Later edits must not replace
+            // its body/idempotency key until the host acknowledges this attempt.
+            let prepared = NoteSyncState.preparing(draft)
+            if prepared != draft {
+                var pending = outbox
+                if let index = pending.firstIndex(where: { $0.id == draft.id }) { pending[index] = prepared }
+                guard persistOutbox(pending) else { syncError = error; break }
+            }
+            guard let upload = prepared.pendingUpload else { break }
+            let idea = upload.note
             do {
                 let knownImages = snapshotIdentity == connectionIdentity && !retryNoteImageUploads.contains(idea.id)
                     ? Set(ideas.flatMap { ($0.images ?? []).map(\.id) }) : []
@@ -438,37 +453,35 @@ final class FridayStore {
                     // Content IDs make uploading cached images safe to retry.
                     if let data = IdeaImageCache.localData(image.id) {
                         _ = try await connection.data("/api/idea-images", method: "POST", body: ["id": image.id, "name": image.name, "data": data.base64EncodedString()])
+                        guard connectionIdentity == identity, !Task.isCancelled else { return }
                     }
                 }
                 var body: [String: Any] = ["id": idea.id, "text": idea.text, "title": idea.title ?? "", "images": (idea.images ?? []).map { ["id": $0.id, "name": $0.name, "mediaType": $0.mediaType] }]
-                if let date = idea.createdAt { body["createdAt"] = date }
-                if let version = idea.expectedUpdatedAt { body["expectedUpdatedAt"] = version; body["editId"] = idea.editId ?? idea.id }
-                let path = idea.expectedUpdatedAt == nil ? "/api/ideas" : "/api/ideas/\(idea.id)"
-                let saved = try await connection.decode(Idea.self, path, method: idea.expectedUpdatedAt == nil ? "POST" : "PUT", body: body)
+                if !idea.createdAt.isEmpty { body["createdAt"] = idea.createdAt }
+                if let version = upload.expectedUpdatedAt { body["expectedUpdatedAt"] = version; body["editId"] = upload.editId }
+                let path = upload.expectedUpdatedAt == nil ? "/api/ideas" : "/api/ideas/\(idea.id)"
+                let saved = try await connection.decode(Idea.self, path, method: upload.expectedUpdatedAt == nil ? "POST" : "PUT", body: body)
+                guard connectionIdentity == identity, !Task.isCancelled else { return }
                 if let index = ideas.firstIndex(where: { $0.id == saved.id }) { ideas[index] = saved } else { ideas.insert(saved, at: 0) }
                 var pending = outbox
                 if let index = pending.firstIndex(where: { $0.id == idea.id }) {
-                    let sameContent = saved.text == idea.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        && (saved.title ?? "") == (idea.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                        && (saved.images ?? []) == (idea.images ?? [])
-                    if pending[index] == idea && sameContent { pending.remove(at: index) }
-                    else {
-                        // A create may already exist after a lost response. Retain any later
-                        // offline changes, then update the version actually acknowledged.
-                        pending[index].expectedUpdatedAt = saved.updatedAt ?? saved.createdAt
-                    }
+                    if let remaining = NoteSyncState.remaining(pending[index], after: upload, saved: saved) { pending[index] = remaining }
+                    else { pending.remove(at: index) }
                 }
                 guard persistOutbox(pending) else { syncError = error; break }
+                noteSyncState.acknowledge(upload, saved: saved)
                 retryNoteImageUploads.remove(idea.id)
             } catch {
                 // A legacy host may have lost an independent image file. The
                 // next retry re-uploads local originals even if metadata exists.
                 retryNoteImageUploads.insert(idea.id)
-                syncError = error.localizedDescription; break
+                guard connectionIdentity == identity, !Task.isCancelled else { return }
+                pass.fail(idea.id, message: error.localizedDescription)
             }
         }
         await refresh()
-        if let syncError { error = syncError }
+        guard connectionIdentity == identity else { return }
+        if let message = syncError ?? pass.error { error = message }
     }
     func deleteNote(_ idea: Idea) async -> Bool {
         if ideas.contains(where: { $0.id == idea.id }) {

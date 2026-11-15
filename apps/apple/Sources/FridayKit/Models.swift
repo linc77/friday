@@ -950,7 +950,15 @@ struct OutboxIdea: Codable, Identifiable, Equatable {
     var expectedUpdatedAt: String? = nil
     var editId: String? = nil
     var taskId: String? = nil
+    // Keep the exact request until acknowledged, even if newer typing replaces
+    // the draft or the app restarts after the host commits but loses its reply.
+    var pendingUpload: NoteUpload? = nil
     var note: Idea { Idea(id: id, text: text, createdAt: createdAt ?? "", taskId: taskId, title: title, updatedAt: expectedUpdatedAt, images: images) }
+}
+struct NoteUpload: Codable, Equatable {
+    let note: Idea
+    let editId: String
+    let expectedUpdatedAt: String?
 }
 struct PairingCode: Decodable { let code: String; let expiresAt: String }
 struct PairedDevice: Decodable { let id: String; let token: String }

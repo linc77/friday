@@ -22,10 +22,13 @@ Pi Durable 1.5 将存储层拒绝也视为 Session 故障。因此用户输入�
 
 客户端图片和待同步笔记保存于 Application Support 下按应用 Bundle Identifier 隔离的 `Friday/Clients/<bundle-id>/notes.sqlite`。正文、同步请求 ID、本地图片引用和明确的远端图片引用在一个事务内更新。新图片缺失或数据库写入失败时保留上一次成功保存的草稿。未同步的原图不作为可清理缓存；任务草稿也使用此图片库，暂不启用客户端原图回收。
 
+笔记上传前，将请求正文、基础版本和修改 ID 一起写入待同步记录。继续输入只更新草稿，不替换尚未确认的请求；回执丢失或重启后先重试原请求，确认成功后再上传后续编辑。待确认请求引用的图片即使已从最新草稿移除，也继续保留。本机成功回执维护版本衔接，避免仍打开的编辑器用旧版本提交；其他设备的新版本不会因此被自动覆盖。单条上传失败会保留草稿，本轮跳过该条继续同步其他笔记；本地数据库保存失败则停止同步，避免丢失重试依据。
+
 ## 定向检查
 
 - `pnpm exec tsx --test server/test/ideas.test.ts server/test/task-images.test.ts server/test/image-storage.test.ts`
 - `bash scripts/test-note-storage.sh`：只编译并运行客户端 SQLite 逻辑测试，不构建或打开应用。
+- `bash scripts/test-note-sync.sh`：连续编辑版本衔接、丢失回执后重启重试、请求图片保留、失败条目隔离与旧队列兼容。
 - 修改存储接口后运行 `pnpm typecheck`。
 
 检查覆盖事务回滚与后续重试、共享引用、租约和宽限期、旧文件迁移、图片 ID 去重、历史保留、缓存重建，以及仅从备份数据库恢复正文和图片。
