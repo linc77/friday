@@ -161,6 +161,7 @@ struct TaskFileChange: Codable, Identifiable, Equatable {
 }
 struct TaskPlanStep: Codable, Equatable { let step: String; let status: String }
 struct TaskCommandAction: Codable { let type: String; let command: String; let path: String?; let name: String?; let query: String? }
+struct TaskHtmlReference: Codable, Equatable { let id: String; let title: String; let height: Int }
 struct TaskEvent: Codable, Identifiable {
     let id: String; let kind: String; let text: String; let at: String
     let itemId: String?; let turnId: String?; let phase: String?; let status: String?
@@ -178,6 +179,7 @@ struct TaskEvent: Codable, Identifiable {
     var processId: String? = nil
     var subagentId: String? = nil
     var nativeTurnId: String? = nil
+    var html: TaskHtmlReference? = nil
     init(id: String, kind: String, text: String, at: String, itemId: String? = nil, turnId: String? = nil, phase: String? = nil, status: String? = nil, detail: String? = nil, completedAt: String? = nil, durationMs: Double? = nil, exitCode: Int? = nil) {
         self.id = id; self.kind = kind; self.text = text; self.at = at; self.itemId = itemId; self.turnId = turnId
         self.phase = phase; self.status = status; self.detail = detail; self.completedAt = completedAt; self.durationMs = durationMs; self.exitCode = exitCode

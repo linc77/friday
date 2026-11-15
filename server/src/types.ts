@@ -144,6 +144,7 @@ export type TaskRewindOperation = {
   editor: TaskRewindEditor; attempt: number; resolution?: 'retry_files' | 'keep_files' | 'inspect' | 'new_session';
 };
 export const activeRewind = (operation?: TaskRewindOperation) => !!operation && !['completed', 'failed'].includes(operation.status);
+export type TaskHtmlReference = { id: string; title: string; height: number };
 export type TaskEvent = {
   id: string; kind: string; text: string; at: string;
   itemId?: string; turnId?: string; nativeTurnId?: string; phase?: 'commentary' | 'final_answer';
@@ -153,6 +154,7 @@ export type TaskEvent = {
   detailTruncated?: boolean; // A provider/live preview or bounded on-demand response omitted content.
   background?: boolean; processId?: string;
   subagentId?: string;
+  html?: TaskHtmlReference;
   changes?: TaskFileChange[]; plan?: TaskPlanStep[]; commandActions?: TaskCommandAction[];
   runId?: string; revertedAt?: string;
   historyDigest?: string;

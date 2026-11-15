@@ -1,7 +1,7 @@
 import Foundation
 
 struct CodexTranscriptRow: Identifiable {
-    enum Content { case user(String), reply(String), subagent(TaskEvent), changes(TaskEvent), runChanges(TaskRun), work([TaskEvent]) }
+    enum Content { case user(String), reply(String), html(TaskEvent), subagent(TaskEvent), changes(TaskEvent), runChanges(TaskRun), work([TaskEvent]) }
     let id: String
     let content: Content
     var runID: String? = nil
@@ -99,6 +99,7 @@ enum CodexTranscript {
             }
             let content: CodexTranscriptRow.Content
             if isProposal(event) { content = .reply(event.text.replacingOccurrences(of: "^\\s*<proposed_plan>\\s*|\\s*</proposed_plan>\\s*$", with: "", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)) }
+            else if event.kind == "html", event.html != nil { content = .html(event) }
             else if event.kind == "subagent", event.subagentId != nil { content = .subagent(event) }
             else if event.kind == "files", event.changes?.isEmpty == false {
                 let completeNetDiff = runs.contains { $0.id == event.runId && $0.changes != nil }

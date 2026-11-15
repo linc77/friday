@@ -46,6 +46,11 @@ struct CodexTimeline: View {
                 CodexReply(store: store, task: task, messageID: row.id, text: text, canOpenLocalFiles: canOpenLocalFiles,
                     workspacePath: task.cwd, isStreaming: row.isStreaming, runID: row.runID ?? row.nativeTurnID, openTask: openTask)
                     .id(row.id)
+            case .html(let event):
+                if let page = event.html {
+                    TaskHtmlPreview(store: store, taskID: task.id, eventID: event.id, page: page)
+                        .id(store.connectionIdentity + ":" + task.id + ":" + event.id)
+                }
             case .changes(let event):
                 TaskChangedFilesCard(task: task, event: event, canOpenLocalFiles: canOpenLocalFiles) { path in openDiff(TaskDiffSelection(eventID: event.id, path: path)) }.id(row.id)
             case .subagent(let event):

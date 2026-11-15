@@ -41,6 +41,7 @@ import { branchBlocksTask } from './branch-switch.js';
 import { installContextAPI } from './context-api.js';
 import { maxTaskFileBytes } from './task-attachments.js';
 import { installTaskFileAssets } from './task-file-assets.js';
+import { installTaskHtmlAssets } from './task-html-api.js';
 import { installGitHubMediaAssets } from './github-media-assets.js';
 import { contextIDs } from './task-context-types.js';
 import { compactTaskEvent, compactTaskOutputs } from './task-output.js';
@@ -115,6 +116,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
     return c.json(auth.pair(text(body.code, '配对码', 6), text(body.name, '设备名称', 80), address));
   });
   const githubMediaAssets = installGitHubMediaAssets(app, engine, auth);
+  const htmlAssets = installTaskHtmlAssets(app, engine, auth);
   const fileAssets = installTaskFileAssets(app, engine, auth);
   app.use('/api/*', async (c, next) => {
     const device = auth.identify(c.req.header('Authorization')?.replace(/^Bearer /, ''));
@@ -139,6 +141,7 @@ export function createAPI(engine: Engine, auth: Auth, agents = discoverAgents, i
   app.delete('/api/tasks/:id/context-transfers/:transferId', async c => {
     await engine.transfers.dismiss(c.req.param('id'), c.req.param('transferId')); return c.json({ ok: true });
   });
+  app.post('/api/task-html/asset-url', async c => c.json(await htmlAssets.issue(c.get('device'), await c.req.json())));
   app.post('/api/task-files/asset-url', async c => c.json(await fileAssets.issue(c.get('device'), await c.req.json())));
   app.post('/api/task-media/github/asset-url', async c => c.json(await githubMediaAssets.issue(c.get('device'), await c.req.json(), Date.now(), c.req.raw.signal)));
   installTaskOutputAPI(app, engine, auth);

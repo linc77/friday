@@ -67,6 +67,7 @@ import { TaskChangeRequestLinks } from './task-change-request-links.js';
 import { TaskChangeRequestDiscovery } from './task-change-request-discovery.js';
 import { TaskChangeRequestWatch, assertWatchActor, type WatchActor } from './task-change-request-watch.js';
 import { TaskRuntimeTools } from './task-runtime-tools.js';
+import { TaskHtml } from './task-html.js';
 import { TaskDelegations, delegatedQuestion, type DelegationCreation } from './task-delegations.js';
 import { canSnoozeTask, clearTaskSnooze, reconcileTaskSnooze, taskIsSnoozed, taskSnoozeWakeAt } from './task-snooze.js';
 import { TaskQueue, queueRunning, type QueueMessageInput } from './task-queue.js';
@@ -173,6 +174,7 @@ export class Engine extends EventEmitter {
   readonly changeRequestDiscovery: TaskChangeRequestDiscovery;
   readonly changeRequestWatch: TaskChangeRequestWatch;
   readonly runtimeTools: TaskRuntimeTools;
+  readonly html: TaskHtml;
   readonly delegations: TaskDelegations;
   readonly taskRuns: TaskRuns;
   readonly taskRewinds: TaskRewinds;
@@ -206,6 +208,7 @@ export class Engine extends EventEmitter {
     this.changeRequestDiscovery = new TaskChangeRequestDiscovery(this, sourceControlOptions?.changeRequestSyncIntervalMs);
     this.changeRequestWatch = new TaskChangeRequestWatch(this, sourceControlOptions?.changeRequestWatchIntervalMs ?? (sourceControlOptions?.changeRequestSyncIntervalMs === 0 ? 0 : 120_000));
     this.runtimeTools = new TaskRuntimeTools(this);
+    this.html = new TaskHtml(this);
     this.delegations = new TaskDelegations(this);
     this.fileWrites = new TaskFileWrites(this);
     this.managedProjects = new ManagedProjectFolders(this);
