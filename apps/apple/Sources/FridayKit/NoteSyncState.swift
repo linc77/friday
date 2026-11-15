@@ -69,9 +69,31 @@ struct NoteSyncPass {
     private var failed = Set<String>()
     private(set) var error: String?
 
-    func next(in outbox: [OutboxIdea]) -> OutboxIdea? { outbox.first { !failed.contains($0.id) } }
+    func next(in outbox: [OutboxIdea], noteID: String? = nil) -> OutboxIdea? {
+        outbox.first { !failed.contains($0.id) && (noteID == nil || $0.id == noteID) }
+    }
     mutating func fail(_ id: String, message: String) {
         failed.insert(id)
         if error == nil { error = message }
+    }
+}
+
+/// Upload failures belong to the pending note, never to an unrelated chat.
+struct NoteSyncErrors {
+    private var scope = ""
+    private var messages: [String: String] = [:]
+
+    subscript(_ id: String) -> String? {
+        get { messages[id] }
+        set { messages[id] = newValue }
+    }
+    mutating func useScope(_ scope: String) {
+        guard self.scope != scope else { return }
+        self.scope = scope
+        messages = [:]
+    }
+    mutating func retain(_ pending: [OutboxIdea]) {
+        let ids = Set(pending.map(\.id))
+        messages = messages.filter { ids.contains($0.key) }
     }
 }

@@ -238,7 +238,6 @@ struct IdeaDetailView: View {
     @FocusState private var titleFocused: Bool
     #if os(iOS)
     @State private var imageInsertion = IdeaBodyImageInsertion()
-    @State private var photoItems: [PhotosPickerItem] = []
     @State private var showPhotoPicker = false
     @State private var showImageImporter = false
     @State private var importingImages = false
@@ -250,6 +249,7 @@ struct IdeaDetailView: View {
     private var hasContent: Bool { !draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draft.images.isEmpty }
     private var hasChanges: Bool { draft.title != baseline.title || draft.text != baseline.text || draft.images != baseline.images }
     private var pending: Bool { store.outbox.contains { $0.id == current?.id } }
+    private var syncError: String? { current.flatMap { store.noteSyncErrors[$0.id] } }
     private var conflicted: Bool {
         guard let id = current?.id, let version = store.outbox.first(where: { $0.id == id })?.expectedUpdatedAt,
               let remote = store.ideas.first(where: { $0.id == id }) else { return false }
@@ -290,6 +290,7 @@ struct IdeaDetailView: View {
                 }.padding(14).background(.orange.opacity(0.08))
             }
             if let localError { Text(localError).font(.caption).foregroundStyle(.orange).padding(12).textSelection(.enabled) }
+            if !conflicted, let syncError { Text(fridayString: syncError).font(.caption).foregroundStyle(.orange).padding(12).textSelection(.enabled) }
             editor
         }
         #if os(iOS)
@@ -311,18 +312,13 @@ struct IdeaDetailView: View {
             _ = autosave(immediately: true)
         }
         #else
-        .photosPicker(isPresented: $showPhotoPicker, selection: $photoItems,
-                      maxSelectionCount: max(1, 20 - draft.images.count), selectionBehavior: .ordered, matching: .images)
-        .onChange(of: photoItems) { _, items in
-            guard !items.isEmpty else { return }
-            importImages(count: items.count) { index in
-                guard let data = try await items[index].loadTransferable(type: Data.self) else {
-                    throw ConnectionError.message("无法读取这张图片。")
+        .background {
+            MobileNotePhotoPicker(isPresented: $showPhotoPicker) { items in
+                importImages(count: items.count) { index in
+                    try await MobileNotePhotoPicker.load(items[index])
                 }
-                let suffix = items[index].supportedContentTypes.first?.preferredFilenameExtension ?? "png"
-                return (data, "照片.\(suffix)")
             }
-            photoItems = []
+            .frame(width: 0, height: 0)
         }
         .fileImporter(isPresented: $showImageImporter, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
             switch result {
@@ -380,7 +376,8 @@ struct IdeaDetailView: View {
     private func delegateCurrentNote() {
         Task {
             guard autosave(immediately: true) else { return }
-            await store.flushOutbox()
+            guard let id = current?.id else { return }
+            await store.flushOutbox(noteID: id)
             if let note = current, !store.outbox.contains(where: { $0.id == note.id }) { delegate(note) }
         }
     }
@@ -397,17 +394,18 @@ struct IdeaDetailView: View {
 
     private var mobileToolbar: some View {
         HStack(spacing: 0) {
-            Menu {
-                Button { titleFocused = false; showPhotoPicker = true } label: {
-                    FridaySymbolLabel(friday: "照片图库", systemImage: "photo")
-                }
-                Button { titleFocused = false; showImageImporter = true } label: {
-                    FridaySymbolLabel(friday: "选择文件", systemImage: "folder")
-                }
-            } label: { mobileToolbarIcon("photo.badge.plus", enabled: !importingImages && draft.images.count < 20) }
+            Button { titleFocused = false; showPhotoPicker = true } label: {
+                mobileToolbarIcon("photo.on.rectangle", enabled: !importingImages)
+            }
                 .buttonStyle(FridaySymbolButtonStyle())
                 .accessibilityLabel(Text(friday: "添加图片"))
-                .disabled(importingImages || draft.images.count >= 20)
+                .contextMenu {
+                    Button { titleFocused = false; showImageImporter = true } label: {
+                        FridaySymbolLabel(friday: "选择文件", systemImage: "folder")
+                    }
+                    .disabled(importingImages)
+                }
+                .disabled(importingImages)
 
             Button(action: delegateCurrentNote) {
                 mobileToolbarIcon(current?.taskId == nil ? "arrow.up.right" : FridaySymbols.chat, enabled: canDelegateNote)
@@ -452,6 +450,7 @@ struct IdeaDetailView: View {
                     Text(fridayString: noteSyncDescription)
                         .foregroundStyle(.secondary)
                 } label: { Text(friday: "同步状态") }
+                if let syncError { Text(fridayString: syncError).foregroundStyle(.orange) }
             }
             .navigationTitle(Text(friday: "笔记信息"))
             .navigationBarTitleDisplayMode(.inline)
@@ -532,10 +531,6 @@ struct IdeaDetailView: View {
     #if os(iOS)
     private func importImages(count: Int, load: @escaping (Int) async throws -> (Data, String)) {
         guard !importingImages, count > 0 else { return }
-        guard count <= 20 - draft.images.count else {
-            localError = "一篇笔记最多添加 20 张图片。"
-            return
-        }
         importingImages = true
         localError = nil
         imageImportTask = Task { @MainActor in
@@ -570,7 +565,7 @@ struct IdeaDetailView: View {
     }
     @discardableResult private func autosave(asNew: Bool = false, immediately: Bool = false) -> Bool {
         guard asNew || hasChanges else {
-            if immediately { store.scheduleNoteSync(immediately: true) }
+            if immediately, let id = current?.id { store.scheduleNoteSync(immediately: true, noteID: id) }
             return true
         }
         guard hasContent else { persistDraft(); return false }
@@ -600,7 +595,7 @@ struct IdeaDetailView: View {
         baseline = draft
         persistDraft()
         if initial == nil { UserDefaults.standard.removeObject(forKey: "friday.ideaDraft") }
-        store.scheduleNoteSync(immediately: immediately)
+        store.scheduleNoteSync(immediately: immediately, noteID: id)
         return true
     }
 }

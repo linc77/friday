@@ -98,9 +98,8 @@ enum IdeaBodyDocument {
         }
         return (text, images)
     }
-    static func imported(_ value: NSAttributedString, existing: [IdeaImage]) throws -> NSAttributedString {
+    static func imported(_ value: NSAttributedString, existing _: [IdeaImage]) throws -> NSAttributedString {
         let result = NSMutableAttributedString(string: "")
-        var knownIDs = Set(existing.map(\.id))
         var failure: Error?
         value.enumerateAttributes(in: NSRange(location: 0, length: value.length)) { source, range, stop in
             do {
@@ -116,8 +115,6 @@ enum IdeaBodyDocument {
                         guard let data else { throw ConnectionError.message("无法读取这张图片。") }
                         image = try IdeaImageCache.importImage(data, name: attachment.fileWrapper?.preferredFilename ?? "粘贴的图片")
                     }
-                    knownIDs.insert(image.id)
-                    guard knownIDs.count <= 20 else { throw ConnectionError.message("一篇笔记最多添加 20 张图片。") }
                     for _ in 0..<range.length { result.append(NSAttributedString(attachment: IdeaTextAttachment(image))) }
                 } else {
                     var style = attributes

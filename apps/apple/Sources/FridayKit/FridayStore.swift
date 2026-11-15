@@ -80,6 +80,7 @@ final class FridayStore {
     private(set) var taskStreamErrors: [String: String] = [:]
     var error: String?
     var outbox: [OutboxIdea] = []
+    var noteSyncErrors = NoteSyncErrors()
     var delegatingIdeas: Set<String> = []
     let connection = Connection()
     let taskUndo = TaskActionUndo()
@@ -209,6 +210,7 @@ final class FridayStore {
         guard force || streamTask == nil || streamTask?.isCancelled == true || streamIdentity != connectionIdentity else { return }
         TaskBrowserSessions.shared.reconcile(owner:browserClientID,connection:connectionIdentity)
         streamTask?.cancel(); stopTaskStreams(); connected = false; notesSupported = false
+        noteSyncErrors.useScope(connectionIdentity)
         #if os(macOS)
         if connection.token.isEmpty {
             let fresh = Connection(); if fresh.server == connection.server { connection.token = fresh.token }
@@ -385,7 +387,7 @@ final class FridayStore {
     @discardableResult
     func enqueueNote(id: String, title: String, text: String, images: [IdeaImage], createdAt: String, expectedUpdatedAt: String?, taskId: String? = nil) -> Bool {
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty else { return false }
-        guard title.utf16.count <= 200, text.utf16.count <= 100_000, images.count <= 20 else { error = "标题最多 200 字，笔记最多 100,000 字和 20 张图片。"; return false }
+        guard title.utf16.count <= 200, text.utf16.count <= 100_000 else { error = "标题最多 200 字，笔记最多 100,000 字。"; return false }
         let previous = outbox.first { $0.id == id }
         noteSyncState.useScope(connectionIdentity)
         let draft = OutboxIdea(id: id, text: text, title: title, createdAt: createdAt, images: images, expectedUpdatedAt: expectedUpdatedAt, editId: UUID().uuidString, taskId: taskId)
@@ -396,7 +398,7 @@ final class FridayStore {
         // quitting the client cannot interrupt the local save.
         return persistOutbox(pending)
     }
-    func scheduleNoteSync(immediately: Bool = false) {
+    func scheduleNoteSync(immediately: Bool = false, noteID: String? = nil) {
         noteSyncTask?.cancel()
         noteSyncTask = Task {
             if !immediately {
@@ -405,7 +407,7 @@ final class FridayStore {
             guard !Task.isCancelled else { return }
             // Later keystrokes may cancel the debounce, never an active upload.
             noteSyncTask = nil
-            await flushOutbox()
+            await flushOutbox(noteID: noteID)
         }
     }
     @discardableResult
@@ -418,14 +420,18 @@ final class FridayStore {
             let remote = Set(ideas.flatMap { ($0.images ?? []).map(\.id) })
             try database.replaceOutbox(JSONEncoder().encode(pending), imageIDs: ids, knownRemoteIDs: remote)
             outbox = pending; noteStorageReady = true
+            noteSyncErrors.retain(pending)
             return true
         } catch { self.error = error.localizedDescription; return false }
     }
     func persistPendingNotes() { persistOutbox(outbox) }
-    func flushOutbox() async {
+    func flushOutbox(noteID: String? = nil) async {
         guard !flushing, connected, noteStorageReady else { return }
+        noteSyncErrors.useScope(connectionIdentity)
         guard notesSupported else {
-            if !outbox.isEmpty { error = "请先更新 Friday 主机以支持笔记。内容已保存在本机，更新后会继续同步。" }
+            for note in outbox where noteID == nil || note.id == noteID {
+                noteSyncErrors[note.id] = "请先更新 Friday 主机以支持笔记。内容已保存在本机，更新后会继续同步。"
+            }
             return
         }
         flushing = true; defer { flushing = false }
@@ -433,7 +439,7 @@ final class FridayStore {
         noteSyncState.useScope(identity)
         var pass = NoteSyncPass()
         var syncError: String?
-        while let draft = pass.next(in: outbox) {
+        while let draft = pass.next(in: outbox, noteID: noteID) {
             guard connectionIdentity == identity, !Task.isCancelled else { return }
             // Commit the request before sending it. Later edits must not replace
             // its body/idempotency key until the host acknowledges this attempt.
@@ -470,6 +476,7 @@ final class FridayStore {
                 }
                 guard persistOutbox(pending) else { syncError = error; break }
                 noteSyncState.acknowledge(upload, saved: saved)
+                noteSyncErrors[idea.id] = nil
                 retryNoteImageUploads.remove(idea.id)
             } catch {
                 // A legacy host may have lost an independent image file. The
@@ -477,11 +484,14 @@ final class FridayStore {
                 retryNoteImageUploads.insert(idea.id)
                 guard connectionIdentity == identity, !Task.isCancelled else { return }
                 pass.fail(idea.id, message: error.localizedDescription)
+                noteSyncErrors[idea.id] = error.localizedDescription
             }
         }
         await refresh()
         guard connectionIdentity == identity else { return }
-        if let message = syncError ?? pass.error { error = message }
+        // Storage/connection errors remain global; individual upload failures
+        // are shown by the note editor and its info panel only.
+        if let syncError { error = syncError }
     }
     func deleteNote(_ idea: Idea) async -> Bool {
         if ideas.contains(where: { $0.id == idea.id }) {

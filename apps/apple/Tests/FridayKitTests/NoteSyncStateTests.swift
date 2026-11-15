@@ -77,6 +77,8 @@ struct NoteSyncStateTests {
         var queue = [draft("conflict", id: "conflict"), draft("bad image", id: "image"), draft("healthy", id: "healthy")]
         let originalQueue = queue
         var pass = NoteSyncPass()
+        precondition(pass.next(in: queue, noteID: "healthy")?.id == "healthy", "Delegating one note must not retry another note's conflict")
+        precondition(pass.next(in: queue, noteID: "already-synced") == nil)
         precondition(pass.next(in: queue)?.id == "conflict")
         pass.fail("conflict", message: "409 conflict")
         precondition(pass.next(in: queue)?.id == "image")
@@ -87,6 +89,18 @@ struct NoteSyncStateTests {
         precondition(queue == Array(originalQueue.prefix(2)), "Failures must preserve both drafts")
         precondition(pass.error == "409 conflict")
         precondition(NoteSyncPass().next(in: queue)?.id == "conflict", "A later pass retries retained notes")
+
+        var errors = NoteSyncErrors()
+        errors.useScope("host-one")
+        errors["conflict"] = "409 conflict"
+        precondition(errors["healthy"] == nil, "An unrelated note must not inherit the conflict")
+        errors.retain(queue)
+        precondition(errors["conflict"] == "409 conflict", "Keep errors with retained drafts")
+        errors.retain([])
+        precondition(errors["conflict"] == nil, "Remove stale errors after sync/delete")
+        errors["conflict"] = "409 conflict"
+        errors.useScope("host-two")
+        precondition(errors["conflict"] == nil, "Do not display another host's note failures")
 
         let legacy = try JSONDecoder().decode([OutboxIdea].self, from: Data(#"[{"id":"legacy","text":"offline","editId":"stable-key"}]"#.utf8))
         precondition(legacy[0].pendingUpload == nil)
